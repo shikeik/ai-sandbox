@@ -147,13 +147,13 @@
   border-radius: 70% 30% 40% 60%;
 }
 
-/* 远侧耳朵（较小，略暗，被头部遮挡一部分） */
+/* 远侧耳朵（较小，略暗，被头部遮挡一部分，无内部图案） */
 .fox-ear-far {
   position: absolute;
-  top: -30%;
-  right: 35%;
-  width: 28%;
-  height: 45%;
+  top: -22%;
+  right: 32%;
+  width: 26%;
+  height: 40%;
   background: linear-gradient(145deg, #d35400 0%, #a04000 100%);
   border-radius: 70% 30% 40% 60%;
   transform-origin: bottom center;
@@ -161,17 +161,7 @@
   transition: transform 0.15s ease-out;
   z-index: 3;
 }
-
-.fox-ear-far::after {
-  content: '';
-  position: absolute;
-  top: 20%;
-  left: 25%;
-  width: 55%;
-  height: 60%;
-  background: #ffe0ec;
-  border-radius: 70% 30% 40% 60%;
-}
+/* 远侧耳朵不显示内部（背面视角） */
 
 /* 眼睛 */
 .fox-eye {

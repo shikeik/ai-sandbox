@@ -435,6 +435,12 @@ export class GameRenderer {
   _startTailAnimation(state) {
     if (!this.foxTail) return
     
+    // 获取当前计算样式作为起始点（实现平滑混合）
+    const computedStyle = window.getComputedStyle(this.foxTail)
+    const matrix = new DOMMatrix(computedStyle.transform)
+    // 从矩阵中提取旋转角度
+    const currentRotate = Math.atan2(matrix.b, matrix.a) * (180 / Math.PI)
+    
     // 停止当前动画
     if (this._tailAnimation) {
       this._tailAnimation.cancel()
@@ -445,38 +451,46 @@ export class GameRenderer {
     
     switch(state) {
       case 'run':
+        // 从当前角度平滑过渡到跑步摆动
         keyframes = [
-          { transform: 'rotate(-10deg)' },
-          { transform: 'rotate(15deg)' },
-          { transform: 'rotate(-10deg)' }
+          { transform: `rotate(${currentRotate}deg)`, offset: 0 },
+          { transform: 'rotate(-10deg)', offset: 0.15 },
+          { transform: 'rotate(15deg)', offset: 0.575 },
+          { transform: 'rotate(-10deg)', offset: 1 }
         ]
         options = { duration: 300, iterations: Infinity }
         break
       case 'jump-up':
+        // 平滑过渡到上升姿态
         keyframes = [
+          { transform: `rotate(${currentRotate}deg) scaleX(1)` },
           { transform: 'rotate(-30deg) scaleX(0.9)' }
         ]
-        options = { duration: 1000, fill: 'both' }
+        options = { duration: 200, fill: 'forwards', easing: 'ease-out' }
         break
       case 'jump-down':
+        // 平滑过渡到下降姿态
         keyframes = [
+          { transform: `rotate(${currentRotate}deg)` },
           { transform: 'rotate(20deg)' }
         ]
-        options = { duration: 1000, fill: 'both' }
+        options = { duration: 200, fill: 'forwards', easing: 'ease-out' }
         break
       case 'land':
         keyframes = [
           { transform: 'rotate(0deg)' },
           { transform: 'rotate(-10deg)' }
         ]
-        options = { duration: 200, fill: 'both' }
+        options = { duration: 200, fill: 'forwards' }
         break
       case 'idle':
       default:
+        // 从当前角度平滑过渡到待机动画
         keyframes = [
-          { transform: 'rotate(-10deg)' },
-          { transform: 'rotate(5deg)' },
-          { transform: 'rotate(-10deg)' }
+          { transform: `rotate(${currentRotate}deg)`, offset: 0 },
+          { transform: 'rotate(-10deg)', offset: 0.2 },
+          { transform: 'rotate(5deg)', offset: 0.6 },
+          { transform: 'rotate(-10deg)', offset: 1 }
         ]
         options = { duration: 3000, iterations: Infinity }
     }
