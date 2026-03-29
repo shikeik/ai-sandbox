@@ -14,7 +14,7 @@
 
 /* ========== 侧面狐狸结构 ========== */
 
-/* 尾巴 - 在身体后方，更大更蓬松，平滑动画过渡 */
+/* 尾巴 - 在身体后方，更大更蓬松，WAAPI控制动画 */
 .fox-tail {
   position: absolute;
   bottom: 25%;
@@ -24,8 +24,7 @@
   background: linear-gradient(135deg, #d35400 0%, #a04000 100%);
   border-radius: 60% 40% 50% 50%;
   transform-origin: bottom right;
-  /* 使用更长的过渡时间实现平滑混合 */
-  transition: transform 0.3s ease-out;
+  /* WAAPI控制动画，不需要CSS transition */
   will-change: transform;
   z-index: 1;
 }
@@ -328,11 +327,12 @@
 /* 死亡 */
 .fox-container.state-dead {
   animation: foxDead 0.5s ease-in forwards;
+  transform-origin: bottom left;
 }
 
 @keyframes foxDead {
   to {
-    transform: translateY(150%) rotate(180deg);
+    transform: translateY(150%) rotate(90deg);
   }
 }
 
