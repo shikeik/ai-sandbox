@@ -2,7 +2,9 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
     <title>AI 神经元训练沙盘</title>
     <style>
         * {
@@ -15,10 +17,11 @@
             background: #0a0a0f;
             color: #eee;
             font-family: 'Courier New', monospace;
-            height: 100vh;
+            height: 100dvh;  /* 动态视口高度，排除工具栏 */
             display: flex;
             flex-direction: column;
             overflow: hidden;
+            padding-bottom: env(safe-area-inset-bottom);  /* 安全区域 */
         }
         
         /* ========== 游戏区 ========== */
@@ -225,13 +228,14 @@
         
         /* ========== 操作区 ========== */
         #control-area {
-            flex: 0 0 20%;
+            flex: 0 0 auto;
+            min-height: 120px;
             background: #0a0a0f;
             display: flex;
             align-items: center;
             justify-content: center;
             gap: 50px;
-            padding: 20px;
+            padding: 15px 20px calc(15px + env(safe-area-inset-bottom, 0px));
         }
         
         .btn {
