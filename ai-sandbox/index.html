@@ -23,133 +23,174 @@
         
         /* ========== 游戏区 ========== */
         #game-area {
-            flex: 0 0 40%;
-            background: #0f0f15;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            border-bottom: 1px solid #333;
+            flex: 0 0 50%;
+            background: linear-gradient(180deg, #1a1a2e 0%, #16213e 100%);
             position: relative;
-        }
-        
-        #game-info {
-            position: absolute;
-            top: 8px;
-            left: 10px;
-            font-size: 11px;
-            color: #666;
-            z-index: 100;
-        }
-        
-        #viewport {
-            position: relative;
-            width: 280px;
-            height: 210px;
-            background: #1a1a25;
-            border: 2px solid #444;
-            border-radius: 4px;
             overflow: hidden;
+            border-bottom: 2px solid #333;
         }
         
-        /* 网格线 */
-        .grid-overlay {
+        #game-world {
+            position: absolute;
+            height: 100%;
+            transform-origin: left center;
+            will-change: transform;
+        }
+        
+        /* 世界格子线 - 淡淡的 */
+        .world-grid {
             position: absolute;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
             pointer-events: none;
-            z-index: 1;
-            background-image: 
-                linear-gradient(to right, rgba(100,100,100,0.15) 1px, transparent 1px),
-                linear-gradient(to bottom, rgba(100,100,100,0.15) 1px, transparent 1px);
-            background-size: 70px 70px;
+            z-index: 5;
         }
         
-        /* 游戏元素 */
-        .game-layer {
+        .grid-vline {
             position: absolute;
             top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
+            bottom: 0;
+            width: 1px;
+            background: rgba(255, 255, 255, 0.08);
         }
         
-        /* 地面层 (逻辑y0，显示在下方) */
-        .ground-row {
+        .grid-label {
+            position: absolute;
+            top: 10px;
+            font-size: 10px;
+            color: rgba(255, 255, 255, 0.25);
+            transform: translateX(-50%);
+            font-family: monospace;
+        }
+        
+        /* 地面 */
+        .ground {
             position: absolute;
             bottom: 0;
-            left: 0;
-            width: 100%;
-            height: 70px;
-            display: flex;
+            height: 80px;
+            background: linear-gradient(180deg, #4a3728 0%, #2d1f16 50%, #1a120c 100%);
+            border-top: 4px solid #5a4738;
         }
         
-        .ground-cell {
-            width: 70px;
-            height: 70px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+        /* 坑 */
+        .pit-zone {
+            position: absolute;
+            bottom: 0;
+            width: 100px;
+            height: 20px;
+            background: #000;
+        }
+        
+        .pit-zone::after {
+            content: '▼▼▼';
+            position: absolute;
+            bottom: 5px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 8px;
+            color: #222;
+            letter-spacing: 2px;
+        }
+        
+        /* 终点 */
+        .goal {
+            position: absolute;
+            bottom: 80px;
+            width: 60px;
+            height: 100px;
+        }
+        
+        .goal-pole {
+            position: absolute;
+            left: 10px;
+            bottom: 0;
+            width: 4px;
+            height: 100px;
+            background: linear-gradient(90deg, #666 0%, #ddd 50%, #666 100%);
+        }
+        
+        .goal-flag {
+            position: absolute;
+            left: 14px;
+            top: 10px;
+            width: 40px;
+            height: 30px;
+            background: #27ae60;
+            clip-path: polygon(0 0, 100% 50%, 0 100%);
+            animation: wave 2s ease-in-out infinite;
+        }
+        
+        @keyframes wave {
+            0%, 100% { transform: skewY(0deg); }
+            50% { transform: skewY(5deg); }
+        }
+        
+        /* 玩家 */
+        #player {
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, #4a90d9 0%, #2d5aa0 100%);
+            border: 2px solid #6ab0f9;
+            border-radius: 6px;
+            box-shadow: 0 0 20px rgba(74, 144, 217, 0.6);
+            z-index: 100;
+        }
+        
+        #player::before {
+            content: '🤖';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
             font-size: 24px;
         }
         
-        .ground-flat {
-            background: linear-gradient(180deg, #4a3728 0%, #2d1f16 100%);
-            border-top: 3px solid #5a4738;
+        #player.falling {
+            animation: falling 0.5s ease-in forwards;
         }
         
-        .ground-pit {
-            background: #0a0a0f;
-            border-top: 3px dashed #333;
+        @keyframes falling {
+            to {
+                transform: translateY(200px) rotate(180deg);
+                opacity: 0;
+            }
         }
         
-        .ground-goal {
-            background: linear-gradient(180deg, #2d5a2d 0%, #1a3a1a 100%);
-            border-top: 3px solid #4a8a4a;
-        }
-        
-        /* 玩家层 (逻辑y1，显示在中间) */
-        .player {
+        /* 游戏信息 */
+        #game-info {
             position: absolute;
-            width: 50px;
-            height: 50px;
-            background: linear-gradient(135deg, #4a90d9 0%, #2d5aa0 100%);
-            border: 2px solid #6ab0f9;
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 28px;
-            transition: none; /* 动画由JS控制 */
-            z-index: 10;
-            box-shadow: 0 0 15px rgba(74, 144, 217, 0.5);
+            top: 10px;
+            left: 10px;
+            font-size: 12px;
+            color: rgba(255,255,255,0.5);
+            z-index: 1000;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.8);
         }
         
-        .player::after {
-            content: '';
+        /* 状态提示 */
+        #status-text {
             position: absolute;
-            bottom: -8px;
+            top: 50%;
             left: 50%;
-            transform: translateX(-50%);
-            width: 0;
-            height: 0;
-            border-left: 10px solid transparent;
-            border-right: 10px solid transparent;
-            border-top: 10px solid rgba(74, 144, 217, 0.3);
+            transform: translate(-50%, -50%);
+            font-size: 48px;
+            font-weight: bold;
+            text-shadow: 0 0 30px currentColor;
+            opacity: 0;
+            pointer-events: none;
+            z-index: 2000;
+            transition: opacity 0.3s;
         }
         
-        /* 空中层指示 (逻辑y2，显示在上方) - 仅视觉效果 */
-        .air-row {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 70px;
-            opacity: 0.3;
-            background: linear-gradient(180deg, rgba(100,100,150,0.1) 0%, transparent 100%);
+        #status-text.show {
+            opacity: 1;
         }
+        
+        #status-text.dead { color: #e74c3c; }
+        #status-text.win { color: #27ae60; }
         
         /* ========== 神经元区 ========== */
         #neuron-area {
@@ -159,8 +200,7 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            border-bottom: 1px solid #333;
-            position: relative;
+            border-bottom: 2px solid #333;
         }
         
         #neuron-placeholder {
@@ -168,38 +208,38 @@
             height: 85%;
             background: #0a0a10;
             border: 2px dashed #3a3a45;
-            border-radius: 8px;
+            border-radius: 12px;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
             color: #555;
-            font-size: 13px;
+            font-size: 14px;
         }
         
         .neuron-icon {
-            font-size: 40px;
-            margin-bottom: 10px;
+            font-size: 48px;
+            margin-bottom: 12px;
             opacity: 0.3;
         }
         
         /* ========== 操作区 ========== */
         #control-area {
-            flex: 0 0 22%;
+            flex: 0 0 20%;
             background: #0a0a0f;
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 40px;
-            padding: 15px;
+            gap: 50px;
+            padding: 20px;
         }
         
         .btn {
-            width: 90px;
-            height: 90px;
+            width: 100px;
+            height: 100px;
             border: none;
             border-radius: 50%;
-            font-size: 32px;
+            font-size: 36px;
             cursor: pointer;
             user-select: none;
             position: relative;
@@ -217,85 +257,48 @@
         
         #btn-right {
             background: linear-gradient(135deg, #27ae60 0%, #1e8449 100%);
-            box-shadow: 0 6px 0 #166534, 0 8px 20px rgba(39, 174, 96, 0.4);
+            box-shadow: 0 8px 0 #166534, 0 10px 30px rgba(39, 174, 96, 0.4);
             color: white;
-            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
         }
         
         #btn-right:active:not(:disabled) {
-            box-shadow: 0 3px 0 #166534, 0 4px 10px rgba(39, 174, 96, 0.4);
-            transform: translateY(3px) scale(0.92);
+            box-shadow: 0 4px 0 #166534, 0 5px 15px rgba(39, 174, 96, 0.4);
+            transform: translateY(4px) scale(0.92);
         }
         
         #btn-jump {
             background: linear-gradient(135deg, #f39c12 0%, #d68910 100%);
-            box-shadow: 0 6px 0 #9c5710, 0 8px 20px rgba(243, 156, 18, 0.4);
+            box-shadow: 0 8px 0 #9c5710, 0 10px 30px rgba(243, 156, 18, 0.4);
             color: white;
-            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
         }
         
         #btn-jump:active:not(:disabled) {
-            box-shadow: 0 3px 0 #9c5710, 0 4px 10px rgba(243, 156, 18, 0.4);
-            transform: translateY(3px) scale(0.92);
+            box-shadow: 0 4px 0 #9c5710, 0 5px 15px rgba(243, 156, 18, 0.4);
+            transform: translateY(4px) scale(0.92);
         }
         
         .btn-label {
             position: absolute;
-            bottom: -20px;
+            bottom: -28px;
             left: 50%;
             transform: translateX(-50%);
-            font-size: 11px;
+            font-size: 12px;
             color: #888;
             white-space: nowrap;
         }
-        
-        /* 状态提示 */
-        #status-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.7);
-            display: none;
-            align-items: center;
-            justify-content: center;
-            z-index: 1000;
-            backdrop-filter: blur(3px);
-        }
-        
-        #status-overlay.show {
-            display: flex;
-        }
-        
-        .status-text {
-            font-size: 64px;
-            font-weight: bold;
-            text-shadow: 0 0 30px currentColor;
-            animation: pulse 0.5s ease-in-out infinite alternate;
-        }
-        
-        @keyframes pulse {
-            from { transform: scale(1); opacity: 0.8; }
-            to { transform: scale(1.1); opacity: 1; }
-        }
-        
-        .status-dead { color: #e74c3c; }
-        .status-win { color: #27ae60; }
     </style>
 </head>
 <body>
     <!-- 游戏区 -->
     <div id="game-area">
         <div id="game-info">
-            POS:<span id="pos-x">0</span> | 
-            Y:<span id="pos-y">1</span> | 
-            GEN:<span id="gen">1</span>
+            POS: <span id="pos-display">0</span> | 
+            GEN: <span id="gen-display">1</span>
         </div>
-        <div id="viewport">
-            <div class="grid-overlay"></div>
-            <div class="air-row"></div>
-            <div class="game-layer" id="game-content"></div>
+        <div id="status-text"></div>
+        
+        <div id="game-world">
+            <!-- 动态生成 -->
         </div>
     </div>
     
@@ -303,8 +306,8 @@
     <div id="neuron-area">
         <div id="neuron-placeholder">
             <div class="neuron-icon">🧠</div>
-            <div>[ 神经元网络可视化区域 ]</div>
-            <div style="font-size: 11px; margin-top: 8px; opacity: 0.6;">等待 AI 接入...</div>
+            <div>[ 神经元网络区域 ]</div>
+            <div style="font-size: 12px; margin-top: 10px; opacity: 0.5;">等待 AI 接入控制...</div>
         </div>
     </div>
     
@@ -312,274 +315,276 @@
     <div id="control-area">
         <button class="btn" id="btn-right">
             ▶
-            <span class="btn-label">移动</span>
+            <span class="btn-label">移动 (x+1)</span>
         </button>
         <button class="btn" id="btn-jump">
             ⬆
-            <span class="btn-label">跳跃</span>
+            <span class="btn-label">跳跃 (x+2)</span>
         </button>
-    </div>
-    
-    <!-- 状态覆盖层 -->
-    <div id="status-overlay">
-        <div class="status-text" id="status-text"></div>
     </div>
 
     <script>
         // ========== 配置 ==========
         const CONFIG = {
-            WORLD_WIDTH: 32,
-            VIEWPORT_WIDTH: 4,
-            VIEWPORT_HEIGHT: 3,  // y2, y1, y0
-            PLAYER_VIEW_X: 1,    // 玩家在视野中的固定x位置
-            GOAL_X: 30,
-            GRID_SIZE: 70,       // 每格像素
-            ANIMATION_DURATION: 300, // 毫秒
-            JUMP_HEIGHT: 60      // 跳跃高度（像素）
+            WORLD_LENGTH: 32,
+            GRID_SIZE: 100,
+            GROUND_HEIGHT: 80,
+            JUMP_HEIGHT: 100,
+            MOVE_DURATION: 400,
+            JUMP_DURATION: 600,
+            VIEWPORT_WIDTH: 0,
+            CAMERA_OFFSET: 0.3
         };
         
+        CONFIG.VIEWPORT_WIDTH = document.getElementById('game-area').clientWidth;
+        
         // ========== 状态 ==========
-        let world = [];  // 地面层，0=坑，1=平地
-        let player = {
-            x: 0,
-            y: 1,  // 1=地面(y1)，2=空中(y2)
-            visualX: 70,  // 视觉位置（像素）
-            visualY: 70   // 视觉位置（像素，从顶部算）
-        };
-        let isAnimating = false;
+        let world = [];
+        let player = { x: 50, y: 80, state: 'idle' };
+        let camera = { x: 0 };
         let generation = 1;
+        let isProcessing = false;
         
         // ========== 初始化 ==========
         function initWorld() {
-            world = [];
-            for (let i = 0; i < CONFIG.WORLD_WIDTH; i++) {
-                if (i === 0 || i === CONFIG.GOAL_X) {
-                    world.push(1);
-                } else {
-                    world.push(Math.random() < 0.7 ? 1 : 0);
-                }
-            }
-            // 避免连续坑
-            for (let i = 1; i < CONFIG.WORLD_WIDTH - 1; i++) {
-                if (world[i] === 0 && world[i-1] === 0) {
-                    world[i] = 1;
-                }
-            }
-        }
-        
-        function resetGame() {
-            player.x = 0;
-            player.y = 1;
-            player.visualX = CONFIG.PLAYER_VIEW_X * CONFIG.GRID_SIZE + 10;
-            player.visualY = CONFIG.GRID_SIZE + 10;  // y1 位置
-            isAnimating = false;
-            generation++;
-            hideStatus();
-            render();
-        }
-        
-        // ========== 渲染 ==========
-        function render() {
-            const container = document.getElementById('game-content');
+            const container = document.getElementById('game-world');
             container.innerHTML = '';
+            world = [];
             
-            // 计算视野左边界
-            let viewLeft = player.x - CONFIG.PLAYER_VIEW_X;
-            
-            // 渲染地面层（逻辑y0，显示在视野底部）
-            const groundRow = document.createElement('div');
-            groundRow.className = 'ground-row';
-            
-            for (let vx = 0; vx < CONFIG.VIEWPORT_WIDTH; vx++) {
-                const worldX = viewLeft + vx;
-                const cell = document.createElement('div');
-                cell.className = 'ground-cell';
+            // 格子线和编号
+            const gridOverlay = document.createElement('div');
+            gridOverlay.className = 'world-grid';
+            for (let i = 0; i <= CONFIG.WORLD_LENGTH; i++) {
+                const x = i * CONFIG.GRID_SIZE;
+                const line = document.createElement('div');
+                line.className = 'grid-vline';
+                line.style.left = x + 'px';
+                gridOverlay.appendChild(line);
                 
-                if (worldX >= 0 && worldX < CONFIG.WORLD_WIDTH) {
-                    if (worldX === CONFIG.GOAL_X) {
-                        cell.className += ' ground-goal';
-                        cell.textContent = '🏁';
-                    } else if (world[worldX] === 1) {
-                        cell.className += ' ground-flat';
-                        cell.textContent = '';
-                    } else {
-                        cell.className += ' ground-pit';
-                        cell.textContent = '';
-                    }
-                } else {
-                    cell.style.background = '#0a0a0f';
+                if (i % 5 === 0) {
+                    const label = document.createElement('div');
+                    label.className = 'grid-label';
+                    label.style.left = x + 'px';
+                    label.textContent = i;
+                    gridOverlay.appendChild(label);
                 }
-                
-                groundRow.appendChild(cell);
             }
+            container.appendChild(gridOverlay);
             
-            container.appendChild(groundRow);
+            // 生成地形
+            let currentX = 0;
             
-            // 渲染玩家（始终固定在视野的(1,1)视觉位置，但用视觉坐标）
-            const playerEl = document.createElement('div');
-            playerEl.className = 'player';
-            playerEl.id = 'player';
-            playerEl.textContent = '🤖';
-            playerEl.style.left = player.visualX + 'px';
-            playerEl.style.top = player.visualY + 'px';
-            container.appendChild(playerEl);
+            // 起点
+            createGround(0, 2);
+            currentX = 2;
             
-            // 更新信息
-            document.getElementById('pos-x').textContent = player.x;
-            document.getElementById('pos-y').textContent = player.y;
-            document.getElementById('gen').textContent = generation;
-        }
-        
-        // ========== 动画 ==========
-        function animatePlayer(targetX, targetY, isJump = false, onComplete) {
-            const playerEl = document.getElementById('player');
-            if (!playerEl) return;
-            
-            isAnimating = true;
-            const startX = player.visualX;
-            const startY = player.visualY;
-            const startTime = performance.now();
-            
-            function update(currentTime) {
-                const elapsed = currentTime - startTime;
-                const progress = Math.min(elapsed / CONFIG.ANIMATION_DURATION, 1);
-                
-                // 缓动函数
-                const ease = t => t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
-                const t = ease(progress);
-                
-                if (isJump) {
-                    // 抛物线跳跃：x线性，y抛物线
-                    player.visualX = startX + (targetX - startX) * t;
-                    
-                    // 抛物线：上升到最高点再下降
-                    const jumpProgress = Math.sin(t * Math.PI);
-                    player.visualY = startY - jumpProgress * CONFIG.JUMP_HEIGHT;
+            while (currentX < CONFIG.WORLD_LENGTH - 2) {
+                if (Math.random() < 0.65) {
+                    const len = 1 + Math.floor(Math.random() * 2);
+                    createGround(currentX, len);
+                    currentX += len;
                 } else {
-                    // 平移：直接线性插值
-                    player.visualX = startX + (targetX - startX) * t;
-                    player.visualY = startY + (targetY - startY) * t;
-                }
-                
-                playerEl.style.left = player.visualX + 'px';
-                playerEl.style.top = player.visualY + 'px';
-                
-                if (progress < 1) {
-                    requestAnimationFrame(update);
-                } else {
-                    player.visualX = targetX;
-                    player.visualY = targetY;
-                    isAnimating = false;
-                    if (onComplete) onComplete();
+                    createPit(currentX);
+                    currentX += 1;
                 }
             }
             
-            requestAnimationFrame(update);
+            createGround(currentX, 2);
+            createGoal(CONFIG.WORLD_LENGTH - 1);
+            
+            resetPlayer();
         }
         
-        // ========== 游戏逻辑 ==========
-        function checkResult(x, y) {
-            // 检查是否死亡（在地面层且脚下是坑）
-            if (y === 1 && world[x] === 0) {
-                return 'dead';
-            }
-            // 检查是否胜利
-            if (x >= CONFIG.GOAL_X) {
-                return 'win';
-            }
-            return 'alive';
-        }
-        
-        function showStatus(type) {
-            const overlay = document.getElementById('status-overlay');
-            const text = document.getElementById('status-text');
+        function createGround(startGrid, length) {
+            const el = document.createElement('div');
+            el.className = 'ground';
+            el.style.left = (startGrid * CONFIG.GRID_SIZE) + 'px';
+            el.style.width = (length * CONFIG.GRID_SIZE) + 'px';
+            document.getElementById('game-world').appendChild(el);
             
-            if (type === 'dead') {
-                text.textContent = '💀 死亡';
-                text.className = 'status-text status-dead';
-            } else if (type === 'win') {
-                text.textContent = '🏆 胜利';
-                text.className = 'status-text status-win';
-            }
-            
-            overlay.classList.add('show');
-        }
-        
-        function hideStatus() {
-            document.getElementById('status-overlay').classList.remove('show');
-        }
-        
-        function executeMove(action) {
-            if (isAnimating) return;
-            
-            let targetX = player.x;
-            let targetY = player.y;
-            let visualTargetX = player.visualX;
-            let visualTargetY = player.visualY;
-            let isJump = false;
-            
-            if (action === 'right') {
-                // 右移：x+1，保持在y1
-                targetX = player.x + 1;
-                targetY = 1;
-                visualTargetX = CONFIG.PLAYER_VIEW_X * CONFIG.GRID_SIZE + 10;
-                visualTargetY = CONFIG.GRID_SIZE + 10;
-                
-            } else if (action === 'jump') {
-                // 跳跃：x+2，y升到2再落回1
-                targetX = player.x + 2;
-                targetY = 1;  // 最终落回地面
-                visualTargetX = CONFIG.PLAYER_VIEW_X * CONFIG.GRID_SIZE + 10;
-                visualTargetY = CONFIG.GRID_SIZE + 10;
-                isJump = true;
-            }
-            
-            // 边界检查
-            targetX = Math.min(targetX, CONFIG.WORLD_WIDTH - 1);
-            
-            // 执行动画
-            animatePlayer(visualTargetX, visualTargetY, isJump, () => {
-                // 动画完成后更新逻辑状态
-                player.x = targetX;
-                player.y = targetY;
-                
-                const result = checkResult(targetX, targetY);
-                
-                if (result === 'dead') {
-                    showStatus('dead');
-                    setTimeout(resetGame, 1500);
-                } else if (result === 'win') {
-                    showStatus('win');
-                    setTimeout(resetGame, 1500);
-                } else {
-                    // 继续游戏，重新渲染以更新地面滚动
-                    render();
-                }
+            world.push({
+                type: 'ground',
+                start: startGrid * CONFIG.GRID_SIZE,
+                end: (startGrid + length) * CONFIG.GRID_SIZE
             });
         }
         
-        // ========== 事件绑定 ==========
-        document.getElementById('btn-right').addEventListener('click', () => {
-            executeMove('right');
-        });
+        function createPit(gridIndex) {
+            const el = document.createElement('div');
+            el.className = 'pit-zone';
+            el.style.left = (gridIndex * CONFIG.GRID_SIZE) + 'px';
+            document.getElementById('game-world').appendChild(el);
+            
+            world.push({
+                type: 'pit',
+                start: gridIndex * CONFIG.GRID_SIZE,
+                end: (gridIndex + 1) * CONFIG.GRID_SIZE
+            });
+        }
         
-        document.getElementById('btn-jump').addEventListener('click', () => {
-            executeMove('jump');
-        });
+        function createGoal(gridIndex) {
+            const el = document.createElement('div');
+            el.className = 'goal';
+            el.style.left = (gridIndex * CONFIG.GRID_SIZE) + 'px';
+            el.innerHTML = '<div class="goal-pole"></div><div class="goal-flag"></div>';
+            document.getElementById('game-world').appendChild(el);
+        }
         
-        // 键盘控制
+        function resetPlayer() {
+            player.x = CONFIG.GRID_SIZE * 0.5;
+            player.y = CONFIG.GROUND_HEIGHT;
+            player.state = 'idle';
+            isProcessing = false;
+            
+            let el = document.getElementById('player');
+            if (!el) {
+                el = document.createElement('div');
+                el.id = 'player';
+                document.getElementById('game-world').appendChild(el);
+            }
+            el.className = '';
+            
+            updatePlayer();
+            updateCamera();
+        }
+        
+        function updatePlayer() {
+            const el = document.getElementById('player');
+            el.style.left = player.x + 'px';
+            el.style.bottom = player.y + 'px';
+        }
+        
+        function updateCamera() {
+            const targetX = player.x - CONFIG.VIEWPORT_WIDTH * CONFIG.CAMERA_OFFSET;
+            const maxX = (CONFIG.WORLD_LENGTH * CONFIG.GRID_SIZE) - CONFIG.VIEWPORT_WIDTH;
+            camera.x = Math.max(0, Math.min(targetX, maxX));
+            
+            document.getElementById('game-world').style.transform = `translateX(${-camera.x}px)`;
+            document.getElementById('pos-display').textContent = Math.floor(player.x / CONFIG.GRID_SIZE);
+            document.getElementById('gen-display').textContent = generation;
+        }
+        
+        // ========== 碰撞检测 ==========
+        function checkGround(x) {
+            for (const seg of world) {
+                if (seg.type === 'ground' && x >= seg.start && x < seg.end) return true;
+            }
+            return false;
+        }
+        
+        function isInPit(x) {
+            for (const seg of world) {
+                if (seg.type === 'pit' && x >= seg.start && x < seg.end) return true;
+            }
+            return false;
+        }
+        
+        // ========== 动作 ==========
+        function execute(action) {
+            if (isProcessing || player.state === 'dead') return;
+            isProcessing = true;
+            
+            if (action === 'right') {
+                const targetX = player.x + CONFIG.GRID_SIZE;
+                animateMove(targetX, CONFIG.GROUND_HEIGHT, false);
+            } else if (action === 'jump') {
+                const targetX = player.x + CONFIG.GRID_SIZE * 2;
+                animateMove(targetX, CONFIG.GROUND_HEIGHT, true);
+            }
+        }
+        
+        function animateMove(targetX, targetY, isJump) {
+            const startX = player.x;
+            const startY = player.y;
+            const duration = isJump ? CONFIG.JUMP_DURATION : CONFIG.MOVE_DURATION;
+            const startTime = performance.now();
+            
+            function animate(time) {
+                const elapsed = time - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+                const ease = t => t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+                const t = ease(progress);
+                
+                player.x = startX + (targetX - startX) * t;
+                
+                if (isJump) {
+                    const height = Math.sin(progress * Math.PI) * CONFIG.JUMP_HEIGHT;
+                    player.y = startY + height;
+                } else {
+                    player.y = startY + (targetY - startY) * t;
+                }
+                
+                // 移动中检测踩空
+                if (!isJump && !checkGround(player.x)) {
+                    die();
+                    return;
+                }
+                
+                updatePlayer();
+                updateCamera();
+                
+                if (progress < 1) {
+                    requestAnimationFrame(animate);
+                } else {
+                    // 结束检测
+                    player.y = CONFIG.GROUND_HEIGHT;
+                    
+                    if (isInPit(player.x)) {
+                        die();
+                    } else if (Math.floor(player.x / CONFIG.GRID_SIZE) >= CONFIG.WORLD_LENGTH - 1) {
+                        win();
+                    } else {
+                        player.state = 'idle';
+                        isProcessing = false;
+                    }
+                }
+            }
+            
+            requestAnimationFrame(animate);
+        }
+        
+        function die() {
+            player.state = 'dead';
+            document.getElementById('player').classList.add('falling');
+            showStatus('💀', 'dead');
+            setTimeout(() => {
+                generation++;
+                initWorld();
+            }, 1500);
+        }
+        
+        function win() {
+            showStatus('🏆', 'win');
+            setTimeout(() => {
+                generation++;
+                initWorld();
+            }, 1500);
+        }
+        
+        function showStatus(emoji, type) {
+            const el = document.getElementById('status-text');
+            el.textContent = emoji;
+            el.className = 'show ' + type;
+            setTimeout(() => el.className = '', 1200);
+        }
+        
+        // ========== 事件 ==========
+        document.getElementById('btn-right').addEventListener('click', () => execute('right'));
+        document.getElementById('btn-jump').addEventListener('click', () => execute('jump'));
+        
         document.addEventListener('keydown', (e) => {
-            if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
-                executeMove('right');
-            }
-            if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W' || e.key === ' ') {
-                executeMove('jump');
-            }
+            if (e.repeat) return;
+            if (e.key === 'ArrowRight' || e.key === 'd') execute('right');
+            if (e.key === 'ArrowUp' || e.key === 'w' || e.key === ' ') execute('jump');
+        });
+        
+        window.addEventListener('resize', () => {
+            CONFIG.VIEWPORT_WIDTH = document.getElementById('game-area').clientWidth;
+            updateCamera();
         });
         
         // ========== 启动 ==========
         initWorld();
-        resetGame();
     </script>
 </body>
 </html>
