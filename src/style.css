@@ -267,34 +267,13 @@ body {
 }
 
 /* ---------- 玩家 ---------- */
+/* 玩家基础样式，狐狸详细样式在 style-fox.css */
 #player {
   position: absolute;
-  background: var(--color-player);
-  border: 2px solid var(--color-player-border);
-  border-radius: 6px;
-  box-shadow: 0 0 20px var(--color-player-glow);
   z-index: 100;
 }
 
-#player::before {
-  content: '🤖';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  font-size: 24px;
-}
-
-#player.falling {
-  animation: falling 0.5s ease-in forwards;
-}
-
-@keyframes falling {
-  to {
-    transform: translateY(200px) rotate(180deg);
-    opacity: 0;
-  }
-}
+/* 死亡动画在 style-fox.css 中定义 (.fox-container.state-dead)
 
 /* ---------- 神经元区域 ---------- */
 #neuron-area {
