@@ -404,7 +404,8 @@ export class GameRenderer {
         <div class="fox-leg-back-near"></div>
         <div class="fox-leg-front-far"></div>
         <div class="fox-head">
-          <div class="fox-ear"></div>
+          <div class="fox-ear-far"></div>
+          <div class="fox-ear-near"></div>
           <div class="fox-eye"></div>
           <div class="fox-nose"></div>
         </div>
@@ -415,12 +416,73 @@ export class GameRenderer {
     
     // 获取狐狸容器用于动画控制
     this.foxContainer = this.playerEl.querySelector('.fox-container')
+    this.foxTail = this.playerEl.querySelector('.fox-tail')
     
     // 初始化动画状态
     this._foxState = 'idle'
     this._foxLastY = 0
     this._foxVelocity = 0
     this._foxOnGround = true
+    
+    // 尾巴WAAPI动画控制（实现类似Spine的动画混合）
+    this._tailAnimation = null
+    this._startTailAnimation('idle')
+  }
+  
+  /**
+   * 使用WAAPI启动尾巴动画（支持平滑过渡）
+   */
+  _startTailAnimation(state) {
+    if (!this.foxTail) return
+    
+    // 停止当前动画
+    if (this._tailAnimation) {
+      this._tailAnimation.cancel()
+    }
+    
+    // 根据状态定义动画
+    let keyframes, options
+    
+    switch(state) {
+      case 'run':
+        keyframes = [
+          { transform: 'rotate(-10deg)' },
+          { transform: 'rotate(15deg)' },
+          { transform: 'rotate(-10deg)' }
+        ]
+        options = { duration: 300, iterations: Infinity }
+        break
+      case 'jump-up':
+        keyframes = [
+          { transform: 'rotate(-30deg) scaleX(0.9)' }
+        ]
+        options = { duration: 1000, fill: 'both' }
+        break
+      case 'jump-down':
+        keyframes = [
+          { transform: 'rotate(20deg)' }
+        ]
+        options = { duration: 1000, fill: 'both' }
+        break
+      case 'land':
+        keyframes = [
+          { transform: 'rotate(0deg)' },
+          { transform: 'rotate(-10deg)' }
+        ]
+        options = { duration: 200, fill: 'both' }
+        break
+      case 'idle':
+      default:
+        keyframes = [
+          { transform: 'rotate(-10deg)' },
+          { transform: 'rotate(5deg)' },
+          { transform: 'rotate(-10deg)' }
+        ]
+        options = { duration: 3000, iterations: Infinity }
+    }
+    
+    // 使用WAAPI启动动画，支持平滑过渡
+    this._tailAnimation = this.foxTail.animate(keyframes, options)
   }
   
   /**
@@ -468,6 +530,8 @@ export class GameRenderer {
         if (this.foxContainer) {
           this.foxContainer.classList.remove('state-land')
           this.foxContainer.classList.add('state-idle')
+          // 同步更新尾巴动画为待机
+          this._startTailAnimation('idle')
         }
       }, 200)
     }
@@ -477,6 +541,9 @@ export class GameRenderer {
       this.foxContainer.classList.remove(`state-${this._foxState}`)
       this.foxContainer.classList.add(`state-${newState}`)
       this._foxState = newState
+      
+      // 使用WAAPI更新尾巴动画（平滑混合）
+      this._startTailAnimation(newState)
     }
     
     this._foxOnGround = onGround
