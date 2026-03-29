@@ -128,11 +128,32 @@ export class GameRenderer {
     
     this.container.appendChild(this.worldEl)
     
+    // 添加云朵（背景装饰）
+    this._createClouds()
+    
     // 停止任何进行中的补间
     if (this.currentTween) {
       this.currentTween.stop()
       this.currentTween = null
     }
+  }
+  
+  /**
+   * 创建云朵装饰
+   */
+  _createClouds() {
+    const cloudPositions = [
+      { class: 'cloud cloud-1', delay: '0s' },
+      { class: 'cloud cloud-2', delay: '-8s' },
+      { class: 'cloud cloud-3', delay: '-15s' }
+    ]
+    
+    cloudPositions.forEach((cloud, index) => {
+      const el = document.createElement('div')
+      el.className = cloud.class
+      el.style.left = `${-100 - index * 50}px`
+      this.container.appendChild(el)
+    })
   }
   
   /**
@@ -309,9 +330,39 @@ export class GameRenderer {
     el.className = 'goal'
     // 终点位置（第 WORLD_LENGTH-1 格）
     el.style.left = `${CONFIG.toPx(CONFIG.WORLD_LENGTH - 1)}px`
+    // 旗子底部对齐地面高度
+    el.style.bottom = `${CONFIG.toPx(CONFIG.GROUND_HEIGHT)}px`
+    // 旗子大小使用单位
+    const goalWidth = CONFIG.toPx(0.6)  // 0.6 unit 宽
+    const goalHeight = CONFIG.toPx(1.0) // 1.0 unit 高
+    el.style.width = `${goalWidth}px`
+    el.style.height = `${goalHeight}px`
+    
+    // 旗杆使用相对尺寸
+    const poleWidth = Math.max(2, Math.floor(goalWidth * 0.07))
+    const poleHeight = goalHeight
+    const flagWidth = Math.floor(goalWidth * 0.67)
+    const flagHeight = Math.floor(goalHeight * 0.3)
+    
     el.innerHTML = `
-      <div class="goal-pole"></div>
-      <div class="goal-flag"></div>
+      <div class="goal-pole" style="
+        position: absolute;
+        left: ${Math.floor(goalWidth * 0.17)}px;
+        bottom: 0;
+        width: ${poleWidth}px;
+        height: ${poleHeight}px;
+        background: linear-gradient(90deg, #666 0%, #ddd 50%, #666 100%);
+      "></div>
+      <div class="goal-flag" style="
+        position: absolute;
+        left: ${Math.floor(goalWidth * 0.17) + poleWidth}px;
+        top: ${Math.floor(goalHeight * 0.1)}px;
+        width: ${flagWidth}px;
+        height: ${flagHeight}px;
+        background: var(--color-win);
+        clip-path: polygon(0 0, 100% 50%, 0 100%);
+        animation: wave 2s ease-in-out infinite;
+      "></div>
     `
     this.worldEl.appendChild(el)
   }

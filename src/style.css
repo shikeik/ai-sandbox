@@ -10,13 +10,13 @@
 /* ---------- CSS 变量 ---------- */
 :root {
   --color-bg: #0a0a0f;
-  --color-bg-game: linear-gradient(180deg, #1a1a2e 0%, #16213e 100%);
+  --color-bg-game: linear-gradient(180deg, #87CEEB 0%, #E0F6FF 70%, #f0f8ff 100%);
   --color-bg-neuron: #12121a;
-  --color-border: #333;
+  --color-border: #87CEEB;
   
-  --color-ground: linear-gradient(180deg, #4a3728 0%, #2d1f16 50%, #1a120c 100%);
-  --color-ground-border: #5a4738;
-  --color-pit: #000;
+  --color-ground: linear-gradient(180deg, #4a8c2a 0%, #3d7a24 50%, #2d5a1a 100%);
+  --color-ground-border: #5a9e3a;
+  --color-pit: #1a1a2a;
   
   --color-player: linear-gradient(135deg, #4a90d9 0%, #2d5aa0 100%);
   --color-player-border: #6ab0f9;
@@ -48,6 +48,95 @@ body {
   flex-direction: column;
   overflow: hidden;
   padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* ---------- 云朵装饰 ---------- */
+.cloud {
+  position: absolute;
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 100px;
+  opacity: 0.9;
+}
+
+.cloud::before,
+.cloud::after {
+  content: '';
+  position: absolute;
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 100px;
+}
+
+/* 大云朵 */
+.cloud-1 {
+  width: 100px;
+  height: 40px;
+  top: 10%;
+  animation: float 20s infinite linear;
+}
+
+.cloud-1::before {
+  width: 50px;
+  height: 50px;
+  top: -25px;
+  left: 10px;
+}
+
+.cloud-1::after {
+  width: 60px;
+  height: 40px;
+  top: -15px;
+  right: 10px;
+}
+
+/* 中云朵 */
+.cloud-2 {
+  width: 80px;
+  height: 35px;
+  top: 25%;
+  animation: float 25s infinite linear;
+  animation-delay: -5s;
+}
+
+.cloud-2::before {
+  width: 40px;
+  height: 40px;
+  top: -20px;
+  left: 15px;
+}
+
+.cloud-2::after {
+  width: 50px;
+  height: 35px;
+  top: -10px;
+  right: 15px;
+}
+
+/* 小云朵 */
+.cloud-3 {
+  width: 60px;
+  height: 25px;
+  top: 15%;
+  animation: float 18s infinite linear;
+  animation-delay: -10s;
+}
+
+.cloud-3::before {
+  width: 30px;
+  height: 30px;
+  top: -15px;
+  left: 10px;
+}
+
+.cloud-3::after {
+  width: 35px;
+  height: 25px;
+  top: -8px;
+  right: 10px;
+}
+
+@keyframes float {
+  0% { transform: translateX(-150px); }
+  100% { transform: translateX(calc(100vw + 150px)); }
 }
 
 /* ---------- 游戏区域 ---------- */
@@ -158,29 +247,7 @@ body {
 /* ---------- 终点 ---------- */
 .goal {
   position: absolute;
-  bottom: 80px;
-  width: 60px;
-  height: 100px;
-}
-
-.goal-pole {
-  position: absolute;
-  left: 10px;
-  bottom: 0;
-  width: 4px;
-  height: 100px;
-  background: linear-gradient(90deg, #666 0%, #ddd 50%, #666 100%);
-}
-
-.goal-flag {
-  position: absolute;
-  left: 14px;
-  top: 10px;
-  width: 40px;
-  height: 30px;
-  background: var(--color-win);
-  clip-path: polygon(0 0, 100% 50%, 0 100%);
-  animation: wave 2s ease-in-out infinite;
+  /* 尺寸和位置由 JS 动态设置 */
 }
 
 @keyframes wave {
