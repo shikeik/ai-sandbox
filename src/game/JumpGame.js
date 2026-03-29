@@ -33,6 +33,7 @@ export const CONFIG = {
   // 游戏元素尺寸（单位）
   GROUND_HEIGHT: 0.8,     // 地面高度（单位）
   PLAYER_SIZE: 0.45,      // 玩家大小（单位）- 稍微小一点，留出视觉空间
+  GOAL_SIZE: 0.8,         // 终点旗子大小（单位）- 比之前大一点
   JUMP_HEIGHT: 1.0,       // 跳跃高度（单位）
   // 坐标系说明：玩家位置(x,y)是左下角坐标（对应CSS left/bottom）
   // 第0格范围：[0, 1] unit，中心在 0.5 unit

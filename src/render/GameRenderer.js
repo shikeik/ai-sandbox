@@ -335,36 +335,38 @@ export class GameRenderer {
     el.style.left = `${CONFIG.toPx(CONFIG.WORLD_LENGTH - 1)}px`
     // 旗子底部对齐地面高度
     el.style.bottom = `${CONFIG.toPx(CONFIG.GROUND_HEIGHT)}px`
-    // 旗子大小使用单位
-    const goalWidth = CONFIG.toPx(0.6)  // 0.6 unit 宽
-    const goalHeight = CONFIG.toPx(1.0) // 1.0 unit 高
+    // 旗子大小使用 GOAL_SIZE
+    const goalWidth = CONFIG.toPx(CONFIG.GOAL_SIZE)  // 0.8 unit 宽
+    const goalHeight = CONFIG.toPx(CONFIG.GOAL_SIZE * 1.4) // 更高一点
     el.style.width = `${goalWidth}px`
     el.style.height = `${goalHeight}px`
     
     // 旗杆使用相对尺寸
-    const poleWidth = Math.max(2, Math.floor(goalWidth * 0.07))
+    const poleWidth = Math.max(3, Math.floor(goalWidth * 0.08))
     const poleHeight = goalHeight
-    const flagWidth = Math.floor(goalWidth * 0.67)
-    const flagHeight = Math.floor(goalHeight * 0.3)
+    const flagWidth = Math.floor(goalWidth * 0.7)
+    const flagHeight = Math.floor(goalHeight * 0.35)
     
     el.innerHTML = `
       <div class="goal-pole" style="
         position: absolute;
-        left: ${Math.floor(goalWidth * 0.17)}px;
+        left: ${Math.floor(goalWidth * 0.15)}px;
         bottom: 0;
         width: ${poleWidth}px;
         height: ${poleHeight}px;
-        background: linear-gradient(90deg, #666 0%, #ddd 50%, #666 100%);
+        background: linear-gradient(90deg, #888 0%, #eee 50%, #888 100%);
+        border-radius: 2px;
       "></div>
       <div class="goal-flag" style="
         position: absolute;
-        left: ${Math.floor(goalWidth * 0.17) + poleWidth}px;
-        top: ${Math.floor(goalHeight * 0.1)}px;
+        left: ${Math.floor(goalWidth * 0.15) + poleWidth}px;
+        top: ${Math.floor(goalHeight * 0.08)}px;
         width: ${flagWidth}px;
         height: ${flagHeight}px;
-        background: var(--color-win);
+        background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
         clip-path: polygon(0 0, 100% 50%, 0 100%);
         animation: wave 2s ease-in-out infinite;
+        filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
       "></div>
     `
     this.worldEl.appendChild(el)
@@ -373,7 +375,7 @@ export class GameRenderer {
   _createPlayer() {
     this.playerEl = document.createElement('div')
     this.playerEl.id = 'player'
-    // 玩家大小为 0.6 unit
+    // 玩家大小
     const playerSize = CONFIG.toPx(CONFIG.PLAYER_SIZE)
     this.playerEl.style.width = `${playerSize}px`
     this.playerEl.style.height = `${playerSize}px`
