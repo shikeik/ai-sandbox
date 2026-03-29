@@ -494,11 +494,11 @@ export class GameRenderer {
         return
       case 'idle':
       default:
+        // 待机时使用标准慢速摆动，从-10deg开始避免突变
         keyframes = [
-          { transform: `rotate(${currentRotate}deg)`, offset: 0 },
-          { transform: 'rotate(-10deg)', offset: 0.2 },
-          { transform: 'rotate(5deg)', offset: 0.6 },
-          { transform: 'rotate(-10deg)', offset: 1 }
+          { transform: 'rotate(-10deg)' },
+          { transform: 'rotate(5deg)' },
+          { transform: 'rotate(-10deg)' }
         ]
         options = { duration: 3000, iterations: Infinity }
     }
