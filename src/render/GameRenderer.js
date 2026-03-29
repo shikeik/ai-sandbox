@@ -440,72 +440,52 @@ export class GameRenderer {
   }
   
   /**
-   * 使用WAAPI启动尾巴动画（支持平滑过渡）
+   * 使用WAAPI启动尾巴动画（无过渡，直接切换）
    */
   _startTailAnimation(state) {
     if (!this.foxTail) return
     
-    // 停止当前动画并提交样式（避免跳变）
+    // 停止当前动画
     if (this._tailAnimation) {
-      this._tailAnimation.commitStyles()
       this._tailAnimation.cancel()
       this._tailAnimation = null
     }
     
-    // 清除 commitStyles 写入的内联样式，避免干扰新动画
-    this.foxTail.style.transform = ''
-    
-    // 获取当前计算样式作为起始点
-    const computedStyle = window.getComputedStyle(this.foxTail)
-    const matrix = new DOMMatrix(computedStyle.transform)
-    // 从矩阵中提取旋转角度（如果无效则使用默认角度）
-    let currentRotate = Math.atan2(matrix.b, matrix.a) * (180 / Math.PI)
-    if (isNaN(currentRotate)) currentRotate = -10
-    
-    // 根据状态定义动画
+    // 根据状态定义动画（直接切换，无过渡）
     let keyframes, options
     
     switch(state) {
       case 'run':
         keyframes = [
-          { transform: `rotate(${currentRotate}deg)`, offset: 0 },
-          { transform: 'rotate(-10deg)', offset: 0.15 },
-          { transform: 'rotate(15deg)', offset: 0.575 },
-          { transform: 'rotate(-10deg)', offset: 1 }
+          { transform: 'rotate(-10deg)' },
+          { transform: 'rotate(15deg)' },
+          { transform: 'rotate(-10deg)' }
         ]
         options = { duration: 300, iterations: Infinity }
         break
       case 'jump-up':
         keyframes = [
-          { transform: `rotate(${currentRotate}deg) scaleX(1)` },
           { transform: 'rotate(-30deg) scaleX(0.9)' }
         ]
-        options = { duration: 200, fill: 'forwards', easing: 'ease-out' }
+        options = { duration: 1000, fill: 'both' }
         break
       case 'jump-down':
         keyframes = [
-          { transform: `rotate(${currentRotate}deg)` },
           { transform: 'rotate(20deg)' }
         ]
-        options = { duration: 200, fill: 'forwards', easing: 'ease-out' }
+        options = { duration: 1000, fill: 'both' }
         break
       case 'land':
         keyframes = [
-          { transform: `rotate(${currentRotate}deg)` },
           { transform: 'rotate(-10deg)' }
         ]
         options = { duration: 200, fill: 'forwards' }
         break
       case 'dead':
-        // 死亡时停止尾巴动画，随身体一起倒下
-        if (this._tailAnimation) {
-          this._tailAnimation.cancel()
-          this._tailAnimation = null
-        }
+        // 死亡时停止尾巴动画
         return
       case 'idle':
       default:
-        // 待机时使用标准慢速摆动，从-10deg开始避免突变
         keyframes = [
           { transform: 'rotate(-10deg)' },
           { transform: 'rotate(5deg)' },
@@ -514,7 +494,7 @@ export class GameRenderer {
         options = { duration: 3000, iterations: Infinity }
     }
     
-    // 使用WAAPI启动动画，支持平滑过渡
+    // 使用WAAPI启动动画
     this._tailAnimation = this.foxTail.animate(keyframes, options)
   }
   
