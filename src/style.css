@@ -9,14 +9,20 @@
 
 /* ---------- CSS 变量 ---------- */
 :root {
-  --color-bg: #0a0a0f;
-  --color-bg-game: linear-gradient(180deg, #87CEEB 0%, #E0F6FF 70%, #f0f8ff 100%);
-  --color-bg-neuron: #12121a;
-  --color-border: #87CEEB;
+  /* 统一天空主题 - 较暗的蓝色系 */
+  --sky-dark: #2c3e50;
+  --sky-mid: #34495e;
+  --sky-light: #4a6278;
+  
+  /* 全局背景统一 */
+  --color-bg: var(--sky-dark);
+  --color-bg-game: linear-gradient(180deg, #4a6278 0%, #5a7a94 50%, #6a8aa8 100%);
+  --color-bg-neuron: var(--sky-mid);
+  --color-border: #5a7a94;
   
   --color-ground: linear-gradient(180deg, #4a8c2a 0%, #3d7a24 50%, #2d5a1a 100%);
   --color-ground-border: #5a9e3a;
-  --color-pit: #1a1a2a;
+  --color-pit: #1a2430;
   
   --color-player: linear-gradient(135deg, #4a90d9 0%, #2d5aa0 100%);
   --color-player-border: #6ab0f9;
@@ -27,9 +33,10 @@
   --color-btn-jump: linear-gradient(135deg, #f39c12 0%, #d68910 100%);
   --color-btn-jump-shadow: #9c5710;
   
-  --color-text: #eee;
-  --color-text-muted: rgba(255, 255, 255, 0.5);
-  --color-text-dim: #555;
+  /* 文字颜色 - 确保在蓝色背景上清晰可读 */
+  --color-text: #ffffff;
+  --color-text-muted: rgba(255, 255, 255, 0.85);
+  --color-text-dim: rgba(200, 220, 240, 0.7);
   
   --color-win: #27ae60;
   --color-dead: #e74c3c;
@@ -53,16 +60,16 @@ body {
 /* ---------- 云朵装饰 ---------- */
 .cloud {
   position: absolute;
-  background: rgba(255, 255, 255, 0.8);
+  background: rgba(255, 255, 255, 0.15);
   border-radius: 100px;
-  opacity: 0.9;
+  opacity: 0.7;
 }
 
 .cloud::before,
 .cloud::after {
   content: '';
   position: absolute;
-  background: rgba(255, 255, 255, 0.8);
+  background: rgba(255, 255, 255, 0.15);
   border-radius: 100px;
 }
 
@@ -148,23 +155,27 @@ body {
   border-bottom: 2px solid var(--color-border);
 }
 
+/* 游戏信息 - 确保在蓝色背景上清晰可见 */
+#game-info {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  font-size: 14px;
+  font-weight: bold;
+  color: rgba(255, 255, 255, 0.95);
+  z-index: 1000;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.2);
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
 #game-world,
 .world-content {
   position: absolute;
   height: 100%;
   transform-origin: left center;
   will-change: transform;
-}
-
-/* 游戏信息 */
-#game-info {
-  position: absolute;
-  top: 10px;
-  left: 10px;
-  font-size: 12px;
-  color: var(--color-text-muted);
-  z-index: 1000;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
 }
 
 /* 状态提示 */
@@ -299,28 +310,28 @@ body {
 #neuron-placeholder {
   width: 90%;
   height: 85%;
-  background: #0a0a10;
-  border: 2px dashed #3a3a45;
+  background: rgba(44, 62, 80, 0.5);
+  border: 2px dashed rgba(90, 122, 148, 0.5);
   border-radius: 12px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  color: var(--color-text-dim);
+  color: rgba(255, 255, 255, 0.6);
   font-size: 14px;
 }
 
 .neuron-icon {
   font-size: 48px;
   margin-bottom: 12px;
-  opacity: 0.3;
+  opacity: 0.5;
 }
 
 /* ---------- 控制区域 ---------- */
 #control-area {
   flex: 0 0 auto;
   min-height: 120px;
-  background: var(--color-bg);
+  background: var(--sky-dark);
   display: flex;
   align-items: center;
   justify-content: center;
