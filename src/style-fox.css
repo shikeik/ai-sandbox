@@ -121,11 +121,11 @@
 }
 
 /* 耳朵 - 狐狸耳朵是三角形，位于头顶后方，指向斜前方 */
-/* 近侧耳朵（较大，较清晰） */
+/* 近侧耳朵（较大，较清晰，在左侧遮挡后耳） */
 .fox-ear-near {
   position: absolute;
   top: -35%;
-  right: 5%;
+  right: 32%;
   width: 32%;
   height: 55%;
   background: linear-gradient(145deg, #e67e22 0%, #d35400 60%, #a04000 100%);
@@ -147,11 +147,11 @@
   border-radius: 70% 30% 40% 60%;
 }
 
-/* 远侧耳朵（较小，略暗，被头部遮挡一部分，无内部图案） */
+/* 远侧耳朵（较小，略暗，在右侧被遮挡，无内部图案） */
 .fox-ear-far {
   position: absolute;
   top: -22%;
-  right: 32%;
+  right: 5%;
   width: 26%;
   height: 40%;
   background: linear-gradient(145deg, #d35400 0%, #a04000 100%);
@@ -159,7 +159,7 @@
   transform-origin: bottom center;
   transform: rotate(25deg);
   transition: transform 0.15s ease-out;
-  z-index: 3;
+  z-index: 2;
 }
 /* 远侧耳朵不显示内部（背面视角） */
 
