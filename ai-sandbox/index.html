@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>AI 神经元训练沙盘</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background: #0a0a0f;
+            color: #eee;
+            font-family: 'Courier New', monospace;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        /* ========== 游戏区 ========== */
+        #game-area {
+            flex: 0 0 40%;
+            background: #0f0f15;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border-bottom: 1px solid #333;
+            position: relative;
+        }
+        
+        #game-info {
+            position: absolute;
+            top: 8px;
+            left: 10px;
+            font-size: 11px;
+            color: #666;
+            z-index: 100;
+        }
+        
+        #viewport {
+            position: relative;
+            width: 280px;
+            height: 210px;
+            background: #1a1a25;
+            border: 2px solid #444;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        
+        /* 网格线 */
+        .grid-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1;
+            background-image: 
+                linear-gradient(to right, rgba(100,100,100,0.15) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(100,100,100,0.15) 1px, transparent 1px);
+            background-size: 70px 70px;
+        }
+        
+        /* 游戏元素 */
+        .game-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+        
+        /* 地面层 (逻辑y0，显示在下方) */
+        .ground-row {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 70px;
+            display: flex;
+        }
+        
+        .ground-cell {
+            width: 70px;
+            height: 70px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+        }
+        
+        .ground-flat {
+            background: linear-gradient(180deg, #4a3728 0%, #2d1f16 100%);
+            border-top: 3px solid #5a4738;
+        }
+        
+        .ground-pit {
+            background: #0a0a0f;
+            border-top: 3px dashed #333;
+        }
+        
+        .ground-goal {
+            background: linear-gradient(180deg, #2d5a2d 0%, #1a3a1a 100%);
+            border-top: 3px solid #4a8a4a;
+        }
+        
+        /* 玩家层 (逻辑y1，显示在中间) */
+        .player {
+            position: absolute;
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(135deg, #4a90d9 0%, #2d5aa0 100%);
+            border: 2px solid #6ab0f9;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+            transition: none; /* 动画由JS控制 */
+            z-index: 10;
+            box-shadow: 0 0 15px rgba(74, 144, 217, 0.5);
+        }
+        
+        .player::after {
+            content: '';
+            position: absolute;
+            bottom: -8px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0;
+            height: 0;
+            border-left: 10px solid transparent;
+            border-right: 10px solid transparent;
+            border-top: 10px solid rgba(74, 144, 217, 0.3);
+        }
+        
+        /* 空中层指示 (逻辑y2，显示在上方) - 仅视觉效果 */
+        .air-row {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 70px;
+            opacity: 0.3;
+            background: linear-gradient(180deg, rgba(100,100,150,0.1) 0%, transparent 100%);
+        }
+        
+        /* ========== 神经元区 ========== */
+        #neuron-area {
+            flex: 1;
+            background: #12121a;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border-bottom: 1px solid #333;
+            position: relative;
+        }
+        
+        #neuron-placeholder {
+            width: 90%;
+            height: 85%;
+            background: #0a0a10;
+            border: 2px dashed #3a3a45;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #555;
+            font-size: 13px;
+        }
+        
+        .neuron-icon {
+            font-size: 40px;
+            margin-bottom: 10px;
+            opacity: 0.3;
+        }
+        
+        /* ========== 操作区 ========== */
+        #control-area {
+            flex: 0 0 22%;
+            background: #0a0a0f;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 40px;
+            padding: 15px;
+        }
+        
+        .btn {
+            width: 90px;
+            height: 90px;
+            border: none;
+            border-radius: 50%;
+            font-size: 32px;
+            cursor: pointer;
+            user-select: none;
+            position: relative;
+            transition: transform 0.05s;
+        }
+        
+        .btn:active {
+            transform: scale(0.92);
+        }
+        
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        #btn-right {
+            background: linear-gradient(135deg, #27ae60 0%, #1e8449 100%);
+            box-shadow: 0 6px 0 #166534, 0 8px 20px rgba(39, 174, 96, 0.4);
+            color: white;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        #btn-right:active:not(:disabled) {
+            box-shadow: 0 3px 0 #166534, 0 4px 10px rgba(39, 174, 96, 0.4);
+            transform: translateY(3px) scale(0.92);
+        }
+        
+        #btn-jump {
+            background: linear-gradient(135deg, #f39c12 0%, #d68910 100%);
+            box-shadow: 0 6px 0 #9c5710, 0 8px 20px rgba(243, 156, 18, 0.4);
+            color: white;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        #btn-jump:active:not(:disabled) {
+            box-shadow: 0 3px 0 #9c5710, 0 4px 10px rgba(243, 156, 18, 0.4);
+            transform: translateY(3px) scale(0.92);
+        }
+        
+        .btn-label {
+            position: absolute;
+            bottom: -20px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 11px;
+            color: #888;
+            white-space: nowrap;
+        }
+        
+        /* 状态提示 */
+        #status-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.7);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            backdrop-filter: blur(3px);
+        }
+        
+        #status-overlay.show {
+            display: flex;
+        }
+        
+        .status-text {
+            font-size: 64px;
+            font-weight: bold;
+            text-shadow: 0 0 30px currentColor;
+            animation: pulse 0.5s ease-in-out infinite alternate;
+        }
+        
+        @keyframes pulse {
+            from { transform: scale(1); opacity: 0.8; }
+            to { transform: scale(1.1); opacity: 1; }
+        }
+        
+        .status-dead { color: #e74c3c; }
+        .status-win { color: #27ae60; }
+    </style>
+</head>
+<body>
+    <!-- 游戏区 -->
+    <div id="game-area">
+        <div id="game-info">
+            POS:<span id="pos-x">0</span> | 
+            Y:<span id="pos-y">1</span> | 
+            GEN:<span id="gen">1</span>
+        </div>
+        <div id="viewport">
+            <div class="grid-overlay"></div>
+            <div class="air-row"></div>
+            <div class="game-layer" id="game-content"></div>
+        </div>
+    </div>
+    
+    <!-- 神经元区 -->
+    <div id="neuron-area">
+        <div id="neuron-placeholder">
+            <div class="neuron-icon">🧠</div>
+            <div>[ 神经元网络可视化区域 ]</div>
+            <div style="font-size: 11px; margin-top: 8px; opacity: 0.6;">等待 AI 接入...</div>
+        </div>
+    </div>
+    
+    <!-- 操作区 -->
+    <div id="control-area">
+        <button class="btn" id="btn-right">
+            ▶
+            <span class="btn-label">移动</span>
+        </button>
+        <button class="btn" id="btn-jump">
+            ⬆
+            <span class="btn-label">跳跃</span>
+        </button>
+    </div>
+    
+    <!-- 状态覆盖层 -->
+    <div id="status-overlay">
+        <div class="status-text" id="status-text"></div>
+    </div>
+
+    <script>
+        // ========== 配置 ==========
+        const CONFIG = {
+            WORLD_WIDTH: 32,
+            VIEWPORT_WIDTH: 4,
+            VIEWPORT_HEIGHT: 3,  // y2, y1, y0
+            PLAYER_VIEW_X: 1,    // 玩家在视野中的固定x位置
+            GOAL_X: 30,
+            GRID_SIZE: 70,       // 每格像素
+            ANIMATION_DURATION: 300, // 毫秒
+            JUMP_HEIGHT: 60      // 跳跃高度（像素）
+        };
+        
+        // ========== 状态 ==========
+        let world = [];  // 地面层，0=坑，1=平地
+        let player = {
+            x: 0,
+            y: 1,  // 1=地面(y1)，2=空中(y2)
+            visualX: 70,  // 视觉位置（像素）
+            visualY: 70   // 视觉位置（像素，从顶部算）
+        };
+        let isAnimating = false;
+        let generation = 1;
+        
+        // ========== 初始化 ==========
+        function initWorld() {
+            world = [];
+            for (let i = 0; i < CONFIG.WORLD_WIDTH; i++) {
+                if (i === 0 || i === CONFIG.GOAL_X) {
+                    world.push(1);
+                } else {
+                    world.push(Math.random() < 0.7 ? 1 : 0);
+                }
+            }
+            // 避免连续坑
+            for (let i = 1; i < CONFIG.WORLD_WIDTH - 1; i++) {
+                if (world[i] === 0 && world[i-1] === 0) {
+                    world[i] = 1;
+                }
+            }
+        }
+        
+        function resetGame() {
+            player.x = 0;
+            player.y = 1;
+            player.visualX = CONFIG.PLAYER_VIEW_X * CONFIG.GRID_SIZE + 10;
+            player.visualY = CONFIG.GRID_SIZE + 10;  // y1 位置
+            isAnimating = false;
+            generation++;
+            hideStatus();
+            render();
+        }
+        
+        // ========== 渲染 ==========
+        function render() {
+            const container = document.getElementById('game-content');
+            container.innerHTML = '';
+            
+            // 计算视野左边界
+            let viewLeft = player.x - CONFIG.PLAYER_VIEW_X;
+            
+            // 渲染地面层（逻辑y0，显示在视野底部）
+            const groundRow = document.createElement('div');
+            groundRow.className = 'ground-row';
+            
+            for (let vx = 0; vx < CONFIG.VIEWPORT_WIDTH; vx++) {
+                const worldX = viewLeft + vx;
+                const cell = document.createElement('div');
+                cell.className = 'ground-cell';
+                
+                if (worldX >= 0 && worldX < CONFIG.WORLD_WIDTH) {
+                    if (worldX === CONFIG.GOAL_X) {
+                        cell.className += ' ground-goal';
+                        cell.textContent = '🏁';
+                    } else if (world[worldX] === 1) {
+                        cell.className += ' ground-flat';
+                        cell.textContent = '';
+                    } else {
+                        cell.className += ' ground-pit';
+                        cell.textContent = '';
+                    }
+                } else {
+                    cell.style.background = '#0a0a0f';
+                }
+                
+                groundRow.appendChild(cell);
+            }
+            
+            container.appendChild(groundRow);
+            
+            // 渲染玩家（始终固定在视野的(1,1)视觉位置，但用视觉坐标）
+            const playerEl = document.createElement('div');
+            playerEl.className = 'player';
+            playerEl.id = 'player';
+            playerEl.textContent = '🤖';
+            playerEl.style.left = player.visualX + 'px';
+            playerEl.style.top = player.visualY + 'px';
+            container.appendChild(playerEl);
+            
+            // 更新信息
+            document.getElementById('pos-x').textContent = player.x;
+            document.getElementById('pos-y').textContent = player.y;
+            document.getElementById('gen').textContent = generation;
+        }
+        
+        // ========== 动画 ==========
+        function animatePlayer(targetX, targetY, isJump = false, onComplete) {
+            const playerEl = document.getElementById('player');
+            if (!playerEl) return;
+            
+            isAnimating = true;
+            const startX = player.visualX;
+            const startY = player.visualY;
+            const startTime = performance.now();
+            
+            function update(currentTime) {
+                const elapsed = currentTime - startTime;
+                const progress = Math.min(elapsed / CONFIG.ANIMATION_DURATION, 1);
+                
+                // 缓动函数
+                const ease = t => t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+                const t = ease(progress);
+                
+                if (isJump) {
+                    // 抛物线跳跃：x线性，y抛物线
+                    player.visualX = startX + (targetX - startX) * t;
+                    
+                    // 抛物线：上升到最高点再下降
+                    const jumpProgress = Math.sin(t * Math.PI);
+                    player.visualY = startY - jumpProgress * CONFIG.JUMP_HEIGHT;
+                } else {
+                    // 平移：直接线性插值
+                    player.visualX = startX + (targetX - startX) * t;
+                    player.visualY = startY + (targetY - startY) * t;
+                }
+                
+                playerEl.style.left = player.visualX + 'px';
+                playerEl.style.top = player.visualY + 'px';
+                
+                if (progress < 1) {
+                    requestAnimationFrame(update);
+                } else {
+                    player.visualX = targetX;
+                    player.visualY = targetY;
+                    isAnimating = false;
+                    if (onComplete) onComplete();
+                }
+            }
+            
+            requestAnimationFrame(update);
+        }
+        
+        // ========== 游戏逻辑 ==========
+        function checkResult(x, y) {
+            // 检查是否死亡（在地面层且脚下是坑）
+            if (y === 1 && world[x] === 0) {
+                return 'dead';
+            }
+            // 检查是否胜利
+            if (x >= CONFIG.GOAL_X) {
+                return 'win';
+            }
+            return 'alive';
+        }
+        
+        function showStatus(type) {
+            const overlay = document.getElementById('status-overlay');
+            const text = document.getElementById('status-text');
+            
+            if (type === 'dead') {
+                text.textContent = '💀 死亡';
+                text.className = 'status-text status-dead';
+            } else if (type === 'win') {
+                text.textContent = '🏆 胜利';
+                text.className = 'status-text status-win';
+            }
+            
+            overlay.classList.add('show');
+        }
+        
+        function hideStatus() {
+            document.getElementById('status-overlay').classList.remove('show');
+        }
+        
+        function executeMove(action) {
+            if (isAnimating) return;
+            
+            let targetX = player.x;
+            let targetY = player.y;
+            let visualTargetX = player.visualX;
+            let visualTargetY = player.visualY;
+            let isJump = false;
+            
+            if (action === 'right') {
+                // 右移：x+1，保持在y1
+                targetX = player.x + 1;
+                targetY = 1;
+                visualTargetX = CONFIG.PLAYER_VIEW_X * CONFIG.GRID_SIZE + 10;
+                visualTargetY = CONFIG.GRID_SIZE + 10;
+                
+            } else if (action === 'jump') {
+                // 跳跃：x+2，y升到2再落回1
+                targetX = player.x + 2;
+                targetY = 1;  // 最终落回地面
+                visualTargetX = CONFIG.PLAYER_VIEW_X * CONFIG.GRID_SIZE + 10;
+                visualTargetY = CONFIG.GRID_SIZE + 10;
+                isJump = true;
+            }
+            
+            // 边界检查
+            targetX = Math.min(targetX, CONFIG.WORLD_WIDTH - 1);
+            
+            // 执行动画
+            animatePlayer(visualTargetX, visualTargetY, isJump, () => {
+                // 动画完成后更新逻辑状态
+                player.x = targetX;
+                player.y = targetY;
+                
+                const result = checkResult(targetX, targetY);
+                
+                if (result === 'dead') {
+                    showStatus('dead');
+                    setTimeout(resetGame, 1500);
+                } else if (result === 'win') {
+                    showStatus('win');
+                    setTimeout(resetGame, 1500);
+                } else {
+                    // 继续游戏，重新渲染以更新地面滚动
+                    render();
+                }
+            });
+        }
+        
+        // ========== 事件绑定 ==========
+        document.getElementById('btn-right').addEventListener('click', () => {
+            executeMove('right');
+        });
+        
+        document.getElementById('btn-jump').addEventListener('click', () => {
+            executeMove('jump');
+        });
+        
+        // 键盘控制
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
+                executeMove('right');
+            }
+            if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W' || e.key === ' ') {
+                executeMove('jump');
+            }
+        });
+        
+        // ========== 启动 ==========
+        initWorld();
+        resetGame();
+    </script>
+</body>
+</html>
