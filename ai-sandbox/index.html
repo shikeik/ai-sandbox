@@ -371,24 +371,37 @@
             }
             container.appendChild(gridOverlay);
             
-            // 生成地形
+            // 生成地形（确保没有连续坑，玩家跳+走能通过）
             let currentX = 0;
+            let lastWasPit = false;
             
-            // 起点
+            // 起点（强制平地）
             createGround(0, 2);
             currentX = 2;
             
             while (currentX < CONFIG.WORLD_LENGTH - 2) {
-                if (Math.random() < 0.65) {
+                if (lastWasPit) {
+                    // 上一个必须是坑，这次必须是地面（至少1格）
                     const len = 1 + Math.floor(Math.random() * 2);
                     createGround(currentX, len);
                     currentX += len;
+                    lastWasPit = false;
                 } else {
-                    createPit(currentX);
-                    currentX += 1;
+                    // 上一个不是坑，可以随机
+                    if (Math.random() < 0.6) {
+                        const len = 1 + Math.floor(Math.random() * 2);
+                        createGround(currentX, len);
+                        currentX += len;
+                        lastWasPit = false;
+                    } else {
+                        createPit(currentX);
+                        currentX += 1;
+                        lastWasPit = true;
+                    }
                 }
             }
             
+            // 终点前强制平地
             createGround(currentX, 2);
             createGoal(CONFIG.WORLD_LENGTH - 1);
             
@@ -431,7 +444,7 @@
         }
         
         function resetPlayer() {
-            player.x = CONFIG.GRID_SIZE * 0.5;
+            player.x = CONFIG.GRID_SIZE * 0.5 - 20;
             player.y = CONFIG.GROUND_HEIGHT;
             player.state = 'idle';
             isProcessing = false;
