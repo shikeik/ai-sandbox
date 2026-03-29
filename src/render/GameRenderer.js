@@ -57,9 +57,12 @@ class Tween {
     let currentY
     
     if (this.isJump) {
-      // 抛物线跳跃
-      const height = Math.sin(progress * Math.PI) * CONFIG.toPx(CONFIG.JUMP_HEIGHT)
-      currentY = this.fromY + height
+      // 抛物线跳跃：从 fromY 起跳，最后落到 toY（地面）
+      // 基础高度从 fromY 过渡到 toY
+      const baseY = this.fromY + (this.toY - this.fromY) * progress
+      // 抛物线高度（正弦波）
+      const jumpHeight = Math.sin(progress * Math.PI) * CONFIG.toPx(CONFIG.JUMP_HEIGHT)
+      currentY = baseY + jumpHeight
     } else {
       // 平地移动
       currentY = this.fromY + (this.toY - this.fromY) * t
