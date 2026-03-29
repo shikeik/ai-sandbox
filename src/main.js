@@ -6,6 +6,7 @@
 import { JumpGame, ACTION, CONFIG } from '@game/JumpGame.js'
 import { GameRenderer } from '@render/GameRenderer.js'
 import './style.css'
+import './style-fox.css'
 
 // ========== 全局实例 ==========
 let game = null

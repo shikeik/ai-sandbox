@@ -188,6 +188,8 @@ export class GameRenderer {
         this.visual.x = x
         this.visual.y = y
         this._updatePlayerVisual(x, y)
+        // 更新狐狸动画状态（程序自动计算）
+        this._updateFoxAnimation({ x, y, status: 'moving' }, true, isJump)
         // 用视觉位置更新相机（平滑跟随）
         if (this.game) {
           this.game._updateCamera(x)
@@ -379,7 +381,96 @@ export class GameRenderer {
     const playerSize = CONFIG.toPx(CONFIG.PLAYER_SIZE)
     this.playerEl.style.width = `${playerSize}px`
     this.playerEl.style.height = `${playerSize}px`
+    
+    // 创建狐狸结构
+    this.playerEl.innerHTML = `
+      <div class="fox-container state-idle" data-state="idle">
+        <div class="fox-tail"></div>
+        <div class="fox-body"></div>
+        <div class="fox-head">
+          <div class="fox-ear left"></div>
+          <div class="fox-ear right"></div>
+          <div class="fox-eye left"></div>
+          <div class="fox-eye right"></div>
+          <div class="fox-nose"></div>
+        </div>
+        <div class="fox-legs">
+          <div class="fox-leg front-left"></div>
+          <div class="fox-leg front-right"></div>
+          <div class="fox-leg back-left"></div>
+          <div class="fox-leg back-right"></div>
+        </div>
+      </div>
+    `
     this.worldEl.appendChild(this.playerEl)
+    
+    // 获取狐狸容器用于动画控制
+    this.foxContainer = this.playerEl.querySelector('.fox-container')
+    
+    // 初始化动画状态
+    this._foxState = 'idle'
+    this._foxLastY = 0
+    this._foxVelocity = 0
+    this._foxOnGround = true
+  }
+  
+  /**
+   * 更新狐狸动画状态（程序自动计算）
+   */
+  _updateFoxAnimation(player, isMoving, isJump) {
+    if (!this.foxContainer) return
+    
+    const currentY = player.y
+    const currentX = player.x
+    
+    // 计算垂直速度
+    this._foxVelocity = currentY - this._foxLastY
+    this._foxLastY = currentY
+    
+    // 判断是否在地面上
+    const groundY = CONFIG.toPx(CONFIG.GROUND_HEIGHT)
+    const onGround = Math.abs(currentY - groundY) < 5
+    
+    // 计算新状态
+    let newState = 'idle'
+    
+    if (player.status === 'dead') {
+      newState = 'dead'
+    } else if (!onGround) {
+      // 在空中
+      if (this._foxVelocity > 0.5) {
+        newState = 'jump-down'  // 下降
+      } else if (this._foxVelocity < -0.5) {
+        newState = 'jump-up'    // 上升
+      } else {
+        newState = 'jump-up'    // 最高点附近，保持上升姿态
+      }
+    } else if (isMoving) {
+      newState = 'run'  // 地面移动
+    } else {
+      newState = 'idle' // 待机
+    }
+    
+    // 落地检测（从空中到地面）
+    if (!this._foxOnGround && onGround && this._foxState !== 'idle') {
+      newState = 'land'
+      // 0.2秒后恢复待机
+      setTimeout(() => {
+        if (this.foxContainer) {
+          this.foxContainer.classList.remove('state-land')
+          this.foxContainer.classList.add('state-idle')
+        }
+      }, 200)
+    }
+    
+    // 应用新状态
+    if (newState !== this._foxState) {
+      this.foxContainer.classList.remove(`state-${this._foxState}`)
+      this.foxContainer.classList.add(`state-${newState}`)
+      this._foxState = newState
+    }
+    
+    this._foxOnGround = onGround
   }
   
   _showStatus(emoji, type) {

@@ -1,0 +1,310 @@
+/* 跳跃狐狸 - 纯CSS绘制，程序控制动画 */
+#player {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  z-index: 100;
+  /* 尺寸由JS动态设置 */
+}
+
+/* 狐狸容器 */
+.fox-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transition: transform 0.15s ease-out;
+}
+
+/* ========== 狐狸身体结构 ========== */
+
+/* 尾巴 */
+.fox-tail {
+  position: absolute;
+  bottom: 20%;
+  right: -10%;
+  width: 50%;
+  height: 60%;
+  background: linear-gradient(135deg, #e67e22 0%, #d35400 100%);
+  border-radius: 50% 50% 40% 40%;
+  transform-origin: bottom left;
+  transition: transform 0.2s ease-out;
+  z-index: 1;
+}
+
+.fox-tail::after {
+  content: '';
+  position: absolute;
+  top: 20%;
+  left: 20%;
+  width: 60%;
+  height: 40%;
+  background: #fff5e6;
+  border-radius: 50%;
+}
+
+/* 身体 */
+.fox-body {
+  position: absolute;
+  bottom: 15%;
+  left: 15%;
+  width: 70%;
+  height: 50%;
+  background: linear-gradient(180deg, #e67e22 0%, #d35400 100%);
+  border-radius: 40% 40% 35% 35%;
+  z-index: 2;
+  transition: transform 0.1s ease-out;
+}
+
+/* 肚子 */
+.fox-body::after {
+  content: '';
+  position: absolute;
+  bottom: 10%;
+  left: 20%;
+  width: 60%;
+  height: 50%;
+  background: #fff5e6;
+  border-radius: 40%;
+}
+
+/* 头部 */
+.fox-head {
+  position: absolute;
+  top: 5%;
+  left: 10%;
+  width: 80%;
+  height: 50%;
+  background: linear-gradient(135deg, #e67e22 0%, #d35400 100%);
+  border-radius: 45% 45% 40% 40%;
+  z-index: 3;
+  transition: transform 0.1s ease-out;
+}
+
+/* 耳朵 */
+.fox-ear {
+  position: absolute;
+  top: -30%;
+  width: 30%;
+  height: 50%;
+  background: linear-gradient(180deg, #e67e22 0%, #d35400 100%);
+  border-radius: 50% 50% 30% 30%;
+  transition: transform 0.15s ease-out;
+}
+
+.fox-ear.left {
+  left: 10%;
+  transform: rotate(-15deg);
+}
+
+.fox-ear.right {
+  right: 10%;
+  transform: rotate(15deg);
+}
+
+.fox-ear::after {
+  content: '';
+  position: absolute;
+  top: 20%;
+  left: 25%;
+  width: 50%;
+  height: 50%;
+  background: #fff5e6;
+  border-radius: 50%;
+}
+
+/* 眼睛 */
+.fox-eye {
+  position: absolute;
+  top: 35%;
+  width: 20%;
+  height: 20%;
+  background: #2c3e50;
+  border-radius: 50%;
+  transition: transform 0.1s;
+}
+
+.fox-eye.left {
+  left: 20%;
+}
+
+.fox-eye.right {
+  right: 20%;
+}
+
+.fox-eye::after {
+  content: '';
+  position: absolute;
+  top: 20%;
+  right: 20%;
+  width: 40%;
+  height: 40%;
+  background: white;
+  border-radius: 50%;
+}
+
+/* 鼻子 */
+.fox-nose {
+  position: absolute;
+  bottom: 25%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 15%;
+  height: 12%;
+  background: #2c3e50;
+  border-radius: 40%;
+}
+
+/* 四肢 */
+.fox-legs {
+  position: absolute;
+  bottom: 0;
+  left: 10%;
+  width: 80%;
+  height: 30%;
+  display: flex;
+  justify-content: space-around;
+  z-index: 4;
+}
+
+.fox-leg {
+  width: 20%;
+  height: 100%;
+  background: linear-gradient(180deg, #d35400 0%, #a04000 100%);
+  border-radius: 30%;
+  transform-origin: top center;
+  transition: transform 0.1s ease-out;
+}
+
+.fox-leg.front-left { transform: rotate(-5deg); }
+.fox-leg.front-right { transform: rotate(5deg); }
+.fox-leg.back-left { transform: rotate(-8deg); }
+.fox-leg.back-right { transform: rotate(8deg); }
+
+/* ========== 动画状态 ========== */
+
+/* 待机 - 呼吸 */
+.fox-container.state-idle {
+  animation: foxBreathe 2s ease-in-out infinite;
+}
+
+.fox-container.state-idle .fox-tail {
+  animation: foxTailWag 3s ease-in-out infinite;
+}
+
+/* 地面移动 - 奔跑 */
+.fox-container.state-run {
+  animation: foxRun 0.4s ease-in-out infinite;
+}
+
+.fox-container.state-run .fox-leg.front-left {
+  animation: legSwing 0.4s ease-in-out infinite;
+}
+
+.fox-container.state-run .fox-leg.front-right {
+  animation: legSwing 0.4s ease-in-out infinite reverse;
+}
+
+.fox-container.state-run .fox-leg.back-left {
+  animation: legSwing 0.4s ease-in-out infinite reverse;
+}
+
+.fox-container.state-run .fox-leg.back-right {
+  animation: legSwing 0.4s ease-in-out infinite;
+}
+
+/* 跳跃上升 */
+.fox-container.state-jump-up {
+  transform: scaleY(1.15) scaleX(0.9) translateY(-10%);
+}
+
+.fox-container.state-jump-up .fox-leg {
+  transform: rotate(-30deg) scaleY(0.8);
+}
+
+.fox-container.state-jump-up .fox-tail {
+  transform: rotate(-20deg);
+}
+
+.fox-container.state-jump-up .fox-ear.left {
+  transform: rotate(-25deg);
+}
+
+.fox-container.state-jump-up .fox-ear.right {
+  transform: rotate(25deg);
+}
+
+/* 跳跃下降 */
+.fox-container.state-jump-down {
+  transform: scaleY(0.9) scaleX(1.1) translateY(5%);
+}
+
+.fox-container.state-jump-down .fox-leg {
+  transform: rotate(20deg) scaleY(1.1);
+}
+
+.fox-container.state-jump-down .fox-tail {
+  transform: rotate(15deg);
+}
+
+/* 落地 */
+.fox-container.state-land {
+  transform: scaleY(0.8) scaleX(1.15);
+  animation: foxLand 0.2s ease-out;
+}
+
+.fox-container.state-land .fox-leg {
+  transform: scaleY(0.7);
+}
+
+/* ========== 动画定义 ========== */
+
+@keyframes foxBreathe {
+  0%, 100% { transform: scaleY(1); }
+  50% { transform: scaleY(1.03); }
+}
+
+@keyframes foxTailWag {
+  0%, 100% { transform: rotate(-5deg); }
+  50% { transform: rotate(10deg); }
+}
+
+@keyframes foxRun {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8%); }
+}
+
+@keyframes legSwing {
+  0%, 100% { transform: rotate(-20deg); }
+  50% { transform: rotate(20deg); }
+}
+
+@keyframes foxLand {
+  0% { transform: scaleY(0.7) scaleX(1.2); }
+  100% { transform: scaleY(1) scaleX(1); }
+}
+
+/* 死亡 */
+.fox-container.state-dead {
+  animation: foxDead 0.5s ease-in forwards;
+}
+
+@keyframes foxDead {
+  to {
+    transform: translateY(150%) rotate(180deg);
+    opacity: 0;
+  }
+}
+
+/* 方向 - 翻转 */
+.fox-container.dir-left {
+  transform: scaleX(-1);
+}
+
+/* 所有过渡 */
+.fox-container,
+.fox-container *,
+.fox-leg {
+  transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}

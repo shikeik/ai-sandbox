@@ -172,6 +172,8 @@ export class JumpGame {
     this.player.y = CONFIG.toPx(CONFIG.GROUND_HEIGHT)
     this.player.grid = Math.floor(targetX / CONFIG.GRID_SIZE)
     this.player.status = STATUS.MOVING  // 视觉上还在移动
+    this.player.isJump = isJump  // 标记是否是跳跃动作
+    this.player.direction = action === ACTION.RIGHT ? 1 : 2  // 移动方向（1=右移, 2=跳跃）
     
     // 更新相机
     this._updateCamera()
