@@ -14,43 +14,58 @@
 
 /* ========== 侧面狐狸结构 ========== */
 
-/* 尾巴 - 在身体后方 */
+/* 尾巴 - 在身体后方，更大更蓬松 */
 .fox-tail {
   position: absolute;
-  bottom: 20%;
-  left: -30%;
-  width: 60%;
-  height: 70%;
+  bottom: 25%;
+  left: -45%;
+  width: 80%;
+  height: 85%;
   background: linear-gradient(135deg, #d35400 0%, #a04000 100%);
-  border-radius: 50% 50% 40% 40%;
+  border-radius: 60% 40% 50% 50%;
   transform-origin: bottom right;
-  transition: transform 0.2s ease-out;
+  transition: transform 0.15s ease-out;
   z-index: 1;
 }
 
 .fox-tail::after {
   content: '';
   position: absolute;
-  top: 15%;
-  left: 20%;
-  width: 50%;
-  height: 40%;
+  top: 10%;
+  left: 15%;
+  width: 60%;
+  height: 50%;
   background: #fff5e6;
   border-radius: 50%;
 }
 
-/* 后腿（远侧） */
-.fox-leg-back {
+/* 四条腿 */
+/* 后腿远侧 */
+.fox-leg-back-far {
   position: absolute;
   bottom: 0;
-  left: 10%;
-  width: 25%;
-  height: 45%;
-  background: linear-gradient(180deg, #a04000 0%, #803000 100%);
+  left: 5%;
+  width: 22%;
+  height: 40%;
+  background: linear-gradient(180deg, #803000 0%, #602000 100%);
   border-radius: 30%;
   transform-origin: top center;
   transition: transform 0.15s ease-out;
-  z-index: 2;
+  z-index: 1;
+}
+
+/* 后腿近侧 */
+.fox-leg-back-near {
+  position: absolute;
+  bottom: 0;
+  left: 20%;
+  width: 25%;
+  height: 48%;
+  background: linear-gradient(180deg, #d35400 0%, #a04000 100%);
+  border-radius: 30%;
+  transform-origin: top center;
+  transition: transform 0.15s ease-out;
+  z-index: 4;
 }
 
 /* 身体主体 */
@@ -103,31 +118,28 @@
   z-index: 4;
 }
 
-/* 耳朵 */
+/* 耳朵 - 更大更尖，典型的狐狸大耳朵 */
 .fox-ear {
   position: absolute;
-  top: -35%;
-  width: 35%;
-  height: 50%;
+  top: -55%;
+  right: 15%;
+  width: 45%;
+  height: 70%;
   background: linear-gradient(180deg, #d35400 0%, #a04000 100%);
-  border-radius: 50% 50% 30% 30%;
+  border-radius: 50% 50% 20% 20%;
   transform-origin: bottom center;
+  transform: rotate(15deg);
   transition: transform 0.15s ease-out;
-}
-
-.fox-ear {
-  right: 20%;
-  transform: rotate(10deg);
 }
 
 .fox-ear::after {
   content: '';
   position: absolute;
-  top: 25%;
-  left: 20%;
-  width: 60%;
-  height: 55%;
-  background: #fff5e6;
+  top: 20%;
+  left: 15%;
+  width: 70%;
+  height: 65%;
+  background: #ffdde8;
   border-radius: 50%;
 }
 
@@ -181,22 +193,26 @@
 
 /* ========== 动画状态 ========== */
 
-/* 待机 */
+/* 待机 - 呼吸+尾巴自然摇摆 */
 .fox-container.state-idle {
   animation: foxBreathe 2s ease-in-out infinite;
 }
 
 .fox-container.state-idle .fox-tail {
-  animation: tailSway 2.5s ease-in-out infinite;
+  animation: tailWag 3s ease-in-out infinite;
 }
 
-/* 奔跑 */
+/* 奔跑 - 四条腿交替 */
 .fox-container.state-run {
   animation: foxBob 0.3s ease-in-out infinite;
 }
 
-.fox-container.state-run .fox-leg-back {
+.fox-container.state-run .fox-leg-back-far {
   animation: legRunBack 0.3s ease-in-out infinite;
+}
+
+.fox-container.state-run .fox-leg-back-near {
+  animation: legRunBack 0.3s ease-in-out infinite reverse;
 }
 
 .fox-container.state-run .fox-leg-front-far {
@@ -216,7 +232,8 @@
   transform: rotate(-15deg) translateY(-5%);
 }
 
-.fox-container.state-jump-up .fox-leg-back {
+.fox-container.state-jump-up .fox-leg-back-far,
+.fox-container.state-jump-up .fox-leg-back-near {
   transform: rotate(-40deg);
 }
 
@@ -226,11 +243,11 @@
 }
 
 .fox-container.state-jump-up .fox-tail {
-  transform: rotate(-20deg);
+  transform: rotate(-30deg) scaleX(0.9);
 }
 
 .fox-container.state-jump-up .fox-ear {
-  transform: rotate(20deg);
+  transform: rotate(25deg);
 }
 
 /* 跳跃下降 */
@@ -238,7 +255,8 @@
   transform: rotate(10deg) translateY(3%);
 }
 
-.fox-container.state-jump-down .fox-leg-back {
+.fox-container.state-jump-down .fox-leg-back-far,
+.fox-container.state-jump-down .fox-leg-back-near {
   transform: rotate(30deg);
 }
 
@@ -248,7 +266,7 @@
 }
 
 .fox-container.state-jump-down .fox-tail {
-  transform: rotate(15deg);
+  transform: rotate(20deg);
 }
 
 /* 落地 */
@@ -256,7 +274,8 @@
   animation: foxLand 0.2s ease-out;
 }
 
-.fox-container.state-land .fox-leg-back,
+.fox-container.state-land .fox-leg-back-far,
+.fox-container.state-land .fox-leg-back-near,
 .fox-container.state-land .fox-leg-front-far,
 .fox-container.state-land .fox-leg-front-near {
   transform: scaleY(0.7);
@@ -269,9 +288,12 @@
   50% { transform: scaleY(1.02); }
 }
 
-@keyframes tailSway {
-  0%, 100% { transform: rotate(-10deg); }
-  50% { transform: rotate(15deg); }
+/* 尾巴自然摇摆 - 待机时 */
+@keyframes tailWag {
+  0%, 100% { transform: rotate(-15deg) scaleX(1); }
+  25% { transform: rotate(-5deg) scaleX(1.05); }
+  50% { transform: rotate(10deg) scaleX(1); }
+  75% { transform: rotate(0deg) scaleX(1.05); }
 }
 
 @keyframes foxBob {
