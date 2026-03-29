@@ -260,6 +260,9 @@ export class GameRenderer {
     if (this.foxContainer) {
       this.foxContainer.classList.remove('state-idle', 'state-run', 'state-jump-up', 'state-jump-down', 'state-land')
       this.foxContainer.classList.add('state-dead')
+      this._foxState = 'dead'
+      // 停止尾巴动画
+      this._startTailAnimation('dead')
     }
     this._showStatus('💀', 'dead')
   }
@@ -282,6 +285,8 @@ export class GameRenderer {
       this._foxLastY = 0
       this._foxVelocity = 0
       this._foxOnGround = true
+      // 重置尾巴动画
+      this._startTailAnimation('idle')
     }
     this._hideStatus()
     
