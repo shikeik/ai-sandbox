@@ -282,6 +282,7 @@ export class GameRenderer {
     el.className = 'ground'
     el.style.left = `${startX}px`
     el.style.width = `${width}px`
+    el.style.height = `${CONFIG.GROUND_HEIGHT}px`
     this.worldEl.appendChild(el)
   }
   
@@ -289,6 +290,8 @@ export class GameRenderer {
     const el = document.createElement('div')
     el.className = 'pit-zone'
     el.style.left = `${startX}px`
+    el.style.width = `${CONFIG.GRID_SIZE}px`
+    el.style.height = `${Math.floor(CONFIG.GRID_SIZE * 0.2)}px`
     this.worldEl.appendChild(el)
   }
   
@@ -306,6 +309,10 @@ export class GameRenderer {
   _createPlayer() {
     this.playerEl = document.createElement('div')
     this.playerEl.id = 'player'
+    // 玩家大小为格子的 0.6 倍
+    const playerSize = Math.floor(CONFIG.GRID_SIZE * 0.6)
+    this.playerEl.style.width = `${playerSize}px`
+    this.playerEl.style.height = `${playerSize}px`
     this.worldEl.appendChild(this.playerEl)
   }
   

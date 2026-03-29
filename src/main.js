@@ -25,13 +25,13 @@ function init() {
   renderer = new GameRenderer('game-world')
   renderer.setGame(game)  // 让渲染器可以通知游戏动画完成
   
-  // 设置视口宽度
-  game.setViewportWidth(gameArea.clientWidth)
+  // 设置视口大小（动态计算格子像素）
+  game.setViewportSize(gameArea.clientWidth)
   
   // 绑定游戏事件回调
   bindGameEvents()
   
-  // 初始化游戏世界
+  // 初始化游戏世界（此时 CONFIG.GRID_SIZE 已确定）
   game.init()
   renderer.initWorld(game.getState().terrain)
   
@@ -115,7 +115,8 @@ function handleKeyDown(e) {
 
 // ========== 窗口适配 ==========
 function handleResize() {
-  game.setViewportWidth(gameArea.clientWidth)
+  game.setViewportSize(gameArea.clientWidth)
+  
   // 用当前视觉位置重新计算相机
   const visualX = renderer.visual.x
   game._updateCamera(visualX)

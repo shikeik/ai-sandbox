@@ -21,9 +21,16 @@
 // ========== 游戏常量 ==========
 export const CONFIG = {
   WORLD_LENGTH: 32,       // 世界总格子数
-  GRID_SIZE: 100,         // 每格像素宽度
-  GROUND_HEIGHT: 80,      // 地面高度(像素)
-  JUMP_HEIGHT: 100,       // 跳跃高度(像素)
+  
+  // 视野配置（格子数）
+  VIEWPORT_GRID_W: 6,     // 视野宽度（格子）
+  VIEWPORT_GRID_H: 4,     // 视野高度（格子）
+  
+  // 动态计算的像素值（在 setViewportSize 后更新）
+  GRID_SIZE: 100,         // 每格像素（正方形）
+  GROUND_HEIGHT: 80,      // 地面高度（像素）
+  JUMP_HEIGHT: 100,       // 跳跃高度（像素）
+  
   MOVE_DURATION: 400,     // 移动动画时长(ms)
   JUMP_DURATION: 600,     // 跳跃动画时长(ms)
   CAMERA_OFFSET_RATIO: 0.3, // 玩家在屏幕左侧30%位置
@@ -104,8 +111,21 @@ export class JumpGame {
     return this
   }
   
-  setViewportWidth(width) {
+  /**
+   * 设置视口大小，动态计算格子像素
+   * @param {number} width - 视口宽度（像素）
+   */
+  setViewportSize(width) {
+    // 计算格子大小
+    CONFIG.GRID_SIZE = Math.floor(width / CONFIG.VIEWPORT_GRID_W)
+    
     this.viewportWidth = width
+    this.viewportHeight = CONFIG.GRID_SIZE * CONFIG.VIEWPORT_GRID_H
+    
+    // 根据格子大小计算其他尺寸
+    CONFIG.GROUND_HEIGHT = Math.floor(CONFIG.GRID_SIZE * 0.8)
+    CONFIG.JUMP_HEIGHT = CONFIG.GRID_SIZE
+    
     this._updateCamera()
   }
 
@@ -317,7 +337,9 @@ export class JumpGame {
   // ========== 玩家与相机 ==========
   
   _resetPlayer() {
-    this.player.x = CONFIG.GRID_SIZE * 0.5 - 20
+    // 玩家大小为格子的 0.6 倍，居中放置
+    const playerSize = Math.floor(CONFIG.GRID_SIZE * 0.6)
+    this.player.x = Math.floor(CONFIG.GRID_SIZE * 0.5 - playerSize * 0.5)
     this.player.y = CONFIG.GROUND_HEIGHT
     this.player.grid = 0
     this.player.status = STATUS.IDLE

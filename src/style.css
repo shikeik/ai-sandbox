@@ -132,17 +132,16 @@ body {
 .ground {
   position: absolute;
   bottom: 0;
-  height: 80px;
   background: var(--color-ground);
   border-top: 4px solid var(--color-ground-border);
+  /* 高度由 JS 动态设置 */
 }
 
 .pit-zone {
   position: absolute;
   bottom: 0;
-  width: 100px;
-  height: 20px;
   background: var(--color-pit);
+  /* 宽高由 JS 动态设置 */
 }
 
 .pit-zone::after {
@@ -192,8 +191,8 @@ body {
 /* ---------- 玩家 ---------- */
 #player {
   position: absolute;
-  width: 40px;
-  height: 40px;
+  width: var(--player-size, 40px);
+  height: var(--player-size, 40px);
   background: var(--color-player);
   border: 2px solid var(--color-player-border);
   border-radius: 6px;
