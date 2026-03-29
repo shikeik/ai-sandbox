@@ -203,6 +203,8 @@ export class GameRenderer {
           this.foxContainer.classList.remove('state-run', 'state-jump-up', 'state-jump-down', 'state-land')
           this.foxContainer.classList.add('state-idle')
           this._foxState = 'idle'
+          // 恢复待机尾巴动画
+          this._startTailAnimation('idle')
         }
         // 通知游戏逻辑动画完成
         if (this.game) {
@@ -447,7 +449,11 @@ export class GameRenderer {
     if (this._tailAnimation) {
       this._tailAnimation.commitStyles()
       this._tailAnimation.cancel()
+      this._tailAnimation = null
     }
+    
+    // 清除 commitStyles 写入的内联样式，避免干扰新动画
+    this.foxTail.style.transform = ''
     
     // 获取当前计算样式作为起始点
     const computedStyle = window.getComputedStyle(this.foxTail)
