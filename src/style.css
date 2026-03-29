@@ -326,6 +326,7 @@ body {
   font-size: 36px;
   cursor: pointer;
   user-select: none;
+  -webkit-tap-highlight-color: transparent;
   position: relative;
   transition: transform 0.05s;
 }
