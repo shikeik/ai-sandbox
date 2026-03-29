@@ -191,8 +191,6 @@ body {
 /* ---------- 玩家 ---------- */
 #player {
   position: absolute;
-  width: var(--player-size, 40px);
-  height: var(--player-size, 40px);
   background: var(--color-player);
   border: 2px solid var(--color-player-border);
   border-radius: 6px;

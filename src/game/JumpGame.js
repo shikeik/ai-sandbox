@@ -19,21 +19,32 @@
  */
 
 // ========== 游戏常量 ==========
+// 所有尺寸使用"单位"(unit)，1 unit = 1格 = GRID_SIZE 像素
 export const CONFIG = {
   WORLD_LENGTH: 32,       // 世界总格子数
   
-  // 视野配置（格子数）
-  VIEWPORT_GRID_W: 6,     // 视野宽度（格子）
-  VIEWPORT_GRID_H: 4,     // 视野高度（格子）
+  // 视野配置（单位）
+  VIEWPORT_GRID_W: 6,     // 视野宽度（单位）
+  VIEWPORT_GRID_H: 4,     // 视野高度（单位）
   
-  // 动态计算的像素值（在 setViewportSize 后更新）
-  GRID_SIZE: 100,         // 每格像素（正方形）
-  GROUND_HEIGHT: 80,      // 地面高度（像素）
-  JUMP_HEIGHT: 100,       // 跳跃高度（像素）
+  // 运行时动态计算的像素值
+  GRID_SIZE: 100,         // 1 unit = ? 像素（正方形）
   
+  // 游戏元素尺寸（单位）
+  GROUND_HEIGHT: 0.8,     // 地面高度（单位）
+  PLAYER_SIZE: 0.6,       // 玩家大小（单位）
+  JUMP_HEIGHT: 1.0,       // 跳跃高度（单位）
+  PLAYER_START_X: 0.3,    // 玩家初始X偏移（单位，居中偏左）
+  
+  // 动画
   MOVE_DURATION: 400,     // 移动动画时长(ms)
   JUMP_DURATION: 600,     // 跳跃动画时长(ms)
   CAMERA_OFFSET_RATIO: 0.3, // 玩家在屏幕左侧30%位置
+  
+  // 辅助函数：单位转像素
+  toPx(units) { return Math.floor(units * this.GRID_SIZE) },
+  // 辅助函数：像素转单位
+  toUnits(px) { return px / this.GRID_SIZE }
 }
 
 // 动作类型
@@ -112,19 +123,15 @@ export class JumpGame {
   }
   
   /**
-   * 设置视口大小，动态计算格子像素
+   * 设置视口大小，动态计算 1 unit = ? 像素
    * @param {number} width - 视口宽度（像素）
    */
   setViewportSize(width) {
-    // 计算格子大小
+    // 计算 1 unit = ? 像素
     CONFIG.GRID_SIZE = Math.floor(width / CONFIG.VIEWPORT_GRID_W)
     
     this.viewportWidth = width
-    this.viewportHeight = CONFIG.GRID_SIZE * CONFIG.VIEWPORT_GRID_H
-    
-    // 根据格子大小计算其他尺寸
-    CONFIG.GROUND_HEIGHT = Math.floor(CONFIG.GRID_SIZE * 0.8)
-    CONFIG.JUMP_HEIGHT = CONFIG.GRID_SIZE
+    this.viewportHeight = CONFIG.toPx(CONFIG.VIEWPORT_GRID_H)
     
     this._updateCamera()
   }
@@ -146,19 +153,19 @@ export class JumpGame {
     const fromY = this.player.y
     const isJump = action === ACTION.JUMP
     
-    // 计算目标位置
+    // 计算目标位置（像素）
     let targetX
     if (action === ACTION.RIGHT) {
-      targetX = fromX + CONFIG.GRID_SIZE
+      targetX = fromX + CONFIG.toPx(1)  // 移动 1 unit
     } else if (action === ACTION.JUMP) {
-      targetX = fromX + CONFIG.GRID_SIZE * 2
+      targetX = fromX + CONFIG.toPx(2)  // 跳跃 2 unit
     } else {
       return null
     }
     
     // 立即执行逻辑
     this.player.x = targetX
-    this.player.y = CONFIG.GROUND_HEIGHT
+    this.player.y = CONFIG.toPx(CONFIG.GROUND_HEIGHT)
     this.player.grid = Math.floor(targetX / CONFIG.GRID_SIZE)
     this.player.status = STATUS.MOVING  // 视觉上还在移动
     
@@ -167,7 +174,7 @@ export class JumpGame {
     
     // 通知动作开始（提供补间所需信息）
     if (this.onActionStart) {
-      this.onActionStart(action, { x: fromX, y: fromY }, { x: targetX, y: CONFIG.GROUND_HEIGHT }, isJump)
+      this.onActionStart(action, { x: fromX, y: fromY }, { x: targetX, y: CONFIG.toPx(CONFIG.GROUND_HEIGHT) }, isJump)
     }
     
     this._notifyStateChange()
@@ -307,16 +314,16 @@ export class JumpGame {
   _addGround(startGrid, length) {
     this.terrain.push({
       type: TERRAIN.GROUND,
-      start: startGrid * CONFIG.GRID_SIZE,
-      end: (startGrid + length) * CONFIG.GRID_SIZE
+      start: CONFIG.toPx(startGrid),
+      end: CONFIG.toPx(startGrid + length)
     })
   }
   
   _addPit(grid) {
     this.terrain.push({
       type: TERRAIN.PIT,
-      start: grid * CONFIG.GRID_SIZE,
-      end: (grid + 1) * CONFIG.GRID_SIZE
+      start: CONFIG.toPx(grid),
+      end: CONFIG.toPx(grid + 1)
     })
   }
 
@@ -329,7 +336,7 @@ export class JumpGame {
   }
   
   _getTerrainAt(grid) {
-    const x = grid * CONFIG.GRID_SIZE + CONFIG.GRID_SIZE / 2
+    const x = CONFIG.toPx(grid) + CONFIG.toPx(0.5)  // 格子中心
     if (this._isInPit(x)) return TERRAIN.PIT
     return TERRAIN.GROUND
   }
@@ -337,10 +344,9 @@ export class JumpGame {
   // ========== 玩家与相机 ==========
   
   _resetPlayer() {
-    // 玩家大小为格子的 0.6 倍，居中放置
-    const playerSize = Math.floor(CONFIG.GRID_SIZE * 0.6)
-    this.player.x = Math.floor(CONFIG.GRID_SIZE * 0.5 - playerSize * 0.5)
-    this.player.y = CONFIG.GROUND_HEIGHT
+    // 玩家初始位置：第0格 + 偏移量，使其居中
+    this.player.x = CONFIG.toPx(CONFIG.PLAYER_START_X)
+    this.player.y = CONFIG.toPx(CONFIG.GROUND_HEIGHT)
     this.player.grid = 0
     this.player.status = STATUS.IDLE
     this._updateCamera()
@@ -349,7 +355,7 @@ export class JumpGame {
   _updateCamera(playerX = this.player.x) {
     if (this.viewportWidth <= 0) return
     const targetX = playerX - this.viewportWidth * CONFIG.CAMERA_OFFSET_RATIO
-    const maxX = (CONFIG.WORLD_LENGTH * CONFIG.GRID_SIZE) - this.viewportWidth
+    const maxX = CONFIG.toPx(CONFIG.WORLD_LENGTH) - this.viewportWidth
     this.camera.x = Math.max(0, Math.min(targetX, maxX))
   }
 

@@ -58,7 +58,7 @@ class Tween {
     
     if (this.isJump) {
       // 抛物线跳跃
-      const height = Math.sin(progress * Math.PI) * CONFIG.JUMP_HEIGHT
+      const height = Math.sin(progress * Math.PI) * CONFIG.toPx(CONFIG.JUMP_HEIGHT)
       currentY = this.fromY + height
     } else {
       // 平地移动
@@ -89,7 +89,7 @@ export class GameRenderer {
     this.currentTween = null
     
     // 视觉位置（用于补间起点）
-    this.visual = { x: 0, y: CONFIG.GROUND_HEIGHT }
+    this.visual = { x: 0, y: CONFIG.toPx(CONFIG.GROUND_HEIGHT) }
     
     // 信息面板元素
     this.posDisplay = document.getElementById('pos-display')
@@ -203,6 +203,15 @@ export class GameRenderer {
   }
   
   /**
+   * 设置视觉位置（指定像素坐标）
+   */
+  setVisualPosition(x, y) {
+    this.visual.x = x
+    this.visual.y = y
+    this._updatePlayerVisual(x, y)
+  }
+  
+  /**
    * 更新世代显示
    */
   updateGeneration(gen) {
@@ -258,7 +267,7 @@ export class GameRenderer {
     gridOverlay.className = 'world-grid'
     
     for (let i = 0; i <= CONFIG.WORLD_LENGTH; i++) {
-      const x = i * CONFIG.GRID_SIZE
+      const x = CONFIG.toPx(i)
       
       const line = document.createElement('div')
       line.className = 'grid-vline'
@@ -282,7 +291,7 @@ export class GameRenderer {
     el.className = 'ground'
     el.style.left = `${startX}px`
     el.style.width = `${width}px`
-    el.style.height = `${CONFIG.GROUND_HEIGHT}px`
+    el.style.height = `${CONFIG.toPx(CONFIG.GROUND_HEIGHT)}px`
     this.worldEl.appendChild(el)
   }
   
@@ -291,14 +300,15 @@ export class GameRenderer {
     el.className = 'pit-zone'
     el.style.left = `${startX}px`
     el.style.width = `${CONFIG.GRID_SIZE}px`
-    el.style.height = `${Math.floor(CONFIG.GRID_SIZE * 0.2)}px`
+    el.style.height = `${CONFIG.toPx(0.2)}px`  // 0.2 unit 深度
     this.worldEl.appendChild(el)
   }
   
   _createGoal() {
     const el = document.createElement('div')
     el.className = 'goal'
-    el.style.left = `${(CONFIG.WORLD_LENGTH - 1) * CONFIG.GRID_SIZE}px`
+    // 终点位置（第 WORLD_LENGTH-1 格）
+    el.style.left = `${CONFIG.toPx(CONFIG.WORLD_LENGTH - 1)}px`
     el.innerHTML = `
       <div class="goal-pole"></div>
       <div class="goal-flag"></div>
@@ -309,8 +319,8 @@ export class GameRenderer {
   _createPlayer() {
     this.playerEl = document.createElement('div')
     this.playerEl.id = 'player'
-    // 玩家大小为格子的 0.6 倍
-    const playerSize = Math.floor(CONFIG.GRID_SIZE * 0.6)
+    // 玩家大小为 0.6 unit
+    const playerSize = CONFIG.toPx(CONFIG.PLAYER_SIZE)
     this.playerEl.style.width = `${playerSize}px`
     this.playerEl.style.height = `${playerSize}px`
     this.worldEl.appendChild(this.playerEl)
