@@ -250,8 +250,10 @@ export class GameRenderer {
    * 显示死亡动画
    */
   showDeath() {
-    if (this.playerEl) {
-      this.playerEl.classList.add('falling')
+    // 给狐狸容器添加死亡状态
+    if (this.foxContainer) {
+      this.foxContainer.classList.remove('state-idle', 'state-run', 'state-jump-up', 'state-jump-down', 'state-land')
+      this.foxContainer.classList.add('state-dead')
     }
     this._showStatus('💀', 'dead')
   }
@@ -267,8 +269,13 @@ export class GameRenderer {
    * 重置玩家状态（新一关）
    */
   resetPlayer() {
-    if (this.playerEl) {
-      this.playerEl.classList.remove('falling')
+    // 重置狐狸状态
+    if (this.foxContainer) {
+      this.foxContainer.className = 'fox-container state-idle'
+      this._foxState = 'idle'
+      this._foxLastY = 0
+      this._foxVelocity = 0
+      this._foxOnGround = true
     }
     this._hideStatus()
     
