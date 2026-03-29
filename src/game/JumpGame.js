@@ -32,9 +32,12 @@ export const CONFIG = {
   
   // 游戏元素尺寸（单位）
   GROUND_HEIGHT: 0.8,     // 地面高度（单位）
-  PLAYER_SIZE: 0.6,       // 玩家大小（单位）
+  PLAYER_SIZE: 0.45,      // 玩家大小（单位）- 稍微小一点，留出视觉空间
   JUMP_HEIGHT: 1.0,       // 跳跃高度（单位）
-  PLAYER_START_X: 0.3,    // 玩家初始X偏移（单位，居中偏左）
+  // 坐标系说明：玩家位置(x,y)是左下角坐标（对应CSS left/bottom）
+  // 第0格范围：[0, 1] unit，中心在 0.5 unit
+  // 玩家居中放置：左边缘 = 格子中心 - 玩家大小/2 = 0.5 - 0.45/2 = 0.275
+  PLAYER_START_X: 0.275,  // 玩家初始X位置（单位），使玩家在第0格居中
   
   // 动画
   MOVE_DURATION: 400,     // 移动动画时长(ms)
