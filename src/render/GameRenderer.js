@@ -426,7 +426,10 @@ export class GameRenderer {
     
     // 尾巴WAAPI动画控制（实现类似Spine的动画混合）
     this._tailAnimation = null
-    this._startTailAnimation('idle')
+    // 延迟启动动画，确保DOM已渲染
+    requestAnimationFrame(() => {
+      this._startTailAnimation('idle')
+    })
   }
   
   /**
@@ -435,23 +438,24 @@ export class GameRenderer {
   _startTailAnimation(state) {
     if (!this.foxTail) return
     
-    // 获取当前计算样式作为起始点（实现平滑混合）
-    const computedStyle = window.getComputedStyle(this.foxTail)
-    const matrix = new DOMMatrix(computedStyle.transform)
-    // 从矩阵中提取旋转角度
-    const currentRotate = Math.atan2(matrix.b, matrix.a) * (180 / Math.PI)
-    
-    // 停止当前动画
+    // 停止当前动画并提交样式（避免跳变）
     if (this._tailAnimation) {
+      this._tailAnimation.commitStyles()
       this._tailAnimation.cancel()
     }
+    
+    // 获取当前计算样式作为起始点
+    const computedStyle = window.getComputedStyle(this.foxTail)
+    const matrix = new DOMMatrix(computedStyle.transform)
+    // 从矩阵中提取旋转角度（如果无效则使用默认角度）
+    let currentRotate = Math.atan2(matrix.b, matrix.a) * (180 / Math.PI)
+    if (isNaN(currentRotate)) currentRotate = -10
     
     // 根据状态定义动画
     let keyframes, options
     
     switch(state) {
       case 'run':
-        // 从当前角度平滑过渡到跑步摆动
         keyframes = [
           { transform: `rotate(${currentRotate}deg)`, offset: 0 },
           { transform: 'rotate(-10deg)', offset: 0.15 },
@@ -461,7 +465,6 @@ export class GameRenderer {
         options = { duration: 300, iterations: Infinity }
         break
       case 'jump-up':
-        // 平滑过渡到上升姿态
         keyframes = [
           { transform: `rotate(${currentRotate}deg) scaleX(1)` },
           { transform: 'rotate(-30deg) scaleX(0.9)' }
@@ -469,7 +472,6 @@ export class GameRenderer {
         options = { duration: 200, fill: 'forwards', easing: 'ease-out' }
         break
       case 'jump-down':
-        // 平滑过渡到下降姿态
         keyframes = [
           { transform: `rotate(${currentRotate}deg)` },
           { transform: 'rotate(20deg)' }
@@ -478,14 +480,20 @@ export class GameRenderer {
         break
       case 'land':
         keyframes = [
-          { transform: 'rotate(0deg)' },
+          { transform: `rotate(${currentRotate}deg)` },
           { transform: 'rotate(-10deg)' }
         ]
         options = { duration: 200, fill: 'forwards' }
         break
+      case 'dead':
+        // 死亡时停止尾巴动画，随身体一起倒下
+        if (this._tailAnimation) {
+          this._tailAnimation.cancel()
+          this._tailAnimation = null
+        }
+        return
       case 'idle':
       default:
-        // 从当前角度平滑过渡到待机动画
         keyframes = [
           { transform: `rotate(${currentRotate}deg)`, offset: 0 },
           { transform: 'rotate(-10deg)', offset: 0.2 },

@@ -24,7 +24,8 @@
   background: linear-gradient(135deg, #d35400 0%, #a04000 100%);
   border-radius: 60% 40% 50% 50%;
   transform-origin: bottom right;
-  /* WAAPI控制动画，不需要CSS transition */
+  /* WAAPI控制动画，必须禁用CSS transition避免冲突 */
+  transition: none !important;
   will-change: transform;
   z-index: 1;
 }
@@ -328,6 +329,8 @@
 .fox-container.state-dead {
   animation: foxDead 0.5s ease-in forwards;
   transform-origin: bottom left;
+  /* 禁用transition确保死亡动画流畅 */
+  transition: none !important;
 }
 
 @keyframes foxDead {
