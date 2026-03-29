@@ -382,24 +382,19 @@ export class GameRenderer {
     this.playerEl.style.width = `${playerSize}px`
     this.playerEl.style.height = `${playerSize}px`
     
-    // 创建狐狸结构
+    // 创建狐狸结构（侧面视角）
     this.playerEl.innerHTML = `
       <div class="fox-container state-idle" data-state="idle">
         <div class="fox-tail"></div>
+        <div class="fox-leg-back"></div>
         <div class="fox-body"></div>
+        <div class="fox-leg-front-far"></div>
         <div class="fox-head">
-          <div class="fox-ear left"></div>
-          <div class="fox-ear right"></div>
-          <div class="fox-eye left"></div>
-          <div class="fox-eye right"></div>
+          <div class="fox-ear"></div>
+          <div class="fox-eye"></div>
           <div class="fox-nose"></div>
         </div>
-        <div class="fox-legs">
-          <div class="fox-leg front-left"></div>
-          <div class="fox-leg front-right"></div>
-          <div class="fox-leg back-left"></div>
-          <div class="fox-leg back-right"></div>
-        </div>
+        <div class="fox-leg-front-near"></div>
       </div>
     `
     this.worldEl.appendChild(this.playerEl)
