@@ -324,9 +324,9 @@ export class JumpGame {
     this._updateCamera()
   }
   
-  _updateCamera() {
+  _updateCamera(playerX = this.player.x) {
     if (this.viewportWidth <= 0) return
-    const targetX = this.player.x - this.viewportWidth * CONFIG.CAMERA_OFFSET_RATIO
+    const targetX = playerX - this.viewportWidth * CONFIG.CAMERA_OFFSET_RATIO
     const maxX = (CONFIG.WORLD_LENGTH * CONFIG.GRID_SIZE) - this.viewportWidth
     this.camera.x = Math.max(0, Math.min(targetX, maxX))
   }

@@ -54,10 +54,8 @@ function init() {
 
 // ========== 事件绑定 ==========
 function bindGameEvents() {
-  // 状态变化时更新相机（逻辑位置已变）
+  // 状态变化时更新格子显示（相机由补间驱动）
   game.onStateChange = (player, camera) => {
-    renderer.updateCamera(camera)
-    
     // 更新格子显示
     const posDisplay = document.getElementById('pos-display')
     if (posDisplay) {
@@ -118,8 +116,10 @@ function handleKeyDown(e) {
 // ========== 窗口适配 ==========
 function handleResize() {
   game.setViewportWidth(gameArea.clientWidth)
-  const state = game.getState()
-  renderer.updateCamera(state.camera)
+  // 用当前视觉位置重新计算相机
+  const visualX = renderer.visual.x
+  game._updateCamera(visualX)
+  renderer.updateCamera(game.camera)
 }
 
 // ========== 启动 ==========

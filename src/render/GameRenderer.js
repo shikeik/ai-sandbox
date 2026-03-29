@@ -164,6 +164,11 @@ export class GameRenderer {
         this.visual.x = x
         this.visual.y = y
         this._updatePlayerVisual(x, y)
+        // 用视觉位置更新相机（平滑跟随）
+        if (this.game) {
+          this.game._updateCamera(x)
+          this.updateCamera(this.game.camera)
+        }
       },
       onComplete: () => {
         this.currentTween = null
