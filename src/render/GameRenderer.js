@@ -188,8 +188,8 @@ export class GameRenderer {
         this.visual.x = x
         this.visual.y = y
         this._updatePlayerVisual(x, y)
-        // 更新狐狸动画状态（程序自动计算）
-        this._updateFoxAnimation({ x, y, status: 'moving' }, true, isJump)
+        // 更新狐狸动画状态 - 跳跃时根据高度判断，平地移动时显示奔跑
+        this._updateFoxAnimation({ x, y, status: 'moving' }, !isJump, isJump)
         // 用视觉位置更新相机（平滑跟随）
         if (this.game) {
           this.game._updateCamera(x)
@@ -198,6 +198,12 @@ export class GameRenderer {
       },
       onComplete: () => {
         this.currentTween = null
+        // 动画完成，狐狸恢复待机状态
+        if (this.foxContainer) {
+          this.foxContainer.classList.remove('state-run', 'state-jump-up', 'state-jump-down', 'state-land')
+          this.foxContainer.classList.add('state-idle')
+          this._foxState = 'idle'
+        }
         // 通知游戏逻辑动画完成
         if (this.game) {
           this.game.notifyVisualComplete()
