@@ -306,8 +306,7 @@
 
 @keyframes foxDead {
   to {
-    transform: translateY(150%) rotate(90deg);
-    opacity: 0;
+    transform: translateY(150%) rotate(180deg);
   }
 }
 
