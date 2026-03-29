@@ -267,10 +267,10 @@ export class JumpGame {
   
   _nextGeneration() {
     this.generation++
+    this.init()  // 先初始化世界（重建 DOM）
     if (this.onGenerationChange) {
-      this.onGenerationChange(this.generation)
+      this.onGenerationChange(this.generation)  // 再清理视觉状态
     }
-    this.init()
   }
 
   // ========== 地形生成 ==========

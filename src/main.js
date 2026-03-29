@@ -58,6 +58,9 @@ function bindGameEvents() {
   
   // 世代变化（新一关）
   game.onGenerationChange = (gen) => {
+    renderer.initWorld(game.getState().terrain)  // 重新渲染地形（创建新 DOM）
+    const state = game.getState()
+    renderer.update(state.player, state.camera)  // 同步玩家位置和相机
     renderer.updateGeneration(gen)
     renderer.resetPlayer()  // 清理死亡/胜利的视觉状态
   }

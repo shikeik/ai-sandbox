@@ -25,7 +25,7 @@ export class GameRenderer {
     
     // 创建世界容器
     this.worldEl = document.createElement('div')
-    this.worldEl.id = 'game-world'
+    this.worldEl.className = 'world-content'
     
     // 渲染网格线
     this._renderGridLines()
