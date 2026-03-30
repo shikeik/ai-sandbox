@@ -234,9 +234,6 @@ export class JumpGame {
     // 检查游戏状态
     if (this.gameStatus !== GAME_STATUS.RUNNING) return null
     
-    // 检查人物动作状态（防止连续操作）
-    if (this.player.action !== PLAYER_ACTION.IDLE) return null
-    
     const fromX = this.player.x
     const fromY = this.player.y
     const isJump = action === ACTION.JUMP

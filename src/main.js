@@ -370,20 +370,10 @@ function updateGameInfo() {
   if (!gameInfo) return
   
   const player = game.getState().player
-  const isRunning = game.gameStatus === GAME_STATUS.RUNNING
+  const currentTime = formatTimeMs(game.getElapsedTime())
+  const bestTime = playerBestStore.getFormatted()
   
-  let timeStr
-  if (isRunning) {
-    // 游戏中：显示当前 TIME（毫秒）
-    timeStr = formatTimeMs(game.getElapsedTime())
-  } else {
-    // 其他状态：显示 BEST（毫秒）
-    timeStr = playerBestStore.getFormatted()
-  }
-  
-  const label = isRunning ? 'TIME' : 'BEST'
-  
-  gameInfo.innerHTML = `POS: <span id="pos-display">${player.grid}</span> | GEN: <span id="gen-display">${game.getState().generation}</span>${isAIMode ? '' : ` | ${label}: ${timeStr}`}`
+  gameInfo.innerHTML = `POS: <span id="pos-display">${player.grid}</span> | GEN: <span id="gen-display">${game.getState().generation}</span>${isAIMode ? '' : ` | TIME: ${currentTime} | BEST: ${bestTime}`}`
 }
 
 // ========== 输入控制 ==========
@@ -392,13 +382,11 @@ function bindControls() {
   btnRight.addEventListener('click', () => {
     if (isAIMode) return
     if (game.gameStatus !== GAME_STATUS.RUNNING) return
-    if (game.player.action !== PLAYER_ACTION.IDLE) return
     game.execute(ACTION.RIGHT)
   })
   btnJump.addEventListener('click', () => {
     if (isAIMode) return
     if (game.gameStatus !== GAME_STATUS.RUNNING) return
-    if (game.player.action !== PLAYER_ACTION.IDLE) return
     game.execute(ACTION.JUMP)
   })
   
@@ -412,9 +400,6 @@ function handleKeyDown(e) {
   
   // 检查游戏状态
   if (game.gameStatus !== GAME_STATUS.RUNNING) return
-  
-  // 检查人物动作状态（防止连续操作）
-  if (game.player.action !== PLAYER_ACTION.IDLE) return
   
   if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
     e.preventDefault()
