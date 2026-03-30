@@ -12,7 +12,14 @@ export class NetworkView {
   }
   
   init() {
-    this.container.innerHTML = ''
+    // 只移除已有的canvas和占位符，不清空整个容器（保留菜单按钮）
+    const oldCanvas = this.container.querySelector('canvas')
+    if (oldCanvas) oldCanvas.remove()
+    
+    // 移除 HTML 中的占位符
+    const placeholder = this.container.querySelector('#neuron-placeholder')
+    if (placeholder) placeholder.remove()
+    
     this.canvas = document.createElement('canvas')
     this.canvas.style.width = '100%'
     this.canvas.style.height = '100%'

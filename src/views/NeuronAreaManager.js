@@ -231,13 +231,9 @@ export class NeuronAreaManager {
       this.currentView.destroy()
     }
     
-    // 清空容器（保留菜单）
-    const children = Array.from(this.container.children)
-    children.forEach(child => {
-      if (child.id !== 'view-menu-btn' && child.id !== 'view-menu-dropdown') {
-        child.remove()
-      }
-    })
+    // 只移除视图内容（canvas），保留菜单
+    const canvas = this.container.querySelector('canvas')
+    if (canvas) canvas.remove()
     
     // 创建新视图
     const ViewClass = this.views.get(name)
