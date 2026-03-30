@@ -203,6 +203,43 @@ export class NeuronAreaManager {
     
     this.container.appendChild(menu)
     this.menuDropdown = menu
+    
+    addDivider()
+
+    // --- 新增：探索率手动控制区 ---
+    const epsTitle = document.createElement('div')
+    epsTitle.textContent = '🧠 好奇心控制'
+    epsTitle.style.cssText = 'padding: 4px 16px; color: rgba(255,255,255,0.5); font-size: 11px;'
+    menu.appendChild(epsTitle)
+
+    // 开关：自动调节
+    const toggleAuto = document.createElement('div')
+    toggleAuto.className = 'menu-item'
+    toggleAuto.textContent = '🔄 自动调节开关'
+    toggleAuto.style.cssText = 'padding: 8px 16px; cursor: pointer; color: #fff; font-size: 13px;'
+    toggleAuto.addEventListener('click', () => {
+      if (window.network) {
+        window.network.autoAdjustEpsilon = !window.network.autoAdjustEpsilon;
+        alert(`自动调节已${window.network.autoAdjustEpsilon ? '开启' : '关闭'}`);
+      }
+    })
+    addHoverEffect(toggleAuto)
+    menu.appendChild(toggleAuto)
+
+    // 一键设置：50% 探索率
+    const set50 = document.createElement('div')
+    set50.className = 'menu-item'
+    set50.textContent = '🎲 设为 50% (梦游模式)'
+    set50.style.cssText = 'padding: 8px 16px; cursor: pointer; color: #f39c12; font-size: 13px;'
+    set50.addEventListener('click', () => {
+      if (window.network) {
+        window.network.autoAdjustEpsilon = false; // 自动设为手动锁定
+        window.network.epsilon = 0.5;
+        alert('已锁定探索率为 50%');
+      }
+    })
+    addHoverEffect(set50)
+    menu.appendChild(set50)
   }
   
   toggleMenu() {

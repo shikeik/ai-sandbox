@@ -148,7 +148,7 @@ body {
 
 /* ---------- 游戏区域 ---------- */
 #game-area {
-  flex: 0 0 50%;
+  flex: 0 0 42%;
   background: var(--color-bg-game);
   position: relative;
   overflow: hidden;
@@ -429,4 +429,14 @@ body {
   margin-top: 16px;
   font-size: 12px;
   color: rgba(255, 255, 255, 0.6);
+}
+
+/* 确保全屏引导在最上层 */
+#fs-guide-overlay {
+  cursor: pointer;
+  user-select: none;
+}
+
+#fs-guide-overlay .start-button {
+  pointer-events: none; /* 让点击穿透到遮罩本身，方便用户点哪里都能进入 */
 }

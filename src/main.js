@@ -24,6 +24,9 @@ let playerBestStore = null
 let viewManager = null
 let timerInterval = null
 
+let performanceHistory = []; // 滑动窗口队列
+const WINDOW_SIZE = 5;      // 窗口大小
+
 // ========== 模式设置 ==========
 let isAIMode = false      // 是否为 AI 控制模式
 let isAITrainMode = false // 是否为 AI 训练模式（仅训练模式下会更新权重和自动循环）
@@ -75,6 +78,7 @@ function init() {
     learningRate: 0.2,
     weightClip: 5
   })
+  window.network = network
   
   historyStore = new HistoryStore()
   playerBestStore = new PlayerBestStore()
@@ -157,6 +161,33 @@ function init() {
   
   console.log('🎮 AI 训练沙盘已初始化，等待开始...')
   console.log('🤖 AI模式:', isAIMode ? '开启' : '关闭')
+  
+  // --- 全屏引导逻辑 ---
+  const isFullscreenRequested = new URLSearchParams(window.location.search).get('fullscreen') === 'true';
+  const fsOverlay = document.getElementById('fs-guide-overlay');
+
+  if (isFullscreenRequested && fsOverlay) {
+    // 1. 显示遮罩
+    fsOverlay.classList.remove('hidden');
+
+    // 2. 绑定点击事件
+    fsOverlay.addEventListener('click', () => {
+      const docElm = document.documentElement;
+      
+      // 执行全屏请求
+      if (docElm.requestFullscreen) {
+        docElm.requestFullscreen();
+      } else if (docElm.webkitRequestFullscreen) {
+        docElm.webkitRequestFullscreen();
+      } else if (docElm.msRequestFullscreen) {
+        docElm.msRequestFullscreen();
+      }
+
+      // 3. 隐藏并销毁这个引导层
+      fsOverlay.classList.add('hidden');
+      setTimeout(() => fsOverlay.remove(), 500); // 彻底从 DOM 中移除
+    });
+  }
 }
 
 // ========== 动态 UI 控制面板 ==========
@@ -421,18 +452,49 @@ function makeAIDecision() {
 // ========== 记录结果 ==========
 function recordResult(finalStatus) {
   const player = game.getState().player
+  const steps = player.grid
+  
+  // 记录到历史存储
   historyStore.add({
     generation: game.getState().generation,
-    steps: player.grid,
+    steps: steps,
     finalStatus: finalStatus,
     weights: network.getWeightsSnapshot()
   })
+
+  // --- 动态 ε 调节精密逻辑 ---
+  if (isAITrainMode && network) {
+    // 计算 5 局滚动平均分
+    if (performanceHistory.length >= WINDOW_SIZE) performanceHistory.shift();
+    const currentAvg = performanceHistory.length > 0 
+      ? performanceHistory.reduce((a, b) => a + b, 0) / performanceHistory.length 
+      : steps;
+    performanceHistory.push(steps);
+    
+    // 2. 【核心修改】：只有当自动调节开关打开时，才执行数值变动
+    if (network.autoAdjustEpsilon) {
+      // 精确调节数值
+      if (steps > currentAvg) {
+        // 进步了：减少探索量 (Step 0.05)
+        network.epsilon = Math.max(0.1, network.epsilon - 0.05);
+      } else if (steps < currentAvg) {
+        // 退步了：增加探索量 (Step 0.05)
+        network.epsilon = Math.min(0.4, network.epsilon + 0.05);
+      } else {
+        // 持平：微调收敛 (Step 0.01)
+        network.epsilon = Math.max(0.1, network.epsilon - 0.01);
+      }
+    }
+    
+    console.log(`📊 窗口平均:${currentAvg.toFixed(1)} | 本局:${steps} | 新好奇心(ε):${network.epsilon.toFixed(2)}`);
+  }
 }
 
 // ========== 视图渲染 ==========
 function renderCurrentAIView(inputs = null, action = null) {
   if ((viewManager.activeViewName === 'network' || viewManager.activeViewName === 'matrix') && network) {
-    viewManager.render(network, inputs, action)
+    // 确保这里传了 network 实例，否则 UI 看不到好奇心数值
+    viewManager.render(network, inputs, action); 
   }
 }
 

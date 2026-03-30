@@ -69,7 +69,7 @@ export class NetworkView {
     const nodePositions = this.calculatePositions(layers, w, h)
     this.drawConnections(ctx, nodePositions, weights, inputs)
     this.drawNodes(ctx, nodePositions, inputs, action)
-    this.drawInfo(ctx, w, h, structure)
+    this.drawInfo(ctx, w, h, structure, network)
   }
   
   calculatePositions(layers, w, h) {
@@ -176,12 +176,25 @@ export class NetworkView {
     }
   }
   
-  drawInfo(ctx, w, h, structure) {
+  drawInfo(ctx, w, h, structure, network) {
     ctx.fillStyle = 'rgba(255,255,255,0.8)'
     ctx.font = '12px monospace'
     ctx.textAlign = 'left'
     ctx.fillText(`结构: ${structure.layerSizes.join('-')}`, 10, 20)
     ctx.fillText(`权重数: ${structure.totalWeights}`, 10, 38)
+    
+    // --- 显示实时探索率 ---
+    if (network) {
+      const eps = (network.epsilon * 100).toFixed(0);
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+      ctx.fillText(`好奇心(ε): ${eps}%`, 10, 56);
+      
+      // 如果当前正在“探索”，在旁边画个小骰子或变色文字提醒
+      if (network.isExploring) {
+        ctx.fillStyle = '#f39c12'; // 橘黄色
+        ctx.fillText(`🎲 正在探索随机路径`, 10, 74);
+      }
+    }
   }
   
   destroy() {

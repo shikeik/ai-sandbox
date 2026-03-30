@@ -10,6 +10,11 @@ export class NeuralNetwork {
     this.learningRate = config.learningRate || 0.2
     this.weightClip = config.weightClip || 5
     
+  	// --- 探索率相关属性 ---
+  	this.epsilon = 0.3;       // 初始探索率 (30%)
+  	this.autoAdjustEpsilon = true;   // 是否自动调节开关，默认开启
+  	this.isExploring = false;  // 记录当前动作是否为“探索”产生的
+  
     // 初始化权重和偏置
     this.weights = []
     this.biases =[]
@@ -73,7 +78,18 @@ export class NeuralNetwork {
    */
   decide(inputs) {
     const result = this.forward(inputs)
-    
+      
+    // ε-贪心策略逻辑
+    if (Math.random() < this.epsilon) {
+      // 【探索】：不看分数，50% 几率随机选一个
+      this.isExploring = true;
+      this.lastAction = Math.random() < 0.5 ? 0 : 1;
+    } else {
+      // 【利用】：看分数，选最高分
+      this.isExploring = false;
+      this.lastAction = result.action;
+    }
+  
     // 记录状态用于后续训练
     this.lastState = [...inputs]
     this.lastAction = result.action
