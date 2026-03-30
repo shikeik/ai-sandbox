@@ -61,11 +61,12 @@ export const ACTION = {
 
 // 游戏状态
 export const STATUS = {
-  READY: 'ready',    // 等待开始
-  IDLE: 'idle',      // 待机，可接受操作
-  MOVING: 'moving',  // 移动中（视觉动画播放中，逻辑已完成）
-  DEAD: 'dead',      // 死亡
-  WON: 'won'         // 胜利
+  READY: 'ready',           // 等待开始
+  IDLE: 'idle',             // 待机，可接受操作
+  MOVING: 'moving',         // 移动中（视觉动画播放中，逻辑已完成）
+  DEAD: 'dead',             // 死亡
+  WON: 'won',               // 胜利
+  TRANSITIONING: 'transitioning'  // 转场中
 }
 
 // 地形类型
@@ -108,6 +109,11 @@ export class JumpGame {
     this.onDeath = null          // () => void - 延迟到补间完成
     this.onWin = null            // () => void - 延迟到补间完成
     this.onGenerationChange = null // (gen) => void
+    
+    // 新增转场相关回调
+    this.onTransitionStart = null    // 转场开始
+    this.onTransitionMid = null      // 转场中点（暗屏，执行重生）
+    this.onTransitionEnd = null      // 转场结束
     
     // 视觉状态（等待补间完成）
     this._pendingDeath = false
@@ -306,10 +312,25 @@ export class JumpGame {
     if (!this._pendingDeath) return
     this._pendingDeath = false
     this._inputLocked = true  // 锁定输入
+
     if (this.onDeath) this.onDeath()
-    setTimeout(() => this._nextGeneration(), 1500)
+
+    // 使用转场而非直接重生
+    if (this.onTransitionStart) {
+      this.player.status = STATUS.TRANSITIONING
+      this.onTransitionStart(() => {
+        // 转场中点回调
+        this._executeRespawn()
+      }, () => {
+        // 转场结束回调
+        this._onRespawnComplete()
+      })
+    } else {
+      // 兼容：无转场管理器时直接重生
+      setTimeout(() => this._nextGeneration(), 1500)
+    }
   }
-  
+
   /**
    * 触发胜利（由渲染器在补间完成后调用）
    */
@@ -317,10 +338,43 @@ export class JumpGame {
     if (!this._pendingWin) return
     this._pendingWin = false
     this._inputLocked = true  // 锁定输入
+
     if (this.onWin) this.onWin()
-    setTimeout(() => this._nextGeneration(), 1500)
+
+    if (this.onTransitionStart) {
+      this.player.status = STATUS.TRANSITIONING
+      this.onTransitionStart(() => {
+        this._executeRespawn()
+      }, () => {
+        this._onRespawnComplete()
+      })
+    } else {
+      setTimeout(() => this._nextGeneration(), 1500)
+    }
   }
-  
+
+  // 执行重生（在暗屏时调用）
+  _executeRespawn() {
+    this.generation++
+    this.init()
+    // 注意：init() 会将状态设为 READY，但我们需要保持 TRANSITIONING
+    this.player.status = STATUS.TRANSITIONING
+  }
+
+  // 转场完成后的处理
+  _onRespawnComplete() {
+    // 通知外界世代变化（此时屏幕已亮起）
+    if (this.onGenerationChange) {
+      this.onGenerationChange(this.generation)
+    }
+
+    // 玩家模式下，重置为 READY 状态，显示开始遮罩
+    // AI 模式下，自动开始
+    if (this.onTransitionEnd) {
+      this.onTransitionEnd()
+    }
+  }
+
   _nextGeneration() {
     this.generation++
     this.init()

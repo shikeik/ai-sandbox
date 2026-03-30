@@ -5,6 +5,7 @@
 
 import { JumpGame, ACTION, CONFIG, STATUS } from '@game/JumpGame.js'
 import { GameRenderer } from '@render/GameRenderer.js'
+import { TransitionManager } from '@render/TransitionManager.js'
 import { NeuralNetwork } from '@ai/NeuralNetwork.js'
 import { HistoryStore } from '@ai/HistoryStore.js'
 import { PlayerBestStore } from '@ai/PlayerBestStore.js'
@@ -15,6 +16,7 @@ import './style-fox.css'
 // ========== 全局实例 ==========
 let game = null
 let renderer = null
+let transitionManager = null
 let network = null
 let historyStore = null
 let playerBestStore = null
@@ -78,6 +80,9 @@ function init() {
   
   // 设置视口大小
   game.setViewportSize(gameArea.clientWidth)
+  
+  // 创建转场管理器
+  transitionManager = new TransitionManager('game-area')
   
   // 绑定游戏事件回调
   bindGameEvents()
@@ -202,15 +207,32 @@ function bindGameEvents() {
     renderer.updateGeneration(gen)
     renderer.resetPlayer()
     
-    // 显示开始遮罩（玩家模式）
-    if (!isAIMode) {
-      showStartOverlay()
-    }
+    // 注意：不再在这里显示遮罩或启动计时器，转场结束后由 onTransitionEnd 处理
     
-    // 渲染更新
     renderNetworkView()
     renderHistoryView()
     updateGameInfo()
+  }
+  
+  // 绑定转场事件
+  game.onTransitionStart = (onMidPoint, onComplete) => {
+    transitionManager.playRespawnTransition(onMidPoint, onComplete)
+  }
+  
+  game.onTransitionEnd = () => {
+    // 转场结束后的处理
+    if (!isAIMode) {
+      // 玩家模式：显示开始遮罩，等待玩家点击
+      showStartOverlay()
+      // 重置计时器
+      game.startTime = null
+      stopTimerUpdate()
+      updateGameInfo()
+    } else {
+      // AI 模式：自动开始新世代
+      game.startGame()
+      startAI()
+    }
   }
   
   // 死亡
@@ -412,6 +434,11 @@ if (import.meta.hot) {
   import.meta.hot.dispose(() => {
     console.log('🔄 热更新：清理实例')
     stopAI()
+    stopTimerUpdate()
+    if (transitionManager) {
+      transitionManager.destroy()
+      transitionManager = null
+    }
     if (game) {
       game.destroy?.()
       game = null
