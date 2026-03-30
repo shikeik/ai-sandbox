@@ -5,6 +5,7 @@
 
 import { NetworkView } from './NetworkView.js'
 import { HistoryView } from './HistoryView.js'
+import { MatrixView } from './MatrixView.js'
 
 export class NeuronAreaManager {
   constructor(containerId) {
@@ -23,6 +24,7 @@ export class NeuronAreaManager {
     
     // 注册视图
     this.registerView('network', NetworkView)
+    this.registerView('matrix', MatrixView)
     this.registerView('history', HistoryView)
     
     // 默认显示网络视图
@@ -109,7 +111,7 @@ export class NeuronAreaManager {
       border: 1px solid #5a7a94;
       border-radius: 4px;
       padding: 8px 0;
-      min-width: 120px;
+      min-width: 140px;
       z-index: 2001;
       display: none;
       box-shadow: 0 4px 12px rgba(0,0,0,0.3);
@@ -125,15 +127,18 @@ export class NeuronAreaManager {
       `
       menu.appendChild(divider)
     }
+
+    const addHoverEffect = (el) => {
+      el.addEventListener('mouseenter', () => el.style.background = 'rgba(255,255,255,0.1)')
+      el.addEventListener('mouseleave', () => el.style.background = 'transparent')
+    }
     
     // 模式切换
-    const modes = [
+    const modes =[
       { id: 'player', label: '👤 玩家游玩' },
       { id: 'ai', label: '🤖 AI控制' },
       { id: 'train', label: '📊 AI训练' }
     ]
-    
-    let currentMode = 'player'
     
     modes.forEach(item => {
       const el = document.createElement('div')
@@ -146,26 +151,51 @@ export class NeuronAreaManager {
         font-size: 13px;
       `
       el.addEventListener('click', () => {
-        currentMode = item.id
-        if (this.onModeChange) {
-          this.onModeChange(item.id)
-        }
-        // 不自动关闭菜单
+        if (this.onModeChange) this.onModeChange(item.id)
       })
-      el.addEventListener('mouseenter', () => {
-        el.style.background = 'rgba(255,255,255,0.1)'
+      addHoverEffect(el)
+      menu.appendChild(el)
+    })
+    
+    addDivider()
+
+    // 训练速度控制
+    const speedTitle = document.createElement('div')
+    speedTitle.textContent = '⏱️ 训练速度'
+    speedTitle.style.cssText = 'padding: 4px 16px; color: rgba(255,255,255,0.5); font-size: 11px;'
+    menu.appendChild(speedTitle)
+
+    const speeds =[
+      { id: 'step', label: '🚶 单步 (等待确认)' },
+      { id: 'slow', label: '🐢 慢速 (1秒/步)' },
+      { id: 'normal', label: '🚶 中速 (200ms/步)' },
+      { id: 'fast', label: '🏃 快速 (50ms/步)' },
+      { id: 'max', label: '⚡ 极速 (无延迟)' }
+    ]
+
+    speeds.forEach(item => {
+      const el = document.createElement('div')
+      el.className = 'menu-item'
+      el.textContent = item.label
+      el.style.cssText = `
+        padding: 8px 16px 8px 24px;
+        cursor: pointer;
+        color: #fff;
+        font-size: 12px;
+      `
+      el.addEventListener('click', () => {
+        if (this.onSpeedChange) this.onSpeedChange(item.id)
       })
-      el.addEventListener('mouseleave', () => {
-        el.style.background = 'transparent'
-      })
+      addHoverEffect(el)
       menu.appendChild(el)
     })
     
     addDivider()
     
     // 视图切换
-    const items = [
+    const items =[
       { id: 'network', label: '🧠 网络结构' },
+      { id: 'matrix', label: '🔢 权重矩阵' },
       { id: 'history', label: '📈 训练历史' }
     ]
     
@@ -181,21 +211,13 @@ export class NeuronAreaManager {
       `
       el.addEventListener('click', () => {
         this.switchView(item.id)
-        // 不自动关闭菜单
       })
-      el.addEventListener('mouseenter', () => {
-        el.style.background = 'rgba(255,255,255,0.1)'
-      })
-      el.addEventListener('mouseleave', () => {
-        el.style.background = 'transparent'
-      })
+      addHoverEffect(el)
       menu.appendChild(el)
     })
     
     this.container.appendChild(menu)
     this.menuDropdown = menu
-    
-    // 不监听外部点击，菜单只能通过按钮切换关闭
   }
   
   toggleMenu() {
@@ -240,20 +262,13 @@ export class NeuronAreaManager {
   }
   
   updateMenuButton() {
-    // 固定显示 ☰，不随视图变化
     this.menuBtn.innerHTML = '☰'
   }
   
-  /**
-   * 获取当前视图实例
-   */
   getCurrentView() {
     return this.currentView
   }
   
-  /**
-   * 渲染当前视图
-   */
   render(...args) {
     if (this.currentView && this.currentView.render) {
       this.currentView.render(...args)

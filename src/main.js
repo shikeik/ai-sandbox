@@ -25,8 +25,10 @@ let viewManager = null
 let timerInterval = null
 
 // ========== 模式设置 ==========
-let isAIMode = false  // 默认玩家模式
+let isAIMode = false      // 是否为 AI 控制模式
+let isAITrainMode = false // 是否为 AI 训练模式（仅训练模式下会更新权重和自动循环）
 let aiInterval = null
+let fastLoopId = null     // 极速模式专用
 
 // ========== AI 配置常量 ==========
 const AI_CONFIG = {
@@ -41,6 +43,9 @@ const AI_CONFIG = {
     MAX: 0                // 极速：无延迟
   }
 }
+
+let aiSpeed = AI_CONFIG.SPEEDS.NORMAL  // 默认中速
+let isStepMode = false                 // 单步模式标志
 
 /**
  * 转换游戏状态为神经网络输入
@@ -57,15 +62,10 @@ function convertToInputs(terrainAhead) {
 
 // ========== DOM 元素 ==========
 const gameArea = document.getElementById('game-area')
-const btnRight = document.getElementById('btn-right')
-const btnJump = document.getElementById('btn-jump')
 
 // ========== 初始化 ==========
 function init() {
-  // 创建游戏实例
   game = new JumpGame()
-  
-  // 创建渲染器
   renderer = new GameRenderer('game-world')
   renderer.setGame(game)
   
@@ -76,154 +76,183 @@ function init() {
     weightClip: 5
   })
   
-  // 创建历史存储
   historyStore = new HistoryStore()
-  
-  // 创建玩家最佳记录存储
   playerBestStore = new PlayerBestStore()
-  
-  // 创建视图管理器
   viewManager = new NeuronAreaManager('neuron-area')
+  transitionManager = new TransitionManager('game-area')
   
   // 设置模式切换回调
   viewManager.onModeChange = (mode) => {
     switch(mode) {
       case 'player':
         isAIMode = false
+        isAITrainMode = false
         stopAI()
+        updateControlsUI()
         console.log('👤 切换到玩家模式')
         break
       case 'ai':
         isAIMode = true
+        isAITrainMode = false
+        updateControlsUI()
         startAI()
         console.log('🤖 切换到AI模式')
         break
       case 'train':
         isAIMode = true
+        isAITrainMode = true
+        updateControlsUI()
         startAI()
-        console.log('📊 切换到AI训练模式（自动循环）')
+        console.log('📊 切换到AI训练模式（自动循环并更新权重）')
         break
     }
   }
+
+  // 设置速度切换回调
+  viewManager.onSpeedChange = (speedId) => {
+    switch(speedId) {
+      case 'step': setAISpeed(AI_CONFIG.SPEEDS.STEP); break;
+      case 'slow': setAISpeed(AI_CONFIG.SPEEDS.SLOW); break;
+      case 'normal': setAISpeed(AI_CONFIG.SPEEDS.NORMAL); break;
+      case 'fast': setAISpeed(AI_CONFIG.SPEEDS.FAST); break;
+      case 'max': setAISpeed(AI_CONFIG.SPEEDS.MAX); break;
+    }
+    updateControlsUI()
+  }
   
-  // 设置视口大小
   game.setViewportSize(gameArea.clientWidth)
-  
-  // 创建转场管理器
-  transitionManager = new TransitionManager('game-area')
-  
-  // 绑定游戏事件回调
   bindGameEvents()
-  
-  // 初始化游戏世界
   game.init()
   renderer.initWorld(game.getState().terrain)
   
-  // 初始渲染
   const state = game.getState()
   renderer.syncVisualToLogical(state.player)
   renderer.updateCamera(state.camera)
   renderer.updateGeneration(state.generation)
   
-  // 绑定输入控制
-  bindControls()
-  
-  // 窗口大小变化
+  // 动态构建控制面板并绑定按键
+  updateControlsUI()
+  document.addEventListener('keydown', handleKeyDown)
   window.addEventListener('resize', handleResize)
   
-  // 启动AI（如果开启）
   if (isAIMode) {
     startAI()
   }
   
-  // 初始渲染网络图
-  renderNetworkView()
-  
-  // 初始化游戏信息显示（POS、GEN、TIME、BEST）
+  renderCurrentAIView()
   updateGameInfo()
-  
-  // 绑定开始按钮
   bindStartButton()
-  
-  // 首次加载显示开始遮罩
   showStartOverlay()
   
   console.log('🎮 AI 训练沙盘已初始化，等待开始...')
   console.log('🤖 AI模式:', isAIMode ? '开启' : '关闭')
 }
 
+// ========== 动态 UI 控制面板 ==========
+function updateControlsUI() {
+  const controlArea = document.getElementById('control-area')
+  if (!controlArea) return
+
+  // 玩家模式：显示操作按钮
+  if (!isAIMode) {
+    controlArea.innerHTML = `
+      <button class="btn" id="btn-right">
+        ▶
+        <span class="btn-label">移动 (x+1)</span>
+      </button>
+      <button class="btn" id="btn-jump">
+        ⬆
+        <span class="btn-label">跳跃 (x+2)</span>
+      </button>
+    `
+    const btnRight = document.getElementById('btn-right')
+    const btnJump = document.getElementById('btn-jump')
+    if (btnRight) {
+      btnRight.addEventListener('click', () => {
+        if (game.gameStatus === GAME_STATUS.RUNNING) game.execute(ACTION.RIGHT)
+      })
+    }
+    if (btnJump) {
+      btnJump.addEventListener('click', () => {
+        if (game.gameStatus === GAME_STATUS.RUNNING) game.execute(ACTION.JUMP)
+      })
+    }
+  } 
+  // AI 模式
+  else {
+    if (isStepMode) {
+      // 单步模式：显示下一步按钮
+      controlArea.innerHTML = `
+        <button class="btn" id="btn-step" style="background: var(--color-btn-right); box-shadow: 0 8px 0 var(--color-btn-right-shadow); color: white;">
+          ⏭️
+          <span class="btn-label">下一步 (Space)</span>
+        </button>
+      `
+      const btnStep = document.getElementById('btn-step')
+      if (btnStep) btnStep.addEventListener('click', stepAI)
+    } else {
+      // 自动运行模式：隐藏按钮，显示提示文本
+      controlArea.innerHTML = `
+        <div style="color: #888; font-size: 14px; width: 100%; text-align: center;">🤖 AI自动运行中...</div>
+      `
+    }
+  }
+}
+
 // ========== 开始游戏遮罩控制 ==========
 function showStartOverlay() {
   const overlay = document.getElementById('start-overlay')
-  if (overlay) {
-    overlay.classList.remove('hidden')
-  }
-  
-  // 确保游戏处于 READY 状态
-  if (game.gameStatus !== GAME_STATUS.READY) {
-    game.init()  // 重新初始化以重置状态
-  }
+  if (overlay) overlay.classList.remove('hidden')
+  if (game.gameStatus !== GAME_STATUS.READY) game.init()
 }
 
 function hideStartOverlay() {
   const overlay = document.getElementById('start-overlay')
-  if (overlay) {
-    overlay.classList.add('hidden')
-  }
+  if (overlay) overlay.classList.add('hidden')
 }
 
 function onGameStart() {
-  // 调用游戏开始方法
   game.startGame()
-  
-  // 隐藏遮罩
   hideStartOverlay()
-  
-  // 启动计时器更新（玩家模式）
   if (!isAIMode) {
     startTimerUpdate()
-  }
-  
-  // 如果在 AI 模式，启动 AI
-  if (isAIMode) {
+  } else {
     startAI()
   }
-  
-  console.log('🎮 游戏开始！')
 }
 
 function bindStartButton() {
   const startBtn = document.getElementById('start-btn')
-  if (startBtn) {
-    startBtn.addEventListener('click', onGameStart)
-  }
+  if (startBtn) startBtn.addEventListener('click', onGameStart)
 }
 
 // ========== 事件绑定 ==========
 function bindGameEvents() {
-  // 状态变化时更新显示
   game.onStateChange = (player, camera) => {
     const posDisplay = document.getElementById('pos-display')
-    if (posDisplay) {
-      posDisplay.textContent = player.grid
-    }
-    // AI决策现在由定时器循环控制，不在此处触发
+    if (posDisplay) posDisplay.textContent = player.grid
   }
   
-  // 动作开始
   game.onActionStart = (action, from, to, isJump) => {
-    const duration = isJump ? CONFIG.JUMP_DURATION : CONFIG.MOVE_DURATION
+    let duration = isJump ? CONFIG.JUMP_DURATION : CONFIG.MOVE_DURATION
+    
+    // 动态调整动画速度
+    if (isAIMode && aiSpeed === AI_CONFIG.SPEEDS.MAX) {
+      duration = 16 // 极速：1帧完成
+    } else if (isAIMode && aiSpeed === AI_CONFIG.SPEEDS.FAST) {
+      duration = 50
+    }
+    
     renderer.startActionTween(from, to, isJump, duration)
     
-    // 记录AI决策用于训练（每步存活奖励）
-    if (isAIMode && network) {
+    // 仅在 AI 训练模式下记录并训练
+    if (isAITrainMode && network) {
       const actionIdx = isJump ? 1 : 0
       network.train(AI_CONFIG.STEP_REWARD, actionIdx)
-      renderNetworkView()
+      renderCurrentAIView()
     }
   }
   
-  // 世代变化（新一关）
   game.onGenerationChange = (gen) => {
     renderer.initWorld(game.getState().terrain)
     const state = game.getState()
@@ -232,82 +261,64 @@ function bindGameEvents() {
     renderer.updateGeneration(gen)
     renderer.resetPlayer()
     
-    // 注意：不再在这里显示遮罩或启动计时器，转场结束后由 onTransitionEnd 处理
-    
-    renderNetworkView()
+    renderCurrentAIView()
     renderHistoryView()
     updateGameInfo()
   }
   
-  // 绑定转场事件
   game.onTransitionStart = (onMidPoint, onComplete) => {
-    transitionManager.playRespawnTransition(onMidPoint, onComplete)
+    // 极速训练模式下跳过黑屏转场，实现超高速训练
+    if (isAITrainMode && aiSpeed === AI_CONFIG.SPEEDS.MAX) {
+      onMidPoint()
+      onComplete()
+    } else {
+      transitionManager.playRespawnTransition(onMidPoint, onComplete)
+    }
   }
   
   game.onTransitionEnd = () => {
-    // 转场结束后的处理
     if (!isAIMode) {
-      // 玩家模式：重生后直接开始新一局（不显示遮罩）
-      game.startGame()      // 启动计时器，解锁输入
-      startTimerUpdate()    // 启动 UI 更新
-    } else {
-      // AI 模式：自动开始新一局并继续训练循环
       game.startGame()
-      startAIInterval()     // 重启 AI 决策循环
+      startTimerUpdate()
+    } else {
+      // AI 模式：自动开始新一局
+      game.startGame()
+      startAIInterval()
     }
   }
   
-  // 死亡
   game.onDeath = () => {
     renderer.showDeath()
     recordResult('dead')
+    if (!isAIMode) stopTimerUpdate()
     
-    // 玩家模式下停止计时
-    if (!isAIMode) {
-      stopTimerUpdate()
-    }
-    
-    if (isAIMode) {
-      // 惩罚错误决策
-      const state = game.getStateForAI()
-      const inputs = convertToInputs(state.terrainAhead)
-      network.decide(inputs) // 重新决策获取记录
+    if (isAITrainMode) {
+      // 惩罚直接导致死亡的上一次动作
       network.train(AI_CONFIG.DEATH_REWARD, network.lastAction)
-      renderNetworkView()
+      renderCurrentAIView()
     }
   }
   
-  // 胜利
   game.onWin = () => {
     renderer.showWin()
     recordResult('win')
     
-    if (isAIMode) {
-      // 大奖励
+    if (isAITrainMode) {
       network.train(AI_CONFIG.WIN_REWARD, network.lastAction)
-      renderNetworkView()
-    } else {
-      // 玩家模式：停止计时并更新最佳记录
+      renderCurrentAIView()
+    } else if (!isAIMode) {
       stopTimerUpdate()
       const elapsed = game.getElapsedTime()
-      const isNewRecord = playerBestStore.tryUpdate(elapsed)
-      if (isNewRecord) {
+      if (playerBestStore.tryUpdate(elapsed)) {
         console.log('🎉 新纪录！', playerBestStore.getFormatted())
       }
-      // 更新显示 BEST（非 RUNNING 状态自动显示 BEST）
       updateGameInfo()
     }
   }
 }
 
 // ========== AI 控制 ==========
-let aiSpeed = AI_CONFIG.SPEEDS.NORMAL  // 默认中速
-let isStepMode = false                 // 单步模式标志
 
-/**
- * 设置AI运行速度
- * @param {number|'step'} speed - 速度值或 'step' 单步模式
- */
 function setAISpeed(speed) {
   if (speed === AI_CONFIG.SPEEDS.STEP) {
     isStepMode = true
@@ -319,60 +330,37 @@ function setAISpeed(speed) {
     const speedName = speed === AI_CONFIG.SPEEDS.SLOW ? '慢速' :
                       speed === AI_CONFIG.SPEEDS.NORMAL ? '中速' :
                       speed === AI_CONFIG.SPEEDS.FAST ? '快速' : '极速'
-    console.log(`⏱️ 切换到${speedName}: ${speed}ms`)
+    console.log(`⏱️ 切换到${speedName}`)
   }
   
-  // 如果AI正在运行，重启以应用新速度
-  if (isAIMode && aiInterval) {
+  if (isAIMode && (aiInterval || fastLoopId || isStepMode)) {
     startAIInterval()
   }
 }
 
-/**
- * 执行单步（仅在单步模式下有效）
- */
 function stepAI() {
-  if (!isAIMode || !isStepMode) {
-    console.log('⚠️ 只能在单步模式下执行下一步')
-    return
-  }
+  if (!isAIMode || !isStepMode) return
   makeAIDecision()
 }
 
 function startAI() {
   if (!isAIMode) return
-  
-  console.log('🤖 AI已启动')
-  
-  // 如果游戏未开始，自动开始
   if (game.gameStatus === GAME_STATUS.READY) {
     game.startGame()
   }
-  
-  // 启动 AI 决策循环
   startAIInterval()
 }
 
 function startAIInterval() {
-  // 清除旧定时器
   stopAIInterval()
   
-  if (isStepMode) {
-    // 单步模式：不启动定时器，等待手动触发
-    console.log('🚶 单步模式：点击"下一步"或使用空格键执行')
-    return
-  }
+  if (isStepMode) return // 单步模式等待手动触发
   
-  // 自动模式：按设定速度执行
   if (aiSpeed === AI_CONFIG.SPEEDS.MAX) {
-    // 极速模式：使用 requestAnimationFrame 循环
     runAIFastLoop()
   } else {
-    // 定时模式
     aiInterval = setInterval(() => {
-      if (canMakeDecision()) {
-        makeAIDecision()
-      }
+      if (canMakeDecision()) makeAIDecision()
     }, aiSpeed)
   }
 }
@@ -382,29 +370,25 @@ function stopAIInterval() {
     clearInterval(aiInterval)
     aiInterval = null
   }
+  if (fastLoopId) {
+    cancelAnimationFrame(fastLoopId)
+    fastLoopId = null
+  }
 }
 
 function stopAI() {
   stopAIInterval()
 }
 
-/**
- * 极速模式循环（无延迟）
- */
 function runAIFastLoop() {
-  if (!isAIMode || aiSpeed !== AI_CONFIG.SPEEDS.MAX) return
+  if (!isAIMode || isStepMode || aiSpeed !== AI_CONFIG.SPEEDS.MAX) return
   
   if (canMakeDecision()) {
     makeAIDecision()
   }
-  
-  // 使用 requestAnimationFrame 保持响应
-  requestAnimationFrame(() => runAIFastLoop())
+  fastLoopId = requestAnimationFrame(() => runAIFastLoop())
 }
 
-/**
- * 检查是否可以进行AI决策
- */
 function canMakeDecision() {
   return game.gameStatus === GAME_STATUS.RUNNING && 
          game.getState().player.action === PLAYER_ACTION.IDLE
@@ -416,21 +400,16 @@ function makeAIDecision() {
   const state = game.getStateForAI()
   const inputs = convertToInputs(state.terrainAhead)
   
-  // AI决策
   const action = network.decide(inputs)
-  
-  // 执行动作
   const actionType = action === 1 ? ACTION.JUMP : ACTION.RIGHT
-  game.execute(actionType)
   
-  // 更新视图
-  renderNetworkView(inputs, action)
+  game.execute(actionType)
+  renderCurrentAIView(inputs, action)
 }
 
 // ========== 记录结果 ==========
 function recordResult(finalStatus) {
   const player = game.getState().player
-  
   historyStore.add({
     generation: game.getState().generation,
     steps: player.grid,
@@ -440,8 +419,8 @@ function recordResult(finalStatus) {
 }
 
 // ========== 视图渲染 ==========
-function renderNetworkView(inputs = null, action = null) {
-  if (viewManager.activeViewName === 'network' && network) {
+function renderCurrentAIView(inputs = null, action = null) {
+  if ((viewManager.activeViewName === 'network' || viewManager.activeViewName === 'matrix') && network) {
     viewManager.render(network, inputs, action)
   }
 }
@@ -457,7 +436,7 @@ function startTimerUpdate() {
   stopTimerUpdate()
   timerInterval = setInterval(() => {
     updateGameInfo()
-  }, 100) // 每100ms更新一次
+  }, 100)
 }
 
 function stopTimerUpdate() {
@@ -480,42 +459,6 @@ function updateGameInfo() {
 
 // ========== 输入控制 ==========
 
-/**
- * 绑定游戏控制（按钮和键盘）
- * 
- * 【速通核心机制】
- * 只检查游戏生命周期状态（RUNNING），不检查人物动作状态。
- * 允许在动画期间输入，execute() 会立即执行逻辑并打断当前动画。
- * 这是速通玩法的基础：操作频率决定角色移动速度。
- */
-function bindControls() {
-  // 按钮点击
-  btnRight.addEventListener('click', () => {
-    if (isAIMode) return
-    if (game.gameStatus !== GAME_STATUS.RUNNING) return
-    game.execute(ACTION.RIGHT)
-  })
-  btnJump.addEventListener('click', () => {
-    if (isAIMode) return
-    if (game.gameStatus !== GAME_STATUS.RUNNING) return
-    game.execute(ACTION.JUMP)
-  })
-  
-  // 键盘控制
-  document.addEventListener('keydown', handleKeyDown)
-}
-
-/**
- * 键盘事件处理
- * 
- * 【速通核心机制】
- * 只检查游戏是否处于 RUNNING 状态，不检查人物是否在动画中。
- * 玩家可在任意时刻按键，execute() 立即响应并打断当前动画，
- * 实现"操作多快，游戏多快"的无缝连续操作体验。
- * 
- * 【AI单步模式】
- * AI单步模式下，空格键用于执行下一步（而非跳跃）。
- */
 function handleKeyDown(e) {
   if (e.repeat) return
   
@@ -526,10 +469,7 @@ function handleKeyDown(e) {
     return
   }
   
-  // AI其他模式：禁用键盘
   if (isAIMode) return
-  
-  // 检查游戏状态（速通机制：不检查人物动作状态，允许动画期间输入）
   if (game.gameStatus !== GAME_STATUS.RUNNING) return
   
   if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
@@ -548,9 +488,7 @@ function handleResize() {
   const visualX = renderer.visual.x
   game._updateCamera(visualX)
   renderer.updateCamera(game.camera)
-  
-  // 重新渲染当前视图
-  renderNetworkView()
+  renderCurrentAIView()
 }
 
 // ========== 启动 ==========
@@ -559,7 +497,6 @@ document.addEventListener('DOMContentLoaded', init)
 // ========== Vite 热更新 ==========
 if (import.meta.hot) {
   import.meta.hot.accept()
-  
   import.meta.hot.dispose(() => {
     console.log('🔄 热更新：清理实例')
     stopAI()
@@ -583,5 +520,11 @@ window.aiSandbox = {
   get history() { return historyStore },
   get viewManager() { return viewManager },
   ACTION,
-  toggleAI: () => { isAIMode = !isAIMode; isAIMode ? startAI() : stopAI(); return isAIMode }
+  toggleAI: () => { 
+    isAIMode = !isAIMode
+    isAITrainMode = isAIMode
+    isAIMode ? startAI() : stopAI()
+    updateControlsUI()
+    return isAIMode 
+  }
 }

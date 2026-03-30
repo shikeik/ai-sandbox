@@ -12,7 +12,7 @@ export class NeuralNetwork {
     
     // 初始化权重和偏置
     this.weights = []
-    this.biases = []
+    this.biases =[]
     
     for (let i = 0; i < this.layerSizes.length - 1; i++) {
       const inputSize = this.layerSizes[i]
@@ -33,13 +33,6 @@ export class NeuralNetwork {
     this.lastState = null
     this.lastAction = null
     this.lastScores = null
-  }
-  
-  /**
-   * Sigmoid激活函数
-   */
-  sigmoid(x) {
-    return 1 / (1 + Math.exp(-x))
   }
   
   /**
@@ -67,7 +60,7 @@ export class NeuralNetwork {
     // 输出层（当前只有一层输出）
     const scores = current
     
-    // 纯贪心：选得分最高的
+    // 纯贪心决策：不使用概率或Softmax，直接比较得分选高的
     const action = scores[1] > scores[0] ? 1 : 0
     
     return { scores, action }
@@ -89,8 +82,9 @@ export class NeuralNetwork {
     return result.action
   }
   
-  /**
+/**
    * 训练更新（每步调用）
+   * 标准做法：权重更新值 = 学习率 × 输入值
    * @param {number} reward - 奖励（存活+0.02，死亡-1，胜利+1）
    * @param {number} action - 实际执行的动作
    */
@@ -101,18 +95,17 @@ export class NeuralNetwork {
     const weights = this.weights[layerIdx]
     
     if (reward > 0) {
-      // 正确：增强选中的动作
+      // 正确：增强选中的动作，必须乘以输入值 (this.lastState[i])
       for (let i = 0; i < this.lastState.length; i++) {
         weights[action][i] += this.learningRate * this.lastState[i]
       }
     } else if (reward < 0) {
-      // 错误：惩罚选中的，奖励其他
-      // 惩罚选中
+      // 错误：惩罚选中的动作，必须乘以输入值
       for (let i = 0; i < this.lastState.length; i++) {
         weights[action][i] -= this.learningRate * this.lastState[i]
       }
-      // 奖励其他（均分）
-      const otherReward = this.learningRate / 2 // 一半
+      // 奖励其他动作（惩罚值的一半），同样乘以输入值
+      const otherReward = this.learningRate / 2
       for (let a = 0; a < weights.length; a++) {
         if (a !== action) {
           for (let i = 0; i < this.lastState.length; i++) {
@@ -122,7 +115,7 @@ export class NeuralNetwork {
       }
     }
     
-    // 权重裁剪
+    // 权重裁剪限制范围
     for (let row of weights) {
       for (let i = 0; i < row.length; i++) {
         row[i] = Math.max(-this.weightClip, Math.min(this.weightClip, row[i]))

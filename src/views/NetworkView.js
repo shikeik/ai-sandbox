@@ -72,9 +72,6 @@ export class NetworkView {
     
     // 绘制信息
     this.drawInfo(ctx, w, h, structure)
-    
-    // 绘制权重矩阵面板
-    this.drawWeightMatrix(ctx, w, h, weights, inputs)
   }
   
   calculatePositions(layers, w, h) {
@@ -111,11 +108,8 @@ export class NetworkView {
           const from = fromLayer[i]
           const to = toLayer[j]
           
-          // 连线粗细表示权重绝对值
           const thickness = Math.min(4, Math.abs(weight) * 2 + 0.5)
           const alpha = Math.min(1, Math.abs(weight) * 0.3 + 0.2)
-          
-          // 颜色：正=绿，负=红
           const color = weight > 0 ? `rgba(46, 204, 113, ${alpha})` : `rgba(231, 76, 60, ${alpha})`
           
           ctx.beginPath()
@@ -125,15 +119,16 @@ export class NetworkView {
           ctx.lineWidth = thickness
           ctx.stroke()
           
-          // 显示权重数值（较大的）
-          if (Math.abs(weight) > 0.5) {
-            const midX = (from.x + to.x) / 2
-            const midY = (from.y + to.y) / 2
-            ctx.fillStyle = 'rgba(255,255,255,0.7)'
-            ctx.font = '10px monospace'
-            ctx.textAlign = 'center'
-            ctx.fillText(weight.toFixed(1), midX, midY)
-          }
+          // 将文字移到靠近右侧的位置，并根据输入节点索引(i)稍微错开，防止互相遮挡
+          // i=0(前一格)比例为0.65，i=1(前两格)为0.75，i=2(前三格)为0.85
+          const ratio = 0.65 + (i * 0.1) 
+          const textX = from.x + (to.x - from.x) * ratio
+          const textY = from.y + (to.y - from.y) * ratio
+          
+          ctx.fillStyle = 'rgba(255,255,255,0.9)' // 稍微调亮了一点让字更清晰
+          ctx.font = '10px monospace'
+          ctx.textAlign = 'center'
+          ctx.fillText(weight.toFixed(1), textX, textY)
         }
       }
     }
@@ -196,82 +191,6 @@ export class NetworkView {
     ctx.textAlign = 'left'
     ctx.fillText(`结构: ${structure.layerSizes.join('-')}`, 10, 20)
     ctx.fillText(`权重数: ${structure.totalWeights}`, 10, 38)
-  }
-  
-  /**
-   * 绘制权重矩阵面板
-   * @param {CanvasRenderingContext2D} ctx
-   * @param {number} w - 画布宽度
-   * @param {number} h - 画布高度
-   * @param {number[][][]} weights - 权重数组
-   * @param {number[]} inputs - 当前输入（用于高亮相关权重）
-   */
-  drawWeightMatrix(ctx, w, h, weights, inputs) {
-    // 只绘制第一层权重（输入→输出）
-    if (!weights || weights.length === 0) return
-    
-    const layerWeights = weights[0]  // [输出数][输入数]
-    const outputNames = ['移动', '跳跃']
-    const inputLabels = ['前一格', '前两格', '前三格']
-    
-    // 面板位置和大小
-    const panelW = 140
-    const panelH = 100
-    const x = w - panelW - 10
-    const y = h - panelH - 10
-    
-    // 绘制背景
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.4)'
-    ctx.fillRect(x, y, panelW, panelH)
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)'
-    ctx.lineWidth = 1
-    ctx.strokeRect(x, y, panelW, panelH)
-    
-    // 标题
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.9)'
-    ctx.font = '11px sans-serif'
-    ctx.textAlign = 'center'
-    ctx.fillText('权重矩阵', x + panelW / 2, y + 14)
-    
-    // 表头
-    ctx.font = '10px sans-serif'
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.6)'
-    for (let i = 0; i < inputLabels.length; i++) {
-      ctx.fillText(inputLabels[i][0], x + 35 + i * 32, y + 30)  // 只显示第一个字
-    }
-    
-    // 绘制权重值
-    ctx.font = 'bold 11px monospace'
-    ctx.textAlign = 'center'
-    for (let o = 0; o < layerWeights.length; o++) {
-      // 输出行标签
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.6)'
-      ctx.textAlign = 'left'
-      ctx.font = '10px sans-serif'
-      ctx.fillText(outputNames[o], x + 4, y + 50 + o * 22)
-      
-      // 权重值
-      ctx.textAlign = 'center'
-      ctx.font = 'bold 11px monospace'
-      for (let i = 0; i < layerWeights[o].length; i++) {
-        const weight = layerWeights[o][i]
-        // 正数绿色，负数红色，零灰色
-        if (weight > 0) {
-          ctx.fillStyle = '#2ecc71'
-        } else if (weight < 0) {
-          ctx.fillStyle = '#e74c3c'
-        } else {
-          ctx.fillStyle = '#95a5a6'
-        }
-        
-        // 如果对应输入为1，高亮显示
-        if (inputs && inputs[i] > 0.5) {
-          ctx.fillStyle = weight > 0 ? '#27ae60' : '#c0392b'
-        }
-        
-        ctx.fillText(weight.toFixed(1), x + 38 + i * 32, y + 50 + o * 22)
-      }
-    }
   }
   
   destroy() {
