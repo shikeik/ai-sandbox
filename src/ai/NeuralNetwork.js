@@ -45,7 +45,7 @@ export class NeuralNetwork {
   /**
    * 前向传播
    * @param {number[]} inputs - 输入数组
-   * @returns {object} {scores, probs, action}
+   * @returns {object} {scores, action}
    */
   forward(inputs) {
     let current = inputs
@@ -67,19 +67,16 @@ export class NeuralNetwork {
     // 输出层（当前只有一层输出）
     const scores = current
     
-    // Softmax转概率
-    const expScores = scores.map(s => Math.exp(s))
-    const sumExp = expScores.reduce((a, b) => a + b, 0)
-    const probs = expScores.map(e => e / sumExp)
-    
     // 纯贪心：选得分最高的
     const action = scores[1] > scores[0] ? 1 : 0
     
-    return { scores, probs, action }
+    return { scores, action }
   }
   
   /**
    * 决策（对外接口）
+   * @param {number[]} inputs - 输入数组
+   * @returns {number} 动作索引 (0=移动, 1=跳跃)
    */
   decide(inputs) {
     const result = this.forward(inputs)

@@ -221,7 +221,6 @@ body {
 
 .grid-label {
   position: absolute;
-  top: 10px;
   font-size: 10px;
   color: var(--grid-label);
   transform: translateX(-50%);

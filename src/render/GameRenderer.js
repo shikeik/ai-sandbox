@@ -330,6 +330,8 @@ export class GameRenderer {
         const label = document.createElement('div')
         label.className = 'grid-label'
         label.style.left = `${x}px`
+        // 标签放在地面上一格的高度（避免被左上角Info挡住）
+        label.style.bottom = `${CONFIG.toPx(CONFIG.GROUND_HEIGHT + 1)}px`
         label.textContent = i
         gridOverlay.appendChild(label)
       }

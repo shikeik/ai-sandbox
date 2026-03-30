@@ -28,6 +28,33 @@ let timerInterval = null
 let isAIMode = false  // 默认玩家模式
 let aiInterval = null
 
+// ========== AI 配置常量 ==========
+const AI_CONFIG = {
+  STEP_REWARD: 0.02,      // 每步存活奖励
+  DEATH_REWARD: -1,       // 死亡惩罚
+  WIN_REWARD: 1,          // 胜利奖励
+  SPEEDS: {
+    STEP: 'step',         // 单步模式
+    SLOW: 1000,           // 慢速：1秒/步
+    NORMAL: 200,          // 中速：200ms/步
+    FAST: 50,             // 快速：50ms/步
+    MAX: 0                // 极速：无延迟
+  }
+}
+
+/**
+ * 转换游戏状态为神经网络输入
+ * @param {Object} terrainAhead - 前方地形数组
+ * @returns {number[]} 神经网络输入 [0,1,0]
+ */
+function convertToInputs(terrainAhead) {
+  return [
+    terrainAhead[0] === 'pit' ? 1 : 0,
+    terrainAhead[1] === 'pit' ? 1 : 0,
+    terrainAhead[2] === 'pit' ? 1 : 0
+  ]
+}
+
 // ========== DOM 元素 ==========
 const gameArea = document.getElementById('game-area')
 const btnRight = document.getElementById('btn-right')
@@ -180,13 +207,7 @@ function bindGameEvents() {
     if (posDisplay) {
       posDisplay.textContent = player.grid
     }
-    
-    // AI模式下，如果就绪则决策
-    const canDecide = game.gameStatus === GAME_STATUS.RUNNING && 
-                      player.action === PLAYER_ACTION.IDLE
-    if (isAIMode && canDecide && !aiInterval) {
-      makeAIDecision()
-    }
+    // AI决策现在由定时器循环控制，不在此处触发
   }
   
   // 动作开始
@@ -194,11 +215,10 @@ function bindGameEvents() {
     const duration = isJump ? CONFIG.JUMP_DURATION : CONFIG.MOVE_DURATION
     renderer.startActionTween(from, to, isJump, duration)
     
-    // 记录AI决策用于训练
+    // 记录AI决策用于训练（每步存活奖励）
     if (isAIMode && network) {
       const actionIdx = isJump ? 1 : 0
-      // 小奖励（存活）
-      network.train(0.02, actionIdx)
+      network.train(AI_CONFIG.STEP_REWARD, actionIdx)
       renderNetworkView()
     }
   }
@@ -231,9 +251,9 @@ function bindGameEvents() {
       game.startGame()      // 启动计时器，解锁输入
       startTimerUpdate()    // 启动 UI 更新
     } else {
-      // AI 模式：自动开始
+      // AI 模式：自动开始新一局并继续训练循环
       game.startGame()
-      startAI()
+      startAIInterval()     // 重启 AI 决策循环
     }
   }
   
@@ -250,13 +270,9 @@ function bindGameEvents() {
     if (isAIMode) {
       // 惩罚错误决策
       const state = game.getStateForAI()
-      const inputs = [
-        state.terrainAhead[0] === 'pit' ? 1 : 0,
-        state.terrainAhead[1] === 'pit' ? 1 : 0,
-        state.terrainAhead[2] === 'pit' ? 1 : 0
-      ]
+      const inputs = convertToInputs(state.terrainAhead)
       network.decide(inputs) // 重新决策获取记录
-      network.train(-1, network.lastAction)
+      network.train(AI_CONFIG.DEATH_REWARD, network.lastAction)
       renderNetworkView()
     }
   }
@@ -268,7 +284,7 @@ function bindGameEvents() {
     
     if (isAIMode) {
       // 大奖励
-      network.train(1, network.lastAction)
+      network.train(AI_CONFIG.WIN_REWARD, network.lastAction)
       renderNetworkView()
     } else {
       // 玩家模式：停止计时并更新最佳记录
@@ -285,41 +301,127 @@ function bindGameEvents() {
 }
 
 // ========== AI 控制 ==========
+let aiSpeed = AI_CONFIG.SPEEDS.NORMAL  // 默认中速
+let isStepMode = false                 // 单步模式标志
+
+/**
+ * 设置AI运行速度
+ * @param {number|'step'} speed - 速度值或 'step' 单步模式
+ */
+function setAISpeed(speed) {
+  if (speed === AI_CONFIG.SPEEDS.STEP) {
+    isStepMode = true
+    aiSpeed = AI_CONFIG.SPEEDS.NORMAL
+    console.log('🚶 切换到单步模式')
+  } else {
+    isStepMode = false
+    aiSpeed = speed
+    const speedName = speed === AI_CONFIG.SPEEDS.SLOW ? '慢速' :
+                      speed === AI_CONFIG.SPEEDS.NORMAL ? '中速' :
+                      speed === AI_CONFIG.SPEEDS.FAST ? '快速' : '极速'
+    console.log(`⏱️ 切换到${speedName}: ${speed}ms`)
+  }
+  
+  // 如果AI正在运行，重启以应用新速度
+  if (isAIMode && aiInterval) {
+    startAIInterval()
+  }
+}
+
+/**
+ * 执行单步（仅在单步模式下有效）
+ */
+function stepAI() {
+  if (!isAIMode || !isStepMode) {
+    console.log('⚠️ 只能在单步模式下执行下一步')
+    return
+  }
+  makeAIDecision()
+}
+
 function startAI() {
   if (!isAIMode) return
   
-  // AI循环由游戏状态回调触发
   console.log('🤖 AI已启动')
+  
+  // 如果游戏未开始，自动开始
+  if (game.gameStatus === GAME_STATUS.READY) {
+    game.startGame()
+  }
+  
+  // 启动 AI 决策循环
+  startAIInterval()
 }
 
-function stopAI() {
+function startAIInterval() {
+  // 清除旧定时器
+  stopAIInterval()
+  
+  if (isStepMode) {
+    // 单步模式：不启动定时器，等待手动触发
+    console.log('🚶 单步模式：点击"下一步"或使用空格键执行')
+    return
+  }
+  
+  // 自动模式：按设定速度执行
+  if (aiSpeed === AI_CONFIG.SPEEDS.MAX) {
+    // 极速模式：使用 requestAnimationFrame 循环
+    runAIFastLoop()
+  } else {
+    // 定时模式
+    aiInterval = setInterval(() => {
+      if (canMakeDecision()) {
+        makeAIDecision()
+      }
+    }, aiSpeed)
+  }
+}
+
+function stopAIInterval() {
   if (aiInterval) {
     clearInterval(aiInterval)
     aiInterval = null
   }
 }
 
+function stopAI() {
+  stopAIInterval()
+}
+
+/**
+ * 极速模式循环（无延迟）
+ */
+function runAIFastLoop() {
+  if (!isAIMode || aiSpeed !== AI_CONFIG.SPEEDS.MAX) return
+  
+  if (canMakeDecision()) {
+    makeAIDecision()
+  }
+  
+  // 使用 requestAnimationFrame 保持响应
+  requestAnimationFrame(() => runAIFastLoop())
+}
+
+/**
+ * 检查是否可以进行AI决策
+ */
+function canMakeDecision() {
+  return game.gameStatus === GAME_STATUS.RUNNING && 
+         game.getState().player.action === PLAYER_ACTION.IDLE
+}
+
 function makeAIDecision() {
   if (!isAIMode || !network) return
   
   const state = game.getStateForAI()
-  
-  // 转换输入
-  const inputs = [
-    state.terrainAhead[0] === 'pit' ? 1 : 0,
-    state.terrainAhead[1] === 'pit' ? 1 : 0,
-    state.terrainAhead[2] === 'pit' ? 1 : 0
-  ]
+  const inputs = convertToInputs(state.terrainAhead)
   
   // AI决策
   const action = network.decide(inputs)
   
   // 执行动作
-  if (action === 1) {
-    game.execute(ACTION.JUMP)
-  } else {
-    game.execute(ACTION.RIGHT)
-  }
+  const actionType = action === 1 ? ACTION.JUMP : ACTION.RIGHT
+  game.execute(actionType)
   
   // 更新视图
   renderNetworkView(inputs, action)
@@ -410,10 +512,22 @@ function bindControls() {
  * 只检查游戏是否处于 RUNNING 状态，不检查人物是否在动画中。
  * 玩家可在任意时刻按键，execute() 立即响应并打断当前动画，
  * 实现"操作多快，游戏多快"的无缝连续操作体验。
+ * 
+ * 【AI单步模式】
+ * AI单步模式下，空格键用于执行下一步（而非跳跃）。
  */
 function handleKeyDown(e) {
   if (e.repeat) return
-  if (isAIMode) return  // AI模式下禁用键盘
+  
+  // AI单步模式：空格键执行下一步
+  if (isAIMode && isStepMode && e.key === ' ') {
+    e.preventDefault()
+    stepAI()
+    return
+  }
+  
+  // AI其他模式：禁用键盘
+  if (isAIMode) return
   
   // 检查游戏状态（速通机制：不检查人物动作状态，允许动画期间输入）
   if (game.gameStatus !== GAME_STATUS.RUNNING) return
