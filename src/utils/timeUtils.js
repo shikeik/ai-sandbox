@@ -9,10 +9,10 @@
  * @returns {string} 格式化后的时间字符串，如 "01:23"
  */
 export function formatTime(ms) {
-  const totalSeconds = Math.floor(ms / 1000)
-  const minutes = Math.floor(totalSeconds / 60)
-  const seconds = totalSeconds % 60
-  return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
+	const totalSeconds = Math.floor(ms / 1000)
+	const minutes = Math.floor(totalSeconds / 60)
+	const seconds = totalSeconds % 60
+	return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
 }
 
 /**
@@ -21,9 +21,9 @@ export function formatTime(ms) {
  * @returns {string} 格式化后的时间字符串，如 "01:23.456"
  */
 export function formatTimeMs(ms) {
-  const totalSeconds = Math.floor(ms / 1000)
-  const minutes = Math.floor(totalSeconds / 60)
-  const seconds = totalSeconds % 60
-  const milliseconds = ms % 1000
-  return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}.${milliseconds.toString().padStart(3, '0')}`
+	const totalSeconds = Math.floor(ms / 1000)
+	const minutes = Math.floor(totalSeconds / 60)
+	const seconds = totalSeconds % 60
+	const milliseconds = ms % 1000
+	return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}.${milliseconds.toString().padStart(3, '0')}`
 }

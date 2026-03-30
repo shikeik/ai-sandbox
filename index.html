@@ -1,64 +1,64 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="mobile-web-app-capable" content="yes">
-  <title>AI 神经元训练沙盘</title>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+	<meta name="apple-mobile-web-app-capable" content="yes">
+	<meta name="mobile-web-app-capable" content="yes">
+	<title>AI 神经元训练沙盘</title>
 </head>
 <body>
-  <!-- 全屏引导遮罩（默认隐藏） -->
-  <div id="fs-guide-overlay" class="game-overlay hidden" style="z-index: 9999; background: rgba(0,0,0,0.85); backdrop-filter: blur(4px);">
-    <div class="overlay-content">
-      <div style="font-size: 40px; margin-bottom: 20px;">📱</div>
-      <h2 style="margin-bottom: 10px;">全屏模式已就绪</h2>
-      <p style="color: rgba(255,255,255,0.6); margin-bottom: 30px; font-size: 14px;">点击屏幕进入最佳体验环境</p>
-      <button class="start-button" style="background: linear-gradient(135deg, #3498db 0%, #2980b9 100%); box-shadow: 0 4px 15px rgba(52, 152, 219, 0.4);">
-        进入全屏
-      </button>
-    </div>
-  </div>
-  <!-- 游戏区域 -->
-  <div id="game-area">
-    <div id="game-info">
-      POS: <span id="pos-display">0</span> | 
-      GEN: <span id="gen-display">1</span>
-    </div>
-    <div id="status-text"></div>
-    <div id="game-world"></div>
-    
-    <!-- 开始游戏遮罩 -->
-    <div id="start-overlay" class="game-overlay">
-      <div class="overlay-content">
-        <h2>AI 神经元训练沙盘</h2>
-        <button id="start-btn" class="start-button">开始游戏</button>
-        <p class="overlay-hint">点击按钮开始挑战</p>
-      </div>
-    </div>
-  </div>
-  
-  <!-- 神经元区域 -->
-  <div id="neuron-area">
-    <div id="neuron-placeholder">
-      <div class="neuron-icon">🧠</div>
-      <div>[ 神经元网络区域 ]</div>
-      <div style="font-size: 12px; margin-top: 10px; opacity: 0.5;">等待 AI 接入控制...</div>
-    </div>
-  </div>
-  
-  <!-- 控制区域 -->
-  <div id="control-area">
-    <button class="btn" id="btn-right">
-      ▶
-      <span class="btn-label">移动 (x+1)</span>
-    </button>
-    <button class="btn" id="btn-jump">
-      ⬆
-      <span class="btn-label">跳跃 (x+2)</span>
-    </button>
-  </div>
+	<!-- 全屏引导遮罩（默认隐藏） -->
+	<div id="fs-guide-overlay" class="game-overlay hidden" style="z-index: 9999; background: rgba(0,0,0,0.85); backdrop-filter: blur(4px);">
+	<div class="overlay-content">
+		<div style="font-size: 40px; margin-bottom: 20px;">📱</div>
+		<h2 style="margin-bottom: 10px;">全屏模式已就绪</h2>
+		<p style="color: rgba(255,255,255,0.6); margin-bottom: 30px; font-size: 14px;">点击屏幕进入最佳体验环境</p>
+		<button class="start-button" style="background: linear-gradient(135deg, #3498db 0%, #2980b9 100%); box-shadow: 0 4px 15px rgba(52, 152, 219, 0.4);">
+		进入全屏
+		</button>
+	</div>
+	</div>
+	<!-- 游戏区域 -->
+	<div id="game-area">
+	<div id="game-info">
+		POS: <span id="pos-display">0</span> | 
+		GEN: <span id="gen-display">1</span>
+	</div>
+	<div id="status-text"></div>
+	<div id="game-world"></div>
+	
+	<!-- 开始游戏遮罩 -->
+	<div id="start-overlay" class="game-overlay">
+		<div class="overlay-content">
+		<h2>AI 神经元训练沙盘</h2>
+		<button id="start-btn" class="start-button">开始游戏</button>
+		<p class="overlay-hint">点击按钮开始挑战</p>
+		</div>
+	</div>
+	</div>
+	
+	<!-- 神经元区域 -->
+	<div id="neuron-area">
+	<div id="neuron-placeholder">
+		<div class="neuron-icon">🧠</div>
+		<div>[ 神经元网络区域 ]</div>
+		<div style="font-size: 12px; margin-top: 10px; opacity: 0.5;">等待 AI 接入控制...</div>
+	</div>
+	</div>
+	
+	<!-- 控制区域 -->
+	<div id="control-area">
+	<button class="btn" id="btn-right">
+		▶
+		<span class="btn-label">移动 (x+1)</span>
+	</button>
+	<button class="btn" id="btn-jump">
+		⬆
+		<span class="btn-label">跳跃 (x+2)</span>
+	</button>
+	</div>
 
-  <script type="module" src="/src/main.js"></script>
+	<script type="module" src="/src/main.js"></script>
 </body>
 </html>

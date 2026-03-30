@@ -2,199 +2,199 @@
 
 /* ---------- 基础重置 ---------- */
 * {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
+	margin: 0;
+	padding: 0;
+	box-sizing: border-box;
 }
 
 /* ---------- CSS 变量 ---------- */
 :root {
-  /* 统一天空主题 - 较暗的蓝色系 */
-  --sky-dark: #2c3e50;
-  --sky-mid: #34495e;
-  --sky-light: #4a6278;
-  
-  /* 全局背景统一 */
-  --color-bg: var(--sky-dark);
-  --color-bg-game: linear-gradient(180deg, #4a6278 0%, #5a7a94 50%, #6a8aa8 100%);
-  --color-bg-neuron: var(--sky-mid);
-  --color-border: #5a7a94;
-  
-  --color-ground: linear-gradient(180deg, #4a8c2a 0%, #3d7a24 50%, #2d5a1a 100%);
-  --color-ground-border: #5a9e3a;
-  --color-pit: #1a2430;
-  
-  --color-player: linear-gradient(135deg, #4a90d9 0%, #2d5aa0 100%);
-  --color-player-border: #6ab0f9;
-  --color-player-glow: rgba(74, 144, 217, 0.6);
-  
-  --color-btn-right: linear-gradient(135deg, #27ae60 0%, #1e8449 100%);
-  --color-btn-right-shadow: #166534;
-  --color-btn-jump: linear-gradient(135deg, #f39c12 0%, #d68910 100%);
-  --color-btn-jump-shadow: #9c5710;
-  
-  /* 文字颜色 - 确保在蓝色背景上清晰可读 */
-  --color-text: #ffffff;
-  --color-text-muted: rgba(255, 255, 255, 0.85);
-  --color-text-dim: rgba(200, 220, 240, 0.7);
-  
-  --color-win: #27ae60;
-  --color-dead: #e74c3c;
-  
-  --grid-line: rgba(255, 255, 255, 0.08);
-  --grid-label: rgba(255, 255, 255, 0.25);
+	/* 统一天空主题 - 较暗的蓝色系 */
+	--sky-dark: #2c3e50;
+	--sky-mid: #34495e;
+	--sky-light: #4a6278;
+	
+	/* 全局背景统一 */
+	--color-bg: var(--sky-dark);
+	--color-bg-game: linear-gradient(180deg, #4a6278 0%, #5a7a94 50%, #6a8aa8 100%);
+	--color-bg-neuron: var(--sky-mid);
+	--color-border: #5a7a94;
+	
+	--color-ground: linear-gradient(180deg, #4a8c2a 0%, #3d7a24 50%, #2d5a1a 100%);
+	--color-ground-border: #5a9e3a;
+	--color-pit: #1a2430;
+	
+	--color-player: linear-gradient(135deg, #4a90d9 0%, #2d5aa0 100%);
+	--color-player-border: #6ab0f9;
+	--color-player-glow: rgba(74, 144, 217, 0.6);
+	
+	--color-btn-right: linear-gradient(135deg, #27ae60 0%, #1e8449 100%);
+	--color-btn-right-shadow: #166534;
+	--color-btn-jump: linear-gradient(135deg, #f39c12 0%, #d68910 100%);
+	--color-btn-jump-shadow: #9c5710;
+	
+	/* 文字颜色 - 确保在蓝色背景上清晰可读 */
+	--color-text: #ffffff;
+	--color-text-muted: rgba(255, 255, 255, 0.85);
+	--color-text-dim: rgba(200, 220, 240, 0.7);
+	
+	--color-win: #27ae60;
+	--color-dead: #e74c3c;
+	
+	--grid-line: rgba(255, 255, 255, 0.08);
+	--grid-label: rgba(255, 255, 255, 0.25);
 }
 
 /* ---------- 布局 ---------- */
 body {
-  background: var(--color-bg);
-  color: var(--color-text);
-  font-family: 'Courier New', monospace;
-  height: 100dvh;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  padding-bottom: env(safe-area-inset-bottom);
+	background: var(--color-bg);
+	color: var(--color-text);
+	font-family: 'Courier New', monospace;
+	height: 100dvh;
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+	padding-bottom: env(safe-area-inset-bottom);
 }
 
 /* ---------- 云朵装饰 ---------- */
 .cloud {
-  position: absolute;
-  background: rgba(255, 255, 255, 0.15);
-  border-radius: 100px;
-  opacity: 0.7;
+	position: absolute;
+	background: rgba(255, 255, 255, 0.15);
+	border-radius: 100px;
+	opacity: 0.7;
 }
 
 .cloud::before,
 .cloud::after {
-  content: '';
-  position: absolute;
-  background: rgba(255, 255, 255, 0.15);
-  border-radius: 100px;
+	content: '';
+	position: absolute;
+	background: rgba(255, 255, 255, 0.15);
+	border-radius: 100px;
 }
 
 /* 大云朵 */
 .cloud-1 {
-  width: 100px;
-  height: 40px;
-  top: 10%;
-  animation: float 20s infinite linear;
+	width: 100px;
+	height: 40px;
+	top: 10%;
+	animation: float 20s infinite linear;
 }
 
 .cloud-1::before {
-  width: 50px;
-  height: 50px;
-  top: -25px;
-  left: 10px;
+	width: 50px;
+	height: 50px;
+	top: -25px;
+	left: 10px;
 }
 
 .cloud-1::after {
-  width: 60px;
-  height: 40px;
-  top: -15px;
-  right: 10px;
+	width: 60px;
+	height: 40px;
+	top: -15px;
+	right: 10px;
 }
 
 /* 中云朵 */
 .cloud-2 {
-  width: 80px;
-  height: 35px;
-  top: 25%;
-  animation: float 25s infinite linear;
-  animation-delay: -5s;
+	width: 80px;
+	height: 35px;
+	top: 25%;
+	animation: float 25s infinite linear;
+	animation-delay: -5s;
 }
 
 .cloud-2::before {
-  width: 40px;
-  height: 40px;
-  top: -20px;
-  left: 15px;
+	width: 40px;
+	height: 40px;
+	top: -20px;
+	left: 15px;
 }
 
 .cloud-2::after {
-  width: 50px;
-  height: 35px;
-  top: -10px;
-  right: 15px;
+	width: 50px;
+	height: 35px;
+	top: -10px;
+	right: 15px;
 }
 
 /* 小云朵 */
 .cloud-3 {
-  width: 60px;
-  height: 25px;
-  top: 15%;
-  animation: float 18s infinite linear;
-  animation-delay: -10s;
+	width: 60px;
+	height: 25px;
+	top: 15%;
+	animation: float 18s infinite linear;
+	animation-delay: -10s;
 }
 
 .cloud-3::before {
-  width: 30px;
-  height: 30px;
-  top: -15px;
-  left: 10px;
+	width: 30px;
+	height: 30px;
+	top: -15px;
+	left: 10px;
 }
 
 .cloud-3::after {
-  width: 35px;
-  height: 25px;
-  top: -8px;
-  right: 10px;
+	width: 35px;
+	height: 25px;
+	top: -8px;
+	right: 10px;
 }
 
 @keyframes float {
-  0% { transform: translateX(-150px); }
-  100% { transform: translateX(calc(100vw + 150px)); }
+	0% { transform: translateX(-150px); }
+	100% { transform: translateX(calc(100vw + 150px)); }
 }
 
 /* ---------- 游戏区域 ---------- */
 #game-area {
-  flex: 0 0 42%;
-  background: var(--color-bg-game);
-  position: relative;
-  overflow: hidden;
-  border-bottom: 2px solid var(--color-border);
+	flex: 0 0 42%;
+	background: var(--color-bg-game);
+	position: relative;
+	overflow: hidden;
+	border-bottom: 2px solid var(--color-border);
 }
 
 /* 游戏信息 - 确保在蓝色背景上清晰可见 */
 #game-info {
-  position: absolute;
-  top: 10px;
-  left: 10px;
-  font-size: 10px;
-  font-weight: bold;
-  color: rgba(255, 255, 255, 0.95);
-  z-index: 1000;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
-  background: rgba(0, 0, 0, 0.2);
-  padding: 4px 8px;
-  border-radius: 4px;
+	position: absolute;
+	top: 10px;
+	left: 10px;
+	font-size: 10px;
+	font-weight: bold;
+	color: rgba(255, 255, 255, 0.95);
+	z-index: 1000;
+	text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+	background: rgba(0, 0, 0, 0.2);
+	padding: 4px 8px;
+	border-radius: 4px;
 }
 
 #game-world,
 .world-content {
-  position: absolute;
-  height: 100%;
-  transform-origin: left center;
-  will-change: transform;
+	position: absolute;
+	height: 100%;
+	transform-origin: left center;
+	will-change: transform;
 }
 
 /* 状态提示 */
 #status-text {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  font-size: 48px;
-  font-weight: bold;
-  text-shadow: 0 0 30px currentColor;
-  opacity: 0;
-  pointer-events: none;
-  z-index: 2000;
-  transition: opacity 0.3s;
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	font-size: 48px;
+	font-weight: bold;
+	text-shadow: 0 0 30px currentColor;
+	opacity: 0;
+	pointer-events: none;
+	z-index: 2000;
+	transition: opacity 0.3s;
 }
 
 #status-text.show {
-  opacity: 1;
+	opacity: 1;
 }
 
 #status-text.dead { color: var(--color-dead); }
@@ -202,241 +202,241 @@ body {
 
 /* ---------- 世界网格 ---------- */
 .world-grid {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-  z-index: 5;
+	position: absolute;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 100%;
+	pointer-events: none;
+	z-index: 5;
 }
 
 .grid-vline {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 1px;
-  background: var(--grid-line);
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	width: 1px;
+	background: var(--grid-line);
 }
 
 .grid-label {
-  position: absolute;
-  font-size: 10px;
-  color: var(--grid-label);
-  transform: translateX(-50%);
-  font-family: monospace;
+	position: absolute;
+	font-size: 10px;
+	color: var(--grid-label);
+	transform: translateX(-50%);
+	font-family: monospace;
 }
 
 /* ---------- 地形 ---------- */
 .ground {
-  position: absolute;
-  bottom: 0;
-  background: var(--color-ground);
-  border-top: 4px solid var(--color-ground-border);
-  /* 高度由 JS 动态设置 */
+	position: absolute;
+	bottom: 0;
+	background: var(--color-ground);
+	border-top: 4px solid var(--color-ground-border);
+	/* 高度由 JS 动态设置 */
 }
 
 .pit-zone {
-  position: absolute;
-  bottom: 0;
-  background: var(--color-pit);
-  /* 宽高由 JS 动态设置 */
+	position: absolute;
+	bottom: 0;
+	background: var(--color-pit);
+	/* 宽高由 JS 动态设置 */
 }
 
 .pit-zone::after {
-  content: '▼▼▼';
-  position: absolute;
-  bottom: 5px;
-  left: 50%;
-  transform: translateX(-50%);
-  font-size: 8px;
-  color: #222;
-  letter-spacing: 2px;
+	content: '▼▼▼';
+	position: absolute;
+	bottom: 5px;
+	left: 50%;
+	transform: translateX(-50%);
+	font-size: 8px;
+	color: #222;
+	letter-spacing: 2px;
 }
 
 /* ---------- 终点 ---------- */
 .goal {
-  position: absolute;
-  /* 尺寸和位置由 JS 动态设置 */
+	position: absolute;
+	/* 尺寸和位置由 JS 动态设置 */
 }
 
 @keyframes wave {
-  0%, 100% { transform: skewY(0deg); }
-  50% { transform: skewY(5deg); }
+	0%, 100% { transform: skewY(0deg); }
+	50% { transform: skewY(5deg); }
 }
 
 /* ---------- 玩家 ---------- */
 /* 玩家基础样式，狐狸详细样式在 style-fox.css */
 #player {
-  position: absolute;
-  z-index: 100;
+	position: absolute;
+	z-index: 100;
 }
 
 /* 死亡动画在 style-fox.css 中定义 (.fox-container.state-dead)
 
 /* ---------- 神经元区域 ---------- */
 #neuron-area {
-  flex: 1;
-  background: var(--color-bg-neuron);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  border-bottom: 2px solid var(--color-border);
-  position: relative;  /* 为绝对定位子元素提供上下文 */
+	flex: 1;
+	background: var(--color-bg-neuron);
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	border-bottom: 2px solid var(--color-border);
+	position: relative;  /* 为绝对定位子元素提供上下文 */
 }
 
 #neuron-placeholder {
-  width: 90%;
-  height: 85%;
-  background: rgba(44, 62, 80, 0.5);
-  border: 2px dashed rgba(90, 122, 148, 0.5);
-  border-radius: 12px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  color: rgba(255, 255, 255, 0.6);
-  font-size: 14px;
+	width: 90%;
+	height: 85%;
+	background: rgba(44, 62, 80, 0.5);
+	border: 2px dashed rgba(90, 122, 148, 0.5);
+	border-radius: 12px;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	color: rgba(255, 255, 255, 0.6);
+	font-size: 14px;
 }
 
 .neuron-icon {
-  font-size: 48px;
-  margin-bottom: 12px;
-  opacity: 0.5;
+	font-size: 48px;
+	margin-bottom: 12px;
+	opacity: 0.5;
 }
 
 /* ---------- 控制区域 ---------- */
 #control-area {
-  flex: 0 0 auto;
-  min-height: 120px;
-  background: var(--sky-dark);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 50px;
-  padding: 15px 20px calc(15px + env(safe-area-inset-bottom, 0px));
+	flex: 0 0 auto;
+	min-height: 120px;
+	background: var(--sky-dark);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 50px;
+	padding: 15px 20px calc(15px + env(safe-area-inset-bottom, 0px));
 }
 
 .btn {
-  width: 100px;
-  height: 100px;
-  border: none;
-  border-radius: 50%;
-  font-size: 36px;
-  cursor: pointer;
-  user-select: none;
-  -webkit-tap-highlight-color: transparent;
-  position: relative;
-  transition: transform 0.05s;
+	width: 100px;
+	height: 100px;
+	border: none;
+	border-radius: 50%;
+	font-size: 36px;
+	cursor: pointer;
+	user-select: none;
+	-webkit-tap-highlight-color: transparent;
+	position: relative;
+	transition: transform 0.05s;
 }
 
 .btn:active {
-  transform: scale(0.92);
+	transform: scale(0.92);
 }
 
 .btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+	opacity: 0.5;
+	cursor: not-allowed;
 }
 
 .btn-label {
-  position: absolute;
-  bottom: -28px;
-  left: 50%;
-  transform: translateX(-50%);
-  font-size: 12px;
-  color: #888;
-  white-space: nowrap;
+	position: absolute;
+	bottom: -28px;
+	left: 50%;
+	transform: translateX(-50%);
+	font-size: 12px;
+	color: #888;
+	white-space: nowrap;
 }
 
 /* 右移按钮 */
 #btn-right {
-  background: var(--color-btn-right);
-  box-shadow: 0 8px 0 var(--color-btn-right-shadow), 0 10px 30px rgba(39, 174, 96, 0.4);
-  color: white;
+	background: var(--color-btn-right);
+	box-shadow: 0 8px 0 var(--color-btn-right-shadow), 0 10px 30px rgba(39, 174, 96, 0.4);
+	color: white;
 }
 
 #btn-right:active:not(:disabled) {
-  box-shadow: 0 4px 0 var(--color-btn-right-shadow), 0 5px 15px rgba(39, 174, 96, 0.4);
-  transform: translateY(4px) scale(0.92);
+	box-shadow: 0 4px 0 var(--color-btn-right-shadow), 0 5px 15px rgba(39, 174, 96, 0.4);
+	transform: translateY(4px) scale(0.92);
 }
 
 /* 跳跃按钮 */
 #btn-jump {
-  background: var(--color-btn-jump);
-  box-shadow: 0 8px 0 var(--color-btn-jump-shadow), 0 10px 30px rgba(243, 156, 18, 0.4);
-  color: white;
+	background: var(--color-btn-jump);
+	box-shadow: 0 8px 0 var(--color-btn-jump-shadow), 0 10px 30px rgba(243, 156, 18, 0.4);
+	color: white;
 }
 
 #btn-jump:active:not(:disabled) {
-  box-shadow: 0 4px 0 var(--color-btn-jump-shadow), 0 5px 15px rgba(243, 156, 18, 0.4);
-  transform: translateY(4px) scale(0.92);
+	box-shadow: 0 4px 0 var(--color-btn-jump-shadow), 0 5px 15px rgba(243, 156, 18, 0.4);
+	transform: translateY(4px) scale(0.92);
 }
 
 /* ---------- 开始游戏遮罩 ---------- */
 .game-overlay {
-  position: absolute;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.25);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1500;
-  opacity: 1;
-  transition: opacity 0.4s ease;
+	position: absolute;
+	inset: 0;
+	background: rgba(0, 0, 0, 0.25);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	z-index: 1500;
+	opacity: 1;
+	transition: opacity 0.4s ease;
 }
 
 .game-overlay.hidden {
-  opacity: 0;
-  pointer-events: none;
+	opacity: 0;
+	pointer-events: none;
 }
 
 .overlay-content {
-  text-align: center;
-  color: white;
+	text-align: center;
+	color: white;
 }
 
 .overlay-content h2 {
-  font-size: 18px;
-  margin-bottom: 24px;
-  text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+	font-size: 18px;
+	margin-bottom: 24px;
+	text-shadow: 0 2px 4px rgba(0,0,0,0.5);
 }
 
 .start-button {
-  padding: 16px 48px;
-  font-size: 18px;
-  font-weight: bold;
-  color: white;
-  background: linear-gradient(135deg, #27ae60 0%, #1e8449 100%);
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  box-shadow: 0 4px 15px rgba(39, 174, 96, 0.4);
-  transition: transform 0.1s, box-shadow 0.1s;
+	padding: 16px 48px;
+	font-size: 18px;
+	font-weight: bold;
+	color: white;
+	background: linear-gradient(135deg, #27ae60 0%, #1e8449 100%);
+	border: none;
+	border-radius: 8px;
+	cursor: pointer;
+	box-shadow: 0 4px 15px rgba(39, 174, 96, 0.4);
+	transition: transform 0.1s, box-shadow 0.1s;
 }
 
 .start-button:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(39, 174, 96, 0.5);
+	transform: translateY(-2px);
+	box-shadow: 0 6px 20px rgba(39, 174, 96, 0.5);
 }
 
 .start-button:active {
-  transform: translateY(0);
+	transform: translateY(0);
 }
 
 .overlay-hint {
-  margin-top: 16px;
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.6);
+	margin-top: 16px;
+	font-size: 12px;
+	color: rgba(255, 255, 255, 0.6);
 }
 
 /* 确保全屏引导在最上层 */
 #fs-guide-overlay {
-  cursor: pointer;
-  user-select: none;
+	cursor: pointer;
+	user-select: none;
 }
 
 #fs-guide-overlay .start-button {
-  pointer-events: none; /* 让点击穿透到遮罩本身，方便用户点哪里都能进入 */
+	pointer-events: none; /* 让点击穿透到遮罩本身，方便用户点哪里都能进入 */
 }

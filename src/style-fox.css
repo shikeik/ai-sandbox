@@ -1,261 +1,261 @@
 /* 侧面视角狐狸 - 纯CSS绘制 */
 #player {
-  position: absolute;
-  z-index: 100;
+	position: absolute;
+	z-index: 100;
 }
 
 /* 狐狸容器 */
 .fox-container {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  transition: transform 0.1s ease-out;
+	position: relative;
+	width: 100%;
+	height: 100%;
+	transition: transform 0.1s ease-out;
 }
 
 /* ========== 侧面狐狸结构 ========== */
 
 /* 尾巴 - 在身体后方，更大更蓬松，WAAPI控制动画 */
 .fox-tail {
-  position: absolute;
-  bottom: 25%;
-  left: -45%;
-  width: 80%;
-  height: 85%;
-  background: linear-gradient(135deg, #d35400 0%, #a04000 100%);
-  border-radius: 60% 40% 50% 50%;
-  transform-origin: bottom right;
-  /* WAAPI控制动画，必须禁用CSS transition避免冲突 */
-  transition: none !important;
-  will-change: transform;
-  z-index: 1;
+	position: absolute;
+	bottom: 25%;
+	left: -45%;
+	width: 80%;
+	height: 85%;
+	background: linear-gradient(135deg, #d35400 0%, #a04000 100%);
+	border-radius: 60% 40% 50% 50%;
+	transform-origin: bottom right;
+	/* WAAPI控制动画，必须禁用CSS transition避免冲突 */
+	transition: none !important;
+	will-change: transform;
+	z-index: 1;
 }
 
 .fox-tail::after {
-  content: '';
-  position: absolute;
-  top: 10%;
-  left: 15%;
-  width: 60%;
-  height: 50%;
-  background: #fff5e6;
-  border-radius: 50%;
+	content: '';
+	position: absolute;
+	top: 10%;
+	left: 15%;
+	width: 60%;
+	height: 50%;
+	background: #fff5e6;
+	border-radius: 50%;
 }
 
 /* 四条腿 */
 /* 后腿远侧（颜色调亮） */
 .fox-leg-back-far {
-  position: absolute;
-  bottom: 0;
-  left: 5%;
-  width: 22%;
-  height: 40%;
-  background: linear-gradient(180deg, #c44d00 0%, #a04000 100%);
-  border-radius: 30%;
-  transform-origin: top center;
-  transition: transform 0.15s ease-out;
-  z-index: 5;
+	position: absolute;
+	bottom: 0;
+	left: 5%;
+	width: 22%;
+	height: 40%;
+	background: linear-gradient(180deg, #c44d00 0%, #a04000 100%);
+	border-radius: 30%;
+	transform-origin: top center;
+	transition: transform 0.15s ease-out;
+	z-index: 5;
 }
 
 /* 后腿近侧 */
 .fox-leg-back-near {
-  position: absolute;
-  bottom: 0;
-  left: 18%;
-  width: 25%;
-  height: 48%;
-  background: linear-gradient(180deg, #e67e22 0%, #d35400 100%);
-  border-radius: 30%;
-  transform-origin: top center;
-  transition: transform 0.15s ease-out;
-  z-index: 6;
+	position: absolute;
+	bottom: 0;
+	left: 18%;
+	width: 25%;
+	height: 48%;
+	background: linear-gradient(180deg, #e67e22 0%, #d35400 100%);
+	border-radius: 30%;
+	transform-origin: top center;
+	transition: transform 0.15s ease-out;
+	z-index: 6;
 }
 
 /* 身体主体 */
 .fox-body {
-  position: absolute;
-  bottom: 15%;
-  left: 15%;
-  width: 65%;
-  height: 50%;
-  background: linear-gradient(180deg, #e67e22 0%, #d35400 100%);
-  border-radius: 45% 40% 35% 40%;
-  z-index: 3;
+	position: absolute;
+	bottom: 15%;
+	left: 15%;
+	width: 65%;
+	height: 50%;
+	background: linear-gradient(180deg, #e67e22 0%, #d35400 100%);
+	border-radius: 45% 40% 35% 40%;
+	z-index: 3;
 }
 
 /* 肚子 */
 .fox-body::after {
-  content: '';
-  position: absolute;
-  bottom: 15%;
-  right: 15%;
-  width: 50%;
-  height: 60%;
-  background: #fff5e6;
-  border-radius: 40%;
+	content: '';
+	position: absolute;
+	bottom: 15%;
+	right: 15%;
+	width: 50%;
+	height: 60%;
+	background: #fff5e6;
+	border-radius: 40%;
 }
 
 /* 前腿（远侧） */
 .fox-leg-front-far {
-  position: absolute;
-  bottom: 0;
-  right: 20%;
-  width: 22%;
-  height: 40%;
-  background: linear-gradient(180deg, #c44d00 0%, #a04000 100%);
-  border-radius: 30%;
-  transform-origin: top center;
-  transition: transform 0.15s ease-out;
-  z-index: 2;
+	position: absolute;
+	bottom: 0;
+	right: 20%;
+	width: 22%;
+	height: 40%;
+	background: linear-gradient(180deg, #c44d00 0%, #a04000 100%);
+	border-radius: 30%;
+	transform-origin: top center;
+	transition: transform 0.15s ease-out;
+	z-index: 2;
 }
 
 /* 头部 */
 .fox-head {
-  position: absolute;
-  top: 10%;
-  right: 0;
-  width: 55%;
-  height: 50%;
-  background: linear-gradient(135deg, #e67e22 0%, #d35400 100%);
-  border-radius: 40% 50% 45% 40%;
-  z-index: 4;
+	position: absolute;
+	top: 10%;
+	right: 0;
+	width: 55%;
+	height: 50%;
+	background: linear-gradient(135deg, #e67e22 0%, #d35400 100%);
+	border-radius: 40% 50% 45% 40%;
+	z-index: 4;
 }
 
 /* 耳朵 - 狐狸耳朵是三角形，位于头顶后方，指向斜前方 */
 /* 近侧耳朵（较大，较清晰，在左侧遮挡后耳） */
 .fox-ear-near {
-  position: absolute;
-  top: -35%;
-  right: 32%;
-  width: 32%;
-  height: 55%;
-  background: linear-gradient(145deg, #e67e22 0%, #d35400 60%, #a04000 100%);
-  border-radius: 70% 30% 40% 60%;
-  transform-origin: bottom center;
-  transform: rotate(15deg);
-  transition: transform 0.15s ease-out;
-  z-index: 5;
+	position: absolute;
+	top: -35%;
+	right: 32%;
+	width: 32%;
+	height: 55%;
+	background: linear-gradient(145deg, #e67e22 0%, #d35400 60%, #a04000 100%);
+	border-radius: 70% 30% 40% 60%;
+	transform-origin: bottom center;
+	transform: rotate(15deg);
+	transition: transform 0.15s ease-out;
+	z-index: 5;
 }
 
 .fox-ear-near::after {
-  content: '';
-  position: absolute;
-  top: 20%;
-  left: 25%;
-  width: 55%;
-  height: 60%;
-  background: #fff0f5;
-  border-radius: 70% 30% 40% 60%;
+	content: '';
+	position: absolute;
+	top: 20%;
+	left: 25%;
+	width: 55%;
+	height: 60%;
+	background: #fff0f5;
+	border-radius: 70% 30% 40% 60%;
 }
 
 /* 远侧耳朵（较小，略暗，在右侧被遮挡，无内部图案） */
 .fox-ear-far {
-  position: absolute;
-  top: -22%;
-  right: 5%;
-  width: 26%;
-  height: 40%;
-  background: linear-gradient(145deg, #d35400 0%, #a04000 100%);
-  border-radius: 70% 30% 40% 60%;
-  transform-origin: bottom center;
-  transform: rotate(25deg);
-  transition: transform 0.15s ease-out;
-  z-index: 2;
+	position: absolute;
+	top: -22%;
+	right: 5%;
+	width: 26%;
+	height: 40%;
+	background: linear-gradient(145deg, #d35400 0%, #a04000 100%);
+	border-radius: 70% 30% 40% 60%;
+	transform-origin: bottom center;
+	transform: rotate(25deg);
+	transition: transform 0.15s ease-out;
+	z-index: 2;
 }
 /* 远侧耳朵不显示内部（背面视角） */
 
 /* 眼睛 */
 .fox-eye {
-  position: absolute;
-  top: 30%;
-  right: 25%;
-  width: 22%;
-  height: 22%;
-  background: #2c3e50;
-  border-radius: 50%;
-  transition: transform 0.1s;
+	position: absolute;
+	top: 30%;
+	right: 25%;
+	width: 22%;
+	height: 22%;
+	background: #2c3e50;
+	border-radius: 50%;
+	transition: transform 0.1s;
 }
 
 .fox-eye::after {
-  content: '';
-  position: absolute;
-  top: 15%;
-  right: 15%;
-  width: 45%;
-  height: 45%;
-  background: white;
-  border-radius: 50%;
+	content: '';
+	position: absolute;
+	top: 15%;
+	right: 15%;
+	width: 45%;
+	height: 45%;
+	background: white;
+	border-radius: 50%;
 }
 
 /* 鼻子 */
 .fox-nose {
-  position: absolute;
-  top: 45%;
-  right: 5%;
-  width: 18%;
-  height: 15%;
-  background: #2c3e50;
-  border-radius: 40%;
+	position: absolute;
+	top: 45%;
+	right: 5%;
+	width: 18%;
+	height: 15%;
+	background: #2c3e50;
+	border-radius: 40%;
 }
 
 /* 前腿（近侧） */
 .fox-leg-front-near {
-  position: absolute;
-  bottom: 0;
-  right: 35%;
-  width: 25%;
-  height: 45%;
-  background: linear-gradient(180deg, #e67e22 0%, #d35400 100%);
-  border-radius: 30%;
-  transform-origin: top center;
-  transition: transform 0.15s ease-out;
-  z-index: 5;
+	position: absolute;
+	bottom: 0;
+	right: 35%;
+	width: 25%;
+	height: 45%;
+	background: linear-gradient(180deg, #e67e22 0%, #d35400 100%);
+	border-radius: 30%;
+	transform-origin: top center;
+	transition: transform 0.15s ease-out;
+	z-index: 5;
 }
 
 /* ========== 动画状态 ========== */
 
 /* 待机 - 呼吸+尾巴自然摇摆 */
 .fox-container.state-idle {
-  animation: foxBreathe 2s ease-in-out infinite;
+	animation: foxBreathe 2s ease-in-out infinite;
 }
 
 /* 尾巴动画由 WAAPI 控制 (见 GameRenderer.js _startTailAnimation) */
 
 /* 奔跑 - 四条腿交替 */
 .fox-container.state-run {
-  animation: foxBob 0.3s ease-in-out infinite;
+	animation: foxBob 0.3s ease-in-out infinite;
 }
 
 .fox-container.state-run .fox-leg-back-far {
-  animation: legRunBack 0.3s ease-in-out infinite;
+	animation: legRunBack 0.3s ease-in-out infinite;
 }
 
 .fox-container.state-run .fox-leg-back-near {
-  animation: legRunBack 0.3s ease-in-out infinite reverse;
+	animation: legRunBack 0.3s ease-in-out infinite reverse;
 }
 
 .fox-container.state-run .fox-leg-front-far {
-  animation: legRunFront 0.3s ease-in-out infinite reverse;
+	animation: legRunFront 0.3s ease-in-out infinite reverse;
 }
 
 .fox-container.state-run .fox-leg-front-near {
-  animation: legRunFront 0.3s ease-in-out infinite;
+	animation: legRunFront 0.3s ease-in-out infinite;
 }
 
 
 
 /* 跳跃上升 */
 .fox-container.state-jump-up {
-  transform: rotate(-15deg) translateY(-5%);
+	transform: rotate(-15deg) translateY(-5%);
 }
 
 .fox-container.state-jump-up .fox-leg-back-far,
 .fox-container.state-jump-up .fox-leg-back-near {
-  transform: rotate(-40deg);
+	transform: rotate(-40deg);
 }
 
 .fox-container.state-jump-up .fox-leg-front-far,
 .fox-container.state-jump-up .fox-leg-front-near {
-  transform: rotate(-30deg) scaleY(0.9);
+	transform: rotate(-30deg) scaleY(0.9);
 }
 
 
@@ -263,89 +263,89 @@
 /* 跳跃时耳朵向后贴（警觉/流线型） */
 .fox-container.state-jump-up .fox-ear-near,
 .fox-container.state-jump-up .fox-ear-far {
-  transform: rotate(35deg);
+	transform: rotate(35deg);
 }
 
 /* 跳跃下降 */
 .fox-container.state-jump-down {
-  transform: rotate(10deg) translateY(3%);
+	transform: rotate(10deg) translateY(3%);
 }
 
 .fox-container.state-jump-down .fox-leg-back-far,
 .fox-container.state-jump-down .fox-leg-back-near {
-  transform: rotate(30deg);
+	transform: rotate(30deg);
 }
 
 .fox-container.state-jump-down .fox-leg-front-far,
 .fox-container.state-jump-down .fox-leg-front-near {
-  transform: rotate(25deg);
+	transform: rotate(25deg);
 }
 
 
 
 /* 落地 */
 .fox-container.state-land {
-  animation: foxLand 0.2s ease-out;
+	animation: foxLand 0.2s ease-out;
 }
 
 .fox-container.state-land .fox-leg-back-far,
 .fox-container.state-land .fox-leg-back-near,
 .fox-container.state-land .fox-leg-front-far,
 .fox-container.state-land .fox-leg-front-near {
-  transform: scaleY(0.7);
+	transform: scaleY(0.7);
 }
 
 /* ========== 动画定义 ========== */
 
 @keyframes foxBreathe {
-  0%, 100% { transform: scaleY(1); }
-  50% { transform: scaleY(1.02); }
+	0%, 100% { transform: scaleY(1); }
+	50% { transform: scaleY(1.02); }
 }
 
 
 
 @keyframes foxBob {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-6%); }
+	0%, 100% { transform: translateY(0); }
+	50% { transform: translateY(-6%); }
 }
 
 @keyframes legRunBack {
-  0%, 100% { transform: rotate(-25deg); }
-  50% { transform: rotate(35deg); }
+	0%, 100% { transform: rotate(-25deg); }
+	50% { transform: rotate(35deg); }
 }
 
 @keyframes legRunFront {
-  0%, 100% { transform: rotate(30deg); }
-  50% { transform: rotate(-25deg); }
+	0%, 100% { transform: rotate(30deg); }
+	50% { transform: rotate(-25deg); }
 }
 
 
 @keyframes foxLand {
-  0% { transform: scaleY(0.8) translateY(5%); }
-  100% { transform: scaleY(1) translateY(0); }
+	0% { transform: scaleY(0.8) translateY(5%); }
+	100% { transform: scaleY(1) translateY(0); }
 }
 
 /* 死亡 */
 .fox-container.state-dead {
-  animation: foxDead 0.5s ease-in forwards;
-  transform-origin: bottom left;
-  /* 禁用transition确保死亡动画流畅 */
-  transition: none !important;
+	animation: foxDead 0.5s ease-in forwards;
+	transform-origin: bottom left;
+	/* 禁用transition确保死亡动画流畅 */
+	transition: none !important;
 }
 
 @keyframes foxDead {
-  to {
-    transform: translateY(150%) rotate(90deg);
-  }
+	to {
+	transform: translateY(150%) rotate(90deg);
+	}
 }
 
 /* 方向翻转 */
 .fox-container.dir-left {
-  transform: scaleX(-1);
+	transform: scaleX(-1);
 }
 
 /* 平滑过渡 - 增加时间实现动画混合 */
 .fox-container,
 .fox-container * {
-  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+	transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
