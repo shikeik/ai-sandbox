@@ -4,6 +4,7 @@
  */
 
 import { JumpGame, ACTION, CONFIG, STATUS } from '@game/JumpGame.js'
+import { formatTimeMs } from '@utils/timeUtils.js'
 import { GameRenderer } from '@render/GameRenderer.js'
 import { TransitionManager } from '@render/TransitionManager.js'
 import { NeuralNetwork } from '@ai/NeuralNetwork.js'
@@ -182,7 +183,7 @@ function bindGameEvents() {
     }
     
     // AI模式下，如果就绪则决策
-    if (isAIMode && player.status === STATUS.IDLE && !aiInterval) {
+    if (isAIMode && (player.status === STATUS.IDLE || player.status === STATUS.RUNNING) && !aiInterval) {
       makeAIDecision()
     }
   }
@@ -276,6 +277,7 @@ function bindGameEvents() {
       if (isNewRecord) {
         console.log('🎉 新纪录！', playerBestStore.getFormatted())
       }
+      // 更新显示 BEST（非 RUNNING 状态自动显示 BEST）
       updateGameInfo()
     }
   }
@@ -367,15 +369,20 @@ function updateGameInfo() {
   if (!gameInfo) return
   
   const player = game.getState().player
-  const bestTime = playerBestStore.getFormatted()
+  const isRunning = game.player.status === STATUS.RUNNING
   
-  // 玩家模式下显示 TIME，未开始时显示 --:--
-  let timeStr = '--:--'
-  if (!isAIMode && game.player.status !== STATUS.READY && game.startTime) {
-    timeStr = game.formatTime(game.getElapsedTime())
+  let timeStr
+  if (isRunning) {
+    // 游戏中：显示当前 TIME（毫秒）
+    timeStr = formatTimeMs(game.getElapsedTime())
+  } else {
+    // 其他状态：显示 BEST（毫秒）
+    timeStr = playerBestStore.getFormatted()
   }
   
-  gameInfo.innerHTML = `POS: <span id="pos-display">${player.grid}</span> | GEN: <span id="gen-display">${game.getState().generation}</span>${isAIMode ? '' : ` | TIME: ${timeStr}`} | BEST: ${bestTime}`
+  const label = isRunning ? 'TIME' : 'BEST'
+  
+  gameInfo.innerHTML = `POS: <span id="pos-display">${player.grid}</span> | GEN: <span id="gen-display">${game.getState().generation}</span>${isAIMode ? '' : ` | ${label}: ${timeStr}`}`
 }
 
 // ========== 输入控制 ==========
@@ -383,12 +390,12 @@ function bindControls() {
   // 按钮点击
   btnRight.addEventListener('click', () => {
     if (isAIMode) return
-    if (game.player.status === STATUS.READY) return
+    if (game.player.status !== STATUS.RUNNING) return
     game.execute(ACTION.RIGHT)
   })
   btnJump.addEventListener('click', () => {
     if (isAIMode) return
-    if (game.player.status === STATUS.READY) return
+    if (game.player.status !== STATUS.RUNNING) return
     game.execute(ACTION.JUMP)
   })
   
@@ -400,8 +407,8 @@ function handleKeyDown(e) {
   if (e.repeat) return
   if (isAIMode) return  // AI模式下禁用键盘
   
-  // 如果游戏未开始，不处理按键
-  if (game.player.status === STATUS.READY) return
+  // 只有 RUNNING 状态可以操作
+  if (game.player.status !== STATUS.RUNNING) return
   
   if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
     e.preventDefault()

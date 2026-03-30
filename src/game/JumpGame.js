@@ -61,12 +61,13 @@ export const ACTION = {
 
 // 游戏状态
 export const STATUS = {
-  READY: 'ready',           // 等待开始
-  IDLE: 'idle',             // 待机，可接受操作
-  MOVING: 'moving',         // 移动中（视觉动画播放中，逻辑已完成）
-  DEAD: 'dead',             // 死亡
-  WON: 'won',               // 胜利
-  TRANSITIONING: 'transitioning'  // 转场中
+  READY: 'ready',                 // 游戏生命周期：未开始
+  RUNNING: 'running',             // 游戏生命周期：进行中
+  TRANSITIONING: 'transitioning', // 游戏生命周期：转场
+  IDLE: 'idle',                   // 人物动作：待机
+  MOVING: 'moving',               // 人物动作：移动
+  DEAD: 'dead',                   // 游戏生命周期：死亡结束
+  WON: 'won'                      // 游戏生命周期：胜利结束
 }
 
 // 地形类型
@@ -167,11 +168,11 @@ export class JumpGame {
   }
   
   /**
-   * 开始游戏（从 READY 或 TRANSITIONING 状态进入 IDLE）
+   * 开始游戏（从 READY 或 TRANSITIONING 状态进入 RUNNING）
    */
   startGame() {
     if (this.player.status === STATUS.READY || this.player.status === STATUS.TRANSITIONING) {
-      this.player.status = STATUS.IDLE
+      this.player.status = STATUS.RUNNING
       this._inputLocked = false
       this.startTimer()  // 重置并启动计时器
     }
@@ -359,17 +360,17 @@ export class JumpGame {
     this.init()
     // 注意：init() 会将状态设为 READY，但我们需要保持 TRANSITIONING
     this.player.status = STATUS.TRANSITIONING
+    
+    // 在暗屏时就让渲染器更新世界，这样渐亮时显示的是新世界
+    if (this.onGenerationChange) {
+      this.onGenerationChange(this.generation)
+    }
   }
 
   // 转场完成后的处理
   _onRespawnComplete() {
-    // 通知外界世代变化（此时屏幕已亮起）
-    if (this.onGenerationChange) {
-      this.onGenerationChange(this.generation)
-    }
-
-    // 玩家模式下，重置为 READY 状态，显示开始遮罩
-    // AI 模式下，自动开始
+    // 玩家模式：直接开始新一局
+    // AI 模式：自动开始
     if (this.onTransitionEnd) {
       this.onTransitionEnd()
     }

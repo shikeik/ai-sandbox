@@ -3,9 +3,9 @@
  * 只记录玩家模式的最快通关时间
  */
 
-import { formatTime } from '@utils/timeUtils.js'
+import { formatTimeMs } from '@utils/timeUtils.js'
 
-const PLAYER_BEST_KEY = 'ai-sandbox-player-best'
+const PLAYER_BEST_KEY = 'ai-sandbox-player-best-ms'
 
 export class PlayerBestStore {
   constructor() {
@@ -15,7 +15,10 @@ export class PlayerBestStore {
   load() {
     try {
       const stored = localStorage.getItem(PLAYER_BEST_KEY)
-      return stored ? parseInt(stored, 10) : Infinity
+      // 如果没有记录或记录为0，都返回Infinity（视为无记录）
+      if (!stored) return Infinity
+      const value = parseInt(stored, 10)
+      return value > 0 ? value : Infinity
     } catch (e) {
       return Infinity
     }
@@ -35,6 +38,8 @@ export class PlayerBestStore {
    * @returns {boolean} 是否更新成功（新记录更快）
    */
   tryUpdate(time) {
+    // 只接受有效的时间（大于0）
+    if (!time || time <= 0) return false
     if (time < this.bestTime) {
       this.bestTime = time
       this.save(time)
@@ -45,11 +50,11 @@ export class PlayerBestStore {
   
   /**
    * 获取最佳时间（格式化）
-   * @returns {string} mm:ss 格式，无记录返回 '--:--'
+   * @returns {string} mm:ss.mmm 格式，无记录返回 '--:--.---'
    */
   getFormatted() {
-    if (this.bestTime === Infinity) return '--:--'
-    return formatTime(this.bestTime)
+    if (this.bestTime === Infinity || this.bestTime <= 0) return '--:--.---'
+    return formatTimeMs(this.bestTime)
   }
   
   /**
