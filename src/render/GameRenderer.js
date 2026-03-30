@@ -161,6 +161,12 @@ export class GameRenderer {
   
   /**
    * 开始动作补间动画
+   * 
+   * 【速通核心机制】
+   * 立即停止当前补间（打断），从当前视觉位置开始新补间。
+   * 这使得玩家可以在动画期间输入新指令，新动作立即生效，
+   * 逻辑与视觉分离，实现连续操作不等待的速通体验。
+   * 
    * @param {Object} from - 起始位置 {x, y}
    * @param {Object} to - 目标位置 {x, y}
    * @param {boolean} isJump - 是否是跳跃

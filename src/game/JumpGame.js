@@ -224,6 +224,12 @@ export class JumpGame {
   
   /**
    * 执行动作（立即完成逻辑）
+   * 
+   * 【速通核心机制】
+   * 逻辑位置立即改变（player.x/grid），不受动画限制。
+   * 渲染层通过补间动画平滑过渡视觉位置，支持打断机制。
+   * 玩家可在动画期间连续输入，实现"操作多快，角色移动多快"的速通体验。
+   * 
    * @param {string} action - 'right' | 'jump'
    * @returns {Object|null} - 动作信息或失败
    */

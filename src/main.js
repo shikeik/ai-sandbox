@@ -377,6 +377,15 @@ function updateGameInfo() {
 }
 
 // ========== 输入控制 ==========
+
+/**
+ * 绑定游戏控制（按钮和键盘）
+ * 
+ * 【速通核心机制】
+ * 只检查游戏生命周期状态（RUNNING），不检查人物动作状态。
+ * 允许在动画期间输入，execute() 会立即执行逻辑并打断当前动画。
+ * 这是速通玩法的基础：操作频率决定角色移动速度。
+ */
 function bindControls() {
   // 按钮点击
   btnRight.addEventListener('click', () => {
@@ -394,11 +403,19 @@ function bindControls() {
   document.addEventListener('keydown', handleKeyDown)
 }
 
+/**
+ * 键盘事件处理
+ * 
+ * 【速通核心机制】
+ * 只检查游戏是否处于 RUNNING 状态，不检查人物是否在动画中。
+ * 玩家可在任意时刻按键，execute() 立即响应并打断当前动画，
+ * 实现"操作多快，游戏多快"的无缝连续操作体验。
+ */
 function handleKeyDown(e) {
   if (e.repeat) return
   if (isAIMode) return  // AI模式下禁用键盘
   
-  // 检查游戏状态
+  // 检查游戏状态（速通机制：不检查人物动作状态，允许动画期间输入）
   if (game.gameStatus !== GAME_STATUS.RUNNING) return
   
   if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
