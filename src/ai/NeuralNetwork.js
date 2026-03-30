@@ -1,0 +1,158 @@
+/**
+ * 可配置神经网络
+ * 支持动态层结构，未来可扩展隐藏层
+ */
+
+export class NeuralNetwork {
+  constructor(config = {}) {
+    // 默认：3输入 → 2输出（单层）
+    this.layerSizes = config.layerSizes || [3, 2]
+    this.learningRate = config.learningRate || 0.2
+    this.weightClip = config.weightClip || 5
+    
+    // 初始化权重和偏置
+    this.weights = []
+    this.biases = []
+    
+    for (let i = 0; i < this.layerSizes.length - 1; i++) {
+      const inputSize = this.layerSizes[i]
+      const outputSize = this.layerSizes[i + 1]
+      
+      // 权重矩阵：outputSize × inputSize
+      this.weights.push(
+        Array(outputSize).fill(null).map(() => 
+          Array(inputSize).fill(0)
+        )
+      )
+      
+      // 偏置（暂不使用，但预留）
+      this.biases.push(Array(outputSize).fill(0))
+    }
+    
+    // 最后一步记录（用于训练）
+    this.lastState = null
+    this.lastAction = null
+    this.lastScores = null
+  }
+  
+  /**
+   * Sigmoid激活函数
+   */
+  sigmoid(x) {
+    return 1 / (1 + Math.exp(-x))
+  }
+  
+  /**
+   * 前向传播
+   * @param {number[]} inputs - 输入数组
+   * @returns {object} {scores, probs, action}
+   */
+  forward(inputs) {
+    let current = inputs
+    
+    // 逐层计算
+    for (let i = 0; i < this.weights.length; i++) {
+      const weights = this.weights[i]
+      const biases = this.biases[i]
+      
+      current = weights.map((wRow, idx) => {
+        let sum = biases[idx]
+        for (let j = 0; j < wRow.length; j++) {
+          sum += wRow[j] * current[j]
+        }
+        return sum
+      })
+    }
+    
+    // 输出层（当前只有一层输出）
+    const scores = current
+    
+    // Softmax转概率
+    const expScores = scores.map(s => Math.exp(s))
+    const sumExp = expScores.reduce((a, b) => a + b, 0)
+    const probs = expScores.map(e => e / sumExp)
+    
+    // 纯贪心：选得分最高的
+    const action = scores[1] > scores[0] ? 1 : 0
+    
+    return { scores, probs, action }
+  }
+  
+  /**
+   * 决策（对外接口）
+   */
+  decide(inputs) {
+    const result = this.forward(inputs)
+    
+    // 记录状态用于后续训练
+    this.lastState = [...inputs]
+    this.lastAction = result.action
+    this.lastScores = result.scores
+    
+    return result.action
+  }
+  
+  /**
+   * 训练更新（每步调用）
+   * @param {number} reward - 奖励（存活+0.02，死亡-1，胜利+1）
+   * @param {number} action - 实际执行的动作
+   */
+  train(reward, action) {
+    if (!this.lastState || this.lastAction === null) return
+    
+    const layerIdx = this.weights.length - 1 // 输出层索引
+    const weights = this.weights[layerIdx]
+    
+    if (reward > 0) {
+      // 正确：增强选中的动作
+      for (let i = 0; i < this.lastState.length; i++) {
+        weights[action][i] += this.learningRate * this.lastState[i]
+      }
+    } else if (reward < 0) {
+      // 错误：惩罚选中的，奖励其他
+      // 惩罚选中
+      for (let i = 0; i < this.lastState.length; i++) {
+        weights[action][i] -= this.learningRate * this.lastState[i]
+      }
+      // 奖励其他（均分）
+      const otherReward = this.learningRate / 2 // 一半
+      for (let a = 0; a < weights.length; a++) {
+        if (a !== action) {
+          for (let i = 0; i < this.lastState.length; i++) {
+            weights[a][i] += otherReward * this.lastState[i]
+          }
+        }
+      }
+    }
+    
+    // 权重裁剪
+    for (let row of weights) {
+      for (let i = 0; i < row.length; i++) {
+        row[i] = Math.max(-this.weightClip, Math.min(this.weightClip, row[i]))
+      }
+    }
+  }
+  
+  /**
+   * 获取权重快照（用于记录）
+   */
+  getWeightsSnapshot() {
+    return this.weights.map(layer => 
+      layer.map(row => [...row])
+    )
+  }
+  
+  /**
+   * 获取网络结构描述
+   */
+  getStructure() {
+    return {
+      layerSizes: [...this.layerSizes],
+      totalWeights: this.weights.reduce((sum, layer) => 
+        sum + layer.reduce((s, row) => s + row.length, 0), 0
+      )
+    }
+  }
+}
+
+export default NeuralNetwork
