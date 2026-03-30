@@ -117,6 +117,9 @@ function init() {
   // 绑定开始按钮
   bindStartButton()
   
+  // 首次加载显示开始遮罩
+  showStartOverlay()
+  
   console.log('🎮 AI 训练沙盘已初始化，等待开始...')
   console.log('🤖 AI模式:', isAIMode ? '开启' : '关闭')
 }
@@ -222,14 +225,11 @@ function bindGameEvents() {
   game.onTransitionEnd = () => {
     // 转场结束后的处理
     if (!isAIMode) {
-      // 玩家模式：显示开始遮罩，等待玩家点击
-      showStartOverlay()
-      // 重置计时器
-      game.startTime = null
-      stopTimerUpdate()
-      updateGameInfo()
+      // 玩家模式：重生后直接开始新一局（不显示遮罩）
+      game.startGame()      // 启动计时器，解锁输入
+      startTimerUpdate()    // 启动 UI 更新
     } else {
-      // AI 模式：自动开始新世代
+      // AI 模式：自动开始
       game.startGame()
       startAI()
     }

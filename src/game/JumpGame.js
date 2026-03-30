@@ -167,13 +167,13 @@ export class JumpGame {
   }
   
   /**
-   * 开始游戏（从 READY 状态进入 IDLE）
+   * 开始游戏（从 READY 或 TRANSITIONING 状态进入 IDLE）
    */
   startGame() {
-    if (this.player.status === STATUS.READY) {
+    if (this.player.status === STATUS.READY || this.player.status === STATUS.TRANSITIONING) {
       this.player.status = STATUS.IDLE
       this._inputLocked = false
-      this.startTimer()
+      this.startTimer()  // 重置并启动计时器
     }
   }
   
