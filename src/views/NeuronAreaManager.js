@@ -27,6 +27,46 @@ export class NeuronAreaManager {
     
     // 默认显示网络视图
     this.switchView('network')
+    
+    // 添加双指横滑切换
+    this.setupSwipeGesture()
+  }
+  
+  /**
+   * 双指横滑切换视图
+   */
+  setupSwipeGesture() {
+    let touchStartX = 0
+    let touchStartTime = 0
+    
+    this.container.addEventListener('touchstart', (e) => {
+      if (e.touches.length === 2) {  // 双指
+        touchStartX = (e.touches[0].clientX + e.touches[1].clientX) / 2
+        touchStartTime = Date.now()
+      }
+    }, { passive: true })
+    
+    this.container.addEventListener('touchend', (e) => {
+      if (e.changedTouches.length === 2) {
+        const touchEndX = (e.changedTouches[0].clientX + e.changedTouches[1].clientX) / 2
+        const deltaX = touchEndX - touchStartX
+        const deltaTime = Date.now() - touchStartTime
+        
+        // 快速滑动超过50px
+        if (Math.abs(deltaX) > 50 && deltaTime < 500) {
+          const views = Array.from(this.views.keys())
+          const currentIndex = views.indexOf(this.activeViewName)
+          
+          if (deltaX > 0 && currentIndex > 0) {
+            // 右滑 → 上一个视图
+            this.switchView(views[currentIndex - 1])
+          } else if (deltaX < 0 && currentIndex < views.length - 1) {
+            // 左滑 → 下一个视图
+            this.switchView(views[currentIndex + 1])
+          }
+        }
+      }
+    }, { passive: true })
   }
   
   createMenuButton() {
@@ -41,11 +81,13 @@ export class NeuronAreaManager {
       height: 32px;
       border: none;
       border-radius: 4px;
-      background: rgba(255,255,255,0.15);
+      background: rgba(0,0,0,0.4);
+      backdrop-filter: blur(4px);
+      border: 1px solid rgba(255,255,255,0.3);
       color: #fff;
       font-size: 16px;
       cursor: pointer;
-      z-index: 100;
+      z-index: 2000;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -68,11 +110,60 @@ export class NeuronAreaManager {
       border-radius: 4px;
       padding: 8px 0;
       min-width: 120px;
-      z-index: 101;
+      z-index: 2001;
       display: none;
       box-shadow: 0 4px 12px rgba(0,0,0,0.3);
     `
     
+    // 添加分隔线
+    const addDivider = () => {
+      const divider = document.createElement('div')
+      divider.style.cssText = `
+        height: 1px;
+        background: rgba(255,255,255,0.2);
+        margin: 4px 0;
+      `
+      menu.appendChild(divider)
+    }
+    
+    // 模式切换
+    const modes = [
+      { id: 'player', label: '👤 玩家游玩' },
+      { id: 'ai', label: '🤖 AI控制' },
+      { id: 'train', label: '📊 AI训练' }
+    ]
+    
+    let currentMode = 'player'
+    
+    modes.forEach(item => {
+      const el = document.createElement('div')
+      el.className = 'menu-item'
+      el.textContent = item.label
+      el.style.cssText = `
+        padding: 8px 16px;
+        cursor: pointer;
+        color: #fff;
+        font-size: 13px;
+      `
+      el.addEventListener('click', () => {
+        currentMode = item.id
+        if (this.onModeChange) {
+          this.onModeChange(item.id)
+        }
+        this.hideMenu()
+      })
+      el.addEventListener('mouseenter', () => {
+        el.style.background = 'rgba(255,255,255,0.1)'
+      })
+      el.addEventListener('mouseleave', () => {
+        el.style.background = 'transparent'
+      })
+      menu.appendChild(el)
+    })
+    
+    addDivider()
+    
+    // 视图切换
     const items = [
       { id: 'network', label: '🧠 网络结构' },
       { id: 'history', label: '📈 训练历史' }

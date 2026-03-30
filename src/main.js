@@ -19,7 +19,7 @@ let historyStore = null
 let viewManager = null
 
 // ========== 模式设置 ==========
-let isAIMode = true  // AI控制模式
+let isAIMode = false  // 默认玩家模式
 let aiInterval = null
 
 // ========== DOM 元素 ==========
@@ -48,6 +48,27 @@ function init() {
   
   // 创建视图管理器
   viewManager = new NeuronAreaManager('neuron-area')
+  
+  // 设置模式切换回调
+  viewManager.onModeChange = (mode) => {
+    switch(mode) {
+      case 'player':
+        isAIMode = false
+        stopAI()
+        console.log('👤 切换到玩家模式')
+        break
+      case 'ai':
+        isAIMode = true
+        startAI()
+        console.log('🤖 切换到AI模式')
+        break
+      case 'train':
+        isAIMode = true
+        startAI()
+        console.log('📊 切换到AI训练模式（自动循环）')
+        break
+    }
+  }
   
   // 设置视口大小
   game.setViewportSize(gameArea.clientWidth)

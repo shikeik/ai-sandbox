@@ -284,6 +284,7 @@ body {
   align-items: center;
   justify-content: center;
   border-bottom: 2px solid var(--color-border);
+  position: relative;  /* 为绝对定位子元素提供上下文 */
 }
 
 #neuron-placeholder {
