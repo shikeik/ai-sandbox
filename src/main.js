@@ -108,6 +108,17 @@ function init() {
     }
   }
 
+  // 【修复 Bug 1】：监听视图切换，要求立即重绘画布
+  viewManager.onViewChange = (viewName) => {
+    if (viewName === 'history') {
+      renderHistoryView()
+    } else {
+      const state = game.getStateForAI()
+      const inputs = convertToInputs(state.terrainAhead)
+      renderCurrentAIView(inputs, network ? network.lastAction : null)
+    }
+  }
+
   // 设置速度切换回调
   viewManager.onSpeedChange = (speedId) => {
     switch(speedId) {

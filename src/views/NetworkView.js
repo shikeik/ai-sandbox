@@ -8,74 +8,72 @@ export class NetworkView {
     this.container = document.getElementById(containerId)
     this.canvas = null
     this.ctx = null
-    // 绑定 resize 处理函数以便后续移除
-    this._resizeHandler = () => this.resize()
+    this.lastData = null
     this.init()
   }
   
   init() {
-    // 只移除已有的canvas和占位符，不清空整个容器（保留菜单按钮）
     const oldCanvas = this.container.querySelector('canvas')
     if (oldCanvas) oldCanvas.remove()
     
-    // 移除 HTML 中的占位符
     const placeholder = this.container.querySelector('#neuron-placeholder')
     if (placeholder) placeholder.remove()
     
     this.canvas = document.createElement('canvas')
+    // 【修复无限拉伸】：绝对定位脱离文档流，不撑开父盒子
+    this.canvas.style.position = 'absolute'
+    this.canvas.style.top = '0'
+    this.canvas.style.left = '0'
     this.canvas.style.width = '100%'
     this.canvas.style.height = '100%'
+    this.canvas.style.display = 'block'
     this.container.appendChild(this.canvas)
     this.ctx = this.canvas.getContext('2d')
     
-    // 响应式
-    this.resize()
-    window.addEventListener('resize', this._resizeHandler)
+    this.resizeObserver = new ResizeObserver(() => {
+      this.resize()
+    })
+    this.resizeObserver.observe(this.container)
   }
   
   resize() {
     const rect = this.container.getBoundingClientRect()
+    if (rect.width === 0 || rect.height === 0) return
+
     this.canvas.width = rect.width * window.devicePixelRatio
     this.canvas.height = rect.height * window.devicePixelRatio
     this.ctx.scale(window.devicePixelRatio, window.devicePixelRatio)
     this.width = rect.width
     this.height = rect.height
+
+    if (this.lastData && this.lastData.network) {
+      this.render(this.lastData.network, this.lastData.inputs, this.lastData.action, true)
+    }
   }
   
-  /**
-   * 渲染网络
-   * @param {NeuralNetwork} network - 神经网络实例
-   * @param {number[]} inputs - 当前输入（用于高亮）
-   * @param {number} action - 当前选中的动作
-   */
-  render(network, inputs = null, action = null) {
+  render(network, inputs = null, action = null, isResize = false) {
+    if (!isResize) {
+      this.lastData = { network, inputs, action }
+    }
+
     const ctx = this.ctx
     const w = this.width
     const h = this.height
     
-    // 清空
     ctx.clearRect(0, 0, w, h)
     
-    // 获取结构
     const structure = network.getStructure()
     const layers = network.layerSizes
     const weights = network.weights
     
-    // 计算节点位置
     const nodePositions = this.calculatePositions(layers, w, h)
-    
-    // 绘制连线
     this.drawConnections(ctx, nodePositions, weights, inputs)
-    
-    // 绘制节点
     this.drawNodes(ctx, nodePositions, inputs, action)
-    
-    // 绘制信息
     this.drawInfo(ctx, w, h, structure)
   }
   
   calculatePositions(layers, w, h) {
-    const positions = []
+    const positions =[]
     const layerCount = layers.length
     const marginX = w * 0.15
     const marginY = h * 0.15
@@ -83,7 +81,7 @@ export class NetworkView {
     for (let l = 0; l < layerCount; l++) {
       const layerSize = layers[l]
       const x = marginX + (w - 2 * marginX) * l / (layerCount - 1)
-      const layerPos = []
+      const layerPos =[]
       
       for (let n = 0; n < layerSize; n++) {
         const y = marginY + (h - 2 * marginY) * n / Math.max(1, layerSize - 1)
@@ -119,13 +117,12 @@ export class NetworkView {
           ctx.lineWidth = thickness
           ctx.stroke()
           
-          // 将文字移到靠近右侧的位置，并根据输入节点索引(i)稍微错开，防止互相遮挡
-          // i=0(前一格)比例为0.65，i=1(前两格)为0.75，i=2(前三格)为0.85
+          // 将文字移到靠近右侧的位置并阶梯状错开，防遮挡
           const ratio = 0.65 + (i * 0.1) 
           const textX = from.x + (to.x - from.x) * ratio
           const textY = from.y + (to.y - from.y) * ratio
           
-          ctx.fillStyle = 'rgba(255,255,255,0.9)' // 稍微调亮了一点让字更清晰
+          ctx.fillStyle = 'rgba(255,255,255,0.9)'
           ctx.font = '10px monospace'
           ctx.textAlign = 'center'
           ctx.fillText(weight.toFixed(1), textX, textY)
@@ -135,7 +132,6 @@ export class NetworkView {
   }
   
   drawNodes(ctx, positions, inputs, action) {
-    const layerNames = ['输入', '输出']
     const actionNames = ['移动', '跳跃']
     
     for (let l = 0; l < positions.length; l++) {
@@ -146,19 +142,15 @@ export class NetworkView {
         const isInput = l === 0
         const isOutput = l === positions.length - 1
         
-        // 节点大小
         const radius = isOutput ? 22 : 18
         
-        // 背景
         ctx.beginPath()
         ctx.arc(pos.x, pos.y, radius, 0, Math.PI * 2)
         
         if (isInput && inputs) {
-          // 输入节点根据值着色
           const val = inputs[n]
           ctx.fillStyle = val > 0.5 ? '#e74c3c' : '#95a5a6'
         } else if (isOutput && action === n) {
-          // 选中的输出节点高亮
           ctx.fillStyle = '#f39c12'
         } else {
           ctx.fillStyle = '#34495e'
@@ -169,14 +161,13 @@ export class NetworkView {
         ctx.lineWidth = 2
         ctx.stroke()
         
-        // 标签
         ctx.fillStyle = '#fff'
         ctx.font = '11px sans-serif'
         ctx.textAlign = 'center'
         ctx.textBaseline = 'middle'
         
         if (isInput) {
-          const labels = ['前一格', '前两格', '前三格']
+          const labels =['前一格', '前两格', '前三格']
           ctx.fillText(labels[n] || `i${n}`, pos.x, pos.y)
         } else if (isOutput) {
           ctx.fillText(actionNames[n], pos.x, pos.y)
@@ -194,8 +185,7 @@ export class NetworkView {
   }
   
   destroy() {
-    // 清理 resize 监听器
-    window.removeEventListener('resize', this._resizeHandler)
+    if (this.resizeObserver) this.resizeObserver.disconnect()
     this.canvas?.remove()
   }
 }

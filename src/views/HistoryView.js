@@ -8,96 +8,90 @@ export class HistoryView {
     this.container = document.getElementById(containerId)
     this.canvas = null
     this.ctx = null
-    // 绑定 resize 处理函数以便后续移除
-    this._resizeHandler = () => this.resize()
+    this.lastData = null // 缓存数据
     this.init()
   }
   
   init() {
-    // 只移除已有的canvas和占位符，不清空整个容器（保留菜单按钮）
     const oldCanvas = this.container.querySelector('canvas')
     if (oldCanvas) oldCanvas.remove()
     
-    // 移除 HTML 中的占位符
     const placeholder = this.container.querySelector('#neuron-placeholder')
     if (placeholder) placeholder.remove()
     
     this.canvas = document.createElement('canvas')
+    // 【修复无限拉伸】：绝对定位脱离文档流
+    this.canvas.style.position = 'absolute'
+    this.canvas.style.top = '0'
+    this.canvas.style.left = '0'
     this.canvas.style.width = '100%'
     this.canvas.style.height = '100%'
+    this.canvas.style.display = 'block'
     this.container.appendChild(this.canvas)
     this.ctx = this.canvas.getContext('2d')
     
-    this.resize()
-    window.addEventListener('resize', this._resizeHandler)
+    this.resizeObserver = new ResizeObserver(() => {
+      this.resize()
+    })
+    this.resizeObserver.observe(this.container)
   }
   
   resize() {
     const rect = this.container.getBoundingClientRect()
+    if (rect.width === 0 || rect.height === 0) return
+
     this.canvas.width = rect.width * window.devicePixelRatio
     this.canvas.height = rect.height * window.devicePixelRatio
     this.ctx.scale(window.devicePixelRatio, window.devicePixelRatio)
     this.width = rect.width
     this.height = rect.height
+    
+    if (this.lastData && this.lastData.history) {
+      this.render(this.lastData.history, this.lastData.maxPoints, true)
+    }
   }
   
-  /**
-   * 渲染历史折线
-   * @param {Array} history - 历史数据数组
-   * @param {number} maxPoints - 最大显示点数（默认100）
-   */
-  render(history, maxPoints = 100) {
+  render(history, maxPoints = 100, isResize = false) {
+    if (!isResize) {
+      this.lastData = { history, maxPoints }
+    }
+
     const ctx = this.ctx
     const w = this.width
     const h = this.height
     
     ctx.clearRect(0, 0, w, h)
     
-    if (history.length === 0) {
+    if (!history || history.length === 0) {
       this.drawEmpty(ctx, w, h)
       return
     }
     
-    // 动态采样
     const sampled = this.sampleData(history, maxPoints)
-    
-    // 计算范围
     const steps = sampled.map(d => d.steps)
     const maxStep = Math.max(...steps, 10)
     const minStep = 0
     
-    // 边距
     const margin = { top: 40, right: 20, bottom: 40, left: 50 }
     const chartW = w - margin.left - margin.right
     const chartH = h - margin.top - margin.bottom
     
-    // 绘制网格
     this.drawGrid(ctx, margin, chartW, chartH, maxStep)
-    
-    // 绘制折线
     this.drawLine(ctx, sampled, margin, chartW, chartH, maxStep, minStep)
-    
-    // 绘制标签
     this.drawLabels(ctx, margin, chartW, chartH, maxStep, sampled)
-    
-    // 绘制统计
     this.drawStats(ctx, w, h, history)
   }
   
-  /**
-   * 动态采样：数据密集时合并点
-   */
   sampleData(data, maxPoints) {
     if (data.length <= maxPoints) {
       return data
     }
     
-    const sampled = []
+    const sampled =[]
     const bucketSize = Math.ceil(data.length / maxPoints)
     
     for (let i = 0; i < data.length; i += bucketSize) {
       const bucket = data.slice(i, i + bucketSize)
-      // 取桶内平均值
       const avgSteps = bucket.reduce((sum, d) => sum + d.steps, 0) / bucket.length
       sampled.push({
         generation: bucket[Math.floor(bucket.length / 2)].generation,
@@ -112,7 +106,6 @@ export class HistoryView {
     ctx.strokeStyle = 'rgba(255,255,255,0.1)'
     ctx.lineWidth = 1
     
-    // 水平网格线（5条）
     for (let i = 0; i <= 5; i++) {
       const y = margin.top + chartH * i / 5
       ctx.beginPath()
@@ -142,7 +135,6 @@ export class HistoryView {
     
     ctx.stroke()
     
-    // 绘制数据点
     ctx.fillStyle = '#ecf0f1'
     for (let i = 0; i < data.length; i += Math.ceil(data.length / 20)) {
       const x = margin.left + chartW * i / (data.length - 1)
@@ -158,18 +150,15 @@ export class HistoryView {
     ctx.font = '11px monospace'
     ctx.textAlign = 'right'
     
-    // Y轴标签
     for (let i = 0; i <= 5; i++) {
       const val = Math.round(maxStep * (1 - i / 5))
       const y = margin.top + chartH * i / 5 + 4
       ctx.fillText(val.toString(), margin.left - 8, y)
     }
     
-    // X轴标签
     ctx.textAlign = 'center'
     ctx.fillText('世代', margin.left + chartW / 2, margin.top + chartH + 25)
     
-    // 起始和结束世代
     if (data.length > 0) {
       ctx.fillText(data[0].generation.toString(), margin.left, margin.top + chartH + 18)
       ctx.fillText(data[data.length - 1].generation.toString(), margin.left + chartW, margin.top + chartH + 18)
@@ -196,8 +185,7 @@ export class HistoryView {
   }
   
   destroy() {
-    // 清理 resize 监听器
-    window.removeEventListener('resize', this._resizeHandler)
+    if (this.resizeObserver) this.resizeObserver.disconnect()
     this.canvas?.remove()
   }
 }

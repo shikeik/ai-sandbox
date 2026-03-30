@@ -18,31 +18,23 @@ export class NeuronAreaManager {
   }
   
   init() {
-    // 创建菜单按钮
     this.createMenuButton()
     this.createMenuDropdown()
     
-    // 注册视图
     this.registerView('network', NetworkView)
     this.registerView('matrix', MatrixView)
     this.registerView('history', HistoryView)
     
-    // 默认显示网络视图
     this.switchView('network')
-    
-    // 添加双指横滑切换
     this.setupSwipeGesture()
   }
   
-  /**
-   * 双指横滑切换视图
-   */
   setupSwipeGesture() {
     let touchStartX = 0
     let touchStartTime = 0
     
     this.container.addEventListener('touchstart', (e) => {
-      if (e.touches.length === 2) {  // 双指
+      if (e.touches.length === 2) {
         touchStartX = (e.touches[0].clientX + e.touches[1].clientX) / 2
         touchStartTime = Date.now()
       }
@@ -54,16 +46,13 @@ export class NeuronAreaManager {
         const deltaX = touchEndX - touchStartX
         const deltaTime = Date.now() - touchStartTime
         
-        // 快速滑动超过50px
         if (Math.abs(deltaX) > 50 && deltaTime < 500) {
           const views = Array.from(this.views.keys())
           const currentIndex = views.indexOf(this.activeViewName)
           
           if (deltaX > 0 && currentIndex > 0) {
-            // 右滑 → 上一个视图
             this.switchView(views[currentIndex - 1])
           } else if (deltaX < 0 && currentIndex < views.length - 1) {
-            // 左滑 → 下一个视图
             this.switchView(views[currentIndex + 1])
           }
         }
@@ -117,7 +106,6 @@ export class NeuronAreaManager {
       box-shadow: 0 4px 12px rgba(0,0,0,0.3);
     `
     
-    // 添加分隔线
     const addDivider = () => {
       const divider = document.createElement('div')
       divider.style.cssText = `
@@ -133,7 +121,6 @@ export class NeuronAreaManager {
       el.addEventListener('mouseleave', () => el.style.background = 'transparent')
     }
     
-    // 模式切换
     const modes =[
       { id: 'player', label: '👤 玩家游玩' },
       { id: 'ai', label: '🤖 AI控制' },
@@ -159,7 +146,6 @@ export class NeuronAreaManager {
     
     addDivider()
 
-    // 训练速度控制
     const speedTitle = document.createElement('div')
     speedTitle.textContent = '⏱️ 训练速度'
     speedTitle.style.cssText = 'padding: 4px 16px; color: rgba(255,255,255,0.5); font-size: 11px;'
@@ -192,7 +178,6 @@ export class NeuronAreaManager {
     
     addDivider()
     
-    // 视图切换
     const items =[
       { id: 'network', label: '🧠 网络结构' },
       { id: 'matrix', label: '🔢 权重矩阵' },
@@ -243,22 +228,23 @@ export class NeuronAreaManager {
   switchView(name) {
     if (!this.views.has(name)) return
     
-    // 销毁旧视图
     if (this.currentView) {
       this.currentView.destroy()
     }
     
-    // 只移除视图内容（canvas），保留菜单
     const canvas = this.container.querySelector('canvas')
     if (canvas) canvas.remove()
     
-    // 创建新视图
     const ViewClass = this.views.get(name)
     this.currentView = new ViewClass('neuron-area')
     this.activeViewName = name
     
-    // 更新菜单按钮状态
     this.updateMenuButton()
+
+    // 【修复 Bug 1】：抛出事件让 main.js 进行立刻绘制
+    if (this.onViewChange) {
+      this.onViewChange(name)
+    }
   }
   
   updateMenuButton() {
