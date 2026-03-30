@@ -18,6 +18,8 @@
  * game.getStateForAI() -> { playerGrid, terrainAhead[], isMoving }
  */
 
+import { formatTime as formatTimeUtil } from '@utils/timeUtils.js'
+
 // ========== 游戏常量 ==========
 // 所有尺寸使用"单位"(unit)，1 unit = 1格 = GRID_SIZE 像素
 export const CONFIG = {
@@ -112,6 +114,10 @@ export class JumpGame {
     
     // 输入控制（独立于视觉状态）
     this._inputLocked = false
+    
+    // 计时器（玩家模式）
+    this.startTime = null
+    this.currentRunTime = 0
   }
 
   // ========== 初始化 ==========
@@ -123,7 +129,34 @@ export class JumpGame {
     this._generateTerrain()
     this._resetPlayer()
     this._notifyStateChange()
+    // 重置计时器
+    this.startTime = null
+    this.currentRunTime = 0
     return this
+  }
+  
+  /**
+   * 开始计时（玩家模式）
+   */
+  startTimer() {
+    this.startTime = Date.now()
+  }
+  
+  /**
+   * 获取当前用时（毫秒）
+   */
+  getElapsedTime() {
+    if (!this.startTime) return 0
+    return Date.now() - this.startTime
+  }
+  
+  /**
+   * 格式化时间为 mm:ss（保持向后兼容）
+   * @param {number} ms - 毫秒
+   * @returns {string} 格式化后的时间
+   */
+  formatTime(ms) {
+    return formatTimeUtil(ms)
   }
   
   /**

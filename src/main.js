@@ -7,6 +7,7 @@ import { JumpGame, ACTION, CONFIG, STATUS } from '@game/JumpGame.js'
 import { GameRenderer } from '@render/GameRenderer.js'
 import { NeuralNetwork } from '@ai/NeuralNetwork.js'
 import { HistoryStore } from '@ai/HistoryStore.js'
+import { PlayerBestStore } from '@ai/PlayerBestStore.js'
 import { NeuronAreaManager } from '@views/NeuronAreaManager.js'
 import './style.css'
 import './style-fox.css'
@@ -16,7 +17,9 @@ let game = null
 let renderer = null
 let network = null
 let historyStore = null
+let playerBestStore = null
 let viewManager = null
+let timerInterval = null
 
 // ========== 模式设置 ==========
 let isAIMode = false  // 默认玩家模式
@@ -45,6 +48,9 @@ function init() {
   
   // 创建历史存储
   historyStore = new HistoryStore()
+  
+  // 创建玩家最佳记录存储
+  playerBestStore = new PlayerBestStore()
   
   // 创建视图管理器
   viewManager = new NeuronAreaManager('neuron-area')
@@ -100,6 +106,9 @@ function init() {
   // 初始渲染网络图
   renderNetworkView()
   
+  // 初始化游戏信息显示（POS、GEN、TIME、BEST）
+  updateGameInfo()
+  
   console.log('🎮 AI 训练沙盘已初始化')
   console.log('🤖 AI模式:', isAIMode ? '开启' : '关闭')
 }
@@ -142,15 +151,27 @@ function bindGameEvents() {
     renderer.updateGeneration(gen)
     renderer.resetPlayer()
     
+    // 玩家模式下启动计时
+    if (!isAIMode) {
+      game.startTimer()
+      startTimerUpdate()
+    }
+    
     // 渲染更新
     renderNetworkView()
     renderHistoryView()
+    updateGameInfo()
   }
   
   // 死亡
   game.onDeath = () => {
     renderer.showDeath()
     recordResult('dead')
+    
+    // 玩家模式下停止计时
+    if (!isAIMode) {
+      stopTimerUpdate()
+    }
     
     if (isAIMode) {
       // 惩罚错误决策
@@ -175,6 +196,15 @@ function bindGameEvents() {
       // 大奖励
       network.train(1, network.lastAction)
       renderNetworkView()
+    } else {
+      // 玩家模式：停止计时并更新最佳记录
+      stopTimerUpdate()
+      const elapsed = game.getElapsedTime()
+      const isNewRecord = playerBestStore.tryUpdate(elapsed)
+      if (isNewRecord) {
+        console.log('🎉 新纪录！', playerBestStore.getFormatted())
+      }
+      updateGameInfo()
     }
   }
 }
@@ -225,7 +255,7 @@ function recordResult(finalStatus) {
   const player = game.getState().player
   
   historyStore.add({
-    generation: game.generation,
+    generation: game.getState().generation,
     steps: player.grid,
     finalStatus: finalStatus,
     weights: network.getWeightsSnapshot()
@@ -243,6 +273,37 @@ function renderHistoryView() {
   if (viewManager.activeViewName === 'history') {
     viewManager.render(historyStore.getAll())
   }
+}
+
+// ========== 计时功能 ==========
+function startTimerUpdate() {
+  stopTimerUpdate()
+  timerInterval = setInterval(() => {
+    updateGameInfo()
+  }, 100) // 每100ms更新一次
+}
+
+function stopTimerUpdate() {
+  if (timerInterval) {
+    clearInterval(timerInterval)
+    timerInterval = null
+  }
+}
+
+function updateGameInfo() {
+  const gameInfo = document.getElementById('game-info')
+  if (!gameInfo) return
+  
+  const player = game.getState().player
+  const bestTime = playerBestStore.getFormatted()
+  
+  // 玩家模式下显示 TIME，未开始时显示 00:00
+  let timeStr = '--:--'
+  if (!isAIMode && game.startTime) {
+    timeStr = game.formatTime(game.getElapsedTime())
+  }
+  
+  gameInfo.innerHTML = `POS: <span id="pos-display">${player.grid}</span> | GEN: <span id="gen-display">${game.getState().generation}</span>${isAIMode ? '' : ` | TIME: ${timeStr}`} | BEST: ${bestTime}`
 }
 
 // ========== 输入控制 ==========

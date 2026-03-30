@@ -150,7 +150,7 @@ export class NeuronAreaManager {
         if (this.onModeChange) {
           this.onModeChange(item.id)
         }
-        this.hideMenu()
+        // 不自动关闭菜单
       })
       el.addEventListener('mouseenter', () => {
         el.style.background = 'rgba(255,255,255,0.1)'
@@ -181,7 +181,7 @@ export class NeuronAreaManager {
       `
       el.addEventListener('click', () => {
         this.switchView(item.id)
-        this.hideMenu()
+        // 不自动关闭菜单
       })
       el.addEventListener('mouseenter', () => {
         el.style.background = 'rgba(255,255,255,0.1)'
@@ -195,12 +195,7 @@ export class NeuronAreaManager {
     this.container.appendChild(menu)
     this.menuDropdown = menu
     
-    // 点击外部关闭
-    document.addEventListener('click', (e) => {
-      if (!this.menuBtn.contains(e.target) && !this.menuDropdown.contains(e.target)) {
-        this.hideMenu()
-      }
-    })
+    // 不监听外部点击，菜单只能通过按钮切换关闭
   }
   
   toggleMenu() {
@@ -245,11 +240,8 @@ export class NeuronAreaManager {
   }
   
   updateMenuButton() {
-    const icons = {
-      network: '🧠',
-      history: '📈'
-    }
-    this.menuBtn.innerHTML = icons[this.activeViewName] || '☰'
+    // 固定显示 ☰，不随视图变化
+    this.menuBtn.innerHTML = '☰'
   }
   
   /**

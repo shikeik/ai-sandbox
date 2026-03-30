@@ -8,6 +8,8 @@ export class HistoryView {
     this.container = document.getElementById(containerId)
     this.canvas = null
     this.ctx = null
+    // 绑定 resize 处理函数以便后续移除
+    this._resizeHandler = () => this.resize()
     this.init()
   }
   
@@ -27,7 +29,7 @@ export class HistoryView {
     this.ctx = this.canvas.getContext('2d')
     
     this.resize()
-    window.addEventListener('resize', () => this.resize())
+    window.addEventListener('resize', this._resizeHandler)
   }
   
   resize() {
@@ -194,7 +196,9 @@ export class HistoryView {
   }
   
   destroy() {
-    // 清理
+    // 清理 resize 监听器
+    window.removeEventListener('resize', this._resizeHandler)
+    this.canvas?.remove()
   }
 }
 

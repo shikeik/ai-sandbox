@@ -8,6 +8,8 @@ export class NetworkView {
     this.container = document.getElementById(containerId)
     this.canvas = null
     this.ctx = null
+    // 绑定 resize 处理函数以便后续移除
+    this._resizeHandler = () => this.resize()
     this.init()
   }
   
@@ -28,7 +30,7 @@ export class NetworkView {
     
     // 响应式
     this.resize()
-    window.addEventListener('resize', () => this.resize())
+    window.addEventListener('resize', this._resizeHandler)
   }
   
   resize() {
@@ -194,7 +196,9 @@ export class NetworkView {
   }
   
   destroy() {
-    // 清理
+    // 清理 resize 监听器
+    window.removeEventListener('resize', this._resizeHandler)
+    this.canvas?.remove()
   }
 }
 
