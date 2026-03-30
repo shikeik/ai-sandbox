@@ -3,7 +3,7 @@
  * 连接游戏逻辑、渲染、AI控制和视图
  */
 
-import { JumpGame, ACTION, CONFIG, STATUS } from '@game/JumpGame.js'
+import { JumpGame, ACTION, CONFIG, GAME_STATUS, PLAYER_ACTION } from '@game/JumpGame.js'
 import { formatTimeMs } from '@utils/timeUtils.js'
 import { GameRenderer } from '@render/GameRenderer.js'
 import { TransitionManager } from '@render/TransitionManager.js'
@@ -133,9 +133,8 @@ function showStartOverlay() {
   }
   
   // 确保游戏处于 READY 状态
-  if (game.player.status !== STATUS.READY) {
-    game.player.status = STATUS.READY
-    game._inputLocked = true
+  if (game.gameStatus !== GAME_STATUS.READY) {
+    game.init()  // 重新初始化以重置状态
   }
 }
 
@@ -183,7 +182,9 @@ function bindGameEvents() {
     }
     
     // AI模式下，如果就绪则决策
-    if (isAIMode && (player.status === STATUS.IDLE || player.status === STATUS.RUNNING) && !aiInterval) {
+    const canDecide = game.gameStatus === GAME_STATUS.RUNNING && 
+                      player.action === PLAYER_ACTION.IDLE
+    if (isAIMode && canDecide && !aiInterval) {
       makeAIDecision()
     }
   }
@@ -369,7 +370,7 @@ function updateGameInfo() {
   if (!gameInfo) return
   
   const player = game.getState().player
-  const isRunning = game.player.status === STATUS.RUNNING
+  const isRunning = game.gameStatus === GAME_STATUS.RUNNING
   
   let timeStr
   if (isRunning) {
@@ -390,12 +391,14 @@ function bindControls() {
   // 按钮点击
   btnRight.addEventListener('click', () => {
     if (isAIMode) return
-    if (game.player.status !== STATUS.RUNNING) return
+    if (game.gameStatus !== GAME_STATUS.RUNNING) return
+    if (game.player.action !== PLAYER_ACTION.IDLE) return
     game.execute(ACTION.RIGHT)
   })
   btnJump.addEventListener('click', () => {
     if (isAIMode) return
-    if (game.player.status !== STATUS.RUNNING) return
+    if (game.gameStatus !== GAME_STATUS.RUNNING) return
+    if (game.player.action !== PLAYER_ACTION.IDLE) return
     game.execute(ACTION.JUMP)
   })
   
@@ -407,8 +410,11 @@ function handleKeyDown(e) {
   if (e.repeat) return
   if (isAIMode) return  // AI模式下禁用键盘
   
-  // 只有 RUNNING 状态可以操作
-  if (game.player.status !== STATUS.RUNNING) return
+  // 检查游戏状态
+  if (game.gameStatus !== GAME_STATUS.RUNNING) return
+  
+  // 检查人物动作状态（防止连续操作）
+  if (game.player.action !== PLAYER_ACTION.IDLE) return
   
   if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
     e.preventDefault()

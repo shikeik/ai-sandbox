@@ -518,7 +518,7 @@ export class GameRenderer {
     // 计算新状态
     let newState = 'idle'
     
-    if (player.status === 'dead') {
+    if (player.action === 'dead') {
       newState = 'dead'
     } else if (!onGround) {
       // 在空中

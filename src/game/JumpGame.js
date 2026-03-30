@@ -59,15 +59,35 @@ export const ACTION = {
   JUMP: 'jump'
 }
 
-// 游戏状态
+// ========== 状态分离定义 ==========
+
+// 游戏生命周期状态（控制能否操作、计时、显示）
+export const GAME_STATUS = {
+  READY: 'ready',           // 准备中，未开始
+  RUNNING: 'running',       // 游戏进行中，计时中
+  TRANSITIONING: 'transitioning', // 转场中
+  FINISHED: 'finished'      // 已结束（死亡或胜利）
+}
+
+// 人物动作状态（控制动画表现）
+export const PLAYER_ACTION = {
+  IDLE: 'idle',             // 待机，可接受操作
+  MOVING: 'moving',         // 地面移动中
+  JUMPING: 'jumping'        // 跳跃中
+}
+
+// 为兼容保留旧的 STATUS 导出
 export const STATUS = {
-  READY: 'ready',                 // 游戏生命周期：未开始
-  RUNNING: 'running',             // 游戏生命周期：进行中
-  TRANSITIONING: 'transitioning', // 游戏生命周期：转场
-  IDLE: 'idle',                   // 人物动作：待机
-  MOVING: 'moving',               // 人物动作：移动
-  DEAD: 'dead',                   // 游戏生命周期：死亡结束
-  WON: 'won'                      // 游戏生命周期：胜利结束
+  // 游戏生命周期状态（兼容旧代码）
+  READY: GAME_STATUS.READY,
+  RUNNING: GAME_STATUS.RUNNING,
+  TRANSITIONING: GAME_STATUS.TRANSITIONING,
+  // 人物动作状态（兼容旧代码）
+  IDLE: PLAYER_ACTION.IDLE,
+  MOVING: PLAYER_ACTION.MOVING,
+  // 兼容旧代码
+  DEAD: 'dead',
+  WON: 'won'
 }
 
 // 地形类型
@@ -86,12 +106,17 @@ export class JumpGame {
     // 世界地形数据
     this.terrain = []
     
-    // 玩家状态
+    // 游戏生命周期状态（新增）
+    this.gameStatus = GAME_STATUS.READY
+    
+    // 人物状态（修改结构）
     this.player = {
-      x: 0,           // 像素坐标
-      y: 0,           // 像素坐标（离地高度）
-      grid: 0,        // 所在格子
-      status: STATUS.READY
+      x: 0,                    // 像素坐标
+      y: 0,                    // 像素坐标（离地高度）
+      grid: 0,                 // 所在格子
+      action: PLAYER_ACTION.IDLE,  // 动作状态（替代旧的status）
+      isJump: false,           // 是否是跳跃动作
+      direction: 0             // 移动方向
     }
     
     // 相机位置（像素）
@@ -111,9 +136,8 @@ export class JumpGame {
     this.onWin = null            // () => void - 延迟到补间完成
     this.onGenerationChange = null // (gen) => void
     
-    // 新增转场相关回调
+    // 转场相关回调
     this.onTransitionStart = null    // 转场开始
-    this.onTransitionMid = null      // 转场中点（暗屏，执行重生）
     this.onTransitionEnd = null      // 转场结束
     
     // 视觉状态（等待补间完成）
@@ -133,11 +157,13 @@ export class JumpGame {
   init() {
     this._pendingDeath = false
     this._pendingWin = false
-    this._inputLocked = true
+    this._inputLocked = true  // 开始时锁定输入（需要点击开始）
     this._generateTerrain()
     this._resetPlayer()
     this._notifyStateChange()
-    // 重置计时器
+    
+    // 游戏状态设为准备中
+    this.gameStatus = GAME_STATUS.READY
     this.startTime = null
     this.currentRunTime = 0
     return this
@@ -171,10 +197,12 @@ export class JumpGame {
    * 开始游戏（从 READY 或 TRANSITIONING 状态进入 RUNNING）
    */
   startGame() {
-    if (this.player.status === STATUS.READY || this.player.status === STATUS.TRANSITIONING) {
-      this.player.status = STATUS.RUNNING
+    if (this.gameStatus === GAME_STATUS.READY || 
+        this.gameStatus === GAME_STATUS.TRANSITIONING) {
+      this.gameStatus = GAME_STATUS.RUNNING
       this._inputLocked = false
-      this.startTimer()  // 重置并启动计时器
+      this.player.action = PLAYER_ACTION.IDLE
+      this.startTimer()
     }
   }
   
@@ -200,10 +228,14 @@ export class JumpGame {
    * @returns {Object|null} - 动作信息或失败
    */
   execute(action) {
-    // 检查输入是否被锁定（死亡/胜利状态）
-    if (this._inputLocked) {
-      return null
-    }
+    // 检查输入锁定
+    if (this._inputLocked) return null
+    
+    // 检查游戏状态
+    if (this.gameStatus !== GAME_STATUS.RUNNING) return null
+    
+    // 检查人物动作状态（防止连续操作）
+    if (this.player.action !== PLAYER_ACTION.IDLE) return null
     
     const fromX = this.player.x
     const fromY = this.player.y
@@ -223,9 +255,10 @@ export class JumpGame {
     this.player.x = targetX
     this.player.y = CONFIG.toPx(CONFIG.GROUND_HEIGHT)
     this.player.grid = Math.floor(targetX / CONFIG.GRID_SIZE)
-    this.player.status = STATUS.MOVING  // 视觉上还在移动
-    this.player.isJump = isJump  // 标记是否是跳跃动作
-    this.player.direction = action === ACTION.RIGHT ? 1 : 2  // 移动方向（1=右移, 2=跳跃）
+    // 设置人物动作状态（不再影响 gameStatus）
+    this.player.action = isJump ? PLAYER_ACTION.JUMPING : PLAYER_ACTION.MOVING
+    this.player.isJump = isJump
+    this.player.direction = action === ACTION.RIGHT ? 1 : 2  // 移动方向
     
     // 更新相机
     this._updateCamera()
@@ -257,9 +290,10 @@ export class JumpGame {
       return
     }
     
-    // 正常完成
-    if (this.player.status === STATUS.MOVING) {
-      this.player.status = STATUS.IDLE
+    // 正常完成，人物回到待机状态
+    if (this.player.action === PLAYER_ACTION.MOVING || 
+        this.player.action === PLAYER_ACTION.JUMPING) {
+      this.player.action = PLAYER_ACTION.IDLE
       this._notifyStateChange()
       
       if (this.onActionEnd) {
@@ -272,7 +306,7 @@ export class JumpGame {
     const grid = this.player.grid
     return {
       playerGrid: grid,
-      isMoving: this.player.status === STATUS.MOVING,
+      isMoving: this.player.action === PLAYER_ACTION.MOVING || this.player.action === PLAYER_ACTION.JUMPING,
       terrainAhead: [
         this._getTerrainAt(grid + 1),
         this._getTerrainAt(grid + 2),
@@ -286,7 +320,8 @@ export class JumpGame {
       player: { ...this.player },
       camera: { ...this.camera },
       terrain: this.terrain,
-      generation: this.generation
+      generation: this.generation,
+      gameStatus: this.gameStatus  // 新增返回游戏状态
     }
   }
 
@@ -295,11 +330,13 @@ export class JumpGame {
   _checkResult(finalX) {
     // 检测落点
     if (this._isInPit(finalX)) {
-      this.player.status = STATUS.DEAD
+      this.gameStatus = GAME_STATUS.FINISHED  // 游戏结束
+      this.player.action = PLAYER_ACTION.IDLE
       this._pendingDeath = true
       this._inputLocked = true  // 锁定输入，等待死亡动画
     } else if (this.player.grid >= CONFIG.WORLD_LENGTH - 1) {
-      this.player.status = STATUS.WON
+      this.gameStatus = GAME_STATUS.FINISHED  // 游戏结束
+      this.player.action = PLAYER_ACTION.IDLE
       this._pendingWin = true
       this._inputLocked = true  // 锁定输入，等待胜利动画
     }
@@ -312,13 +349,14 @@ export class JumpGame {
   triggerDeath() {
     if (!this._pendingDeath) return
     this._pendingDeath = false
+    
+    this.gameStatus = GAME_STATUS.FINISHED  // 明确结束状态
     this._inputLocked = true  // 锁定输入
 
     if (this.onDeath) this.onDeath()
 
     // 使用转场而非直接重生
     if (this.onTransitionStart) {
-      this.player.status = STATUS.TRANSITIONING
       this.onTransitionStart(() => {
         // 转场中点回调
         this._executeRespawn()
@@ -338,12 +376,13 @@ export class JumpGame {
   triggerWin() {
     if (!this._pendingWin) return
     this._pendingWin = false
+    
+    this.gameStatus = GAME_STATUS.FINISHED  // 明确结束状态
     this._inputLocked = true  // 锁定输入
 
     if (this.onWin) this.onWin()
 
     if (this.onTransitionStart) {
-      this.player.status = STATUS.TRANSITIONING
       this.onTransitionStart(() => {
         this._executeRespawn()
       }, () => {
@@ -358,8 +397,8 @@ export class JumpGame {
   _executeRespawn() {
     this.generation++
     this.init()
-    // 注意：init() 会将状态设为 READY，但我们需要保持 TRANSITIONING
-    this.player.status = STATUS.TRANSITIONING
+    // init() 会将 gameStatus 设为 READY，但我们需要 TRANSITIONING
+    this.gameStatus = GAME_STATUS.TRANSITIONING
     
     // 在暗屏时就让渲染器更新世界，这样渐亮时显示的是新世界
     if (this.onGenerationChange) {
@@ -454,7 +493,9 @@ export class JumpGame {
     this.player.x = CONFIG.toPx(CONFIG.PLAYER_START_X)
     this.player.y = CONFIG.toPx(CONFIG.GROUND_HEIGHT)
     this.player.grid = 0
-    this.player.status = STATUS.READY
+    this.player.action = PLAYER_ACTION.IDLE
+    this.player.isJump = false
+    this.player.direction = 0
     this._updateCamera()
   }
   
