@@ -61,6 +61,7 @@ export const ACTION = {
 
 // 游戏状态
 export const STATUS = {
+  READY: 'ready',    // 等待开始
   IDLE: 'idle',      // 待机，可接受操作
   MOVING: 'moving',  // 移动中（视觉动画播放中，逻辑已完成）
   DEAD: 'dead',      // 死亡
@@ -88,7 +89,7 @@ export class JumpGame {
       x: 0,           // 像素坐标
       y: 0,           // 像素坐标（离地高度）
       grid: 0,        // 所在格子
-      status: STATUS.IDLE
+      status: STATUS.READY
     }
     
     // 相机位置（像素）
@@ -125,7 +126,7 @@ export class JumpGame {
   init() {
     this._pendingDeath = false
     this._pendingWin = false
-    this._inputLocked = false
+    this._inputLocked = true
     this._generateTerrain()
     this._resetPlayer()
     this._notifyStateChange()
@@ -157,6 +158,17 @@ export class JumpGame {
    */
   formatTime(ms) {
     return formatTimeUtil(ms)
+  }
+  
+  /**
+   * 开始游戏（从 READY 状态进入 IDLE）
+   */
+  startGame() {
+    if (this.player.status === STATUS.READY) {
+      this.player.status = STATUS.IDLE
+      this._inputLocked = false
+      this.startTimer()
+    }
   }
   
   /**
@@ -387,7 +399,7 @@ export class JumpGame {
     this.player.x = CONFIG.toPx(CONFIG.PLAYER_START_X)
     this.player.y = CONFIG.toPx(CONFIG.GROUND_HEIGHT)
     this.player.grid = 0
-    this.player.status = STATUS.IDLE
+    this.player.status = STATUS.READY
     this._updateCamera()
   }
   

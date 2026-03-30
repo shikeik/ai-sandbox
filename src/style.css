@@ -374,3 +374,60 @@ body {
   box-shadow: 0 4px 0 var(--color-btn-jump-shadow), 0 5px 15px rgba(243, 156, 18, 0.4);
   transform: translateY(4px) scale(0.92);
 }
+
+/* ---------- 开始游戏遮罩 ---------- */
+.game-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1500;
+  opacity: 1;
+  transition: opacity 0.4s ease;
+}
+
+.game-overlay.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.overlay-content {
+  text-align: center;
+  color: white;
+}
+
+.overlay-content h2 {
+  font-size: 18px;
+  margin-bottom: 24px;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+}
+
+.start-button {
+  padding: 16px 48px;
+  font-size: 18px;
+  font-weight: bold;
+  color: white;
+  background: linear-gradient(135deg, #27ae60 0%, #1e8449 100%);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  box-shadow: 0 4px 15px rgba(39, 174, 96, 0.4);
+  transition: transform 0.1s, box-shadow 0.1s;
+}
+
+.start-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(39, 174, 96, 0.5);
+}
+
+.start-button:active {
+  transform: translateY(0);
+}
+
+.overlay-hint {
+  margin-top: 16px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.6);
+}

@@ -109,8 +109,59 @@ function init() {
   // 初始化游戏信息显示（POS、GEN、TIME、BEST）
   updateGameInfo()
   
-  console.log('🎮 AI 训练沙盘已初始化')
+  // 绑定开始按钮
+  bindStartButton()
+  
+  console.log('🎮 AI 训练沙盘已初始化，等待开始...')
   console.log('🤖 AI模式:', isAIMode ? '开启' : '关闭')
+}
+
+// ========== 开始游戏遮罩控制 ==========
+function showStartOverlay() {
+  const overlay = document.getElementById('start-overlay')
+  if (overlay) {
+    overlay.classList.remove('hidden')
+  }
+  
+  // 确保游戏处于 READY 状态
+  if (game.player.status !== STATUS.READY) {
+    game.player.status = STATUS.READY
+    game._inputLocked = true
+  }
+}
+
+function hideStartOverlay() {
+  const overlay = document.getElementById('start-overlay')
+  if (overlay) {
+    overlay.classList.add('hidden')
+  }
+}
+
+function onGameStart() {
+  // 调用游戏开始方法
+  game.startGame()
+  
+  // 隐藏遮罩
+  hideStartOverlay()
+  
+  // 启动计时器更新（玩家模式）
+  if (!isAIMode) {
+    startTimerUpdate()
+  }
+  
+  // 如果在 AI 模式，启动 AI
+  if (isAIMode) {
+    startAI()
+  }
+  
+  console.log('🎮 游戏开始！')
+}
+
+function bindStartButton() {
+  const startBtn = document.getElementById('start-btn')
+  if (startBtn) {
+    startBtn.addEventListener('click', onGameStart)
+  }
 }
 
 // ========== 事件绑定 ==========
@@ -151,10 +202,9 @@ function bindGameEvents() {
     renderer.updateGeneration(gen)
     renderer.resetPlayer()
     
-    // 玩家模式下启动计时
+    // 显示开始遮罩（玩家模式）
     if (!isAIMode) {
-      game.startTimer()
-      startTimerUpdate()
+      showStartOverlay()
     }
     
     // 渲染更新
@@ -297,9 +347,9 @@ function updateGameInfo() {
   const player = game.getState().player
   const bestTime = playerBestStore.getFormatted()
   
-  // 玩家模式下显示 TIME，未开始时显示 00:00
+  // 玩家模式下显示 TIME，未开始时显示 --:--
   let timeStr = '--:--'
-  if (!isAIMode && game.startTime) {
+  if (!isAIMode && game.player.status !== STATUS.READY && game.startTime) {
     timeStr = game.formatTime(game.getElapsedTime())
   }
   
@@ -310,10 +360,14 @@ function updateGameInfo() {
 function bindControls() {
   // 按钮点击
   btnRight.addEventListener('click', () => {
-    if (!isAIMode) game.execute(ACTION.RIGHT)
+    if (isAIMode) return
+    if (game.player.status === STATUS.READY) return
+    game.execute(ACTION.RIGHT)
   })
   btnJump.addEventListener('click', () => {
-    if (!isAIMode) game.execute(ACTION.JUMP)
+    if (isAIMode) return
+    if (game.player.status === STATUS.READY) return
+    game.execute(ACTION.JUMP)
   })
   
   // 键盘控制
@@ -323,6 +377,9 @@ function bindControls() {
 function handleKeyDown(e) {
   if (e.repeat) return
   if (isAIMode) return  // AI模式下禁用键盘
+  
+  // 如果游戏未开始，不处理按键
+  if (game.player.status === STATUS.READY) return
   
   if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
     e.preventDefault()
