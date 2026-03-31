@@ -168,7 +168,7 @@
             transform: translate(-100%, -50%);
             width: 26px;
             height: 40px;
-            background: inherit;
+            background: var(--color-surface);
             border-radius: var(--radius-sm) 0 0 var(--radius-sm);
             border: 1px solid var(--color-border);
             border-right: none;
@@ -181,7 +181,7 @@
         }
 
         .c-drawer__handle:hover {
-            background: rgba(255,255,255,0.1);
+            background: #1a1a2e;
         }
 
         .c-drawer__handle-icon {
@@ -1165,9 +1165,16 @@
             }
 
             moveTo(pos) {
-                // 将虚拟坐标转为百分比
-                this.#position.x = (pos.x / 384) * 100;
-                this.#position.y = (pos.y / 853) * 100;
+                // 使用当前状态中的虚拟尺寸（动态计算，非固定384x853）
+                const state = window.__APP_STATE__;
+                if (state && state.layout) {
+                    this.#position.x = (pos.x / state.layout.virtualWidth) * 100;
+                    this.#position.y = (pos.y / state.layout.virtualHeight) * 100;
+                } else {
+                    // 备用：使用固定比例（应该不会走到这里）
+                    this.#position.x = (pos.x / 384) * 100;
+                    this.#position.y = (pos.y / 853) * 100;
+                }
                 this.#render();
             }
 
@@ -1248,20 +1255,24 @@
                 });
 
                 this.#fullscreenService.onChange(() => {
+                    const wasFullscreen = this.#isFullscreen;
                     this.#isFullscreen = this.#fullscreenService.isActive();
-                    
+
                     if (this.#isFullscreen) {
-                        // 进入全屏：根据当前模式锁定方向，防止重力翻转
+                        // 进入全屏：根据当前模式锁定方向
                         const lockMode = this.#currentMode === 'landscape' 
                             ? 'landscape-primary' 
                             : 'portrait-primary';
                         this.#orientationService.lock(lockMode);
                     } else {
-                        // 退出全屏：解锁
+                        // 退出全屏：解锁并重置为auto模式（支持返回键退出）
                         this.#orientationService.unlock();
+                        this.#currentMode = 'auto';
+                        setTimeout(() => this.#updateLayout(), 100);
                     }
-                    
+
                     this.#emitState();
+           
                 });
             }
             
