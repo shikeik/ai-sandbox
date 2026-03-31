@@ -104,84 +104,84 @@ export const TERRAIN = {
 export class JumpGame {
 	constructor() {
 	// 世界地形数据
-	this.terrain = []
+		this.terrain = []
 	
-	// 游戏生命周期状态（新增）
-	this.gameStatus = GAME_STATUS.READY
+		// 游戏生命周期状态（新增）
+		this.gameStatus = GAME_STATUS.READY
 	
-	// 人物状态（修改结构）
-	this.player = {
-		x: 0,                    // 像素坐标
-		y: 0,                    // 像素坐标（离地高度）
-		grid: 0,                 // 所在格子
-		action: PLAYER_ACTION.IDLE,  // 动作状态（替代旧的status）
-		isJump: false,           // 是否是跳跃动作
-		direction: 0             // 移动方向
-	}
+		// 人物状态（修改结构）
+		this.player = {
+			x: 0,                    // 像素坐标
+			y: 0,                    // 像素坐标（离地高度）
+			grid: 0,                 // 所在格子
+			action: PLAYER_ACTION.IDLE,  // 动作状态（替代旧的status）
+			isJump: false,           // 是否是跳跃动作
+			direction: 0             // 移动方向
+		}
 	
-	// 相机位置（像素）
-	this.camera = { x: 0 }
+		// 相机位置（像素）
+		this.camera = { x: 0 }
 	
-	// 世代计数（死亡/胜利后+1）
-	this.generation = 1
+		// 世代计数（死亡/胜利后+1）
+		this.generation = 1
 	
-	// 视口宽度（由外部设置）
-	this.viewportWidth = 0
+		// 视口宽度（由外部设置）
+		this.viewportWidth = 0
 	
-	// 事件回调
-	this.onStateChange = null    // (player, camera) => void
-	this.onActionStart = null    // (action, from, to, isJump) => void
-	this.onActionEnd = null      // (result) => void
-	this.onDeath = null          // () => void - 延迟到补间完成
-	this.onWin = null            // () => void - 延迟到补间完成
-	this.onGenerationChange = null // (gen) => void
+		// 事件回调
+		this.onStateChange = null    // (player, camera) => void
+		this.onActionStart = null    // (action, from, to, isJump) => void
+		this.onActionEnd = null      // (result) => void
+		this.onDeath = null          // () => void - 延迟到补间完成
+		this.onWin = null            // () => void - 延迟到补间完成
+		this.onGenerationChange = null // (gen) => void
 	
-	// 转场相关回调
-	this.onTransitionStart = null    // 转场开始
-	this.onTransitionEnd = null      // 转场结束
+		// 转场相关回调
+		this.onTransitionStart = null    // 转场开始
+		this.onTransitionEnd = null      // 转场结束
 	
-	// 视觉状态（等待补间完成）
-	this._pendingDeath = false
-	this._pendingWin = false
+		// 视觉状态（等待补间完成）
+		this._pendingDeath = false
+		this._pendingWin = false
 	
-	// 输入控制（独立于视觉状态）
-	this._inputLocked = false
+		// 输入控制（独立于视觉状态）
+		this._inputLocked = false
 	
-	// 计时器（玩家模式）
-	this.startTime = null
-	this.currentRunTime = 0
+		// 计时器（玩家模式）
+		this.startTime = null
+		this.currentRunTime = 0
 	}
 
 	// ========== 初始化 ==========
 	
 	init() {
-	this._pendingDeath = false
-	this._pendingWin = false
-	this._inputLocked = true  // 开始时锁定输入（需要点击开始）
-	this._generateTerrain()
-	this._resetPlayer()
-	this._notifyStateChange()
+		this._pendingDeath = false
+		this._pendingWin = false
+		this._inputLocked = true  // 开始时锁定输入（需要点击开始）
+		this._generateTerrain()
+		this._resetPlayer()
+		this._notifyStateChange()
 	
-	// 游戏状态设为准备中
-	this.gameStatus = GAME_STATUS.READY
-	this.startTime = null
-	this.currentRunTime = 0
-	return this
+		// 游戏状态设为准备中
+		this.gameStatus = GAME_STATUS.READY
+		this.startTime = null
+		this.currentRunTime = 0
+		return this
 	}
 	
 	/**
 	* 开始计时（玩家模式）
 	*/
 	startTimer() {
-	this.startTime = Date.now()
+		this.startTime = Date.now()
 	}
 	
 	/**
 	* 获取当前用时（毫秒）
 	*/
 	getElapsedTime() {
-	if (!this.startTime) return 0
-	return Date.now() - this.startTime
+		if (!this.startTime) return 0
+		return Date.now() - this.startTime
 	}
 	
 	/**
@@ -190,20 +190,20 @@ export class JumpGame {
 	* @returns {string} 格式化后的时间
 	*/
 	formatTime(ms) {
-	return formatTimeUtil(ms)
+		return formatTimeUtil(ms)
 	}
 	
 	/**
 	* 开始游戏（从 READY 或 TRANSITIONING 状态进入 RUNNING）
 	*/
 	startGame() {
-	if (this.gameStatus === GAME_STATUS.READY || 
+		if (this.gameStatus === GAME_STATUS.READY || 
 		this.gameStatus === GAME_STATUS.TRANSITIONING) {
-		this.gameStatus = GAME_STATUS.RUNNING
-		this._inputLocked = false
-		this.player.action = PLAYER_ACTION.IDLE
-		this.startTimer()
-	}
+			this.gameStatus = GAME_STATUS.RUNNING
+			this._inputLocked = false
+			this.player.action = PLAYER_ACTION.IDLE
+			this.startTimer()
+		}
 	}
 	
 	/**
@@ -212,12 +212,12 @@ export class JumpGame {
 	*/
 	setViewportSize(width) {
 	// 计算 1 unit = ? 像素
-	CONFIG.GRID_SIZE = Math.floor(width / CONFIG.VIEWPORT_GRID_W)
+		CONFIG.GRID_SIZE = Math.floor(width / CONFIG.VIEWPORT_GRID_W)
 	
-	this.viewportWidth = width
-	this.viewportHeight = CONFIG.toPx(CONFIG.VIEWPORT_GRID_H)
+		this.viewportWidth = width
+		this.viewportHeight = CONFIG.toPx(CONFIG.VIEWPORT_GRID_H)
 	
-	this._updateCamera()
+		this._updateCamera()
 	}
 
 	// ========== 核心操作 ==========
@@ -235,48 +235,48 @@ export class JumpGame {
 	*/
 	execute(action) {
 	// 检查输入锁定
-	if (this._inputLocked) return null
+		if (this._inputLocked) return null
 	
-	// 检查游戏状态
-	if (this.gameStatus !== GAME_STATUS.RUNNING) return null
+		// 检查游戏状态
+		if (this.gameStatus !== GAME_STATUS.RUNNING) return null
 	
-	const fromX = this.player.x
-	const fromY = this.player.y
-	const isJump = action === ACTION.JUMP
+		const fromX = this.player.x
+		const fromY = this.player.y
+		const isJump = action === ACTION.JUMP
 	
-	// 计算目标位置（像素）
-	let targetX
-	if (action === ACTION.RIGHT) {
-		targetX = fromX + CONFIG.toPx(1)  // 移动 1 unit
-	} else if (action === ACTION.JUMP) {
-		targetX = fromX + CONFIG.toPx(2)  // 跳跃 2 unit
-	} else {
-		return null
-	}
+		// 计算目标位置（像素）
+		let targetX
+		if (action === ACTION.RIGHT) {
+			targetX = fromX + CONFIG.toPx(1)  // 移动 1 unit
+		} else if (action === ACTION.JUMP) {
+			targetX = fromX + CONFIG.toPx(2)  // 跳跃 2 unit
+		} else {
+			return null
+		}
 	
-	// 立即执行逻辑
-	this.player.x = targetX
-	this.player.y = CONFIG.toPx(CONFIG.GROUND_HEIGHT)
-	this.player.grid = Math.floor(targetX / CONFIG.GRID_SIZE)
-	// 设置人物动作状态（不再影响 gameStatus）
-	this.player.action = isJump ? PLAYER_ACTION.JUMPING : PLAYER_ACTION.MOVING
-	this.player.isJump = isJump
-	this.player.direction = action === ACTION.RIGHT ? 1 : 2  // 移动方向
+		// 立即执行逻辑
+		this.player.x = targetX
+		this.player.y = CONFIG.toPx(CONFIG.GROUND_HEIGHT)
+		this.player.grid = Math.floor(targetX / CONFIG.GRID_SIZE)
+		// 设置人物动作状态（不再影响 gameStatus）
+		this.player.action = isJump ? PLAYER_ACTION.JUMPING : PLAYER_ACTION.MOVING
+		this.player.isJump = isJump
+		this.player.direction = action === ACTION.RIGHT ? 1 : 2  // 移动方向
 	
-	// 更新相机
-	this._updateCamera()
+		// 更新相机
+		this._updateCamera()
 	
-	// 通知动作开始（提供补间所需信息）
-	if (this.onActionStart) {
-		this.onActionStart(action, { x: fromX, y: fromY }, { x: targetX, y: CONFIG.toPx(CONFIG.GROUND_HEIGHT) }, isJump)
-	}
+		// 通知动作开始（提供补间所需信息）
+		if (this.onActionStart) {
+			this.onActionStart(action, { x: fromX, y: fromY }, { x: targetX, y: CONFIG.toPx(CONFIG.GROUND_HEIGHT) }, isJump)
+		}
 	
-	this._notifyStateChange()
+		this._notifyStateChange()
 	
-	// 立即检测结果
-	this._checkResult(targetX)
+		// 立即检测结果
+		this._checkResult(targetX)
 	
-	return { action, fromX, fromY, targetX, isJump }
+		return { action, fromX, fromY, targetX, isJump }
 	}
 	
 	/**
@@ -284,65 +284,65 @@ export class JumpGame {
 	*/
 	notifyVisualComplete() {
 	// 优先处理死亡/胜利
-	if (this._pendingDeath) {
-		this.triggerDeath()
-		return
-	}
-	if (this._pendingWin) {
-		this.triggerWin()
-		return
-	}
-	
-	// 正常完成，人物回到待机状态
-	if (this.player.action === PLAYER_ACTION.MOVING || 
-		this.player.action === PLAYER_ACTION.JUMPING) {
-		this.player.action = PLAYER_ACTION.IDLE
-		this._notifyStateChange()
-		
-		if (this.onActionEnd) {
-		this.onActionEnd({ success: true, grid: this.player.grid })
+		if (this._pendingDeath) {
+			this.triggerDeath()
+			return
 		}
-	}
+		if (this._pendingWin) {
+			this.triggerWin()
+			return
+		}
+	
+		// 正常完成，人物回到待机状态
+		if (this.player.action === PLAYER_ACTION.MOVING || 
+		this.player.action === PLAYER_ACTION.JUMPING) {
+			this.player.action = PLAYER_ACTION.IDLE
+			this._notifyStateChange()
+		
+			if (this.onActionEnd) {
+				this.onActionEnd({ success: true, grid: this.player.grid })
+			}
+		}
 	}
 	
 	getStateForAI() {
-	const grid = this.player.grid
-	return {
-		playerGrid: grid,
-		isMoving: this.player.action === PLAYER_ACTION.MOVING || this.player.action === PLAYER_ACTION.JUMPING,
-		terrainAhead: [
-		this._getTerrainAt(grid + 1),
-		this._getTerrainAt(grid + 2),
-		this._getTerrainAt(grid + 3)
-		]
-	}
+		const grid = this.player.grid
+		return {
+			playerGrid: grid,
+			isMoving: this.player.action === PLAYER_ACTION.MOVING || this.player.action === PLAYER_ACTION.JUMPING,
+			terrainAhead: [
+				this._getTerrainAt(grid + 1),
+				this._getTerrainAt(grid + 2),
+				this._getTerrainAt(grid + 3)
+			]
+		}
 	}
 	
 	getState() {
-	return {
-		player: { ...this.player },
-		camera: { ...this.camera },
-		terrain: this.terrain,
-		generation: this.generation,
-		gameStatus: this.gameStatus  // 新增返回游戏状态
-	}
+		return {
+			player: { ...this.player },
+			camera: { ...this.camera },
+			terrain: this.terrain,
+			generation: this.generation,
+			gameStatus: this.gameStatus  // 新增返回游戏状态
+		}
 	}
 
 	// ========== 结果判定 ==========
 	
 	_checkResult(finalX) {
 	// 检测落点
-	if (this._isInPit(finalX)) {
-		this.gameStatus = GAME_STATUS.FINISHED  // 游戏结束
-		this.player.action = PLAYER_ACTION.IDLE
-		this._pendingDeath = true
-		this._inputLocked = true  // 锁定输入，等待死亡动画
-	} else if (this.player.grid >= CONFIG.WORLD_LENGTH - 1) {
-		this.gameStatus = GAME_STATUS.FINISHED  // 游戏结束
-		this.player.action = PLAYER_ACTION.IDLE
-		this._pendingWin = true
-		this._inputLocked = true  // 锁定输入，等待胜利动画
-	}
+		if (this._isInPit(finalX)) {
+			this.gameStatus = GAME_STATUS.FINISHED  // 游戏结束
+			this.player.action = PLAYER_ACTION.IDLE
+			this._pendingDeath = true
+			this._inputLocked = true  // 锁定输入，等待死亡动画
+		} else if (this.player.grid >= CONFIG.WORLD_LENGTH - 1) {
+			this.gameStatus = GAME_STATUS.FINISHED  // 游戏结束
+			this.player.action = PLAYER_ACTION.IDLE
+			this._pendingWin = true
+			this._inputLocked = true  // 锁定输入，等待胜利动画
+		}
 	// 否则等待动画完成，由 notifyVisualComplete 设为 IDLE
 	}
 	
@@ -350,171 +350,171 @@ export class JumpGame {
 	* 触发死亡（由渲染器在补间完成后调用）
 	*/
 	triggerDeath() {
-	if (!this._pendingDeath) return
-	this._pendingDeath = false
+		if (!this._pendingDeath) return
+		this._pendingDeath = false
 	
-	this.gameStatus = GAME_STATUS.FINISHED  // 明确结束状态
-	this._inputLocked = true  // 锁定输入
+		this.gameStatus = GAME_STATUS.FINISHED  // 明确结束状态
+		this._inputLocked = true  // 锁定输入
 
-	if (this.onDeath) this.onDeath()
+		if (this.onDeath) this.onDeath()
 
-	// 使用转场而非直接重生
-	if (this.onTransitionStart) {
-		this.onTransitionStart(() => {
-		// 转场中点回调
-		this._executeRespawn()
-		}, () => {
-		// 转场结束回调
-		this._onRespawnComplete()
-		})
-	} else {
+		// 使用转场而非直接重生
+		if (this.onTransitionStart) {
+			this.onTransitionStart(() => {
+				// 转场中点回调
+				this._executeRespawn()
+			}, () => {
+				// 转场结束回调
+				this._onRespawnComplete()
+			})
+		} else {
 		// 兼容：无转场管理器时直接重生
-		setTimeout(() => this._nextGeneration(), 1500)
-	}
+			setTimeout(() => this._nextGeneration(), 1500)
+		}
 	}
 
 	/**
 	* 触发胜利（由渲染器在补间完成后调用）
 	*/
 	triggerWin() {
-	if (!this._pendingWin) return
-	this._pendingWin = false
+		if (!this._pendingWin) return
+		this._pendingWin = false
 	
-	this.gameStatus = GAME_STATUS.FINISHED  // 明确结束状态
-	this._inputLocked = true  // 锁定输入
+		this.gameStatus = GAME_STATUS.FINISHED  // 明确结束状态
+		this._inputLocked = true  // 锁定输入
 
-	if (this.onWin) this.onWin()
+		if (this.onWin) this.onWin()
 
-	if (this.onTransitionStart) {
-		this.onTransitionStart(() => {
-		this._executeRespawn()
-		}, () => {
-		this._onRespawnComplete()
-		})
-	} else {
-		setTimeout(() => this._nextGeneration(), 1500)
-	}
+		if (this.onTransitionStart) {
+			this.onTransitionStart(() => {
+				this._executeRespawn()
+			}, () => {
+				this._onRespawnComplete()
+			})
+		} else {
+			setTimeout(() => this._nextGeneration(), 1500)
+		}
 	}
 
 	// 执行重生（在暗屏时调用）
 	_executeRespawn() {
-	this.generation++
-	this.init()
-	// init() 会将 gameStatus 设为 READY，但我们需要 TRANSITIONING
-	this.gameStatus = GAME_STATUS.TRANSITIONING
+		this.generation++
+		this.init()
+		// init() 会将 gameStatus 设为 READY，但我们需要 TRANSITIONING
+		this.gameStatus = GAME_STATUS.TRANSITIONING
 	
-	// 在暗屏时就让渲染器更新世界，这样渐亮时显示的是新世界
-	if (this.onGenerationChange) {
-		this.onGenerationChange(this.generation)
-	}
+		// 在暗屏时就让渲染器更新世界，这样渐亮时显示的是新世界
+		if (this.onGenerationChange) {
+			this.onGenerationChange(this.generation)
+		}
 	}
 
 	// 转场完成后的处理
 	_onRespawnComplete() {
 	// 玩家模式：直接开始新一局
 	// AI 模式：自动开始
-	if (this.onTransitionEnd) {
-		this.onTransitionEnd()
-	}
+		if (this.onTransitionEnd) {
+			this.onTransitionEnd()
+		}
 	}
 
 	_nextGeneration() {
-	this.generation++
-	this.init()
-	if (this.onGenerationChange) {
-		this.onGenerationChange(this.generation)
-	}
+		this.generation++
+		this.init()
+		if (this.onGenerationChange) {
+			this.onGenerationChange(this.generation)
+		}
 	}
 
 	// ========== 地形生成 ==========
 	
 	_generateTerrain() {
-	this.terrain = []
-	let currentGrid = 0
-	let lastWasPit = false
+		this.terrain = []
+		let currentGrid = 0
+		let lastWasPit = false
 	
-	this._addGround(0, 2)
-	currentGrid = 2
+		this._addGround(0, 2)
+		currentGrid = 2
 	
-	while (currentGrid < CONFIG.WORLD_LENGTH - 2) {
-		if (lastWasPit) {
-		const len = 1 + Math.floor(Math.random() * 2)
-		this._addGround(currentGrid, len)
-		currentGrid += len
-		lastWasPit = false
-		} else {
-		if (Math.random() < 0.6) {
-			const len = 1 + Math.floor(Math.random() * 2)
-			this._addGround(currentGrid, len)
-			currentGrid += len
-			lastWasPit = false
-		} else {
-			this._addPit(currentGrid)
-			currentGrid += 1
-			lastWasPit = true
+		while (currentGrid < CONFIG.WORLD_LENGTH - 2) {
+			if (lastWasPit) {
+				const len = 1 + Math.floor(Math.random() * 2)
+				this._addGround(currentGrid, len)
+				currentGrid += len
+				lastWasPit = false
+			} else {
+				if (Math.random() < 0.6) {
+					const len = 1 + Math.floor(Math.random() * 2)
+					this._addGround(currentGrid, len)
+					currentGrid += len
+					lastWasPit = false
+				} else {
+					this._addPit(currentGrid)
+					currentGrid += 1
+					lastWasPit = true
+				}
+			}
 		}
-		}
-	}
 	
-	this._addGround(currentGrid, 2)
+		this._addGround(currentGrid, 2)
 	}
 	
 	_addGround(startGrid, length) {
-	this.terrain.push({
-		type: TERRAIN.GROUND,
-		start: CONFIG.toPx(startGrid),
-		end: CONFIG.toPx(startGrid + length)
-	})
+		this.terrain.push({
+			type: TERRAIN.GROUND,
+			start: CONFIG.toPx(startGrid),
+			end: CONFIG.toPx(startGrid + length)
+		})
 	}
 	
 	_addPit(grid) {
-	this.terrain.push({
-		type: TERRAIN.PIT,
-		start: CONFIG.toPx(grid),
-		end: CONFIG.toPx(grid + 1)
-	})
+		this.terrain.push({
+			type: TERRAIN.PIT,
+			start: CONFIG.toPx(grid),
+			end: CONFIG.toPx(grid + 1)
+		})
 	}
 
 	// ========== 碰撞检测 ==========
 	
 	_isInPit(x) {
-	return this.terrain.some(t => 
-		t.type === TERRAIN.PIT && x >= t.start && x < t.end
-	)
+		return this.terrain.some(t => 
+			t.type === TERRAIN.PIT && x >= t.start && x < t.end
+		)
 	}
 	
 	_getTerrainAt(grid) {
-	const x = CONFIG.toPx(grid) + CONFIG.toPx(0.5)  // 格子中心
-	if (this._isInPit(x)) return TERRAIN.PIT
-	return TERRAIN.GROUND
+		const x = CONFIG.toPx(grid) + CONFIG.toPx(0.5)  // 格子中心
+		if (this._isInPit(x)) return TERRAIN.PIT
+		return TERRAIN.GROUND
 	}
 
 	// ========== 玩家与相机 ==========
 	
 	_resetPlayer() {
 	// 玩家初始位置：第0格 + 偏移量，使其居中
-	this.player.x = CONFIG.toPx(CONFIG.PLAYER_START_X)
-	this.player.y = CONFIG.toPx(CONFIG.GROUND_HEIGHT)
-	this.player.grid = 0
-	this.player.action = PLAYER_ACTION.IDLE
-	this.player.isJump = false
-	this.player.direction = 0
-	this._updateCamera()
+		this.player.x = CONFIG.toPx(CONFIG.PLAYER_START_X)
+		this.player.y = CONFIG.toPx(CONFIG.GROUND_HEIGHT)
+		this.player.grid = 0
+		this.player.action = PLAYER_ACTION.IDLE
+		this.player.isJump = false
+		this.player.direction = 0
+		this._updateCamera()
 	}
 	
 	_updateCamera(playerX = this.player.x) {
-	if (this.viewportWidth <= 0) return
-	const targetX = playerX - this.viewportWidth * CONFIG.CAMERA_OFFSET_RATIO
-	const maxX = CONFIG.toPx(CONFIG.WORLD_LENGTH) - this.viewportWidth
-	this.camera.x = Math.max(0, Math.min(targetX, maxX))
+		if (this.viewportWidth <= 0) return
+		const targetX = playerX - this.viewportWidth * CONFIG.CAMERA_OFFSET_RATIO
+		const maxX = CONFIG.toPx(CONFIG.WORLD_LENGTH) - this.viewportWidth
+		this.camera.x = Math.max(0, Math.min(targetX, maxX))
 	}
 
 	// ========== 事件通知 ==========
 	
 	_notifyStateChange() {
-	if (this.onStateChange) {
-		this.onStateChange({ ...this.player }, { ...this.camera })
-	}
+		if (this.onStateChange) {
+			this.onStateChange({ ...this.player }, { ...this.camera })
+		}
 	}
 }
 

@@ -7,6 +7,25 @@
 	box-sizing: border-box;
 }
 
+/* 当屏幕物理上处于横屏（宽 > 高）时触发 */
+@media screen and (orientation: landscape) {
+  #app-root { /* 假设你的所有 HTML 都在这个容器里 */
+    width: 100vh !important;
+    height: 100vw !important;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) rotate(90deg); /* 顺时针转回竖屏 */
+    transform-origin: center center;
+    overflow: hidden;
+  }
+}
+
+/* 确保所有覆盖层、遮罩也在这个舞台内 */
+.game-overlay {
+  position: absolute; /* 不要用 fixed，否则旋转后会错位 */
+}
+
 /* ---------- CSS 变量 ---------- */
 :root {
 	/* 统一天空主题 - 较暗的蓝色系 */
@@ -148,7 +167,7 @@ body {
 
 /* ---------- 游戏区域 ---------- */
 #game-area {
-	flex: 0 0 42%;
+	flex: 0 0 40%;
 	background: var(--color-bg-game);
 	position: relative;
 	overflow: hidden;

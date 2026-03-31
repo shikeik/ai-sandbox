@@ -5,156 +5,164 @@
  */
 
 export class NeuralNetwork {
-  constructor(config = {}) {
-    // 默认：3输入 → 2输出（单层）
-    this.layerSizes = config.layerSizes || [3, 2]
-    this.learningRate = config.learningRate || 0.2
-    this.weightClip = config.weightClip || 5
-    
-    // 初始化权重和偏置
-    this.weights = []
-    this.biases = []
-    
-    for (let i = 0; i < this.layerSizes.length - 1; i++) {
-      const inputSize = this.layerSizes[i]
-      const outputSize = this.layerSizes[i + 1]
-      
-      // 权重矩阵：outputSize × inputSize
-      this.weights.push(
-        Array(outputSize).fill(null).map(() => 
-          Array(inputSize).fill(0)
-        )
-      )
-      
-      // 偏置（暂不使用，但预留）
-      this.biases.push(Array(outputSize).fill(0))
-    }
-    
-    // 最后一步记录（用于训练）
-    this.lastState = null
-    this.lastAction = null
-    this.lastScores = null
-  }
-  
-  /**
-   * Sigmoid激活函数
-   */
-  sigmoid(x) {
-    return 1 / (1 + Math.exp(-x))
-  }
-  
-  /**
-   * 前向传播
-   * @param {number[]} inputs - 输入数组
-   * @returns {object} {scores, action}
-   */
-  forward(inputs) {
-    let current = inputs
-    
-    // 逐层计算
-    for (let i = 0; i < this.weights.length; i++) {
-      const weights = this.weights[i]
-      const biases = this.biases[i]
-      
-      current = weights.map((wRow, idx) => {
-        let sum = biases[idx]
-        for (let j = 0; j < wRow.length; j++) {
-          sum += wRow[j] * current[j]
-        }
-        return sum
-      })
-    }
-    
-    // 输出层（当前只有一层输出）
-    const scores = current
-    
-    // 纯贪心：选得分最高的
-    const action = scores[1] > scores[0] ? 1 : 0
-    
-    return { scores, action }
-  }
-  
-  /**
-   * 决策（对外接口）
-   * @param {number[]} inputs - 输入数组
-   * @returns {number} 动作索引 (0=移动, 1=跳跃)
-   */
-  decide(inputs) {
-    const result = this.forward(inputs)
-    
-    // 记录状态用于后续训练
-    this.lastState = [...inputs]
-    this.lastAction = result.action
-    this.lastScores = result.scores
-    
-    return result.action
-  }
-  
-  /**
-   * 训练更新（每步调用）
-   * @param {number} reward - 奖励（存活+0.02，死亡-1，胜利+1）
-   * @param {number} action - 实际执行的动作
-   */
-  train(reward, action) {
-    if (!this.lastState || this.lastAction === null) return
-    
-    const layerIdx = this.weights.length - 1 // 输出层索引
-    const weights = this.weights[layerIdx]
-    
-    if (reward > 0) {
-      // 正确：增强选中的动作
-      for (let i = 0; i < this.lastState.length; i++) {
-        weights[action][i] += this.learningRate * this.lastState[i]
-      }
-    } else if (reward < 0) {
-      // 错误：惩罚选中的，奖励其他
-      // 惩罚选中
-      for (let i = 0; i < this.lastState.length; i++) {
-        weights[action][i] -= this.learningRate * this.lastState[i]
-      }
-      // 奖励其他（均分）
-      const otherReward = this.learningRate / 2 // 一半
-      for (let a = 0; a < weights.length; a++) {
-        if (a !== action) {
-          for (let i = 0; i < this.lastState.length; i++) {
-            weights[a][i] += otherReward * this.lastState[i]
-          }
-        }
-      }
-    }
-    
-    // 权重裁剪
-    for (let row of weights) {
-      for (let i = 0; i < row.length; i++) {
-        row[i] = Math.max(-this.weightClip, Math.min(this.weightClip, row[i]))
-      }
-    }
-  }
-  
-  /**
-   * 获取权重快照（用于记录）
-   */
-  getWeightsSnapshot() {
-    return this.weights.map(layer => 
-      layer.map(row => [...row])
-    )
-  }
-  
-  /**
-   * 获取网络结构描述
-   */
-  getStructure() {
-    return {
-      layerSizes: [...this.layerSizes],
-      totalWeights: this.weights.reduce((sum, layer) => 
-        sum + layer.reduce((s, row) => s + row.length, 0), 0
-      )
-    }
-  }
+	constructor(config = {}) {
+	// 默认：3输入 → 2输出（单层）
+		this.layerSizes = config.layerSizes || [3, 2]
+		this.learningRate = config.learningRate || 0.2
+		this.weightClip = config.weightClip || 5
+	
+		// --- 探索率相关属性 ---
+		this.epsilon = 0.3       // 初始探索率 (30%)
+		this.autoAdjustEpsilon = true   // 是否自动调节开关，默认开启
+		this.isExploring = false  // 记录当前动作是否为“探索”产生的
+	
+		// 初始化权重和偏置
+		this.weights = []
+		this.biases =[]
+	
+		for (let i = 0; i < this.layerSizes.length - 1; i++) {
+			const inputSize = this.layerSizes[i]
+			const outputSize = this.layerSizes[i + 1]
+		
+			// 权重矩阵：outputSize × inputSize
+			this.weights.push(
+				Array(outputSize).fill(null).map(() => 
+					Array(inputSize).fill(0)
+				)
+			)
+		
+			// 偏置（暂不使用，但预留）
+			this.biases.push(Array(outputSize).fill(0))
+		}
+	
+		// 最后一步记录（用于训练）
+		this.lastState = null
+		this.lastAction = null
+		this.lastScores = null
+	}
+	
+	/**
+	* 前向传播
+	* @param {number[]} inputs - 输入数组
+	* @returns {object} {scores, action}
+	*/
+	forward(inputs) {
+		let current = inputs
+	
+		// 逐层计算
+		for (let i = 0; i < this.weights.length; i++) {
+			const weights = this.weights[i]
+			const biases = this.biases[i]
+		
+			current = weights.map((wRow, idx) => {
+				let sum = biases[idx]
+				for (let j = 0; j < wRow.length; j++) {
+					sum += wRow[j] * current[j]
+				}
+				return sum
+			})
+		}
+	
+		// 输出层（当前只有一层输出）
+		const scores = current
+	
+		// 纯贪心决策：不使用概率或Softmax，直接比较得分选高的
+		const action = scores[1] > scores[0] ? 1 : 0
+	
+		return { scores, action }
+	}
+	
+	/**
+	* 决策（对外接口）
+	* @param {number[]} inputs - 输入数组
+	* @returns {number} 动作索引 (0=移动, 1=跳跃)
+	*/
+	decide(inputs) {
+		const result = this.forward(inputs)
+	
+		// 记录状态用于后续训练
+		this.lastState = [...inputs]
+		this.lastAction = result.action
+		this.lastScores = result.scores
+		
+		// ε-贪心策略逻辑
+		if (Math.random() < this.epsilon) {
+		// 【探索】：不看分数，50% 几率随机选一个
+			this.isExploring = true
+			this.lastAction = Math.random() < 0.5 ? 0 : 1
+		} else {
+		// 【利用】：看分数，选最高分
+			this.isExploring = false
+			this.lastAction = result.action
+		}
+	
+		return result.action
+	}
+	
+	/**
+	* 训练更新（每步调用）
+	* 标准做法：权重更新值 = 学习率 × 输入值
+	* @param {number} reward - 奖励（存活+0.02，死亡-1，胜利+1）
+	* @param {number} action - 实际执行的动作
+	*/
+	train(reward, action) {
+		if (!this.lastState || this.lastAction === null) return
+	
+		const layerIdx = this.weights.length - 1 // 输出层索引
+		const weights = this.weights[layerIdx]
+	
+		if (reward > 0) {
+		// 正确：增强选中的动作，必须乘以输入值 (this.lastState[i])
+			for (let i = 0; i < this.lastState.length; i++) {
+				weights[action][i] += this.learningRate * this.lastState[i]
+			}
+		} else if (reward < 0) {
+		// 错误：惩罚选中的动作，必须乘以输入值
+			for (let i = 0; i < this.lastState.length; i++) {
+				weights[action][i] -= this.learningRate * this.lastState[i]
+			}
+			// 奖励其他动作（惩罚值的一半），同样乘以输入值
+			const otherReward = this.learningRate / 2
+			for (let a = 0; a < weights.length; a++) {
+				if (a !== action) {
+					for (let i = 0; i < this.lastState.length; i++) {
+						weights[a][i] += otherReward * this.lastState[i]
+					}
+				}
+			}
+		}
+	
+		// 权重裁剪限制范围
+		for (const row of weights) {
+			for (let i = 0; i < row.length; i++) {
+				row[i] = Math.max(-this.weightClip, Math.min(this.weightClip, row[i]))
+			}
+		}
+	}
+	
+	/**
+	* 获取权重快照（用于记录）
+	*/
+	getWeightsSnapshot() {
+		return this.weights.map(layer => 
+			layer.map(row => [...row])
+		)
+	}
+	
+	/**
+	* 获取网络结构描述
+	*/
+	getStructure() {
+		return {
+			layerSizes: [...this.layerSizes],
+			totalWeights: this.weights.reduce((sum, layer) => 
+				sum + layer.reduce((s, row) => s + row.length, 0), 0
+			)
+		}
+	}
 }
 
 export default NeuralNetwork
-
 文件: ./src/ai/HistoryStore.js
 /**
  * 训练历史存储
@@ -164,88 +172,88 @@ export default NeuralNetwork
 const STORAGE_KEY = 'ai-sandbox-history'
 
 export class HistoryStore {
-  constructor() {
-    this.data = this.load()
-  }
-  
-  /**
-   * 加载数据
-   */
-  load() {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY)
-      return stored ? JSON.parse(stored) : []
-    } catch (e) {
-      console.warn('Failed to load history:', e)
-      return []
-    }
-  }
-  
-  /**
-   * 保存数据
-   */
-  save() {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(this.data))
-    } catch (e) {
-      console.warn('Failed to save history:', e)
-    }
-  }
-  
-  /**
-   * 添加记录
-   */
-  add(record) {
-    this.data.push({
-      timestamp: Date.now(),
-      ...record
-    })
-    this.save()
-  }
-  
-  /**
-   * 获取全部数据
-   */
-  getAll() {
-    return [...this.data]
-  }
-  
-  /**
-   * 获取最新N条
-   */
-  getRecent(n) {
-    return this.data.slice(-n)
-  }
-  
-  /**
-   * 获取统计信息
-   */
-  getStats() {
-    if (this.data.length === 0) return null
-    
-    const steps = this.data.map(d => d.steps)
-    return {
-      total: this.data.length,
-      best: Math.max(...steps),
-      average: steps.reduce((a, b) => a + b, 0) / steps.length,
-      recent10: this.data.slice(-10).map(d => d.steps)
-    }
-  }
-  
-  /**
-   * 清空数据
-   */
-  clear() {
-    this.data = []
-    localStorage.removeItem(STORAGE_KEY)
-  }
-  
-  /**
-   * 导出数据（用于分析）
-   */
-  export() {
-    return JSON.stringify(this.data, null, 2)
-  }
+	constructor() {
+		this.data = this.load()
+	}
+	
+	/**
+	* 加载数据
+	*/
+	load() {
+		try {
+			const stored = localStorage.getItem(STORAGE_KEY)
+			return stored ? JSON.parse(stored) : []
+		} catch (e) {
+			console.warn('Failed to load history:', e)
+			return []
+		}
+	}
+	
+	/**
+	* 保存数据
+	*/
+	save() {
+		try {
+			localStorage.setItem(STORAGE_KEY, JSON.stringify(this.data))
+		} catch (e) {
+			console.warn('Failed to save history:', e)
+		}
+	}
+	
+	/**
+	* 添加记录
+	*/
+	add(record) {
+		this.data.push({
+			timestamp: Date.now(),
+			...record
+		})
+		this.save()
+	}
+	
+	/**
+	* 获取全部数据
+	*/
+	getAll() {
+		return [...this.data]
+	}
+	
+	/**
+	* 获取最新N条
+	*/
+	getRecent(n) {
+		return this.data.slice(-n)
+	}
+	
+	/**
+	* 获取统计信息
+	*/
+	getStats() {
+		if (this.data.length === 0) return null
+	
+		const steps = this.data.map(d => d.steps)
+		return {
+			total: this.data.length,
+			best: Math.max(...steps),
+			average: steps.reduce((a, b) => a + b, 0) / steps.length,
+			recent10: this.data.slice(-10).map(d => d.steps)
+		}
+	}
+	
+	/**
+	* 清空数据
+	*/
+	clear() {
+		this.data = []
+		localStorage.removeItem(STORAGE_KEY)
+	}
+	
+	/**
+	* 导出数据（用于分析）
+	*/
+	export() {
+		return JSON.stringify(this.data, null, 2)
+	}
 }
 
 export default HistoryStore
@@ -261,66 +269,66 @@ import { formatTimeMs } from '@utils/timeUtils.js'
 const PLAYER_BEST_KEY = 'ai-sandbox-player-best-ms'
 
 export class PlayerBestStore {
-  constructor() {
-    this.bestTime = this.load()
-  }
-  
-  load() {
-    try {
-      const stored = localStorage.getItem(PLAYER_BEST_KEY)
-      // 如果没有记录或记录为0，都返回Infinity（视为无记录）
-      if (!stored) return Infinity
-      const value = parseInt(stored, 10)
-      return value > 0 ? value : Infinity
-    } catch (e) {
-      return Infinity
-    }
-  }
-  
-  save(time) {
-    try {
-      localStorage.setItem(PLAYER_BEST_KEY, time.toString())
-    } catch (e) {
-      console.warn('Failed to save player best:', e)
-    }
-  }
-  
-  /**
-   * 尝试更新最佳记录
-   * @param {number} time - 通关时间（毫秒）
-   * @returns {boolean} 是否更新成功（新记录更快）
-   */
-  tryUpdate(time) {
-    // 只接受有效的时间（大于0）
-    if (!time || time <= 0) return false
-    if (time < this.bestTime) {
-      this.bestTime = time
-      this.save(time)
-      return true
-    }
-    return false
-  }
-  
-  /**
-   * 获取最佳时间（格式化）
-   * @returns {string} mm:ss.mmm 格式，无记录返回 '--:--.---'
-   */
-  getFormatted() {
-    if (this.bestTime === Infinity || this.bestTime <= 0) return '--:--.---'
-    return formatTimeMs(this.bestTime)
-  }
-  
-  /**
-   * 获取最佳时间（毫秒）
-   */
-  getRaw() {
-    return this.bestTime === Infinity ? null : this.bestTime
-  }
-  
-  reset() {
-    this.bestTime = Infinity
-    localStorage.removeItem(PLAYER_BEST_KEY)
-  }
+	constructor() {
+		this.bestTime = this.load()
+	}
+	
+	load() {
+		try {
+			const stored = localStorage.getItem(PLAYER_BEST_KEY)
+			// 如果没有记录或记录为0，都返回Infinity（视为无记录）
+			if (!stored) return Infinity
+			const value = parseInt(stored, 10)
+			return value > 0 ? value : Infinity
+		} catch (e) {
+			return Infinity
+		}
+	}
+	
+	save(time) {
+		try {
+			localStorage.setItem(PLAYER_BEST_KEY, time.toString())
+		} catch (e) {
+			console.warn('Failed to save player best:', e)
+		}
+	}
+	
+	/**
+	* 尝试更新最佳记录
+	* @param {number} time - 通关时间（毫秒）
+	* @returns {boolean} 是否更新成功（新记录更快）
+	*/
+	tryUpdate(time) {
+	// 只接受有效的时间（大于0）
+		if (!time || time <= 0) return false
+		if (time < this.bestTime) {
+			this.bestTime = time
+			this.save(time)
+			return true
+		}
+		return false
+	}
+	
+	/**
+	* 获取最佳时间（格式化）
+	* @returns {string} mm:ss.mmm 格式，无记录返回 '--:--.---'
+	*/
+	getFormatted() {
+		if (this.bestTime === Infinity || this.bestTime <= 0) return '--:--.---'
+		return formatTimeMs(this.bestTime)
+	}
+	
+	/**
+	* 获取最佳时间（毫秒）
+	*/
+	getRaw() {
+		return this.bestTime === Infinity ? null : this.bestTime
+	}
+	
+	reset() {
+		this.bestTime = Infinity
+		localStorage.removeItem(PLAYER_BEST_KEY)
+	}
 }
 
 export default PlayerBestStore
@@ -351,77 +359,77 @@ import { formatTime as formatTimeUtil } from '@utils/timeUtils.js'
 // ========== 游戏常量 ==========
 // 所有尺寸使用"单位"(unit)，1 unit = 1格 = GRID_SIZE 像素
 export const CONFIG = {
-  WORLD_LENGTH: 32,       // 世界总格子数
-  
-  // 视野配置（单位）
-  VIEWPORT_GRID_W: 6,     // 视野宽度（单位）
-  VIEWPORT_GRID_H: 4,     // 视野高度（单位）
-  
-  // 运行时动态计算的像素值
-  GRID_SIZE: 100,         // 1 unit = ? 像素（正方形）
-  
-  // 游戏元素尺寸（单位）
-  GROUND_HEIGHT: 0.8,     // 地面高度（单位）
-  PLAYER_SIZE: 0.45,      // 玩家大小（单位）- 稍微小一点，留出视觉空间
-  GOAL_SIZE: 0.8,         // 终点旗子大小（单位）- 比之前大一点
-  JUMP_HEIGHT: 1.0,       // 跳跃高度（单位）
-  // 坐标系说明：玩家位置(x,y)是左下角坐标（对应CSS left/bottom）
-  // 第0格范围：[0, 1] unit，中心在 0.5 unit
-  // 玩家居中放置：左边缘 = 格子中心 - 玩家大小/2 = 0.5 - 0.45/2 = 0.275
-  PLAYER_START_X: 0.275,  // 玩家初始X位置（单位），使玩家在第0格居中
-  
-  // 动画
-  MOVE_DURATION: 400,     // 移动动画时长(ms)
-  JUMP_DURATION: 600,     // 跳跃动画时长(ms)
-  CAMERA_OFFSET_RATIO: 0.3, // 玩家在屏幕左侧30%位置
-  
-  // 辅助函数：单位转像素
-  toPx(units) { return Math.floor(units * this.GRID_SIZE) },
-  // 辅助函数：像素转单位
-  toUnits(px) { return px / this.GRID_SIZE }
+	WORLD_LENGTH: 32,       // 世界总格子数
+	
+	// 视野配置（单位）
+	VIEWPORT_GRID_W: 6,     // 视野宽度（单位）
+	VIEWPORT_GRID_H: 4,     // 视野高度（单位）
+	
+	// 运行时动态计算的像素值
+	GRID_SIZE: 100,         // 1 unit = ? 像素（正方形）
+	
+	// 游戏元素尺寸（单位）
+	GROUND_HEIGHT: 0.8,     // 地面高度（单位）
+	PLAYER_SIZE: 0.45,      // 玩家大小（单位）- 稍微小一点，留出视觉空间
+	GOAL_SIZE: 0.8,         // 终点旗子大小（单位）- 比之前大一点
+	JUMP_HEIGHT: 1.0,       // 跳跃高度（单位）
+	// 坐标系说明：玩家位置(x,y)是左下角坐标（对应CSS left/bottom）
+	// 第0格范围：[0, 1] unit，中心在 0.5 unit
+	// 玩家居中放置：左边缘 = 格子中心 - 玩家大小/2 = 0.5 - 0.45/2 = 0.275
+	PLAYER_START_X: 0.275,  // 玩家初始X位置（单位），使玩家在第0格居中
+	
+	// 动画
+	MOVE_DURATION: 400,     // 移动动画时长(ms)
+	JUMP_DURATION: 600,     // 跳跃动画时长(ms)
+	CAMERA_OFFSET_RATIO: 0.3, // 玩家在屏幕左侧30%位置
+	
+	// 辅助函数：单位转像素
+	toPx(units) { return Math.floor(units * this.GRID_SIZE) },
+	// 辅助函数：像素转单位
+	toUnits(px) { return px / this.GRID_SIZE }
 }
 
 // 动作类型
 export const ACTION = {
-  RIGHT: 'right',
-  JUMP: 'jump'
+	RIGHT: 'right',
+	JUMP: 'jump'
 }
 
 // ========== 状态分离定义 ==========
 
 // 游戏生命周期状态（控制能否操作、计时、显示）
 export const GAME_STATUS = {
-  READY: 'ready',           // 准备中，未开始
-  RUNNING: 'running',       // 游戏进行中，计时中
-  TRANSITIONING: 'transitioning', // 转场中
-  FINISHED: 'finished'      // 已结束（死亡或胜利）
+	READY: 'ready',           // 准备中，未开始
+	RUNNING: 'running',       // 游戏进行中，计时中
+	TRANSITIONING: 'transitioning', // 转场中
+	FINISHED: 'finished'      // 已结束（死亡或胜利）
 }
 
 // 人物动作状态（控制动画表现）
 export const PLAYER_ACTION = {
-  IDLE: 'idle',             // 待机，可接受操作
-  MOVING: 'moving',         // 地面移动中
-  JUMPING: 'jumping'        // 跳跃中
+	IDLE: 'idle',             // 待机，可接受操作
+	MOVING: 'moving',         // 地面移动中
+	JUMPING: 'jumping'        // 跳跃中
 }
 
 // 为兼容保留旧的 STATUS 导出
 export const STATUS = {
-  // 游戏生命周期状态（兼容旧代码）
-  READY: GAME_STATUS.READY,
-  RUNNING: GAME_STATUS.RUNNING,
-  TRANSITIONING: GAME_STATUS.TRANSITIONING,
-  // 人物动作状态（兼容旧代码）
-  IDLE: PLAYER_ACTION.IDLE,
-  MOVING: PLAYER_ACTION.MOVING,
-  // 兼容旧代码
-  DEAD: 'dead',
-  WON: 'won'
+	// 游戏生命周期状态（兼容旧代码）
+	READY: GAME_STATUS.READY,
+	RUNNING: GAME_STATUS.RUNNING,
+	TRANSITIONING: GAME_STATUS.TRANSITIONING,
+	// 人物动作状态（兼容旧代码）
+	IDLE: PLAYER_ACTION.IDLE,
+	MOVING: PLAYER_ACTION.MOVING,
+	// 兼容旧代码
+	DEAD: 'dead',
+	WON: 'won'
 }
 
 // 地形类型
 export const TERRAIN = {
-  GROUND: 'ground',
-  PIT: 'pit'
+	GROUND: 'ground',
+	PIT: 'pit'
 }
 
 /**
@@ -430,420 +438,420 @@ export const TERRAIN = {
  * 视觉层：由渲染器处理补间动画
  */
 export class JumpGame {
-  constructor() {
-    // 世界地形数据
-    this.terrain = []
-    
-    // 游戏生命周期状态（新增）
-    this.gameStatus = GAME_STATUS.READY
-    
-    // 人物状态（修改结构）
-    this.player = {
-      x: 0,                    // 像素坐标
-      y: 0,                    // 像素坐标（离地高度）
-      grid: 0,                 // 所在格子
-      action: PLAYER_ACTION.IDLE,  // 动作状态（替代旧的status）
-      isJump: false,           // 是否是跳跃动作
-      direction: 0             // 移动方向
-    }
-    
-    // 相机位置（像素）
-    this.camera = { x: 0 }
-    
-    // 世代计数（死亡/胜利后+1）
-    this.generation = 1
-    
-    // 视口宽度（由外部设置）
-    this.viewportWidth = 0
-    
-    // 事件回调
-    this.onStateChange = null    // (player, camera) => void
-    this.onActionStart = null    // (action, from, to, isJump) => void
-    this.onActionEnd = null      // (result) => void
-    this.onDeath = null          // () => void - 延迟到补间完成
-    this.onWin = null            // () => void - 延迟到补间完成
-    this.onGenerationChange = null // (gen) => void
-    
-    // 转场相关回调
-    this.onTransitionStart = null    // 转场开始
-    this.onTransitionEnd = null      // 转场结束
-    
-    // 视觉状态（等待补间完成）
-    this._pendingDeath = false
-    this._pendingWin = false
-    
-    // 输入控制（独立于视觉状态）
-    this._inputLocked = false
-    
-    // 计时器（玩家模式）
-    this.startTime = null
-    this.currentRunTime = 0
-  }
+	constructor() {
+	// 世界地形数据
+		this.terrain = []
+	
+		// 游戏生命周期状态（新增）
+		this.gameStatus = GAME_STATUS.READY
+	
+		// 人物状态（修改结构）
+		this.player = {
+			x: 0,                    // 像素坐标
+			y: 0,                    // 像素坐标（离地高度）
+			grid: 0,                 // 所在格子
+			action: PLAYER_ACTION.IDLE,  // 动作状态（替代旧的status）
+			isJump: false,           // 是否是跳跃动作
+			direction: 0             // 移动方向
+		}
+	
+		// 相机位置（像素）
+		this.camera = { x: 0 }
+	
+		// 世代计数（死亡/胜利后+1）
+		this.generation = 1
+	
+		// 视口宽度（由外部设置）
+		this.viewportWidth = 0
+	
+		// 事件回调
+		this.onStateChange = null    // (player, camera) => void
+		this.onActionStart = null    // (action, from, to, isJump) => void
+		this.onActionEnd = null      // (result) => void
+		this.onDeath = null          // () => void - 延迟到补间完成
+		this.onWin = null            // () => void - 延迟到补间完成
+		this.onGenerationChange = null // (gen) => void
+	
+		// 转场相关回调
+		this.onTransitionStart = null    // 转场开始
+		this.onTransitionEnd = null      // 转场结束
+	
+		// 视觉状态（等待补间完成）
+		this._pendingDeath = false
+		this._pendingWin = false
+	
+		// 输入控制（独立于视觉状态）
+		this._inputLocked = false
+	
+		// 计时器（玩家模式）
+		this.startTime = null
+		this.currentRunTime = 0
+	}
 
-  // ========== 初始化 ==========
-  
-  init() {
-    this._pendingDeath = false
-    this._pendingWin = false
-    this._inputLocked = true  // 开始时锁定输入（需要点击开始）
-    this._generateTerrain()
-    this._resetPlayer()
-    this._notifyStateChange()
-    
-    // 游戏状态设为准备中
-    this.gameStatus = GAME_STATUS.READY
-    this.startTime = null
-    this.currentRunTime = 0
-    return this
-  }
-  
-  /**
-   * 开始计时（玩家模式）
-   */
-  startTimer() {
-    this.startTime = Date.now()
-  }
-  
-  /**
-   * 获取当前用时（毫秒）
-   */
-  getElapsedTime() {
-    if (!this.startTime) return 0
-    return Date.now() - this.startTime
-  }
-  
-  /**
-   * 格式化时间为 mm:ss（保持向后兼容）
-   * @param {number} ms - 毫秒
-   * @returns {string} 格式化后的时间
-   */
-  formatTime(ms) {
-    return formatTimeUtil(ms)
-  }
-  
-  /**
-   * 开始游戏（从 READY 或 TRANSITIONING 状态进入 RUNNING）
-   */
-  startGame() {
-    if (this.gameStatus === GAME_STATUS.READY || 
-        this.gameStatus === GAME_STATUS.TRANSITIONING) {
-      this.gameStatus = GAME_STATUS.RUNNING
-      this._inputLocked = false
-      this.player.action = PLAYER_ACTION.IDLE
-      this.startTimer()
-    }
-  }
-  
-  /**
-   * 设置视口大小，动态计算 1 unit = ? 像素
-   * @param {number} width - 视口宽度（像素）
-   */
-  setViewportSize(width) {
-    // 计算 1 unit = ? 像素
-    CONFIG.GRID_SIZE = Math.floor(width / CONFIG.VIEWPORT_GRID_W)
-    
-    this.viewportWidth = width
-    this.viewportHeight = CONFIG.toPx(CONFIG.VIEWPORT_GRID_H)
-    
-    this._updateCamera()
-  }
+	// ========== 初始化 ==========
+	
+	init() {
+		this._pendingDeath = false
+		this._pendingWin = false
+		this._inputLocked = true  // 开始时锁定输入（需要点击开始）
+		this._generateTerrain()
+		this._resetPlayer()
+		this._notifyStateChange()
+	
+		// 游戏状态设为准备中
+		this.gameStatus = GAME_STATUS.READY
+		this.startTime = null
+		this.currentRunTime = 0
+		return this
+	}
+	
+	/**
+	* 开始计时（玩家模式）
+	*/
+	startTimer() {
+		this.startTime = Date.now()
+	}
+	
+	/**
+	* 获取当前用时（毫秒）
+	*/
+	getElapsedTime() {
+		if (!this.startTime) return 0
+		return Date.now() - this.startTime
+	}
+	
+	/**
+	* 格式化时间为 mm:ss（保持向后兼容）
+	* @param {number} ms - 毫秒
+	* @returns {string} 格式化后的时间
+	*/
+	formatTime(ms) {
+		return formatTimeUtil(ms)
+	}
+	
+	/**
+	* 开始游戏（从 READY 或 TRANSITIONING 状态进入 RUNNING）
+	*/
+	startGame() {
+		if (this.gameStatus === GAME_STATUS.READY || 
+		this.gameStatus === GAME_STATUS.TRANSITIONING) {
+			this.gameStatus = GAME_STATUS.RUNNING
+			this._inputLocked = false
+			this.player.action = PLAYER_ACTION.IDLE
+			this.startTimer()
+		}
+	}
+	
+	/**
+	* 设置视口大小，动态计算 1 unit = ? 像素
+	* @param {number} width - 视口宽度（像素）
+	*/
+	setViewportSize(width) {
+	// 计算 1 unit = ? 像素
+		CONFIG.GRID_SIZE = Math.floor(width / CONFIG.VIEWPORT_GRID_W)
+	
+		this.viewportWidth = width
+		this.viewportHeight = CONFIG.toPx(CONFIG.VIEWPORT_GRID_H)
+	
+		this._updateCamera()
+	}
 
-  // ========== 核心操作 ==========
-  
-  /**
-   * 执行动作（立即完成逻辑）
-   * 
-   * 【速通核心机制】
-   * 逻辑位置立即改变（player.x/grid），不受动画限制。
-   * 渲染层通过补间动画平滑过渡视觉位置，支持打断机制。
-   * 玩家可在动画期间连续输入，实现"操作多快，角色移动多快"的速通体验。
-   * 
-   * @param {string} action - 'right' | 'jump'
-   * @returns {Object|null} - 动作信息或失败
-   */
-  execute(action) {
-    // 检查输入锁定
-    if (this._inputLocked) return null
-    
-    // 检查游戏状态
-    if (this.gameStatus !== GAME_STATUS.RUNNING) return null
-    
-    const fromX = this.player.x
-    const fromY = this.player.y
-    const isJump = action === ACTION.JUMP
-    
-    // 计算目标位置（像素）
-    let targetX
-    if (action === ACTION.RIGHT) {
-      targetX = fromX + CONFIG.toPx(1)  // 移动 1 unit
-    } else if (action === ACTION.JUMP) {
-      targetX = fromX + CONFIG.toPx(2)  // 跳跃 2 unit
-    } else {
-      return null
-    }
-    
-    // 立即执行逻辑
-    this.player.x = targetX
-    this.player.y = CONFIG.toPx(CONFIG.GROUND_HEIGHT)
-    this.player.grid = Math.floor(targetX / CONFIG.GRID_SIZE)
-    // 设置人物动作状态（不再影响 gameStatus）
-    this.player.action = isJump ? PLAYER_ACTION.JUMPING : PLAYER_ACTION.MOVING
-    this.player.isJump = isJump
-    this.player.direction = action === ACTION.RIGHT ? 1 : 2  // 移动方向
-    
-    // 更新相机
-    this._updateCamera()
-    
-    // 通知动作开始（提供补间所需信息）
-    if (this.onActionStart) {
-      this.onActionStart(action, { x: fromX, y: fromY }, { x: targetX, y: CONFIG.toPx(CONFIG.GROUND_HEIGHT) }, isJump)
-    }
-    
-    this._notifyStateChange()
-    
-    // 立即检测结果
-    this._checkResult(targetX)
-    
-    return { action, fromX, fromY, targetX, isJump }
-  }
-  
-  /**
-   * 通知渲染层动画完成（由渲染器调用）
-   */
-  notifyVisualComplete() {
-    // 优先处理死亡/胜利
-    if (this._pendingDeath) {
-      this.triggerDeath()
-      return
-    }
-    if (this._pendingWin) {
-      this.triggerWin()
-      return
-    }
-    
-    // 正常完成，人物回到待机状态
-    if (this.player.action === PLAYER_ACTION.MOVING || 
-        this.player.action === PLAYER_ACTION.JUMPING) {
-      this.player.action = PLAYER_ACTION.IDLE
-      this._notifyStateChange()
-      
-      if (this.onActionEnd) {
-        this.onActionEnd({ success: true, grid: this.player.grid })
-      }
-    }
-  }
-  
-  getStateForAI() {
-    const grid = this.player.grid
-    return {
-      playerGrid: grid,
-      isMoving: this.player.action === PLAYER_ACTION.MOVING || this.player.action === PLAYER_ACTION.JUMPING,
-      terrainAhead: [
-        this._getTerrainAt(grid + 1),
-        this._getTerrainAt(grid + 2),
-        this._getTerrainAt(grid + 3)
-      ]
-    }
-  }
-  
-  getState() {
-    return {
-      player: { ...this.player },
-      camera: { ...this.camera },
-      terrain: this.terrain,
-      generation: this.generation,
-      gameStatus: this.gameStatus  // 新增返回游戏状态
-    }
-  }
+	// ========== 核心操作 ==========
+	
+	/**
+	* 执行动作（立即完成逻辑）
+	* 
+	* 【速通核心机制】
+	* 逻辑位置立即改变（player.x/grid），不受动画限制。
+	* 渲染层通过补间动画平滑过渡视觉位置，支持打断机制。
+	* 玩家可在动画期间连续输入，实现"操作多快，角色移动多快"的速通体验。
+	* 
+	* @param {string} action - 'right' | 'jump'
+	* @returns {Object|null} - 动作信息或失败
+	*/
+	execute(action) {
+	// 检查输入锁定
+		if (this._inputLocked) return null
+	
+		// 检查游戏状态
+		if (this.gameStatus !== GAME_STATUS.RUNNING) return null
+	
+		const fromX = this.player.x
+		const fromY = this.player.y
+		const isJump = action === ACTION.JUMP
+	
+		// 计算目标位置（像素）
+		let targetX
+		if (action === ACTION.RIGHT) {
+			targetX = fromX + CONFIG.toPx(1)  // 移动 1 unit
+		} else if (action === ACTION.JUMP) {
+			targetX = fromX + CONFIG.toPx(2)  // 跳跃 2 unit
+		} else {
+			return null
+		}
+	
+		// 立即执行逻辑
+		this.player.x = targetX
+		this.player.y = CONFIG.toPx(CONFIG.GROUND_HEIGHT)
+		this.player.grid = Math.floor(targetX / CONFIG.GRID_SIZE)
+		// 设置人物动作状态（不再影响 gameStatus）
+		this.player.action = isJump ? PLAYER_ACTION.JUMPING : PLAYER_ACTION.MOVING
+		this.player.isJump = isJump
+		this.player.direction = action === ACTION.RIGHT ? 1 : 2  // 移动方向
+	
+		// 更新相机
+		this._updateCamera()
+	
+		// 通知动作开始（提供补间所需信息）
+		if (this.onActionStart) {
+			this.onActionStart(action, { x: fromX, y: fromY }, { x: targetX, y: CONFIG.toPx(CONFIG.GROUND_HEIGHT) }, isJump)
+		}
+	
+		this._notifyStateChange()
+	
+		// 立即检测结果
+		this._checkResult(targetX)
+	
+		return { action, fromX, fromY, targetX, isJump }
+	}
+	
+	/**
+	* 通知渲染层动画完成（由渲染器调用）
+	*/
+	notifyVisualComplete() {
+	// 优先处理死亡/胜利
+		if (this._pendingDeath) {
+			this.triggerDeath()
+			return
+		}
+		if (this._pendingWin) {
+			this.triggerWin()
+			return
+		}
+	
+		// 正常完成，人物回到待机状态
+		if (this.player.action === PLAYER_ACTION.MOVING || 
+		this.player.action === PLAYER_ACTION.JUMPING) {
+			this.player.action = PLAYER_ACTION.IDLE
+			this._notifyStateChange()
+		
+			if (this.onActionEnd) {
+				this.onActionEnd({ success: true, grid: this.player.grid })
+			}
+		}
+	}
+	
+	getStateForAI() {
+		const grid = this.player.grid
+		return {
+			playerGrid: grid,
+			isMoving: this.player.action === PLAYER_ACTION.MOVING || this.player.action === PLAYER_ACTION.JUMPING,
+			terrainAhead: [
+				this._getTerrainAt(grid + 1),
+				this._getTerrainAt(grid + 2),
+				this._getTerrainAt(grid + 3)
+			]
+		}
+	}
+	
+	getState() {
+		return {
+			player: { ...this.player },
+			camera: { ...this.camera },
+			terrain: this.terrain,
+			generation: this.generation,
+			gameStatus: this.gameStatus  // 新增返回游戏状态
+		}
+	}
 
-  // ========== 结果判定 ==========
-  
-  _checkResult(finalX) {
-    // 检测落点
-    if (this._isInPit(finalX)) {
-      this.gameStatus = GAME_STATUS.FINISHED  // 游戏结束
-      this.player.action = PLAYER_ACTION.IDLE
-      this._pendingDeath = true
-      this._inputLocked = true  // 锁定输入，等待死亡动画
-    } else if (this.player.grid >= CONFIG.WORLD_LENGTH - 1) {
-      this.gameStatus = GAME_STATUS.FINISHED  // 游戏结束
-      this.player.action = PLAYER_ACTION.IDLE
-      this._pendingWin = true
-      this._inputLocked = true  // 锁定输入，等待胜利动画
-    }
-    // 否则等待动画完成，由 notifyVisualComplete 设为 IDLE
-  }
-  
-  /**
-   * 触发死亡（由渲染器在补间完成后调用）
-   */
-  triggerDeath() {
-    if (!this._pendingDeath) return
-    this._pendingDeath = false
-    
-    this.gameStatus = GAME_STATUS.FINISHED  // 明确结束状态
-    this._inputLocked = true  // 锁定输入
+	// ========== 结果判定 ==========
+	
+	_checkResult(finalX) {
+	// 检测落点
+		if (this._isInPit(finalX)) {
+			this.gameStatus = GAME_STATUS.FINISHED  // 游戏结束
+			this.player.action = PLAYER_ACTION.IDLE
+			this._pendingDeath = true
+			this._inputLocked = true  // 锁定输入，等待死亡动画
+		} else if (this.player.grid >= CONFIG.WORLD_LENGTH - 1) {
+			this.gameStatus = GAME_STATUS.FINISHED  // 游戏结束
+			this.player.action = PLAYER_ACTION.IDLE
+			this._pendingWin = true
+			this._inputLocked = true  // 锁定输入，等待胜利动画
+		}
+	// 否则等待动画完成，由 notifyVisualComplete 设为 IDLE
+	}
+	
+	/**
+	* 触发死亡（由渲染器在补间完成后调用）
+	*/
+	triggerDeath() {
+		if (!this._pendingDeath) return
+		this._pendingDeath = false
+	
+		this.gameStatus = GAME_STATUS.FINISHED  // 明确结束状态
+		this._inputLocked = true  // 锁定输入
 
-    if (this.onDeath) this.onDeath()
+		if (this.onDeath) this.onDeath()
 
-    // 使用转场而非直接重生
-    if (this.onTransitionStart) {
-      this.onTransitionStart(() => {
-        // 转场中点回调
-        this._executeRespawn()
-      }, () => {
-        // 转场结束回调
-        this._onRespawnComplete()
-      })
-    } else {
-      // 兼容：无转场管理器时直接重生
-      setTimeout(() => this._nextGeneration(), 1500)
-    }
-  }
+		// 使用转场而非直接重生
+		if (this.onTransitionStart) {
+			this.onTransitionStart(() => {
+				// 转场中点回调
+				this._executeRespawn()
+			}, () => {
+				// 转场结束回调
+				this._onRespawnComplete()
+			})
+		} else {
+		// 兼容：无转场管理器时直接重生
+			setTimeout(() => this._nextGeneration(), 1500)
+		}
+	}
 
-  /**
-   * 触发胜利（由渲染器在补间完成后调用）
-   */
-  triggerWin() {
-    if (!this._pendingWin) return
-    this._pendingWin = false
-    
-    this.gameStatus = GAME_STATUS.FINISHED  // 明确结束状态
-    this._inputLocked = true  // 锁定输入
+	/**
+	* 触发胜利（由渲染器在补间完成后调用）
+	*/
+	triggerWin() {
+		if (!this._pendingWin) return
+		this._pendingWin = false
+	
+		this.gameStatus = GAME_STATUS.FINISHED  // 明确结束状态
+		this._inputLocked = true  // 锁定输入
 
-    if (this.onWin) this.onWin()
+		if (this.onWin) this.onWin()
 
-    if (this.onTransitionStart) {
-      this.onTransitionStart(() => {
-        this._executeRespawn()
-      }, () => {
-        this._onRespawnComplete()
-      })
-    } else {
-      setTimeout(() => this._nextGeneration(), 1500)
-    }
-  }
+		if (this.onTransitionStart) {
+			this.onTransitionStart(() => {
+				this._executeRespawn()
+			}, () => {
+				this._onRespawnComplete()
+			})
+		} else {
+			setTimeout(() => this._nextGeneration(), 1500)
+		}
+	}
 
-  // 执行重生（在暗屏时调用）
-  _executeRespawn() {
-    this.generation++
-    this.init()
-    // init() 会将 gameStatus 设为 READY，但我们需要 TRANSITIONING
-    this.gameStatus = GAME_STATUS.TRANSITIONING
-    
-    // 在暗屏时就让渲染器更新世界，这样渐亮时显示的是新世界
-    if (this.onGenerationChange) {
-      this.onGenerationChange(this.generation)
-    }
-  }
+	// 执行重生（在暗屏时调用）
+	_executeRespawn() {
+		this.generation++
+		this.init()
+		// init() 会将 gameStatus 设为 READY，但我们需要 TRANSITIONING
+		this.gameStatus = GAME_STATUS.TRANSITIONING
+	
+		// 在暗屏时就让渲染器更新世界，这样渐亮时显示的是新世界
+		if (this.onGenerationChange) {
+			this.onGenerationChange(this.generation)
+		}
+	}
 
-  // 转场完成后的处理
-  _onRespawnComplete() {
-    // 玩家模式：直接开始新一局
-    // AI 模式：自动开始
-    if (this.onTransitionEnd) {
-      this.onTransitionEnd()
-    }
-  }
+	// 转场完成后的处理
+	_onRespawnComplete() {
+	// 玩家模式：直接开始新一局
+	// AI 模式：自动开始
+		if (this.onTransitionEnd) {
+			this.onTransitionEnd()
+		}
+	}
 
-  _nextGeneration() {
-    this.generation++
-    this.init()
-    if (this.onGenerationChange) {
-      this.onGenerationChange(this.generation)
-    }
-  }
+	_nextGeneration() {
+		this.generation++
+		this.init()
+		if (this.onGenerationChange) {
+			this.onGenerationChange(this.generation)
+		}
+	}
 
-  // ========== 地形生成 ==========
-  
-  _generateTerrain() {
-    this.terrain = []
-    let currentGrid = 0
-    let lastWasPit = false
-    
-    this._addGround(0, 2)
-    currentGrid = 2
-    
-    while (currentGrid < CONFIG.WORLD_LENGTH - 2) {
-      if (lastWasPit) {
-        const len = 1 + Math.floor(Math.random() * 2)
-        this._addGround(currentGrid, len)
-        currentGrid += len
-        lastWasPit = false
-      } else {
-        if (Math.random() < 0.6) {
-          const len = 1 + Math.floor(Math.random() * 2)
-          this._addGround(currentGrid, len)
-          currentGrid += len
-          lastWasPit = false
-        } else {
-          this._addPit(currentGrid)
-          currentGrid += 1
-          lastWasPit = true
-        }
-      }
-    }
-    
-    this._addGround(currentGrid, 2)
-  }
-  
-  _addGround(startGrid, length) {
-    this.terrain.push({
-      type: TERRAIN.GROUND,
-      start: CONFIG.toPx(startGrid),
-      end: CONFIG.toPx(startGrid + length)
-    })
-  }
-  
-  _addPit(grid) {
-    this.terrain.push({
-      type: TERRAIN.PIT,
-      start: CONFIG.toPx(grid),
-      end: CONFIG.toPx(grid + 1)
-    })
-  }
+	// ========== 地形生成 ==========
+	
+	_generateTerrain() {
+		this.terrain = []
+		let currentGrid = 0
+		let lastWasPit = false
+	
+		this._addGround(0, 2)
+		currentGrid = 2
+	
+		while (currentGrid < CONFIG.WORLD_LENGTH - 2) {
+			if (lastWasPit) {
+				const len = 1 + Math.floor(Math.random() * 2)
+				this._addGround(currentGrid, len)
+				currentGrid += len
+				lastWasPit = false
+			} else {
+				if (Math.random() < 0.6) {
+					const len = 1 + Math.floor(Math.random() * 2)
+					this._addGround(currentGrid, len)
+					currentGrid += len
+					lastWasPit = false
+				} else {
+					this._addPit(currentGrid)
+					currentGrid += 1
+					lastWasPit = true
+				}
+			}
+		}
+	
+		this._addGround(currentGrid, 2)
+	}
+	
+	_addGround(startGrid, length) {
+		this.terrain.push({
+			type: TERRAIN.GROUND,
+			start: CONFIG.toPx(startGrid),
+			end: CONFIG.toPx(startGrid + length)
+		})
+	}
+	
+	_addPit(grid) {
+		this.terrain.push({
+			type: TERRAIN.PIT,
+			start: CONFIG.toPx(grid),
+			end: CONFIG.toPx(grid + 1)
+		})
+	}
 
-  // ========== 碰撞检测 ==========
-  
-  _isInPit(x) {
-    return this.terrain.some(t => 
-      t.type === TERRAIN.PIT && x >= t.start && x < t.end
-    )
-  }
-  
-  _getTerrainAt(grid) {
-    const x = CONFIG.toPx(grid) + CONFIG.toPx(0.5)  // 格子中心
-    if (this._isInPit(x)) return TERRAIN.PIT
-    return TERRAIN.GROUND
-  }
+	// ========== 碰撞检测 ==========
+	
+	_isInPit(x) {
+		return this.terrain.some(t => 
+			t.type === TERRAIN.PIT && x >= t.start && x < t.end
+		)
+	}
+	
+	_getTerrainAt(grid) {
+		const x = CONFIG.toPx(grid) + CONFIG.toPx(0.5)  // 格子中心
+		if (this._isInPit(x)) return TERRAIN.PIT
+		return TERRAIN.GROUND
+	}
 
-  // ========== 玩家与相机 ==========
-  
-  _resetPlayer() {
-    // 玩家初始位置：第0格 + 偏移量，使其居中
-    this.player.x = CONFIG.toPx(CONFIG.PLAYER_START_X)
-    this.player.y = CONFIG.toPx(CONFIG.GROUND_HEIGHT)
-    this.player.grid = 0
-    this.player.action = PLAYER_ACTION.IDLE
-    this.player.isJump = false
-    this.player.direction = 0
-    this._updateCamera()
-  }
-  
-  _updateCamera(playerX = this.player.x) {
-    if (this.viewportWidth <= 0) return
-    const targetX = playerX - this.viewportWidth * CONFIG.CAMERA_OFFSET_RATIO
-    const maxX = CONFIG.toPx(CONFIG.WORLD_LENGTH) - this.viewportWidth
-    this.camera.x = Math.max(0, Math.min(targetX, maxX))
-  }
+	// ========== 玩家与相机 ==========
+	
+	_resetPlayer() {
+	// 玩家初始位置：第0格 + 偏移量，使其居中
+		this.player.x = CONFIG.toPx(CONFIG.PLAYER_START_X)
+		this.player.y = CONFIG.toPx(CONFIG.GROUND_HEIGHT)
+		this.player.grid = 0
+		this.player.action = PLAYER_ACTION.IDLE
+		this.player.isJump = false
+		this.player.direction = 0
+		this._updateCamera()
+	}
+	
+	_updateCamera(playerX = this.player.x) {
+		if (this.viewportWidth <= 0) return
+		const targetX = playerX - this.viewportWidth * CONFIG.CAMERA_OFFSET_RATIO
+		const maxX = CONFIG.toPx(CONFIG.WORLD_LENGTH) - this.viewportWidth
+		this.camera.x = Math.max(0, Math.min(targetX, maxX))
+	}
 
-  // ========== 事件通知 ==========
-  
-  _notifyStateChange() {
-    if (this.onStateChange) {
-      this.onStateChange({ ...this.player }, { ...this.camera })
-    }
-  }
+	// ========== 事件通知 ==========
+	
+	_notifyStateChange() {
+		if (this.onStateChange) {
+			this.onStateChange({ ...this.player }, { ...this.camera })
+		}
+	}
 }
 
 export default JumpGame
@@ -854,74 +862,74 @@ export default JumpGame
  * 处理死亡/胜利后的渐暗渐亮效果
  */
 export class TransitionManager {
-  constructor(containerId) {
-    this.container = document.getElementById(containerId)
-    this.overlay = null
-    this.isTransitioning = false
-    this.init()
-  }
+	constructor(containerId) {
+		this.container = document.getElementById(containerId)
+		this.overlay = null
+		this.isTransitioning = false
+		this.init()
+	}
 
-  init() {
-    // 创建转场遮罩层
-    this.overlay = document.createElement('div')
-    this.overlay.className = 'transition-overlay'
-    this.overlay.style.cssText = `
-      position: absolute;
-      inset: 0;
-      background: #000;
-      opacity: 0;
-      pointer-events: none;
-      z-index: 1600;
-      transition: opacity 0.4s ease-in-out;
-    `
-    this.container.appendChild(this.overlay)
-  }
+	init() {
+	// 创建转场遮罩层
+		this.overlay = document.createElement('div')
+		this.overlay.className = 'transition-overlay'
+		this.overlay.style.cssText = `
+		position: absolute;
+		inset: 0;
+		background: #000;
+		opacity: 0;
+		pointer-events: none;
+		z-index: 1600;
+		transition: opacity 0.4s ease-in-out;
+	`
+		this.container.appendChild(this.overlay)
+	}
 
-  /**
-   * 执行重生转场
-   * @param {Function} onMidPoint - 渐暗完成时的回调（执行重生逻辑）
-   * @param {Function} onComplete - 转场完成时的回调
-   */
-  async playRespawnTransition(onMidPoint, onComplete) {
-    if (this.isTransitioning) return
-    this.isTransitioning = true
+	/**
+	* 执行重生转场
+	* @param {Function} onMidPoint - 渐暗完成时的回调（执行重生逻辑）
+	* @param {Function} onComplete - 转场完成时的回调
+	*/
+	async playRespawnTransition(onMidPoint, onComplete) {
+		if (this.isTransitioning) return
+		this.isTransitioning = true
 
-    // 等待缓冲时间（死亡/胜利动画展示）
-    await this._delay(800)
+		// 等待缓冲时间（死亡/胜利动画展示）
+		await this._delay(800)
 
-    // 渐暗
-    this.overlay.style.opacity = '1'
-    await this._delay(400)  // 等待渐暗完成
+		// 渐暗
+		this.overlay.style.opacity = '1'
+		await this._delay(400)  // 等待渐暗完成
 
-    // 执行重生逻辑（在暗屏时）
-    if (onMidPoint) {
-      onMidPoint()
-    }
+		// 执行重生逻辑（在暗屏时）
+		if (onMidPoint) {
+			onMidPoint()
+		}
 
-    // 短暂停顿（确保重生完成）
-    await this._delay(100)
+		// 短暂停顿（确保重生完成）
+		await this._delay(100)
 
-    // 渐亮
-    this.overlay.style.opacity = '0'
-    await this._delay(400)  // 等待渐亮完成
+		// 渐亮
+		this.overlay.style.opacity = '0'
+		await this._delay(400)  // 等待渐亮完成
 
-    this.isTransitioning = false
+		this.isTransitioning = false
 
-    if (onComplete) {
-      onComplete()
-    }
-  }
+		if (onComplete) {
+			onComplete()
+		}
+	}
 
-  _delay(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms))
-  }
+	_delay(ms) {
+		return new Promise(resolve => setTimeout(resolve, ms))
+	}
 
-  destroy() {
-    if (this.overlay) {
-      this.overlay.remove()
-      this.overlay = null
-    }
-  }
+	destroy() {
+		if (this.overlay) {
+			this.overlay.remove()
+			this.overlay = null
+		}
+	}
 }
 
 export default TransitionManager
@@ -939,578 +947,578 @@ import { CONFIG, TERRAIN } from '@game/JumpGame.js'
  * 支持打断和连续补间
  */
 class Tween {
-  constructor({ fromX, fromY, toX, toY, duration, isJump, onUpdate, onComplete }) {
-    this.fromX = fromX
-    this.fromY = fromY
-    this.toX = toX
-    this.toY = toY
-    this.duration = duration
-    this.isJump = isJump
-    this.onUpdate = onUpdate
-    this.onComplete = onComplete
-    
-    this.startTime = performance.now()
-    this.animationId = null
-    this.isRunning = false
-  }
-  
-  start() {
-    this.isRunning = true
-    this.startTime = performance.now()
-    this._tick()
-    return this
-  }
-  
-  stop() {
-    this.isRunning = false
-    if (this.animationId) {
-      cancelAnimationFrame(this.animationId)
-      this.animationId = null
-    }
-    return this
-  }
-  
-  _tick() {
-    if (!this.isRunning) return
-    
-    const elapsed = performance.now() - this.startTime
-    const progress = Math.min(elapsed / this.duration, 1)
-    
-    // 缓动函数：easeInOutQuad
-    const t = progress < 0.5 
-      ? 2 * progress * progress 
-      : -1 + (4 - 2 * progress) * progress
-    
-    // 计算当前位置
-    let currentX = this.fromX + (this.toX - this.fromX) * t
-    let currentY
-    
-    if (this.isJump) {
-      // 抛物线跳跃：从 fromY 起跳，最后落到 toY（地面）
-      // 基础高度从 fromY 过渡到 toY
-      const baseY = this.fromY + (this.toY - this.fromY) * progress
-      // 抛物线高度（正弦波）
-      const jumpHeight = Math.sin(progress * Math.PI) * CONFIG.toPx(CONFIG.JUMP_HEIGHT)
-      currentY = baseY + jumpHeight
-    } else {
-      // 平地移动
-      currentY = this.fromY + (this.toY - this.fromY) * t
-    }
-    
-    // 通知更新
-    if (this.onUpdate) {
-      this.onUpdate(currentX, currentY)
-    }
-    
-    if (progress < 1) {
-      this.animationId = requestAnimationFrame(() => this._tick())
-    } else {
-      this.isRunning = false
-      if (this.onComplete) {
-        this.onComplete()
-      }
-    }
-  }
+	constructor({ fromX, fromY, toX, toY, duration, isJump, onUpdate, onComplete }) {
+		this.fromX = fromX
+		this.fromY = fromY
+		this.toX = toX
+		this.toY = toY
+		this.duration = duration
+		this.isJump = isJump
+		this.onUpdate = onUpdate
+		this.onComplete = onComplete
+	
+		this.startTime = performance.now()
+		this.animationId = null
+		this.isRunning = false
+	}
+	
+	start() {
+		this.isRunning = true
+		this.startTime = performance.now()
+		this._tick()
+		return this
+	}
+	
+	stop() {
+		this.isRunning = false
+		if (this.animationId) {
+			cancelAnimationFrame(this.animationId)
+			this.animationId = null
+		}
+		return this
+	}
+	
+	_tick() {
+		if (!this.isRunning) return
+	
+		const elapsed = performance.now() - this.startTime
+		const progress = Math.min(elapsed / this.duration, 1)
+	
+		// 缓动函数：easeInOutQuad
+		const t = progress < 0.5 
+			? 2 * progress * progress 
+			: -1 + (4 - 2 * progress) * progress
+	
+		// 计算当前位置
+		const currentX = this.fromX + (this.toX - this.fromX) * t
+		let currentY
+	
+		if (this.isJump) {
+		// 抛物线跳跃：从 fromY 起跳，最后落到 toY（地面）
+		// 基础高度从 fromY 过渡到 toY
+			const baseY = this.fromY + (this.toY - this.fromY) * progress
+			// 抛物线高度（正弦波）
+			const jumpHeight = Math.sin(progress * Math.PI) * CONFIG.toPx(CONFIG.JUMP_HEIGHT)
+			currentY = baseY + jumpHeight
+		} else {
+		// 平地移动
+			currentY = this.fromY + (this.toY - this.fromY) * t
+		}
+	
+		// 通知更新
+		if (this.onUpdate) {
+			this.onUpdate(currentX, currentY)
+		}
+	
+		if (progress < 1) {
+			this.animationId = requestAnimationFrame(() => this._tick())
+		} else {
+			this.isRunning = false
+			if (this.onComplete) {
+				this.onComplete()
+			}
+		}
+	}
 }
 
 export class GameRenderer {
-  constructor(containerId) {
-    this.container = document.getElementById(containerId)
-    this.worldEl = null
-    this.playerEl = null
-    this.currentTween = null
-    
-    // 视觉位置（用于补间起点）
-    this.visual = { x: 0, y: CONFIG.toPx(CONFIG.GROUND_HEIGHT) }
-    
-    // 信息面板元素
-    this.posDisplay = document.getElementById('pos-display')
-    this.genDisplay = document.getElementById('gen-display')
-    this.statusText = document.getElementById('status-text')
-    
-    // 游戏实例引用（用于通知动画完成）
-    this.game = null
-  }
-  
-  setGame(game) {
-    this.game = game
-  }
+	constructor(containerId) {
+		this.container = document.getElementById(containerId)
+		this.worldEl = null
+		this.playerEl = null
+		this.currentTween = null
+	
+		// 视觉位置（用于补间起点）
+		this.visual = { x: 0, y: CONFIG.toPx(CONFIG.GROUND_HEIGHT) }
+	
+		// 信息面板元素
+		this.posDisplay = document.getElementById('pos-display')
+		this.genDisplay = document.getElementById('gen-display')
+		this.statusText = document.getElementById('status-text')
+	
+		// 游戏实例引用（用于通知动画完成）
+		this.game = null
+	}
+	
+	setGame(game) {
+		this.game = game
+	}
 
-  /**
-   * 初始化世界渲染
-   */
-  initWorld(terrain) {
-    this.container.innerHTML = ''
-    
-    this.worldEl = document.createElement('div')
-    this.worldEl.className = 'world-content'
-    
-    this._renderGridLines()
-    
-    terrain.forEach(t => {
-      if (t.type === TERRAIN.GROUND) {
-        this._createGround(t.start, t.end - t.start)
-      } else {
-        this._createPit(t.start)
-      }
-    })
-    
-    this._createGoal()
-    this._createPlayer()
-    
-    this.container.appendChild(this.worldEl)
-    
-    // 添加云朵（背景装饰）
-    this._createClouds()
-    
-    // 停止任何进行中的补间
-    if (this.currentTween) {
-      this.currentTween.stop()
-      this.currentTween = null
-    }
-  }
-  
-  /**
-   * 创建云朵装饰
-   */
-  _createClouds() {
-    const cloudPositions = [
-      { class: 'cloud cloud-1', delay: '0s' },
-      { class: 'cloud cloud-2', delay: '-8s' },
-      { class: 'cloud cloud-3', delay: '-15s' }
-    ]
-    
-    cloudPositions.forEach((cloud, index) => {
-      const el = document.createElement('div')
-      el.className = cloud.class
-      el.style.left = `${-100 - index * 50}px`
-      this.container.appendChild(el)
-    })
-  }
-  
-  /**
-   * 开始动作补间动画
-   * 
-   * 【速通核心机制】
-   * 立即停止当前补间（打断），从当前视觉位置开始新补间。
-   * 这使得玩家可以在动画期间输入新指令，新动作立即生效，
-   * 逻辑与视觉分离，实现连续操作不等待的速通体验。
-   * 
-   * @param {Object} from - 起始位置 {x, y}
-   * @param {Object} to - 目标位置 {x, y}
-   * @param {boolean} isJump - 是否是跳跃
-   * @param {number} duration - 动画时长
-   */
-  startActionTween(from, to, isJump, duration) {
-    // 停止当前补间（打断）
-    if (this.currentTween) {
-      this.currentTween.stop()
-    }
-    
-    // 使用当前视觉位置作为起点（支持连续补间）
-    const startX = this.visual.x
-    const startY = this.visual.y
-    
-    // 创建新补间
-    this.currentTween = new Tween({
-      fromX: startX,
-      fromY: startY,
-      toX: to.x,
-      toY: to.y,
-      duration,
-      isJump,
-      onUpdate: (x, y) => {
-        this.visual.x = x
-        this.visual.y = y
-        this._updatePlayerVisual(x, y)
-        // 更新狐狸动画状态 - 跳跃时根据高度判断，平地移动时显示奔跑
-        this._updateFoxAnimation({ x, y, status: 'moving' }, !isJump, isJump)
-        // 用视觉位置更新相机（平滑跟随）
-        if (this.game) {
-          this.game._updateCamera(x)
-          this.updateCamera(this.game.camera)
-        }
-      },
-      onComplete: () => {
-        this.currentTween = null
-        // 动画完成，狐狸恢复待机状态
-        if (this.foxContainer) {
-          this.foxContainer.classList.remove('state-run', 'state-jump-up', 'state-jump-down', 'state-land')
-          this.foxContainer.classList.add('state-idle')
-          this._foxState = 'idle'
-          // 恢复待机尾巴动画
-          this._startTailAnimation('idle')
-        }
-        // 通知游戏逻辑动画完成
-        if (this.game) {
-          this.game.notifyVisualComplete()
-        }
-      }
-    }).start()
-  }
-  
-  /**
-   * 更新相机位置（由游戏逻辑驱动）
-   */
-  updateCamera(camera) {
-    if (this.worldEl) {
-      this.worldEl.style.transform = `translateX(${-camera.x}px)`
-    }
-  }
-  
-  /**
-   * 同步视觉位置到逻辑位置（用于初始化、重置）
-   */
-  syncVisualToLogical(player) {
-    this.visual.x = player.x
-    this.visual.y = player.y
-    this._updatePlayerVisual(player.x, player.y)
-    
-    if (this.posDisplay) {
-      this.posDisplay.textContent = player.grid
-    }
-  }
-  
-  /**
-   * 设置视觉位置（指定像素坐标）
-   */
-  setVisualPosition(x, y) {
-    this.visual.x = x
-    this.visual.y = y
-    this._updatePlayerVisual(x, y)
-  }
-  
-  /**
-   * 更新世代显示
-   */
-  updateGeneration(gen) {
-    if (this.genDisplay) {
-      this.genDisplay.textContent = gen
-    }
-  }
-  
-  /**
-   * 显示死亡动画
-   */
-  showDeath() {
-    // 给狐狸容器添加死亡状态
-    if (this.foxContainer) {
-      this.foxContainer.classList.remove('state-idle', 'state-run', 'state-jump-up', 'state-jump-down', 'state-land')
-      this.foxContainer.classList.add('state-dead')
-      this._foxState = 'dead'
-      // 停止尾巴动画
-      this._startTailAnimation('dead')
-    }
-    this._showStatus('💀', 'dead')
-  }
-  
-  /**
-   * 显示胜利动画
-   */
-  showWin() {
-    this._showStatus('🏆', 'win')
-  }
-  
-  /**
-   * 重置玩家状态（新一关）
-   */
-  resetPlayer() {
-    // 重置狐狸状态
-    if (this.foxContainer) {
-      this.foxContainer.className = 'fox-container state-idle'
-      this._foxState = 'idle'
-      this._foxLastY = 0
-      this._foxVelocity = 0
-      this._foxOnGround = true
-      // 重置尾巴动画
-      this._startTailAnimation('idle')
-    }
-    this._hideStatus()
-    
-    // 停止补间
-    if (this.currentTween) {
-      this.currentTween.stop()
-      this.currentTween = null
-    }
-  }
+	/**
+	* 初始化世界渲染
+	*/
+	initWorld(terrain) {
+		this.container.innerHTML = ''
+	
+		this.worldEl = document.createElement('div')
+		this.worldEl.className = 'world-content'
+	
+		this._renderGridLines()
+	
+		terrain.forEach(t => {
+			if (t.type === TERRAIN.GROUND) {
+				this._createGround(t.start, t.end - t.start)
+			} else {
+				this._createPit(t.start)
+			}
+		})
+	
+		this._createGoal()
+		this._createPlayer()
+	
+		this.container.appendChild(this.worldEl)
+	
+		// 添加云朵（背景装饰）
+		this._createClouds()
+	
+		// 停止任何进行中的补间
+		if (this.currentTween) {
+			this.currentTween.stop()
+			this.currentTween = null
+		}
+	}
+	
+	/**
+	* 创建云朵装饰
+	*/
+	_createClouds() {
+		const cloudPositions = [
+			{ class: 'cloud cloud-1', delay: '0s' },
+			{ class: 'cloud cloud-2', delay: '-8s' },
+			{ class: 'cloud cloud-3', delay: '-15s' }
+		]
+	
+		cloudPositions.forEach((cloud, index) => {
+			const el = document.createElement('div')
+			el.className = cloud.class
+			el.style.left = `${-100 - index * 50}px`
+			this.container.appendChild(el)
+		})
+	}
+	
+	/**
+	* 开始动作补间动画
+	* 
+	* 【速通核心机制】
+	* 立即停止当前补间（打断），从当前视觉位置开始新补间。
+	* 这使得玩家可以在动画期间输入新指令，新动作立即生效，
+	* 逻辑与视觉分离，实现连续操作不等待的速通体验。
+	* 
+	* @param {Object} from - 起始位置 {x, y}
+	* @param {Object} to - 目标位置 {x, y}
+	* @param {boolean} isJump - 是否是跳跃
+	* @param {number} duration - 动画时长
+	*/
+	startActionTween(from, to, isJump, duration) {
+	// 停止当前补间（打断）
+		if (this.currentTween) {
+			this.currentTween.stop()
+		}
+	
+		// 使用当前视觉位置作为起点（支持连续补间）
+		const startX = this.visual.x
+		const startY = this.visual.y
+	
+		// 创建新补间
+		this.currentTween = new Tween({
+			fromX: startX,
+			fromY: startY,
+			toX: to.x,
+			toY: to.y,
+			duration,
+			isJump,
+			onUpdate: (x, y) => {
+				this.visual.x = x
+				this.visual.y = y
+				this._updatePlayerVisual(x, y)
+				// 更新狐狸动画状态 - 跳跃时根据高度判断，平地移动时显示奔跑
+				this._updateFoxAnimation({ x, y, status: 'moving' }, !isJump, isJump)
+				// 用视觉位置更新相机（平滑跟随）
+				if (this.game) {
+					this.game._updateCamera(x)
+					this.updateCamera(this.game.camera)
+				}
+			},
+			onComplete: () => {
+				this.currentTween = null
+				// 动画完成，狐狸恢复待机状态
+				if (this.foxContainer) {
+					this.foxContainer.classList.remove('state-run', 'state-jump-up', 'state-jump-down', 'state-land')
+					this.foxContainer.classList.add('state-idle')
+					this._foxState = 'idle'
+					// 恢复待机尾巴动画
+					this._startTailAnimation('idle')
+				}
+				// 通知游戏逻辑动画完成
+				if (this.game) {
+					this.game.notifyVisualComplete()
+				}
+			}
+		}).start()
+	}
+	
+	/**
+	* 更新相机位置（由游戏逻辑驱动）
+	*/
+	updateCamera(camera) {
+		if (this.worldEl) {
+			this.worldEl.style.transform = `translateX(${-camera.x}px)`
+		}
+	}
+	
+	/**
+	* 同步视觉位置到逻辑位置（用于初始化、重置）
+	*/
+	syncVisualToLogical(player) {
+		this.visual.x = player.x
+		this.visual.y = player.y
+		this._updatePlayerVisual(player.x, player.y)
+	
+		if (this.posDisplay) {
+			this.posDisplay.textContent = player.grid
+		}
+	}
+	
+	/**
+	* 设置视觉位置（指定像素坐标）
+	*/
+	setVisualPosition(x, y) {
+		this.visual.x = x
+		this.visual.y = y
+		this._updatePlayerVisual(x, y)
+	}
+	
+	/**
+	* 更新世代显示
+	*/
+	updateGeneration(gen) {
+		if (this.genDisplay) {
+			this.genDisplay.textContent = gen
+		}
+	}
+	
+	/**
+	* 显示死亡动画
+	*/
+	showDeath() {
+	// 给狐狸容器添加死亡状态
+		if (this.foxContainer) {
+			this.foxContainer.classList.remove('state-idle', 'state-run', 'state-jump-up', 'state-jump-down', 'state-land')
+			this.foxContainer.classList.add('state-dead')
+			this._foxState = 'dead'
+			// 停止尾巴动画
+			this._startTailAnimation('dead')
+		}
+		this._showStatus('💀', 'dead')
+	}
+	
+	/**
+	* 显示胜利动画
+	*/
+	showWin() {
+		this._showStatus('🏆', 'win')
+	}
+	
+	/**
+	* 重置玩家状态（新一关）
+	*/
+	resetPlayer() {
+	// 重置狐狸状态
+		if (this.foxContainer) {
+			this.foxContainer.className = 'fox-container state-idle'
+			this._foxState = 'idle'
+			this._foxLastY = 0
+			this._foxVelocity = 0
+			this._foxOnGround = true
+			// 重置尾巴动画
+			this._startTailAnimation('idle')
+		}
+		this._hideStatus()
+	
+		// 停止补间
+		if (this.currentTween) {
+			this.currentTween.stop()
+			this.currentTween = null
+		}
+	}
 
-  // ========== 私有方法 ==========
-  
-  _updatePlayerVisual(x, y) {
-    if (this.playerEl) {
-      this.playerEl.style.left = `${x}px`
-      this.playerEl.style.bottom = `${y}px`
-    }
-  }
-  
-  _renderGridLines() {
-    const gridOverlay = document.createElement('div')
-    gridOverlay.className = 'world-grid'
-    
-    for (let i = 0; i <= CONFIG.WORLD_LENGTH; i++) {
-      const x = CONFIG.toPx(i)
-      
-      const line = document.createElement('div')
-      line.className = 'grid-vline'
-      line.style.left = `${x}px`
-      gridOverlay.appendChild(line)
-      
-      if (i % 5 === 0) {
-        const label = document.createElement('div')
-        label.className = 'grid-label'
-        label.style.left = `${x}px`
-        // 标签放在地面上一格的高度（避免被左上角Info挡住）
-        label.style.bottom = `${CONFIG.toPx(CONFIG.GROUND_HEIGHT + 1)}px`
-        label.textContent = i
-        gridOverlay.appendChild(label)
-      }
-    }
-    
-    this.worldEl.appendChild(gridOverlay)
-  }
-  
-  _createGround(startX, width) {
-    const el = document.createElement('div')
-    el.className = 'ground'
-    el.style.left = `${startX}px`
-    el.style.width = `${width}px`
-    el.style.height = `${CONFIG.toPx(CONFIG.GROUND_HEIGHT)}px`
-    this.worldEl.appendChild(el)
-  }
-  
-  _createPit(startX) {
-    const el = document.createElement('div')
-    el.className = 'pit-zone'
-    el.style.left = `${startX}px`
-    el.style.width = `${CONFIG.GRID_SIZE}px`
-    el.style.height = `${CONFIG.toPx(0.2)}px`  // 0.2 unit 深度
-    this.worldEl.appendChild(el)
-  }
-  
-  _createGoal() {
-    const el = document.createElement('div')
-    el.className = 'goal'
-    // 终点位置（第 WORLD_LENGTH-1 格）
-    el.style.left = `${CONFIG.toPx(CONFIG.WORLD_LENGTH - 1)}px`
-    // 旗子底部对齐地面高度
-    el.style.bottom = `${CONFIG.toPx(CONFIG.GROUND_HEIGHT)}px`
-    // 旗子大小使用 GOAL_SIZE
-    const goalWidth = CONFIG.toPx(CONFIG.GOAL_SIZE)  // 0.8 unit 宽
-    const goalHeight = CONFIG.toPx(CONFIG.GOAL_SIZE * 1.4) // 更高一点
-    el.style.width = `${goalWidth}px`
-    el.style.height = `${goalHeight}px`
-    
-    // 旗杆使用相对尺寸
-    const poleWidth = Math.max(3, Math.floor(goalWidth * 0.08))
-    const poleHeight = goalHeight
-    const flagWidth = Math.floor(goalWidth * 0.7)
-    const flagHeight = Math.floor(goalHeight * 0.35)
-    
-    el.innerHTML = `
-      <div class="goal-pole" style="
-        position: absolute;
-        left: ${Math.floor(goalWidth * 0.15)}px;
-        bottom: 0;
-        width: ${poleWidth}px;
-        height: ${poleHeight}px;
-        background: linear-gradient(90deg, #888 0%, #eee 50%, #888 100%);
-        border-radius: 2px;
-      "></div>
-      <div class="goal-flag" style="
-        position: absolute;
-        left: ${Math.floor(goalWidth * 0.15) + poleWidth}px;
-        top: ${Math.floor(goalHeight * 0.08)}px;
-        width: ${flagWidth}px;
-        height: ${flagHeight}px;
-        background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
-        clip-path: polygon(0 0, 100% 50%, 0 100%);
-        animation: wave 2s ease-in-out infinite;
-        filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
-      "></div>
-    `
-    this.worldEl.appendChild(el)
-  }
-  
-  _createPlayer() {
-    this.playerEl = document.createElement('div')
-    this.playerEl.id = 'player'
-    // 玩家大小
-    const playerSize = CONFIG.toPx(CONFIG.PLAYER_SIZE)
-    this.playerEl.style.width = `${playerSize}px`
-    this.playerEl.style.height = `${playerSize}px`
-    
-    // 创建狐狸结构（侧面视角，四条腿）
-    this.playerEl.innerHTML = `
-      <div class="fox-container state-idle" data-state="idle">
-        <div class="fox-tail"></div>
-        <div class="fox-leg-back-far"></div>
-        <div class="fox-body"></div>
-        <div class="fox-leg-back-near"></div>
-        <div class="fox-leg-front-far"></div>
-        <div class="fox-head">
-          <div class="fox-ear-far"></div>
-          <div class="fox-ear-near"></div>
-          <div class="fox-eye"></div>
-          <div class="fox-nose"></div>
-        </div>
-        <div class="fox-leg-front-near"></div>
-      </div>
-    `
-    this.worldEl.appendChild(this.playerEl)
-    
-    // 获取狐狸容器用于动画控制
-    this.foxContainer = this.playerEl.querySelector('.fox-container')
-    this.foxTail = this.playerEl.querySelector('.fox-tail')
-    
-    // 初始化动画状态
-    this._foxState = 'idle'
-    this._foxLastY = 0
-    this._foxVelocity = 0
-    this._foxOnGround = true
-    
-    // 尾巴WAAPI动画控制（实现类似Spine的动画混合）
-    this._tailAnimation = null
-    // 延迟启动动画，确保DOM已渲染
-    requestAnimationFrame(() => {
-      this._startTailAnimation('idle')
-    })
-  }
-  
-  /**
-   * 使用WAAPI启动尾巴动画（无过渡，直接切换）
-   */
-  _startTailAnimation(state) {
-    if (!this.foxTail) return
-    
-    // 停止当前动画
-    if (this._tailAnimation) {
-      this._tailAnimation.cancel()
-      this._tailAnimation = null
-    }
-    
-    // 根据状态定义动画（直接切换，无过渡）
-    let keyframes, options
-    
-    switch(state) {
-      case 'run':
-        keyframes = [
-          { transform: 'rotate(-10deg)' },
-          { transform: 'rotate(15deg)' },
-          { transform: 'rotate(-10deg)' }
-        ]
-        options = { duration: 300, iterations: Infinity }
-        break
-      case 'jump-up':
-        keyframes = [
-          { transform: 'rotate(-30deg) scaleX(0.9)' }
-        ]
-        options = { duration: 1000, fill: 'both' }
-        break
-      case 'jump-down':
-        keyframes = [
-          { transform: 'rotate(20deg)' }
-        ]
-        options = { duration: 1000, fill: 'both' }
-        break
-      case 'land':
-        keyframes = [
-          { transform: 'rotate(-10deg)' }
-        ]
-        options = { duration: 200, fill: 'forwards' }
-        break
-      case 'dead':
-        // 死亡时停止尾巴动画
-        return
-      case 'idle':
-      default:
-        keyframes = [
-          { transform: 'rotate(-10deg)' },
-          { transform: 'rotate(5deg)' },
-          { transform: 'rotate(-10deg)' }
-        ]
-        options = { duration: 3000, iterations: Infinity }
-    }
-    
-    // 使用WAAPI启动动画
-    this._tailAnimation = this.foxTail.animate(keyframes, options)
-  }
-  
-  /**
-   * 更新狐狸动画状态（程序自动计算）
-   */
-  _updateFoxAnimation(player, isMoving, isJump) {
-    if (!this.foxContainer) return
-    
-    const currentY = player.y
-    const currentX = player.x
-    
-    // 计算垂直速度
-    this._foxVelocity = currentY - this._foxLastY
-    this._foxLastY = currentY
-    
-    // 判断是否在地面上
-    const groundY = CONFIG.toPx(CONFIG.GROUND_HEIGHT)
-    const onGround = Math.abs(currentY - groundY) < 5
-    
-    // 计算新状态
-    let newState = 'idle'
-    
-    if (player.action === 'dead') {
-      newState = 'dead'
-    } else if (!onGround) {
-      // 在空中
-      if (this._foxVelocity > 0.5) {
-        newState = 'jump-down'  // 下降
-      } else if (this._foxVelocity < -0.5) {
-        newState = 'jump-up'    // 上升
-      } else {
-        newState = 'jump-up'    // 最高点附近，保持上升姿态
-      }
-    } else if (isMoving) {
-      newState = 'run'  // 地面移动
-    } else {
-      newState = 'idle' // 待机
-    }
-    
-    // 落地检测（从空中到地面）
-    if (!this._foxOnGround && onGround && this._foxState !== 'idle') {
-      newState = 'land'
-      // 0.2秒后恢复待机
-      setTimeout(() => {
-        if (this.foxContainer) {
-          this.foxContainer.classList.remove('state-land')
-          this.foxContainer.classList.add('state-idle')
-          // 同步更新尾巴动画为待机
-          this._startTailAnimation('idle')
-        }
-      }, 200)
-    }
-    
-    // 应用新状态
-    if (newState !== this._foxState) {
-      this.foxContainer.classList.remove(`state-${this._foxState}`)
-      this.foxContainer.classList.add(`state-${newState}`)
-      this._foxState = newState
-      
-      // 使用WAAPI更新尾巴动画（平滑混合）
-      this._startTailAnimation(newState)
-    }
-    
-    this._foxOnGround = onGround
-  }
-  
-  _showStatus(emoji, type) {
-    if (this.statusText) {
-      this.statusText.textContent = emoji
-      this.statusText.className = `show ${type}`
-    }
-  }
-  
-  _hideStatus() {
-    if (this.statusText) {
-      this.statusText.className = ''
-    }
-  }
+	// ========== 私有方法 ==========
+	
+	_updatePlayerVisual(x, y) {
+		if (this.playerEl) {
+			this.playerEl.style.left = `${x}px`
+			this.playerEl.style.bottom = `${y}px`
+		}
+	}
+	
+	_renderGridLines() {
+		const gridOverlay = document.createElement('div')
+		gridOverlay.className = 'world-grid'
+	
+		for (let i = 0; i <= CONFIG.WORLD_LENGTH; i++) {
+			const x = CONFIG.toPx(i)
+		
+			const line = document.createElement('div')
+			line.className = 'grid-vline'
+			line.style.left = `${x}px`
+			gridOverlay.appendChild(line)
+		
+			if (i % 5 === 0) {
+				const label = document.createElement('div')
+				label.className = 'grid-label'
+				label.style.left = `${x}px`
+				// 标签放在地面上一格的高度（避免被左上角Info挡住）
+				label.style.bottom = `${CONFIG.toPx(CONFIG.GROUND_HEIGHT + 1)}px`
+				label.textContent = i
+				gridOverlay.appendChild(label)
+			}
+		}
+	
+		this.worldEl.appendChild(gridOverlay)
+	}
+	
+	_createGround(startX, width) {
+		const el = document.createElement('div')
+		el.className = 'ground'
+		el.style.left = `${startX}px`
+		el.style.width = `${width}px`
+		el.style.height = `${CONFIG.toPx(CONFIG.GROUND_HEIGHT)}px`
+		this.worldEl.appendChild(el)
+	}
+	
+	_createPit(startX) {
+		const el = document.createElement('div')
+		el.className = 'pit-zone'
+		el.style.left = `${startX}px`
+		el.style.width = `${CONFIG.GRID_SIZE}px`
+		el.style.height = `${CONFIG.toPx(0.2)}px`  // 0.2 unit 深度
+		this.worldEl.appendChild(el)
+	}
+	
+	_createGoal() {
+		const el = document.createElement('div')
+		el.className = 'goal'
+		// 终点位置（第 WORLD_LENGTH-1 格）
+		el.style.left = `${CONFIG.toPx(CONFIG.WORLD_LENGTH - 1)}px`
+		// 旗子底部对齐地面高度
+		el.style.bottom = `${CONFIG.toPx(CONFIG.GROUND_HEIGHT)}px`
+		// 旗子大小使用 GOAL_SIZE
+		const goalWidth = CONFIG.toPx(CONFIG.GOAL_SIZE)  // 0.8 unit 宽
+		const goalHeight = CONFIG.toPx(CONFIG.GOAL_SIZE * 1.4) // 更高一点
+		el.style.width = `${goalWidth}px`
+		el.style.height = `${goalHeight}px`
+	
+		// 旗杆使用相对尺寸
+		const poleWidth = Math.max(3, Math.floor(goalWidth * 0.08))
+		const poleHeight = goalHeight
+		const flagWidth = Math.floor(goalWidth * 0.7)
+		const flagHeight = Math.floor(goalHeight * 0.35)
+	
+		el.innerHTML = `
+		<div class="goal-pole" style="
+		position: absolute;
+		left: ${Math.floor(goalWidth * 0.15)}px;
+		bottom: 0;
+		width: ${poleWidth}px;
+		height: ${poleHeight}px;
+		background: linear-gradient(90deg, #888 0%, #eee 50%, #888 100%);
+		border-radius: 2px;
+		"></div>
+		<div class="goal-flag" style="
+		position: absolute;
+		left: ${Math.floor(goalWidth * 0.15) + poleWidth}px;
+		top: ${Math.floor(goalHeight * 0.08)}px;
+		width: ${flagWidth}px;
+		height: ${flagHeight}px;
+		background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
+		clip-path: polygon(0 0, 100% 50%, 0 100%);
+		animation: wave 2s ease-in-out infinite;
+		filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+		"></div>
+	`
+		this.worldEl.appendChild(el)
+	}
+	
+	_createPlayer() {
+		this.playerEl = document.createElement('div')
+		this.playerEl.id = 'player'
+		// 玩家大小
+		const playerSize = CONFIG.toPx(CONFIG.PLAYER_SIZE)
+		this.playerEl.style.width = `${playerSize}px`
+		this.playerEl.style.height = `${playerSize}px`
+	
+		// 创建狐狸结构（侧面视角，四条腿）
+		this.playerEl.innerHTML = `
+		<div class="fox-container state-idle" data-state="idle">
+		<div class="fox-tail"></div>
+		<div class="fox-leg-back-far"></div>
+		<div class="fox-body"></div>
+		<div class="fox-leg-back-near"></div>
+		<div class="fox-leg-front-far"></div>
+		<div class="fox-head">
+			<div class="fox-ear-far"></div>
+			<div class="fox-ear-near"></div>
+			<div class="fox-eye"></div>
+			<div class="fox-nose"></div>
+		</div>
+		<div class="fox-leg-front-near"></div>
+		</div>
+	`
+		this.worldEl.appendChild(this.playerEl)
+	
+		// 获取狐狸容器用于动画控制
+		this.foxContainer = this.playerEl.querySelector('.fox-container')
+		this.foxTail = this.playerEl.querySelector('.fox-tail')
+	
+		// 初始化动画状态
+		this._foxState = 'idle'
+		this._foxLastY = 0
+		this._foxVelocity = 0
+		this._foxOnGround = true
+	
+		// 尾巴WAAPI动画控制（实现类似Spine的动画混合）
+		this._tailAnimation = null
+		// 延迟启动动画，确保DOM已渲染
+		requestAnimationFrame(() => {
+			this._startTailAnimation('idle')
+		})
+	}
+	
+	/**
+	* 使用WAAPI启动尾巴动画（无过渡，直接切换）
+	*/
+	_startTailAnimation(state) {
+		if (!this.foxTail) return
+	
+		// 停止当前动画
+		if (this._tailAnimation) {
+			this._tailAnimation.cancel()
+			this._tailAnimation = null
+		}
+	
+		// 根据状态定义动画（直接切换，无过渡）
+		let keyframes, options
+	
+		switch(state) {
+			case 'run':
+				keyframes = [
+					{ transform: 'rotate(-10deg)' },
+					{ transform: 'rotate(15deg)' },
+					{ transform: 'rotate(-10deg)' }
+				]
+				options = { duration: 300, iterations: Infinity }
+				break
+			case 'jump-up':
+				keyframes = [
+					{ transform: 'rotate(-30deg) scaleX(0.9)' }
+				]
+				options = { duration: 1000, fill: 'both' }
+				break
+			case 'jump-down':
+				keyframes = [
+					{ transform: 'rotate(20deg)' }
+				]
+				options = { duration: 1000, fill: 'both' }
+				break
+			case 'land':
+				keyframes = [
+					{ transform: 'rotate(-10deg)' }
+				]
+				options = { duration: 200, fill: 'forwards' }
+				break
+			case 'dead':
+				// 死亡时停止尾巴动画
+				return
+			case 'idle':
+			default:
+				keyframes = [
+					{ transform: 'rotate(-10deg)' },
+					{ transform: 'rotate(5deg)' },
+					{ transform: 'rotate(-10deg)' }
+				]
+				options = { duration: 3000, iterations: Infinity }
+		}
+	
+		// 使用WAAPI启动动画
+		this._tailAnimation = this.foxTail.animate(keyframes, options)
+	}
+	
+	/**
+	* 更新狐狸动画状态（程序自动计算）
+	*/
+	_updateFoxAnimation(player, isMoving, isJump) {
+		if (!this.foxContainer) return
+	
+		const currentY = player.y
+		const currentX = player.x
+	
+		// 计算垂直速度
+		this._foxVelocity = currentY - this._foxLastY
+		this._foxLastY = currentY
+	
+		// 判断是否在地面上
+		const groundY = CONFIG.toPx(CONFIG.GROUND_HEIGHT)
+		const onGround = Math.abs(currentY - groundY) < 5
+	
+		// 计算新状态
+		let newState = 'idle'
+	
+		if (player.action === 'dead') {
+			newState = 'dead'
+		} else if (!onGround) {
+		// 在空中
+			if (this._foxVelocity > 0.5) {
+				newState = 'jump-down'  // 下降
+			} else if (this._foxVelocity < -0.5) {
+				newState = 'jump-up'    // 上升
+			} else {
+				newState = 'jump-up'    // 最高点附近，保持上升姿态
+			}
+		} else if (isMoving) {
+			newState = 'run'  // 地面移动
+		} else {
+			newState = 'idle' // 待机
+		}
+	
+		// 落地检测（从空中到地面）
+		if (!this._foxOnGround && onGround && this._foxState !== 'idle') {
+			newState = 'land'
+			// 0.2秒后恢复待机
+			setTimeout(() => {
+				if (this.foxContainer) {
+					this.foxContainer.classList.remove('state-land')
+					this.foxContainer.classList.add('state-idle')
+					// 同步更新尾巴动画为待机
+					this._startTailAnimation('idle')
+				}
+			}, 200)
+		}
+	
+		// 应用新状态
+		if (newState !== this._foxState) {
+			this.foxContainer.classList.remove(`state-${this._foxState}`)
+			this.foxContainer.classList.add(`state-${newState}`)
+			this._foxState = newState
+		
+			// 使用WAAPI更新尾巴动画（平滑混合）
+			this._startTailAnimation(newState)
+		}
+	
+		this._foxOnGround = onGround
+	}
+	
+	_showStatus(emoji, type) {
+		if (this.statusText) {
+			this.statusText.textContent = emoji
+			this.statusText.className = `show ${type}`
+		}
+	}
+	
+	_hideStatus() {
+		if (this.statusText) {
+			this.statusText.className = ''
+		}
+	}
 }
 
 export default GameRenderer
@@ -1527,10 +1535,10 @@ export default GameRenderer
  * @returns {string} 格式化后的时间字符串，如 "01:23"
  */
 export function formatTime(ms) {
-  const totalSeconds = Math.floor(ms / 1000)
-  const minutes = Math.floor(totalSeconds / 60)
-  const seconds = totalSeconds % 60
-  return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
+	const totalSeconds = Math.floor(ms / 1000)
+	const minutes = Math.floor(totalSeconds / 60)
+	const seconds = totalSeconds % 60
+	return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
 }
 
 /**
@@ -1539,11 +1547,11 @@ export function formatTime(ms) {
  * @returns {string} 格式化后的时间字符串，如 "01:23.456"
  */
 export function formatTimeMs(ms) {
-  const totalSeconds = Math.floor(ms / 1000)
-  const minutes = Math.floor(totalSeconds / 60)
-  const seconds = totalSeconds % 60
-  const milliseconds = ms % 1000
-  return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}.${milliseconds.toString().padStart(3, '0')}`
+	const totalSeconds = Math.floor(ms / 1000)
+	const minutes = Math.floor(totalSeconds / 60)
+	const seconds = totalSeconds % 60
+	const milliseconds = ms % 1000
+	return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}.${milliseconds.toString().padStart(3, '0')}`
 }
 
 文件: ./src/views/HistoryView.js
@@ -1553,206 +1561,193 @@ export function formatTimeMs(ms) {
  */
 
 export class HistoryView {
-  constructor(containerId) {
-    this.container = document.getElementById(containerId)
-    this.canvas = null
-    this.ctx = null
-    // 绑定 resize 处理函数以便后续移除
-    this._resizeHandler = () => this.resize()
-    this.init()
-  }
-  
-  init() {
-    // 只移除已有的canvas和占位符，不清空整个容器（保留菜单按钮）
-    const oldCanvas = this.container.querySelector('canvas')
-    if (oldCanvas) oldCanvas.remove()
-    
-    // 移除 HTML 中的占位符
-    const placeholder = this.container.querySelector('#neuron-placeholder')
-    if (placeholder) placeholder.remove()
-    
-    this.canvas = document.createElement('canvas')
-    this.canvas.style.width = '100%'
-    this.canvas.style.height = '100%'
-    this.container.appendChild(this.canvas)
-    this.ctx = this.canvas.getContext('2d')
-    
-    this.resize()
-    window.addEventListener('resize', this._resizeHandler)
-  }
-  
-  resize() {
-    const rect = this.container.getBoundingClientRect()
-    this.canvas.width = rect.width * window.devicePixelRatio
-    this.canvas.height = rect.height * window.devicePixelRatio
-    this.ctx.scale(window.devicePixelRatio, window.devicePixelRatio)
-    this.width = rect.width
-    this.height = rect.height
-  }
-  
-  /**
-   * 渲染历史折线
-   * @param {Array} history - 历史数据数组
-   * @param {number} maxPoints - 最大显示点数（默认100）
-   */
-  render(history, maxPoints = 100) {
-    const ctx = this.ctx
-    const w = this.width
-    const h = this.height
-    
-    ctx.clearRect(0, 0, w, h)
-    
-    if (history.length === 0) {
-      this.drawEmpty(ctx, w, h)
-      return
-    }
-    
-    // 动态采样
-    const sampled = this.sampleData(history, maxPoints)
-    
-    // 计算范围
-    const steps = sampled.map(d => d.steps)
-    const maxStep = Math.max(...steps, 10)
-    const minStep = 0
-    
-    // 边距
-    const margin = { top: 40, right: 20, bottom: 40, left: 50 }
-    const chartW = w - margin.left - margin.right
-    const chartH = h - margin.top - margin.bottom
-    
-    // 绘制网格
-    this.drawGrid(ctx, margin, chartW, chartH, maxStep)
-    
-    // 绘制折线
-    this.drawLine(ctx, sampled, margin, chartW, chartH, maxStep, minStep)
-    
-    // 绘制标签
-    this.drawLabels(ctx, margin, chartW, chartH, maxStep, sampled)
-    
-    // 绘制统计
-    this.drawStats(ctx, w, h, history)
-  }
-  
-  /**
-   * 动态采样：数据密集时合并点
-   */
-  sampleData(data, maxPoints) {
-    if (data.length <= maxPoints) {
-      return data
-    }
-    
-    const sampled = []
-    const bucketSize = Math.ceil(data.length / maxPoints)
-    
-    for (let i = 0; i < data.length; i += bucketSize) {
-      const bucket = data.slice(i, i + bucketSize)
-      // 取桶内平均值
-      const avgSteps = bucket.reduce((sum, d) => sum + d.steps, 0) / bucket.length
-      sampled.push({
-        generation: bucket[Math.floor(bucket.length / 2)].generation,
-        steps: avgSteps
-      })
-    }
-    
-    return sampled
-  }
-  
-  drawGrid(ctx, margin, chartW, chartH, maxStep) {
-    ctx.strokeStyle = 'rgba(255,255,255,0.1)'
-    ctx.lineWidth = 1
-    
-    // 水平网格线（5条）
-    for (let i = 0; i <= 5; i++) {
-      const y = margin.top + chartH * i / 5
-      ctx.beginPath()
-      ctx.moveTo(margin.left, y)
-      ctx.lineTo(margin.left + chartW, y)
-      ctx.stroke()
-    }
-  }
-  
-  drawLine(ctx, data, margin, chartW, chartH, maxStep, minStep) {
-    if (data.length < 2) return
-    
-    ctx.strokeStyle = '#3498db'
-    ctx.lineWidth = 2
-    ctx.beginPath()
-    
-    for (let i = 0; i < data.length; i++) {
-      const x = margin.left + chartW * i / (data.length - 1)
-      const y = margin.top + chartH * (1 - (data[i].steps - minStep) / (maxStep - minStep))
-      
-      if (i === 0) {
-        ctx.moveTo(x, y)
-      } else {
-        ctx.lineTo(x, y)
-      }
-    }
-    
-    ctx.stroke()
-    
-    // 绘制数据点
-    ctx.fillStyle = '#ecf0f1'
-    for (let i = 0; i < data.length; i += Math.ceil(data.length / 20)) {
-      const x = margin.left + chartW * i / (data.length - 1)
-      const y = margin.top + chartH * (1 - (data[i].steps - minStep) / (maxStep - minStep))
-      ctx.beginPath()
-      ctx.arc(x, y, 3, 0, Math.PI * 2)
-      ctx.fill()
-    }
-  }
-  
-  drawLabels(ctx, margin, chartW, chartH, maxStep, data) {
-    ctx.fillStyle = 'rgba(255,255,255,0.7)'
-    ctx.font = '11px monospace'
-    ctx.textAlign = 'right'
-    
-    // Y轴标签
-    for (let i = 0; i <= 5; i++) {
-      const val = Math.round(maxStep * (1 - i / 5))
-      const y = margin.top + chartH * i / 5 + 4
-      ctx.fillText(val.toString(), margin.left - 8, y)
-    }
-    
-    // X轴标签
-    ctx.textAlign = 'center'
-    ctx.fillText('世代', margin.left + chartW / 2, margin.top + chartH + 25)
-    
-    // 起始和结束世代
-    if (data.length > 0) {
-      ctx.fillText(data[0].generation.toString(), margin.left, margin.top + chartH + 18)
-      ctx.fillText(data[data.length - 1].generation.toString(), margin.left + chartW, margin.top + chartH + 18)
-    }
-  }
-  
-  drawStats(ctx, w, h, history) {
-    const steps = history.map(d => d.steps)
-    const best = Math.max(...steps)
-    const avg = steps.reduce((a, b) => a + b, 0) / steps.length
-    
-    ctx.fillStyle = 'rgba(255,255,255,0.9)'
-    ctx.font = '12px monospace'
-    ctx.textAlign = 'left'
-    
-    ctx.fillText(`共${history.length}代 最佳:${best} 平均:${avg.toFixed(1)}`, 10, 20)
-  }
-  
-  drawEmpty(ctx, w, h) {
-    ctx.fillStyle = 'rgba(255,255,255,0.5)'
-    ctx.font = '14px sans-serif'
-    ctx.textAlign = 'center'
-    ctx.fillText('暂无训练数据', w / 2, h / 2)
-  }
-  
-  destroy() {
-    // 清理 resize 监听器
-    window.removeEventListener('resize', this._resizeHandler)
-    this.canvas?.remove()
-  }
+	constructor(containerId) {
+		this.container = document.getElementById(containerId)
+		this.canvas = null
+		this.ctx = null
+		this.lastData = null // 缓存数据
+		this.init()
+	}
+	
+	init() {
+		const oldCanvas = this.container.querySelector('canvas')
+		if (oldCanvas) oldCanvas.remove()
+	
+		const placeholder = this.container.querySelector('#neuron-placeholder')
+		if (placeholder) placeholder.remove()
+	
+		this.canvas = document.createElement('canvas')
+		// 【修复无限拉伸】：绝对定位脱离文档流
+		this.canvas.style.position = 'absolute'
+		this.canvas.style.top = '0'
+		this.canvas.style.left = '0'
+		this.canvas.style.width = '100%'
+		this.canvas.style.height = '100%'
+		this.canvas.style.display = 'block'
+		this.container.appendChild(this.canvas)
+		this.ctx = this.canvas.getContext('2d')
+	
+		this.resizeObserver = new ResizeObserver(() => {
+			this.resize()
+		})
+		this.resizeObserver.observe(this.container)
+	}
+	
+	resize() {
+		const rect = this.container.getBoundingClientRect()
+		if (rect.width === 0 || rect.height === 0) return
+
+		this.canvas.width = rect.width * window.devicePixelRatio
+		this.canvas.height = rect.height * window.devicePixelRatio
+		this.ctx.scale(window.devicePixelRatio, window.devicePixelRatio)
+		this.width = rect.width
+		this.height = rect.height
+	
+		if (this.lastData && this.lastData.history) {
+			this.render(this.lastData.history, this.lastData.maxPoints, true)
+		}
+	}
+	
+	render(history, maxPoints = 100, isResize = false) {
+		if (!isResize) {
+			this.lastData = { history, maxPoints }
+		}
+
+		const ctx = this.ctx
+		const w = this.width
+		const h = this.height
+	
+		ctx.clearRect(0, 0, w, h)
+	
+		if (!history || history.length === 0) {
+			this.drawEmpty(ctx, w, h)
+			return
+		}
+	
+		const sampled = this.sampleData(history, maxPoints)
+		const steps = sampled.map(d => d.steps)
+		const maxStep = Math.max(...steps, 10)
+		const minStep = 0
+	
+		const margin = { top: 40, right: 20, bottom: 40, left: 50 }
+		const chartW = w - margin.left - margin.right
+		const chartH = h - margin.top - margin.bottom
+	
+		this.drawGrid(ctx, margin, chartW, chartH, maxStep)
+		this.drawLine(ctx, sampled, margin, chartW, chartH, maxStep, minStep)
+		this.drawLabels(ctx, margin, chartW, chartH, maxStep, sampled)
+		this.drawStats(ctx, w, h, history)
+	}
+	
+	sampleData(data, maxPoints) {
+		if (data.length <= maxPoints) {
+			return data
+		}
+	
+		const sampled =[]
+		const bucketSize = Math.ceil(data.length / maxPoints)
+	
+		for (let i = 0; i < data.length; i += bucketSize) {
+			const bucket = data.slice(i, i + bucketSize)
+			const avgSteps = bucket.reduce((sum, d) => sum + d.steps, 0) / bucket.length
+			sampled.push({
+				generation: bucket[Math.floor(bucket.length / 2)].generation,
+				steps: avgSteps
+			})
+		}
+	
+		return sampled
+	}
+	
+	drawGrid(ctx, margin, chartW, chartH, maxStep) {
+		ctx.strokeStyle = 'rgba(255,255,255,0.1)'
+		ctx.lineWidth = 1
+	
+		for (let i = 0; i <= 5; i++) {
+			const y = margin.top + chartH * i / 5
+			ctx.beginPath()
+			ctx.moveTo(margin.left, y)
+			ctx.lineTo(margin.left + chartW, y)
+			ctx.stroke()
+		}
+	}
+	
+	drawLine(ctx, data, margin, chartW, chartH, maxStep, minStep) {
+		if (data.length < 2) return
+	
+		ctx.strokeStyle = '#3498db'
+		ctx.lineWidth = 2
+		ctx.beginPath()
+	
+		for (let i = 0; i < data.length; i++) {
+			const x = margin.left + chartW * i / (data.length - 1)
+			const y = margin.top + chartH * (1 - (data[i].steps - minStep) / (maxStep - minStep))
+		
+			if (i === 0) {
+				ctx.moveTo(x, y)
+			} else {
+				ctx.lineTo(x, y)
+			}
+		}
+	
+		ctx.stroke()
+	
+		ctx.fillStyle = '#ecf0f1'
+		for (let i = 0; i < data.length; i += Math.ceil(data.length / 20)) {
+			const x = margin.left + chartW * i / (data.length - 1)
+			const y = margin.top + chartH * (1 - (data[i].steps - minStep) / (maxStep - minStep))
+			ctx.beginPath()
+			ctx.arc(x, y, 3, 0, Math.PI * 2)
+			ctx.fill()
+		}
+	}
+	
+	drawLabels(ctx, margin, chartW, chartH, maxStep, data) {
+		ctx.fillStyle = 'rgba(255,255,255,0.7)'
+		ctx.font = '11px monospace'
+		ctx.textAlign = 'right'
+	
+		for (let i = 0; i <= 5; i++) {
+			const val = Math.round(maxStep * (1 - i / 5))
+			const y = margin.top + chartH * i / 5 + 4
+			ctx.fillText(val.toString(), margin.left - 8, y)
+		}
+	
+		ctx.textAlign = 'center'
+		ctx.fillText('世代', margin.left + chartW / 2, margin.top + chartH + 25)
+	
+		if (data.length > 0) {
+			ctx.fillText(data[0].generation.toString(), margin.left, margin.top + chartH + 18)
+			ctx.fillText(data[data.length - 1].generation.toString(), margin.left + chartW, margin.top + chartH + 18)
+		}
+	}
+	
+	drawStats(ctx, w, h, history) {
+		const steps = history.map(d => d.steps)
+		const best = Math.max(...steps)
+		const avg = steps.reduce((a, b) => a + b, 0) / steps.length
+	
+		ctx.fillStyle = 'rgba(255,255,255,0.9)'
+		ctx.font = '12px monospace'
+		ctx.textAlign = 'left'
+	
+		ctx.fillText(`共${history.length}代 最佳:${best} 平均:${avg.toFixed(1)}`, 10, 20)
+	}
+	
+	drawEmpty(ctx, w, h) {
+		ctx.fillStyle = 'rgba(255,255,255,0.5)'
+		ctx.font = '14px sans-serif'
+		ctx.textAlign = 'center'
+		ctx.fillText('暂无训练数据', w / 2, h / 2)
+	}
+	
+	destroy() {
+		if (this.resizeObserver) this.resizeObserver.disconnect()
+		this.canvas?.remove()
+	}
 }
 
 export default HistoryView
-
 文件: ./src/views/NetworkView.js
 /**
  * 网络拓扑视图
@@ -1760,285 +1755,206 @@ export default HistoryView
  */
 
 export class NetworkView {
-  constructor(containerId) {
-    this.container = document.getElementById(containerId)
-    this.canvas = null
-    this.ctx = null
-    // 绑定 resize 处理函数以便后续移除
-    this._resizeHandler = () => this.resize()
-    this.init()
-  }
-  
-  init() {
-    // 只移除已有的canvas和占位符，不清空整个容器（保留菜单按钮）
-    const oldCanvas = this.container.querySelector('canvas')
-    if (oldCanvas) oldCanvas.remove()
-    
-    // 移除 HTML 中的占位符
-    const placeholder = this.container.querySelector('#neuron-placeholder')
-    if (placeholder) placeholder.remove()
-    
-    this.canvas = document.createElement('canvas')
-    this.canvas.style.width = '100%'
-    this.canvas.style.height = '100%'
-    this.container.appendChild(this.canvas)
-    this.ctx = this.canvas.getContext('2d')
-    
-    // 响应式
-    this.resize()
-    window.addEventListener('resize', this._resizeHandler)
-  }
-  
-  resize() {
-    const rect = this.container.getBoundingClientRect()
-    this.canvas.width = rect.width * window.devicePixelRatio
-    this.canvas.height = rect.height * window.devicePixelRatio
-    this.ctx.scale(window.devicePixelRatio, window.devicePixelRatio)
-    this.width = rect.width
-    this.height = rect.height
-  }
-  
-  /**
-   * 渲染网络
-   * @param {NeuralNetwork} network - 神经网络实例
-   * @param {number[]} inputs - 当前输入（用于高亮）
-   * @param {number} action - 当前选中的动作
-   */
-  render(network, inputs = null, action = null) {
-    const ctx = this.ctx
-    const w = this.width
-    const h = this.height
-    
-    // 清空
-    ctx.clearRect(0, 0, w, h)
-    
-    // 获取结构
-    const structure = network.getStructure()
-    const layers = network.layerSizes
-    const weights = network.weights
-    
-    // 计算节点位置
-    const nodePositions = this.calculatePositions(layers, w, h)
-    
-    // 绘制连线
-    this.drawConnections(ctx, nodePositions, weights, inputs)
-    
-    // 绘制节点
-    this.drawNodes(ctx, nodePositions, inputs, action)
-    
-    // 绘制信息
-    this.drawInfo(ctx, w, h, structure)
-    
-    // 绘制权重矩阵面板
-    this.drawWeightMatrix(ctx, w, h, weights, inputs)
-  }
-  
-  calculatePositions(layers, w, h) {
-    const positions = []
-    const layerCount = layers.length
-    const marginX = w * 0.15
-    const marginY = h * 0.15
-    
-    for (let l = 0; l < layerCount; l++) {
-      const layerSize = layers[l]
-      const x = marginX + (w - 2 * marginX) * l / (layerCount - 1)
-      const layerPos = []
-      
-      for (let n = 0; n < layerSize; n++) {
-        const y = marginY + (h - 2 * marginY) * n / Math.max(1, layerSize - 1)
-        layerPos.push({ x, y })
-      }
-      
-      positions.push(layerPos)
-    }
-    
-    return positions
-  }
-  
-  drawConnections(ctx, positions, weights, inputs) {
-    for (let l = 0; l < weights.length; l++) {
-      const fromLayer = positions[l]
-      const toLayer = positions[l + 1]
-      const layerWeights = weights[l]
-      
-      for (let i = 0; i < fromLayer.length; i++) {
-        for (let j = 0; j < toLayer.length; j++) {
-          const weight = layerWeights[j][i]
-          const from = fromLayer[i]
-          const to = toLayer[j]
-          
-          // 连线粗细表示权重绝对值
-          const thickness = Math.min(4, Math.abs(weight) * 2 + 0.5)
-          const alpha = Math.min(1, Math.abs(weight) * 0.3 + 0.2)
-          
-          // 颜色：正=绿，负=红
-          const color = weight > 0 ? `rgba(46, 204, 113, ${alpha})` : `rgba(231, 76, 60, ${alpha})`
-          
-          ctx.beginPath()
-          ctx.moveTo(from.x, from.y)
-          ctx.lineTo(to.x, to.y)
-          ctx.strokeStyle = color
-          ctx.lineWidth = thickness
-          ctx.stroke()
-          
-          // 显示权重数值（较大的）
-          if (Math.abs(weight) > 0.5) {
-            const midX = (from.x + to.x) / 2
-            const midY = (from.y + to.y) / 2
-            ctx.fillStyle = 'rgba(255,255,255,0.7)'
-            ctx.font = '10px monospace'
-            ctx.textAlign = 'center'
-            ctx.fillText(weight.toFixed(1), midX, midY)
-          }
-        }
-      }
-    }
-  }
-  
-  drawNodes(ctx, positions, inputs, action) {
-    const layerNames = ['输入', '输出']
-    const actionNames = ['移动', '跳跃']
-    
-    for (let l = 0; l < positions.length; l++) {
-      const layer = positions[l]
-      
-      for (let n = 0; n < layer.length; n++) {
-        const pos = layer[n]
-        const isInput = l === 0
-        const isOutput = l === positions.length - 1
-        
-        // 节点大小
-        const radius = isOutput ? 22 : 18
-        
-        // 背景
-        ctx.beginPath()
-        ctx.arc(pos.x, pos.y, radius, 0, Math.PI * 2)
-        
-        if (isInput && inputs) {
-          // 输入节点根据值着色
-          const val = inputs[n]
-          ctx.fillStyle = val > 0.5 ? '#e74c3c' : '#95a5a6'
-        } else if (isOutput && action === n) {
-          // 选中的输出节点高亮
-          ctx.fillStyle = '#f39c12'
-        } else {
-          ctx.fillStyle = '#34495e'
-        }
-        
-        ctx.fill()
-        ctx.strokeStyle = '#ecf0f1'
-        ctx.lineWidth = 2
-        ctx.stroke()
-        
-        // 标签
-        ctx.fillStyle = '#fff'
-        ctx.font = '11px sans-serif'
-        ctx.textAlign = 'center'
-        ctx.textBaseline = 'middle'
-        
-        if (isInput) {
-          const labels = ['前一格', '前两格', '前三格']
-          ctx.fillText(labels[n] || `i${n}`, pos.x, pos.y)
-        } else if (isOutput) {
-          ctx.fillText(actionNames[n], pos.x, pos.y)
-        }
-      }
-    }
-  }
-  
-  drawInfo(ctx, w, h, structure) {
-    ctx.fillStyle = 'rgba(255,255,255,0.8)'
-    ctx.font = '12px monospace'
-    ctx.textAlign = 'left'
-    ctx.fillText(`结构: ${structure.layerSizes.join('-')}`, 10, 20)
-    ctx.fillText(`权重数: ${structure.totalWeights}`, 10, 38)
-  }
-  
-  /**
-   * 绘制权重矩阵面板
-   * @param {CanvasRenderingContext2D} ctx
-   * @param {number} w - 画布宽度
-   * @param {number} h - 画布高度
-   * @param {number[][][]} weights - 权重数组
-   * @param {number[]} inputs - 当前输入（用于高亮相关权重）
-   */
-  drawWeightMatrix(ctx, w, h, weights, inputs) {
-    // 只绘制第一层权重（输入→输出）
-    if (!weights || weights.length === 0) return
-    
-    const layerWeights = weights[0]  // [输出数][输入数]
-    const outputNames = ['移动', '跳跃']
-    const inputLabels = ['前一格', '前两格', '前三格']
-    
-    // 面板位置和大小
-    const panelW = 140
-    const panelH = 100
-    const x = w - panelW - 10
-    const y = h - panelH - 10
-    
-    // 绘制背景
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.4)'
-    ctx.fillRect(x, y, panelW, panelH)
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)'
-    ctx.lineWidth = 1
-    ctx.strokeRect(x, y, panelW, panelH)
-    
-    // 标题
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.9)'
-    ctx.font = '11px sans-serif'
-    ctx.textAlign = 'center'
-    ctx.fillText('权重矩阵', x + panelW / 2, y + 14)
-    
-    // 表头
-    ctx.font = '10px sans-serif'
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.6)'
-    for (let i = 0; i < inputLabels.length; i++) {
-      ctx.fillText(inputLabels[i][0], x + 35 + i * 32, y + 30)  // 只显示第一个字
-    }
-    
-    // 绘制权重值
-    ctx.font = 'bold 11px monospace'
-    ctx.textAlign = 'center'
-    for (let o = 0; o < layerWeights.length; o++) {
-      // 输出行标签
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.6)'
-      ctx.textAlign = 'left'
-      ctx.font = '10px sans-serif'
-      ctx.fillText(outputNames[o], x + 4, y + 50 + o * 22)
-      
-      // 权重值
-      ctx.textAlign = 'center'
-      ctx.font = 'bold 11px monospace'
-      for (let i = 0; i < layerWeights[o].length; i++) {
-        const weight = layerWeights[o][i]
-        // 正数绿色，负数红色，零灰色
-        if (weight > 0) {
-          ctx.fillStyle = '#2ecc71'
-        } else if (weight < 0) {
-          ctx.fillStyle = '#e74c3c'
-        } else {
-          ctx.fillStyle = '#95a5a6'
-        }
-        
-        // 如果对应输入为1，高亮显示
-        if (inputs && inputs[i] > 0.5) {
-          ctx.fillStyle = weight > 0 ? '#27ae60' : '#c0392b'
-        }
-        
-        ctx.fillText(weight.toFixed(1), x + 38 + i * 32, y + 50 + o * 22)
-      }
-    }
-  }
-  
-  destroy() {
-    // 清理 resize 监听器
-    window.removeEventListener('resize', this._resizeHandler)
-    this.canvas?.remove()
-  }
+	constructor(containerId) {
+		this.container = document.getElementById(containerId)
+		this.canvas = null
+		this.ctx = null
+		this.lastData = null
+		this.init()
+	}
+	
+	init() {
+		const oldCanvas = this.container.querySelector('canvas')
+		if (oldCanvas) oldCanvas.remove()
+	
+		const placeholder = this.container.querySelector('#neuron-placeholder')
+		if (placeholder) placeholder.remove()
+	
+		this.canvas = document.createElement('canvas')
+		// 【修复无限拉伸】：绝对定位脱离文档流，不撑开父盒子
+		this.canvas.style.position = 'absolute'
+		this.canvas.style.top = '0'
+		this.canvas.style.left = '0'
+		this.canvas.style.width = '100%'
+		this.canvas.style.height = '100%'
+		this.canvas.style.display = 'block'
+		this.container.appendChild(this.canvas)
+		this.ctx = this.canvas.getContext('2d')
+	
+		this.resizeObserver = new ResizeObserver(() => {
+			this.resize()
+		})
+		this.resizeObserver.observe(this.container)
+	}
+	
+	resize() {
+		const rect = this.container.getBoundingClientRect()
+		if (rect.width === 0 || rect.height === 0) return
+
+		this.canvas.width = rect.width * window.devicePixelRatio
+		this.canvas.height = rect.height * window.devicePixelRatio
+		this.ctx.scale(window.devicePixelRatio, window.devicePixelRatio)
+		this.width = rect.width
+		this.height = rect.height
+
+		if (this.lastData && this.lastData.network) {
+			this.render(this.lastData.network, this.lastData.inputs, this.lastData.action, true)
+		}
+	}
+	
+	render(network, inputs = null, action = null, isResize = false) {
+		if (!isResize) {
+			this.lastData = { network, inputs, action }
+		}
+
+		const ctx = this.ctx
+		const w = this.width
+		const h = this.height
+	
+		ctx.clearRect(0, 0, w, h)
+	
+		const structure = network.getStructure()
+		const layers = network.layerSizes
+		const weights = network.weights
+	
+		const nodePositions = this.calculatePositions(layers, w, h)
+		this.drawConnections(ctx, nodePositions, weights, inputs)
+		this.drawNodes(ctx, nodePositions, inputs, action)
+		this.drawInfo(ctx, w, h, structure, network)
+	}
+	
+	calculatePositions(layers, w, h) {
+		const positions =[]
+		const layerCount = layers.length
+		const marginX = w * 0.15
+		const marginY = h * 0.15
+	
+		for (let l = 0; l < layerCount; l++) {
+			const layerSize = layers[l]
+			const x = marginX + (w - 2 * marginX) * l / (layerCount - 1)
+			const layerPos =[]
+		
+			for (let n = 0; n < layerSize; n++) {
+				const y = marginY + (h - 2 * marginY) * n / Math.max(1, layerSize - 1)
+				layerPos.push({ x, y })
+			}
+		
+			positions.push(layerPos)
+		}
+	
+		return positions
+	}
+	
+	drawConnections(ctx, positions, weights, inputs) {
+		for (let l = 0; l < weights.length; l++) {
+			const fromLayer = positions[l]
+			const toLayer = positions[l + 1]
+			const layerWeights = weights[l]
+		
+			for (let i = 0; i < fromLayer.length; i++) {
+				for (let j = 0; j < toLayer.length; j++) {
+					const weight = layerWeights[j][i]
+					const from = fromLayer[i]
+					const to = toLayer[j]
+			
+					const thickness = Math.min(4, Math.abs(weight) * 2 + 0.5)
+					const alpha = Math.min(1, Math.abs(weight) * 0.3 + 0.2)
+					const color = weight > 0 ? `rgba(46, 204, 113, ${alpha})` : `rgba(231, 76, 60, ${alpha})`
+			
+					ctx.beginPath()
+					ctx.moveTo(from.x, from.y)
+					ctx.lineTo(to.x, to.y)
+					ctx.strokeStyle = color
+					ctx.lineWidth = thickness
+					ctx.stroke()
+			
+					// 将文字移到靠近右侧的位置并阶梯状错开，防遮挡
+					const ratio = 0.65 + (i * 0.1) 
+					const textX = from.x + (to.x - from.x) * ratio
+					const textY = from.y + (to.y - from.y) * ratio
+			
+					ctx.fillStyle = 'rgba(255,255,255,0.9)'
+					ctx.font = '10px monospace'
+					ctx.textAlign = 'center'
+					ctx.fillText(weight.toFixed(1), textX, textY)
+				}
+			}
+		}
+	}
+	
+	drawNodes(ctx, positions, inputs, action) {
+		const actionNames = ['移动', '跳跃']
+	
+		for (let l = 0; l < positions.length; l++) {
+			const layer = positions[l]
+		
+			for (let n = 0; n < layer.length; n++) {
+				const pos = layer[n]
+				const isInput = l === 0
+				const isOutput = l === positions.length - 1
+		
+				const radius = isOutput ? 22 : 18
+		
+				ctx.beginPath()
+				ctx.arc(pos.x, pos.y, radius, 0, Math.PI * 2)
+		
+				if (isInput && inputs) {
+					const val = inputs[n]
+					ctx.fillStyle = val > 0.5 ? '#e74c3c' : '#95a5a6'
+				} else if (isOutput && action === n) {
+					ctx.fillStyle = '#f39c12'
+				} else {
+					ctx.fillStyle = '#34495e'
+				}
+		
+				ctx.fill()
+				ctx.strokeStyle = '#ecf0f1'
+				ctx.lineWidth = 2
+				ctx.stroke()
+		
+				ctx.fillStyle = '#fff'
+				ctx.font = '11px sans-serif'
+				ctx.textAlign = 'center'
+				ctx.textBaseline = 'middle'
+		
+				if (isInput) {
+					const labels =['前一格', '前两格', '前三格']
+					ctx.fillText(labels[n] || `i${n}`, pos.x, pos.y)
+				} else if (isOutput) {
+					ctx.fillText(actionNames[n], pos.x, pos.y)
+				}
+			}
+		}
+	}
+	
+	drawInfo(ctx, w, h, structure, network) {
+		ctx.fillStyle = 'rgba(255,255,255,0.8)'
+		ctx.font = '12px monospace'
+		ctx.textAlign = 'left'
+		ctx.fillText(`结构: ${structure.layerSizes.join('-')}`, 10, 20)
+		ctx.fillText(`权重数: ${structure.totalWeights}`, 10, 38)
+	
+		// --- 显示实时探索率 ---
+		if (network) {
+			const eps = (network.epsilon * 100).toFixed(0)
+			ctx.fillStyle = 'rgba(255, 255, 255, 0.6)'
+			ctx.fillText(`好奇心(ε): ${eps}%`, 10, 56)
+		
+			// 如果当前正在“探索”，在旁边画个小骰子或变色文字提醒
+			if (network.isExploring) {
+				ctx.fillStyle = '#f39c12' // 橘黄色
+				ctx.fillText('🎲 正在探索随机路径', 10, 74)
+			}
+		}
+	}
+	
+	destroy() {
+		if (this.resizeObserver) this.resizeObserver.disconnect()
+		this.canvas?.remove()
+	}
 }
 
 export default NetworkView
-
 文件: ./src/views/NeuronAreaManager.js
 /**
  * 神经元区域管理器
@@ -2047,264 +1963,427 @@ export default NetworkView
 
 import { NetworkView } from './NetworkView.js'
 import { HistoryView } from './HistoryView.js'
+import { MatrixView } from './MatrixView.js'
 
 export class NeuronAreaManager {
-  constructor(containerId) {
-    this.container = document.getElementById(containerId)
-    this.currentView = null
-    this.views = new Map()
-    this.activeViewName = 'network'
-    
-    this.init()
-  }
-  
-  init() {
-    // 创建菜单按钮
-    this.createMenuButton()
-    this.createMenuDropdown()
-    
-    // 注册视图
-    this.registerView('network', NetworkView)
-    this.registerView('history', HistoryView)
-    
-    // 默认显示网络视图
-    this.switchView('network')
-    
-    // 添加双指横滑切换
-    this.setupSwipeGesture()
-  }
-  
-  /**
-   * 双指横滑切换视图
-   */
-  setupSwipeGesture() {
-    let touchStartX = 0
-    let touchStartTime = 0
-    
-    this.container.addEventListener('touchstart', (e) => {
-      if (e.touches.length === 2) {  // 双指
-        touchStartX = (e.touches[0].clientX + e.touches[1].clientX) / 2
-        touchStartTime = Date.now()
-      }
-    }, { passive: true })
-    
-    this.container.addEventListener('touchend', (e) => {
-      if (e.changedTouches.length === 2) {
-        const touchEndX = (e.changedTouches[0].clientX + e.changedTouches[1].clientX) / 2
-        const deltaX = touchEndX - touchStartX
-        const deltaTime = Date.now() - touchStartTime
-        
-        // 快速滑动超过50px
-        if (Math.abs(deltaX) > 50 && deltaTime < 500) {
-          const views = Array.from(this.views.keys())
-          const currentIndex = views.indexOf(this.activeViewName)
-          
-          if (deltaX > 0 && currentIndex > 0) {
-            // 右滑 → 上一个视图
-            this.switchView(views[currentIndex - 1])
-          } else if (deltaX < 0 && currentIndex < views.length - 1) {
-            // 左滑 → 下一个视图
-            this.switchView(views[currentIndex + 1])
-          }
-        }
-      }
-    }, { passive: true })
-  }
-  
-  createMenuButton() {
-    const btn = document.createElement('button')
-    btn.id = 'view-menu-btn'
-    btn.innerHTML = '☰'
-    btn.style.cssText = `
-      position: absolute;
-      top: 10px;
-      right: 10px;
-      width: 32px;
-      height: 32px;
-      border: none;
-      border-radius: 4px;
-      background: rgba(0,0,0,0.4);
-      backdrop-filter: blur(4px);
-      border: 1px solid rgba(255,255,255,0.3);
-      color: #fff;
-      font-size: 16px;
-      cursor: pointer;
-      z-index: 2000;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    `
-    
-    btn.addEventListener('click', () => this.toggleMenu())
-    this.container.appendChild(btn)
-    this.menuBtn = btn
-  }
-  
-  createMenuDropdown() {
-    const menu = document.createElement('div')
-    menu.id = 'view-menu-dropdown'
-    menu.style.cssText = `
-      position: absolute;
-      top: 48px;
-      right: 10px;
-      background: #2c3e50;
-      border: 1px solid #5a7a94;
-      border-radius: 4px;
-      padding: 8px 0;
-      min-width: 120px;
-      z-index: 2001;
-      display: none;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-    `
-    
-    // 添加分隔线
-    const addDivider = () => {
-      const divider = document.createElement('div')
-      divider.style.cssText = `
-        height: 1px;
-        background: rgba(255,255,255,0.2);
-        margin: 4px 0;
-      `
-      menu.appendChild(divider)
-    }
-    
-    // 模式切换
-    const modes = [
-      { id: 'player', label: '👤 玩家游玩' },
-      { id: 'ai', label: '🤖 AI控制' },
-      { id: 'train', label: '📊 AI训练' }
-    ]
-    
-    let currentMode = 'player'
-    
-    modes.forEach(item => {
-      const el = document.createElement('div')
-      el.className = 'menu-item'
-      el.textContent = item.label
-      el.style.cssText = `
-        padding: 8px 16px;
-        cursor: pointer;
-        color: #fff;
-        font-size: 13px;
-      `
-      el.addEventListener('click', () => {
-        currentMode = item.id
-        if (this.onModeChange) {
-          this.onModeChange(item.id)
-        }
-        // 不自动关闭菜单
-      })
-      el.addEventListener('mouseenter', () => {
-        el.style.background = 'rgba(255,255,255,0.1)'
-      })
-      el.addEventListener('mouseleave', () => {
-        el.style.background = 'transparent'
-      })
-      menu.appendChild(el)
-    })
-    
-    addDivider()
-    
-    // 视图切换
-    const items = [
-      { id: 'network', label: '🧠 网络结构' },
-      { id: 'history', label: '📈 训练历史' }
-    ]
-    
-    items.forEach(item => {
-      const el = document.createElement('div')
-      el.className = 'menu-item'
-      el.textContent = item.label
-      el.style.cssText = `
-        padding: 8px 16px;
-        cursor: pointer;
-        color: #fff;
-        font-size: 13px;
-      `
-      el.addEventListener('click', () => {
-        this.switchView(item.id)
-        // 不自动关闭菜单
-      })
-      el.addEventListener('mouseenter', () => {
-        el.style.background = 'rgba(255,255,255,0.1)'
-      })
-      el.addEventListener('mouseleave', () => {
-        el.style.background = 'transparent'
-      })
-      menu.appendChild(el)
-    })
-    
-    this.container.appendChild(menu)
-    this.menuDropdown = menu
-    
-    // 不监听外部点击，菜单只能通过按钮切换关闭
-  }
-  
-  toggleMenu() {
-    if (this.menuDropdown.style.display === 'none') {
-      this.showMenu()
-    } else {
-      this.hideMenu()
-    }
-  }
-  
-  showMenu() {
-    this.menuDropdown.style.display = 'block'
-  }
-  
-  hideMenu() {
-    this.menuDropdown.style.display = 'none'
-  }
-  
-  registerView(name, ViewClass) {
-    this.views.set(name, ViewClass)
-  }
-  
-  switchView(name) {
-    if (!this.views.has(name)) return
-    
-    // 销毁旧视图
-    if (this.currentView) {
-      this.currentView.destroy()
-    }
-    
-    // 只移除视图内容（canvas），保留菜单
-    const canvas = this.container.querySelector('canvas')
-    if (canvas) canvas.remove()
-    
-    // 创建新视图
-    const ViewClass = this.views.get(name)
-    this.currentView = new ViewClass('neuron-area')
-    this.activeViewName = name
-    
-    // 更新菜单按钮状态
-    this.updateMenuButton()
-  }
-  
-  updateMenuButton() {
-    // 固定显示 ☰，不随视图变化
-    this.menuBtn.innerHTML = '☰'
-  }
-  
-  /**
-   * 获取当前视图实例
-   */
-  getCurrentView() {
-    return this.currentView
-  }
-  
-  /**
-   * 渲染当前视图
-   */
-  render(...args) {
-    if (this.currentView && this.currentView.render) {
-      this.currentView.render(...args)
-    }
-  }
+	constructor(containerId) {
+		this.container = document.getElementById(containerId)
+		this.currentView = null
+		this.views = new Map()
+		this.activeViewName = 'network'
+	
+		this.init()
+	}
+	
+	init() {
+		this.createMenuButton()
+		this.createMenuDropdown()
+	
+		this.registerView('network', NetworkView)
+		this.registerView('matrix', MatrixView)
+		this.registerView('history', HistoryView)
+	
+		this.switchView('network')
+		this.setupSwipeGesture()
+	}
+	
+	setupSwipeGesture() {
+		let touchStartX = 0
+		let touchStartTime = 0
+	
+		this.container.addEventListener('touchstart', (e) => {
+			if (e.touches.length === 2) {
+				touchStartX = (e.touches[0].clientX + e.touches[1].clientX) / 2
+				touchStartTime = Date.now()
+			}
+		}, { passive: true })
+	
+		this.container.addEventListener('touchend', (e) => {
+			if (e.changedTouches.length === 2) {
+				const touchEndX = (e.changedTouches[0].clientX + e.changedTouches[1].clientX) / 2
+				const deltaX = touchEndX - touchStartX
+				const deltaTime = Date.now() - touchStartTime
+		
+				if (Math.abs(deltaX) > 50 && deltaTime < 500) {
+					const views = Array.from(this.views.keys())
+					const currentIndex = views.indexOf(this.activeViewName)
+			
+					if (deltaX > 0 && currentIndex > 0) {
+						this.switchView(views[currentIndex - 1])
+					} else if (deltaX < 0 && currentIndex < views.length - 1) {
+						this.switchView(views[currentIndex + 1])
+					}
+				}
+			}
+		}, { passive: true })
+	}
+	
+	createMenuButton() {
+		const btn = document.createElement('button')
+		btn.id = 'view-menu-btn'
+		btn.innerHTML = '☰'
+		btn.style.cssText = `
+		position: absolute;
+		top: 10px;
+		right: 10px;
+		width: 32px;
+		height: 32px;
+		border: none;
+		border-radius: 4px;
+		background: rgba(0,0,0,0.4);
+		backdrop-filter: blur(4px);
+		border: 1px solid rgba(255,255,255,0.3);
+		color: #fff;
+		font-size: 16px;
+		cursor: pointer;
+		z-index: 2000;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	`
+	
+		btn.addEventListener('click', () => this.toggleMenu())
+		this.container.appendChild(btn)
+		this.menuBtn = btn
+	}
+	
+	createMenuDropdown() {
+		const menu = document.createElement('div')
+		menu.id = 'view-menu-dropdown'
+		menu.style.cssText = `
+		position: absolute;
+		top: 48px;
+		right: 10px;
+		background: #2c3e50;
+		border: 1px solid #5a7a94;
+		border-radius: 4px;
+		padding: 8px 0;
+		min-width: 140px;
+		z-index: 2001;
+		display: none;
+		box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+	`
+	
+		const addDivider = () => {
+			const divider = document.createElement('div')
+			divider.style.cssText = `
+		height: 1px;
+		background: rgba(255,255,255,0.2);
+		margin: 4px 0;
+		`
+			menu.appendChild(divider)
+		}
+
+		const addHoverEffect = (el) => {
+			el.addEventListener('mouseenter', () => el.style.background = 'rgba(255,255,255,0.1)')
+			el.addEventListener('mouseleave', () => el.style.background = 'transparent')
+		}
+	
+		const modes =[
+			{ id: 'player', label: '👤 玩家游玩' },
+			{ id: 'ai', label: '🤖 AI控制' },
+			{ id: 'train', label: '📊 AI训练' }
+		]
+	
+		modes.forEach(item => {
+			const el = document.createElement('div')
+			el.className = 'menu-item'
+			el.textContent = item.label
+			el.style.cssText = `
+		padding: 8px 16px;
+		cursor: pointer;
+		color: #fff;
+		font-size: 13px;
+		`
+			el.addEventListener('click', () => {
+				if (this.onModeChange) this.onModeChange(item.id)
+			})
+			addHoverEffect(el)
+			menu.appendChild(el)
+		})
+	
+		addDivider()
+
+		const speedTitle = document.createElement('div')
+		speedTitle.textContent = '⏱️ 训练速度'
+		speedTitle.style.cssText = 'padding: 4px 16px; color: rgba(255,255,255,0.5); font-size: 11px;'
+		menu.appendChild(speedTitle)
+
+		const speeds =[
+			{ id: 'step', label: '🚶 单步 (等待确认)' },
+			{ id: 'slow', label: '🐢 慢速 (1秒/步)' },
+			{ id: 'normal', label: '🚶 中速 (200ms/步)' },
+			{ id: 'fast', label: '🏃 快速 (50ms/步)' },
+			{ id: 'max', label: '⚡ 极速 (无延迟)' }
+		]
+
+		speeds.forEach(item => {
+			const el = document.createElement('div')
+			el.className = 'menu-item'
+			el.textContent = item.label
+			el.style.cssText = `
+		padding: 8px 16px 8px 24px;
+		cursor: pointer;
+		color: #fff;
+		font-size: 12px;
+		`
+			el.addEventListener('click', () => {
+				if (this.onSpeedChange) this.onSpeedChange(item.id)
+			})
+			addHoverEffect(el)
+			menu.appendChild(el)
+		})
+	
+		addDivider()
+	
+		const items =[
+			{ id: 'network', label: '🧠 网络结构' },
+			{ id: 'matrix', label: '🔢 权重矩阵' },
+			{ id: 'history', label: '📈 训练历史' }
+		]
+	
+		items.forEach(item => {
+			const el = document.createElement('div')
+			el.className = 'menu-item'
+			el.textContent = item.label
+			el.style.cssText = `
+		padding: 8px 16px;
+		cursor: pointer;
+		color: #fff;
+		font-size: 13px;
+		`
+			el.addEventListener('click', () => {
+				this.switchView(item.id)
+			})
+			addHoverEffect(el)
+			menu.appendChild(el)
+		})
+	
+		this.container.appendChild(menu)
+		this.menuDropdown = menu
+	
+		addDivider()
+
+		// --- 新增：探索率手动控制区 ---
+		const epsTitle = document.createElement('div')
+		epsTitle.textContent = '🧠 好奇心控制'
+		epsTitle.style.cssText = 'padding: 4px 16px; color: rgba(255,255,255,0.5); font-size: 11px;'
+		menu.appendChild(epsTitle)
+
+		// 开关：自动调节
+		const toggleAuto = document.createElement('div')
+		toggleAuto.className = 'menu-item'
+		toggleAuto.textContent = '🔄 自动调节开关'
+		toggleAuto.style.cssText = 'padding: 8px 16px; cursor: pointer; color: #fff; font-size: 13px;'
+		toggleAuto.addEventListener('click', () => {
+			if (window.network) {
+				window.network.autoAdjustEpsilon = !window.network.autoAdjustEpsilon
+				alert(`自动调节已${window.network.autoAdjustEpsilon ? '开启' : '关闭'}`)
+			}
+		})
+		addHoverEffect(toggleAuto)
+		menu.appendChild(toggleAuto)
+
+		// 一键设置：50% 探索率
+		const set50 = document.createElement('div')
+		set50.className = 'menu-item'
+		set50.textContent = '🎲 设为 50% (梦游模式)'
+		set50.style.cssText = 'padding: 8px 16px; cursor: pointer; color: #f39c12; font-size: 13px;'
+		set50.addEventListener('click', () => {
+			if (window.network) {
+				window.network.autoAdjustEpsilon = false // 自动设为手动锁定
+				window.network.epsilon = 0.5
+				alert('已锁定探索率为 50%')
+			}
+		})
+		addHoverEffect(set50)
+		menu.appendChild(set50)
+	}
+	
+	toggleMenu() {
+		if (this.menuDropdown.style.display === 'none') {
+			this.showMenu()
+		} else {
+			this.hideMenu()
+		}
+	}
+	
+	showMenu() {
+		this.menuDropdown.style.display = 'block'
+	}
+	
+	hideMenu() {
+		this.menuDropdown.style.display = 'none'
+	}
+	
+	registerView(name, ViewClass) {
+		this.views.set(name, ViewClass)
+	}
+	
+	switchView(name) {
+		if (!this.views.has(name)) return
+	
+		if (this.currentView) {
+			this.currentView.destroy()
+		}
+	
+		const canvas = this.container.querySelector('canvas')
+		if (canvas) canvas.remove()
+	
+		const ViewClass = this.views.get(name)
+		this.currentView = new ViewClass('neuron-area')
+		this.activeViewName = name
+	
+		this.updateMenuButton()
+
+		// 【修复 Bug 1】：抛出事件让 main.js 进行立刻绘制
+		if (this.onViewChange) {
+			this.onViewChange(name)
+		}
+	}
+	
+	updateMenuButton() {
+		this.menuBtn.innerHTML = '☰'
+	}
+	
+	getCurrentView() {
+		return this.currentView
+	}
+	
+	render(...args) {
+		if (this.currentView && this.currentView.render) {
+			this.currentView.render(...args)
+		}
+	}
 }
 
 export default NeuronAreaManager
+文件: ./src/views/MatrixView.js
+/**
+ * 权重矩阵视图
+ * 提供直观的表格形式展示权重矩阵
+ */
 
+export class MatrixView {
+	constructor(containerId) {
+		this.container = document.getElementById(containerId)
+		this.canvas = null
+		this.ctx = null
+		this.lastData = null // 缓存渲染数据
+		this.init()
+	}
+	
+	init() {
+		const oldCanvas = this.container.querySelector('canvas')
+		if (oldCanvas) oldCanvas.remove()
+	
+		const placeholder = this.container.querySelector('#neuron-placeholder')
+		if (placeholder) placeholder.remove()
+	
+		this.canvas = document.createElement('canvas')
+		// 【修复无限拉伸】：绝对定位脱离文档流
+		this.canvas.style.position = 'absolute'
+		this.canvas.style.top = '0'
+		this.canvas.style.left = '0'
+		this.canvas.style.width = '100%'
+		this.canvas.style.height = '100%'
+		this.canvas.style.display = 'block'
+		this.container.appendChild(this.canvas)
+		this.ctx = this.canvas.getContext('2d')
+	
+		this.resizeObserver = new ResizeObserver(() => {
+			this.resize()
+		})
+		this.resizeObserver.observe(this.container)
+	}
+	
+	resize() {
+		const rect = this.container.getBoundingClientRect()
+		if (rect.width === 0 || rect.height === 0) return
+	
+		this.canvas.width = rect.width * window.devicePixelRatio
+		this.canvas.height = rect.height * window.devicePixelRatio
+		this.ctx.scale(window.devicePixelRatio, window.devicePixelRatio)
+		this.width = rect.width
+		this.height = rect.height
+	
+		// 拉伸时利用缓存秒画
+		if (this.lastData && this.lastData.network) {
+			this.render(this.lastData.network, this.lastData.inputs, this.lastData.action, true)
+		}
+	}
+	
+	render(network, inputs = null, action = null, isResize = false) {
+		if (!isResize) {
+			this.lastData = { network, inputs, action } // 更新缓存
+		}
+
+		const ctx = this.ctx
+		const w = this.width
+		const h = this.height
+	
+		ctx.clearRect(0, 0, w, h)
+	
+		const weights = network.weights
+		if (!weights || weights.length === 0) return
+		const layerWeights = weights[0]
+	
+		const outputNames =['移动', '跳跃']
+		const inputLabels =['前一格', '前两格', '前三格']
+	
+		const cellW = 80
+		const cellH = 50
+		const startX = (w - (inputLabels.length * cellW + 80)) / 2
+		const startY = (h - (outputNames.length * cellH + 60)) / 2
+	
+		ctx.fillStyle = 'rgba(255, 255, 255, 0.8)'
+		ctx.font = '14px sans-serif'
+		ctx.textAlign = 'center'
+		for (let i = 0; i < inputLabels.length; i++) {
+			ctx.fillText(inputLabels[i], startX + 80 + i * cellW + cellW / 2, startY + 20)
+		}
+	
+		for (let o = 0; o < layerWeights.length; o++) {
+			ctx.fillStyle = 'rgba(255, 255, 255, 0.8)'
+			ctx.textAlign = 'right'
+			ctx.fillText(outputNames[o], startX + 60, startY + 50 + o * cellH + cellH / 2 + 5)
+		
+			for (let i = 0; i < layerWeights[o].length; i++) {
+				const weight = layerWeights[o][i]
+				const x = startX + 80 + i * cellW
+				const y = startY + 50 + o * cellH
+		
+				ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)'
+				ctx.strokeRect(x, y, cellW, cellH)
+		
+				if (weight > 0) {
+					ctx.fillStyle = '#2ecc71'
+				} else if (weight < 0) {
+					ctx.fillStyle = '#e74c3c'
+				} else {
+					ctx.fillStyle = '#95a5a6'
+				}
+		
+				if (inputs && inputs[i] > 0.5) {
+					ctx.fillStyle = weight > 0 ? '#27ae60' : (weight < 0 ? '#c0392b' : '#7f8c8d')
+					ctx.fillRect(x + 1, y + 1, cellW - 2, cellH - 2)
+					ctx.fillStyle = '#fff'
+				}
+		
+				ctx.textAlign = 'center'
+				ctx.font = 'bold 18px monospace'
+				ctx.fillText(weight.toFixed(2), x + cellW / 2, y + cellH / 2 + 6)
+			}
+		}
+	}
+	
+	destroy() {
+		if (this.resizeObserver) this.resizeObserver.disconnect()
+		this.canvas?.remove()
+	}
+}
+
+export default MatrixView
 文件: ./src/main.js
 /**
  * 游戏入口文件
@@ -2332,23 +2411,31 @@ let playerBestStore = null
 let viewManager = null
 let timerInterval = null
 
+const performanceHistory = [] // 滑动窗口队列
+const WINDOW_SIZE = 5      // 窗口大小
+
 // ========== 模式设置 ==========
-let isAIMode = false  // 默认玩家模式
+let isAIMode = false      // 是否为 AI 控制模式
+let isAITrainMode = false // 是否为 AI 训练模式（仅训练模式下会更新权重和自动循环）
 let aiInterval = null
+let fastLoopId = null     // 极速模式专用
 
 // ========== AI 配置常量 ==========
 const AI_CONFIG = {
-  STEP_REWARD: 0.02,      // 每步存活奖励
-  DEATH_REWARD: -1,       // 死亡惩罚
-  WIN_REWARD: 1,          // 胜利奖励
-  SPEEDS: {
-    STEP: 'step',         // 单步模式
-    SLOW: 1000,           // 慢速：1秒/步
-    NORMAL: 200,          // 中速：200ms/步
-    FAST: 50,             // 快速：50ms/步
-    MAX: 0                // 极速：无延迟
-  }
+	STEP_REWARD: 0.02,      // 每步存活奖励
+	DEATH_REWARD: -1,       // 死亡惩罚
+	WIN_REWARD: 1,          // 胜利奖励
+	SPEEDS: {
+		STEP: 'step',         // 单步模式
+		SLOW: 1000,           // 慢速：1秒/步
+		NORMAL: 200,          // 中速：200ms/步
+		FAST: 50,             // 快速：50ms/步
+		MAX: 0                // 极速：无延迟
+	}
 }
+
+let aiSpeed = AI_CONFIG.SPEEDS.NORMAL  // 默认中速
+let isStepMode = false                 // 单步模式标志
 
 /**
  * 转换游戏状态为神经网络输入
@@ -2356,509 +2443,526 @@ const AI_CONFIG = {
  * @returns {number[]} 神经网络输入 [0,1,0]
  */
 function convertToInputs(terrainAhead) {
-  return [
-    terrainAhead[0] === 'pit' ? 1 : 0,
-    terrainAhead[1] === 'pit' ? 1 : 0,
-    terrainAhead[2] === 'pit' ? 1 : 0
-  ]
+	return [
+		terrainAhead[0] === 'pit' ? 1 : 0,
+		terrainAhead[1] === 'pit' ? 1 : 0,
+		terrainAhead[2] === 'pit' ? 1 : 0
+	]
 }
 
 // ========== DOM 元素 ==========
 const gameArea = document.getElementById('game-area')
-const btnRight = document.getElementById('btn-right')
-const btnJump = document.getElementById('btn-jump')
 
 // ========== 初始化 ==========
 function init() {
-  // 创建游戏实例
-  game = new JumpGame()
-  
-  // 创建渲染器
-  renderer = new GameRenderer('game-world')
-  renderer.setGame(game)
-  
-  // 创建神经网络（3输入 → 2输出）
-  network = new NeuralNetwork({
-    layerSizes: [3, 2],
-    learningRate: 0.2,
-    weightClip: 5
-  })
-  
-  // 创建历史存储
-  historyStore = new HistoryStore()
-  
-  // 创建玩家最佳记录存储
-  playerBestStore = new PlayerBestStore()
-  
-  // 创建视图管理器
-  viewManager = new NeuronAreaManager('neuron-area')
-  
-  // 设置模式切换回调
-  viewManager.onModeChange = (mode) => {
-    switch(mode) {
-      case 'player':
-        isAIMode = false
-        stopAI()
-        console.log('👤 切换到玩家模式')
-        break
-      case 'ai':
-        isAIMode = true
-        startAI()
-        console.log('🤖 切换到AI模式')
-        break
-      case 'train':
-        isAIMode = true
-        startAI()
-        console.log('📊 切换到AI训练模式（自动循环）')
-        break
-    }
-  }
-  
-  // 设置视口大小
-  game.setViewportSize(gameArea.clientWidth)
-  
-  // 创建转场管理器
-  transitionManager = new TransitionManager('game-area')
-  
-  // 绑定游戏事件回调
-  bindGameEvents()
-  
-  // 初始化游戏世界
-  game.init()
-  renderer.initWorld(game.getState().terrain)
-  
-  // 初始渲染
-  const state = game.getState()
-  renderer.syncVisualToLogical(state.player)
-  renderer.updateCamera(state.camera)
-  renderer.updateGeneration(state.generation)
-  
-  // 绑定输入控制
-  bindControls()
-  
-  // 窗口大小变化
-  window.addEventListener('resize', handleResize)
-  
-  // 启动AI（如果开启）
-  if (isAIMode) {
-    startAI()
-  }
-  
-  // 初始渲染网络图
-  renderNetworkView()
-  
-  // 初始化游戏信息显示（POS、GEN、TIME、BEST）
-  updateGameInfo()
-  
-  // 绑定开始按钮
-  bindStartButton()
-  
-  // 首次加载显示开始遮罩
-  showStartOverlay()
-  
-  console.log('🎮 AI 训练沙盘已初始化，等待开始...')
-  console.log('🤖 AI模式:', isAIMode ? '开启' : '关闭')
+	game = new JumpGame()
+	renderer = new GameRenderer('game-world')
+	renderer.setGame(game)
+	
+	// 创建神经网络（3输入 → 2输出）
+	network = new NeuralNetwork({
+		layerSizes: [3, 2],
+		learningRate: 0.2,
+		weightClip: 5
+	})
+	window.network = network
+	
+	historyStore = new HistoryStore()
+	playerBestStore = new PlayerBestStore()
+	viewManager = new NeuronAreaManager('neuron-area')
+	transitionManager = new TransitionManager('game-area')
+	
+	// 设置模式切换回调
+	viewManager.onModeChange = (mode) => {
+		switch(mode) {
+			case 'player':
+				isAIMode = false
+				isAITrainMode = false
+				stopAI()
+				updateControlsUI()
+				console.log('👤 切换到玩家模式')
+				break
+			case 'ai':
+				isAIMode = true
+				isAITrainMode = false
+				updateControlsUI()
+				startAI()
+				console.log('🤖 切换到AI模式')
+				break
+			case 'train':
+				isAIMode = true
+				isAITrainMode = true
+				updateControlsUI()
+				startAI()
+				console.log('📊 切换到AI训练模式（自动循环并更新权重）')
+				break
+		}
+	}
+
+	// 【修复 Bug 1】：监听视图切换，要求立即重绘画布
+	viewManager.onViewChange = (viewName) => {
+		if (viewName === 'history') {
+			renderHistoryView()
+		} else {
+			const state = game.getStateForAI()
+			const inputs = convertToInputs(state.terrainAhead)
+			renderCurrentAIView(inputs, network ? network.lastAction : null)
+		}
+	}
+
+	// 设置速度切换回调
+	viewManager.onSpeedChange = (speedId) => {
+		switch(speedId) {
+			case 'step': setAISpeed(AI_CONFIG.SPEEDS.STEP); break
+			case 'slow': setAISpeed(AI_CONFIG.SPEEDS.SLOW); break
+			case 'normal': setAISpeed(AI_CONFIG.SPEEDS.NORMAL); break
+			case 'fast': setAISpeed(AI_CONFIG.SPEEDS.FAST); break
+			case 'max': setAISpeed(AI_CONFIG.SPEEDS.MAX); break
+		}
+		updateControlsUI()
+	}
+	
+	game.setViewportSize(gameArea.clientWidth)
+	bindGameEvents()
+	game.init()
+	renderer.initWorld(game.getState().terrain)
+	
+	const state = game.getState()
+	renderer.syncVisualToLogical(state.player)
+	renderer.updateCamera(state.camera)
+	renderer.updateGeneration(state.generation)
+	
+	// 动态构建控制面板并绑定按键
+	updateControlsUI()
+	document.addEventListener('keydown', handleKeyDown)
+	window.addEventListener('resize', handleResize)
+	
+	if (isAIMode) {
+		startAI()
+	}
+	
+	renderCurrentAIView()
+	updateGameInfo()
+	bindStartButton()
+	showStartOverlay()
+	
+	console.log('🎮 AI 训练沙盘已初始化，等待开始...')
+	console.log('🤖 AI模式:', isAIMode ? '开启' : '关闭')
+	
+	// --- 全屏引导逻辑 ---
+	const isFullscreenRequested = new URLSearchParams(window.location.search).get('fullscreen') === 'true'
+	const fsOverlay = document.getElementById('fs-guide-overlay')
+
+	if (isFullscreenRequested && fsOverlay) {
+		// 1. 显示遮罩
+		fsOverlay.classList.remove('hidden')
+
+		// 2. 绑定点击事件
+		// 在进入全屏的代码块中加入方向锁定
+		fsOverlay.addEventListener('click', async () => {
+			const docElm = document.documentElement
+	
+			try {
+				// 1. 进入全屏
+				if (docElm.requestFullscreen) {
+					await docElm.requestFullscreen()
+				} else if (docElm.webkitRequestFullscreen) {
+					await docElm.webkitRequestFullscreen()
+				}
+
+				// 2. 【核心代码】：锁定为竖屏
+				// 注意：必须在进入全屏成功后执行
+				if (screen.orientation && screen.orientation.lock) {
+					await screen.orientation.lock('portrait-primary').catch(err => {
+						console.warn('方向锁定失败，可能浏览器不支持:', err)
+					})
+				}
+			} catch (e) {
+				console.error('进入全屏失败:', e)
+			}
+
+			fsOverlay.classList.add('hidden')
+			setTimeout(() => fsOverlay.remove(), 500) // 彻底从 DOM 中移除
+		})
+	}
+}
+
+// ========== 动态 UI 控制面板 ==========
+function updateControlsUI() {
+	const controlArea = document.getElementById('control-area')
+	if (!controlArea) return
+
+	// 玩家模式：显示操作按钮
+	if (!isAIMode) {
+		controlArea.innerHTML = `
+		<button class="btn" id="btn-right">
+		▶
+		<span class="btn-label">移动 (x+1)</span>
+		</button>
+		<button class="btn" id="btn-jump">
+		⬆
+		<span class="btn-label">跳跃 (x+2)</span>
+		</button>
+	`
+		const btnRight = document.getElementById('btn-right')
+		const btnJump = document.getElementById('btn-jump')
+		if (btnRight) {
+			btnRight.addEventListener('click', () => {
+				if (game.gameStatus === GAME_STATUS.RUNNING) game.execute(ACTION.RIGHT)
+			})
+		}
+		if (btnJump) {
+			btnJump.addEventListener('click', () => {
+				if (game.gameStatus === GAME_STATUS.RUNNING) game.execute(ACTION.JUMP)
+			})
+		}
+	} 
+	// AI 模式
+	else {
+		if (isStepMode) {
+		// 单步模式：显示下一步按钮
+			controlArea.innerHTML = `
+		<button class="btn" id="btn-step" style="background: var(--color-btn-right); box-shadow: 0 8px 0 var(--color-btn-right-shadow); color: white;">
+			⏭️
+			<span class="btn-label">下一步 (Space)</span>
+		</button>
+		`
+			const btnStep = document.getElementById('btn-step')
+			if (btnStep) btnStep.addEventListener('click', stepAI)
+		} else {
+		// 自动运行模式：隐藏按钮，显示提示文本
+			controlArea.innerHTML = `
+		<div style="color: #888; font-size: 14px; width: 100%; text-align: center;">🤖 AI自动运行中...</div>
+		`
+		}
+	}
 }
 
 // ========== 开始游戏遮罩控制 ==========
 function showStartOverlay() {
-  const overlay = document.getElementById('start-overlay')
-  if (overlay) {
-    overlay.classList.remove('hidden')
-  }
-  
-  // 确保游戏处于 READY 状态
-  if (game.gameStatus !== GAME_STATUS.READY) {
-    game.init()  // 重新初始化以重置状态
-  }
+	const overlay = document.getElementById('start-overlay')
+	if (overlay) overlay.classList.remove('hidden')
+	if (game.gameStatus !== GAME_STATUS.READY) game.init()
 }
 
 function hideStartOverlay() {
-  const overlay = document.getElementById('start-overlay')
-  if (overlay) {
-    overlay.classList.add('hidden')
-  }
+	const overlay = document.getElementById('start-overlay')
+	if (overlay) overlay.classList.add('hidden')
 }
 
 function onGameStart() {
-  // 调用游戏开始方法
-  game.startGame()
-  
-  // 隐藏遮罩
-  hideStartOverlay()
-  
-  // 启动计时器更新（玩家模式）
-  if (!isAIMode) {
-    startTimerUpdate()
-  }
-  
-  // 如果在 AI 模式，启动 AI
-  if (isAIMode) {
-    startAI()
-  }
-  
-  console.log('🎮 游戏开始！')
+	game.startGame()
+	hideStartOverlay()
+	if (!isAIMode) {
+		startTimerUpdate()
+	} else {
+		startAI()
+	}
 }
 
 function bindStartButton() {
-  const startBtn = document.getElementById('start-btn')
-  if (startBtn) {
-    startBtn.addEventListener('click', onGameStart)
-  }
+	const startBtn = document.getElementById('start-btn')
+	if (startBtn) startBtn.addEventListener('click', onGameStart)
 }
 
 // ========== 事件绑定 ==========
 function bindGameEvents() {
-  // 状态变化时更新显示
-  game.onStateChange = (player, camera) => {
-    const posDisplay = document.getElementById('pos-display')
-    if (posDisplay) {
-      posDisplay.textContent = player.grid
-    }
-    // AI决策现在由定时器循环控制，不在此处触发
-  }
-  
-  // 动作开始
-  game.onActionStart = (action, from, to, isJump) => {
-    const duration = isJump ? CONFIG.JUMP_DURATION : CONFIG.MOVE_DURATION
-    renderer.startActionTween(from, to, isJump, duration)
-    
-    // 记录AI决策用于训练（每步存活奖励）
-    if (isAIMode && network) {
-      const actionIdx = isJump ? 1 : 0
-      network.train(AI_CONFIG.STEP_REWARD, actionIdx)
-      renderNetworkView()
-    }
-  }
-  
-  // 世代变化（新一关）
-  game.onGenerationChange = (gen) => {
-    renderer.initWorld(game.getState().terrain)
-    const state = game.getState()
-    renderer.syncVisualToLogical(state.player)
-    renderer.updateCamera(state.camera)
-    renderer.updateGeneration(gen)
-    renderer.resetPlayer()
-    
-    // 注意：不再在这里显示遮罩或启动计时器，转场结束后由 onTransitionEnd 处理
-    
-    renderNetworkView()
-    renderHistoryView()
-    updateGameInfo()
-  }
-  
-  // 绑定转场事件
-  game.onTransitionStart = (onMidPoint, onComplete) => {
-    transitionManager.playRespawnTransition(onMidPoint, onComplete)
-  }
-  
-  game.onTransitionEnd = () => {
-    // 转场结束后的处理
-    if (!isAIMode) {
-      // 玩家模式：重生后直接开始新一局（不显示遮罩）
-      game.startGame()      // 启动计时器，解锁输入
-      startTimerUpdate()    // 启动 UI 更新
-    } else {
-      // AI 模式：自动开始新一局并继续训练循环
-      game.startGame()
-      startAIInterval()     // 重启 AI 决策循环
-    }
-  }
-  
-  // 死亡
-  game.onDeath = () => {
-    renderer.showDeath()
-    recordResult('dead')
-    
-    // 玩家模式下停止计时
-    if (!isAIMode) {
-      stopTimerUpdate()
-    }
-    
-    if (isAIMode) {
-      // 惩罚错误决策
-      const state = game.getStateForAI()
-      const inputs = convertToInputs(state.terrainAhead)
-      network.decide(inputs) // 重新决策获取记录
-      network.train(AI_CONFIG.DEATH_REWARD, network.lastAction)
-      renderNetworkView()
-    }
-  }
-  
-  // 胜利
-  game.onWin = () => {
-    renderer.showWin()
-    recordResult('win')
-    
-    if (isAIMode) {
-      // 大奖励
-      network.train(AI_CONFIG.WIN_REWARD, network.lastAction)
-      renderNetworkView()
-    } else {
-      // 玩家模式：停止计时并更新最佳记录
-      stopTimerUpdate()
-      const elapsed = game.getElapsedTime()
-      const isNewRecord = playerBestStore.tryUpdate(elapsed)
-      if (isNewRecord) {
-        console.log('🎉 新纪录！', playerBestStore.getFormatted())
-      }
-      // 更新显示 BEST（非 RUNNING 状态自动显示 BEST）
-      updateGameInfo()
-    }
-  }
+	game.onStateChange = (player, camera) => {
+		const posDisplay = document.getElementById('pos-display')
+		if (posDisplay) posDisplay.textContent = player.grid
+	}
+	
+	game.onActionStart = (action, from, to, isJump) => {
+		let duration = isJump ? CONFIG.JUMP_DURATION : CONFIG.MOVE_DURATION
+	
+		// 动态调整动画速度
+		if (isAIMode && aiSpeed === AI_CONFIG.SPEEDS.MAX) {
+			duration = 16 // 极速：1帧完成
+		} else if (isAIMode && aiSpeed === AI_CONFIG.SPEEDS.FAST) {
+			duration = 50
+		}
+	
+		renderer.startActionTween(from, to, isJump, duration)
+	
+		// 仅在 AI 训练模式下记录并训练
+		if (isAITrainMode && network) {
+			const actionIdx = isJump ? 1 : 0
+			network.train(AI_CONFIG.STEP_REWARD, actionIdx)
+			renderCurrentAIView()
+		}
+	}
+	
+	game.onGenerationChange = (gen) => {
+		renderer.initWorld(game.getState().terrain)
+		const state = game.getState()
+		renderer.syncVisualToLogical(state.player)
+		renderer.updateCamera(state.camera)
+		renderer.updateGeneration(gen)
+		renderer.resetPlayer()
+	
+		renderCurrentAIView()
+		renderHistoryView()
+		updateGameInfo()
+	}
+	
+	game.onTransitionStart = (onMidPoint, onComplete) => {
+	// 极速训练模式下跳过黑屏转场，实现超高速训练
+		if (isAITrainMode && aiSpeed === AI_CONFIG.SPEEDS.MAX) {
+			onMidPoint()
+			onComplete()
+		} else {
+			transitionManager.playRespawnTransition(onMidPoint, onComplete)
+		}
+	}
+	
+	game.onTransitionEnd = () => {
+		if (!isAIMode) {
+			game.startGame()
+			startTimerUpdate()
+		} else {
+		// AI 模式：自动开始新一局
+			game.startGame()
+			startAIInterval()
+		}
+	}
+	
+	game.onDeath = () => {
+		renderer.showDeath()
+		recordResult('dead')
+		if (!isAIMode) stopTimerUpdate()
+	
+		if (isAITrainMode) {
+		// 惩罚直接导致死亡的上一次动作
+			network.train(AI_CONFIG.DEATH_REWARD, network.lastAction)
+			renderCurrentAIView()
+		}
+	}
+	
+	game.onWin = () => {
+		renderer.showWin()
+		recordResult('win')
+	
+		if (isAITrainMode) {
+			network.train(AI_CONFIG.WIN_REWARD, network.lastAction)
+			renderCurrentAIView()
+		} else if (!isAIMode) {
+			stopTimerUpdate()
+			const elapsed = game.getElapsedTime()
+			if (playerBestStore.tryUpdate(elapsed)) {
+				console.log('🎉 新纪录！', playerBestStore.getFormatted())
+			}
+			updateGameInfo()
+		}
+	}
 }
 
 // ========== AI 控制 ==========
-let aiSpeed = AI_CONFIG.SPEEDS.NORMAL  // 默认中速
-let isStepMode = false                 // 单步模式标志
 
-/**
- * 设置AI运行速度
- * @param {number|'step'} speed - 速度值或 'step' 单步模式
- */
 function setAISpeed(speed) {
-  if (speed === AI_CONFIG.SPEEDS.STEP) {
-    isStepMode = true
-    aiSpeed = AI_CONFIG.SPEEDS.NORMAL
-    console.log('🚶 切换到单步模式')
-  } else {
-    isStepMode = false
-    aiSpeed = speed
-    const speedName = speed === AI_CONFIG.SPEEDS.SLOW ? '慢速' :
-                      speed === AI_CONFIG.SPEEDS.NORMAL ? '中速' :
-                      speed === AI_CONFIG.SPEEDS.FAST ? '快速' : '极速'
-    console.log(`⏱️ 切换到${speedName}: ${speed}ms`)
-  }
-  
-  // 如果AI正在运行，重启以应用新速度
-  if (isAIMode && aiInterval) {
-    startAIInterval()
-  }
+	if (speed === AI_CONFIG.SPEEDS.STEP) {
+		isStepMode = true
+		aiSpeed = AI_CONFIG.SPEEDS.NORMAL
+		console.log('🚶 切换到单步模式')
+	} else {
+		isStepMode = false
+		aiSpeed = speed
+		const speedName = speed === AI_CONFIG.SPEEDS.SLOW ? '慢速' :
+			speed === AI_CONFIG.SPEEDS.NORMAL ? '中速' :
+				speed === AI_CONFIG.SPEEDS.FAST ? '快速' : '极速'
+		console.log(`⏱️ 切换到${speedName}`)
+	}
+	
+	if (isAIMode && (aiInterval || fastLoopId || isStepMode)) {
+		startAIInterval()
+	}
 }
 
-/**
- * 执行单步（仅在单步模式下有效）
- */
 function stepAI() {
-  if (!isAIMode || !isStepMode) {
-    console.log('⚠️ 只能在单步模式下执行下一步')
-    return
-  }
-  makeAIDecision()
+	if (!isAIMode || !isStepMode) return
+	makeAIDecision()
 }
 
 function startAI() {
-  if (!isAIMode) return
-  
-  console.log('🤖 AI已启动')
-  
-  // 如果游戏未开始，自动开始
-  if (game.gameStatus === GAME_STATUS.READY) {
-    game.startGame()
-  }
-  
-  // 启动 AI 决策循环
-  startAIInterval()
+	if (!isAIMode) return
+	if (game.gameStatus === GAME_STATUS.READY) {
+		game.startGame()
+	}
+	startAIInterval()
 }
 
 function startAIInterval() {
-  // 清除旧定时器
-  stopAIInterval()
-  
-  if (isStepMode) {
-    // 单步模式：不启动定时器，等待手动触发
-    console.log('🚶 单步模式：点击"下一步"或使用空格键执行')
-    return
-  }
-  
-  // 自动模式：按设定速度执行
-  if (aiSpeed === AI_CONFIG.SPEEDS.MAX) {
-    // 极速模式：使用 requestAnimationFrame 循环
-    runAIFastLoop()
-  } else {
-    // 定时模式
-    aiInterval = setInterval(() => {
-      if (canMakeDecision()) {
-        makeAIDecision()
-      }
-    }, aiSpeed)
-  }
+	stopAIInterval()
+	
+	if (isStepMode) return // 单步模式等待手动触发
+	
+	if (aiSpeed === AI_CONFIG.SPEEDS.MAX) {
+		runAIFastLoop()
+	} else {
+		aiInterval = setInterval(() => {
+			if (canMakeDecision()) makeAIDecision()
+		}, aiSpeed)
+	}
 }
 
 function stopAIInterval() {
-  if (aiInterval) {
-    clearInterval(aiInterval)
-    aiInterval = null
-  }
+	if (aiInterval) {
+		clearInterval(aiInterval)
+		aiInterval = null
+	}
+	if (fastLoopId) {
+		cancelAnimationFrame(fastLoopId)
+		fastLoopId = null
+	}
 }
 
 function stopAI() {
-  stopAIInterval()
+	stopAIInterval()
 }
 
-/**
- * 极速模式循环（无延迟）
- */
 function runAIFastLoop() {
-  if (!isAIMode || aiSpeed !== AI_CONFIG.SPEEDS.MAX) return
-  
-  if (canMakeDecision()) {
-    makeAIDecision()
-  }
-  
-  // 使用 requestAnimationFrame 保持响应
-  requestAnimationFrame(() => runAIFastLoop())
+	if (!isAIMode || isStepMode || aiSpeed !== AI_CONFIG.SPEEDS.MAX) return
+	
+	if (canMakeDecision()) {
+		makeAIDecision()
+	}
+	fastLoopId = requestAnimationFrame(() => runAIFastLoop())
 }
 
-/**
- * 检查是否可以进行AI决策
- */
 function canMakeDecision() {
-  return game.gameStatus === GAME_STATUS.RUNNING && 
-         game.getState().player.action === PLAYER_ACTION.IDLE
+	return game.gameStatus === GAME_STATUS.RUNNING && 
+		 game.getState().player.action === PLAYER_ACTION.IDLE
 }
 
 function makeAIDecision() {
-  if (!isAIMode || !network) return
-  
-  const state = game.getStateForAI()
-  const inputs = convertToInputs(state.terrainAhead)
-  
-  // AI决策
-  const action = network.decide(inputs)
-  
-  // 执行动作
-  const actionType = action === 1 ? ACTION.JUMP : ACTION.RIGHT
-  game.execute(actionType)
-  
-  // 更新视图
-  renderNetworkView(inputs, action)
+	if (!isAIMode || !network) return
+	
+	const state = game.getStateForAI()
+	const inputs = convertToInputs(state.terrainAhead)
+	
+	const action = network.decide(inputs)
+	const actionType = action === 1 ? ACTION.JUMP : ACTION.RIGHT
+	
+	game.execute(actionType)
+	renderCurrentAIView(inputs, action)
 }
 
 // ========== 记录结果 ==========
 function recordResult(finalStatus) {
-  const player = game.getState().player
-  
-  historyStore.add({
-    generation: game.getState().generation,
-    steps: player.grid,
-    finalStatus: finalStatus,
-    weights: network.getWeightsSnapshot()
-  })
+	const player = game.getState().player
+	const steps = player.grid
+	
+	// 记录到历史存储
+	historyStore.add({
+		generation: game.getState().generation,
+		steps: steps,
+		finalStatus: finalStatus,
+		weights: network.getWeightsSnapshot()
+	})
+
+	// --- 动态 ε 调节精密逻辑 ---
+	if (isAITrainMode && network) {
+	// 计算 5 局滚动平均分
+		if (performanceHistory.length >= WINDOW_SIZE) performanceHistory.shift()
+		const currentAvg = performanceHistory.length > 0 
+			? performanceHistory.reduce((a, b) => a + b, 0) / performanceHistory.length 
+			: steps
+		performanceHistory.push(steps)
+	
+		// 2. 【核心修改】：只有当自动调节开关打开时，才执行数值变动
+		if (network.autoAdjustEpsilon) {
+		// 精确调节数值
+			if (steps > currentAvg) {
+				// 进步了：减少探索量 (Step 0.05)
+				network.epsilon = Math.max(0.1, network.epsilon - 0.05)
+			} else if (steps < currentAvg) {
+				// 退步了：增加探索量 (Step 0.05)
+				network.epsilon = Math.min(0.4, network.epsilon + 0.05)
+			} else {
+				// 持平：微调收敛 (Step 0.01)
+				network.epsilon = Math.max(0.1, network.epsilon - 0.01)
+			}
+		}
+	
+		console.log(`📊 窗口平均:${currentAvg.toFixed(1)} | 本局:${steps} | 新好奇心(ε):${network.epsilon.toFixed(2)}`)
+	}
 }
 
 // ========== 视图渲染 ==========
-function renderNetworkView(inputs = null, action = null) {
-  if (viewManager.activeViewName === 'network' && network) {
-    viewManager.render(network, inputs, action)
-  }
+function renderCurrentAIView(inputs = null, action = null) {
+	if ((viewManager.activeViewName === 'network' || viewManager.activeViewName === 'matrix') && network) {
+	// 确保这里传了 network 实例，否则 UI 看不到好奇心数值
+		viewManager.render(network, inputs, action) 
+	}
 }
 
 function renderHistoryView() {
-  if (viewManager.activeViewName === 'history') {
-    viewManager.render(historyStore.getAll())
-  }
+	if (viewManager.activeViewName === 'history') {
+		viewManager.render(historyStore.getAll())
+	}
 }
 
 // ========== 计时功能 ==========
 function startTimerUpdate() {
-  stopTimerUpdate()
-  timerInterval = setInterval(() => {
-    updateGameInfo()
-  }, 100) // 每100ms更新一次
+	stopTimerUpdate()
+	timerInterval = setInterval(() => {
+		updateGameInfo()
+	}, 100)
 }
 
 function stopTimerUpdate() {
-  if (timerInterval) {
-    clearInterval(timerInterval)
-    timerInterval = null
-  }
+	if (timerInterval) {
+		clearInterval(timerInterval)
+		timerInterval = null
+	}
 }
 
 function updateGameInfo() {
-  const gameInfo = document.getElementById('game-info')
-  if (!gameInfo) return
-  
-  const player = game.getState().player
-  const currentTime = formatTimeMs(game.getElapsedTime())
-  const bestTime = playerBestStore.getFormatted()
-  
-  gameInfo.innerHTML = `POS: <span id="pos-display">${player.grid}</span> | GEN: <span id="gen-display">${game.getState().generation}</span>${isAIMode ? '' : ` | TIME: ${currentTime} | BEST: ${bestTime}`}`
+	const gameInfo = document.getElementById('game-info')
+	if (!gameInfo) return
+	
+	const player = game.getState().player
+	const currentTime = formatTimeMs(game.getElapsedTime())
+	const bestTime = playerBestStore.getFormatted()
+	
+	gameInfo.innerHTML = `POS: <span id="pos-display">${player.grid}</span> | GEN: <span id="gen-display">${game.getState().generation}</span>${isAIMode ? '' : ` | TIME: ${currentTime} | BEST: ${bestTime}`}`
 }
 
 // ========== 输入控制 ==========
 
-/**
- * 绑定游戏控制（按钮和键盘）
- * 
- * 【速通核心机制】
- * 只检查游戏生命周期状态（RUNNING），不检查人物动作状态。
- * 允许在动画期间输入，execute() 会立即执行逻辑并打断当前动画。
- * 这是速通玩法的基础：操作频率决定角色移动速度。
- */
-function bindControls() {
-  // 按钮点击
-  btnRight.addEventListener('click', () => {
-    if (isAIMode) return
-    if (game.gameStatus !== GAME_STATUS.RUNNING) return
-    game.execute(ACTION.RIGHT)
-  })
-  btnJump.addEventListener('click', () => {
-    if (isAIMode) return
-    if (game.gameStatus !== GAME_STATUS.RUNNING) return
-    game.execute(ACTION.JUMP)
-  })
-  
-  // 键盘控制
-  document.addEventListener('keydown', handleKeyDown)
-}
-
-/**
- * 键盘事件处理
- * 
- * 【速通核心机制】
- * 只检查游戏是否处于 RUNNING 状态，不检查人物是否在动画中。
- * 玩家可在任意时刻按键，execute() 立即响应并打断当前动画，
- * 实现"操作多快，游戏多快"的无缝连续操作体验。
- * 
- * 【AI单步模式】
- * AI单步模式下，空格键用于执行下一步（而非跳跃）。
- */
 function handleKeyDown(e) {
-  if (e.repeat) return
-  
-  // AI单步模式：空格键执行下一步
-  if (isAIMode && isStepMode && e.key === ' ') {
-    e.preventDefault()
-    stepAI()
-    return
-  }
-  
-  // AI其他模式：禁用键盘
-  if (isAIMode) return
-  
-  // 检查游戏状态（速通机制：不检查人物动作状态，允许动画期间输入）
-  if (game.gameStatus !== GAME_STATUS.RUNNING) return
-  
-  if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
-    e.preventDefault()
-    game.execute(ACTION.RIGHT)
-  }
-  if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W' || e.key === ' ') {
-    e.preventDefault()
-    game.execute(ACTION.JUMP)
-  }
+	if (e.repeat) return
+	
+	// AI单步模式：空格键执行下一步
+	if (isAIMode && isStepMode && e.key === ' ') {
+		e.preventDefault()
+		stepAI()
+		return
+	}
+	
+	if (isAIMode) return
+	if (game.gameStatus !== GAME_STATUS.RUNNING) return
+	
+	if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
+		e.preventDefault()
+		game.execute(ACTION.RIGHT)
+	}
+	if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W' || e.key === ' ') {
+		e.preventDefault()
+		game.execute(ACTION.JUMP)
+	}
 }
 
 // ========== 窗口适配 ==========
 function handleResize() {
-  game.setViewportSize(gameArea.clientWidth)
-  const visualX = renderer.visual.x
-  game._updateCamera(visualX)
-  renderer.updateCamera(game.camera)
-  
-  // 重新渲染当前视图
-  renderNetworkView()
+	// 如果是横屏且触发了 CSS 旋转，我们需要取相反的尺寸
+	const isLandscape = window.innerWidth > window.innerHeight;
+	const realWidth = isLandscape ? window.innerHeight : window.innerWidth;
+	
+	game.setViewportSize(realWidth);
+	const visualX = renderer.visual.x;
+	game._updateCamera(visualX);
+	renderer.updateCamera(game.camera);
+	renderCurrentAIView();
 }
 
 // ========== 启动 ==========
@@ -2866,293 +2970,298 @@ document.addEventListener('DOMContentLoaded', init)
 
 // ========== Vite 热更新 ==========
 if (import.meta.hot) {
-  import.meta.hot.accept()
-  
-  import.meta.hot.dispose(() => {
-    console.log('🔄 热更新：清理实例')
-    stopAI()
-    stopTimerUpdate()
-    if (transitionManager) {
-      transitionManager.destroy()
-      transitionManager = null
-    }
-    if (game) {
-      game.destroy?.()
-      game = null
-    }
-  })
+	import.meta.hot.accept()
+	import.meta.hot.dispose(() => {
+		console.log('🔄 热更新：清理实例')
+		stopAI()
+		stopTimerUpdate()
+		if (transitionManager) {
+			transitionManager.destroy()
+			transitionManager = null
+		}
+		if (game) {
+			game.destroy?.()
+			game = null
+		}
+	})
 }
 
 // ========== 调试接口 ==========
 window.aiSandbox = {
-  get game() { return game },
-  get renderer() { return renderer },
-  get network() { return network },
-  get history() { return historyStore },
-  get viewManager() { return viewManager },
-  ACTION,
-  toggleAI: () => { isAIMode = !isAIMode; isAIMode ? startAI() : stopAI(); return isAIMode }
+	get game() { return game },
+	get renderer() { return renderer },
+	get network() { return network },
+	get history() { return historyStore },
+	get viewManager() { return viewManager },
+	ACTION,
+	toggleAI: () => { 
+		isAIMode = !isAIMode
+		isAITrainMode = isAIMode
+		isAIMode ? startAI() : stopAI()
+		updateControlsUI()
+		return isAIMode 
+	}
 }
 
 文件: ./src/style-fox.css
 /* 侧面视角狐狸 - 纯CSS绘制 */
 #player {
-  position: absolute;
-  z-index: 100;
+	position: absolute;
+	z-index: 100;
 }
 
 /* 狐狸容器 */
 .fox-container {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  transition: transform 0.1s ease-out;
+	position: relative;
+	width: 100%;
+	height: 100%;
+	transition: transform 0.1s ease-out;
 }
 
 /* ========== 侧面狐狸结构 ========== */
 
 /* 尾巴 - 在身体后方，更大更蓬松，WAAPI控制动画 */
 .fox-tail {
-  position: absolute;
-  bottom: 25%;
-  left: -45%;
-  width: 80%;
-  height: 85%;
-  background: linear-gradient(135deg, #d35400 0%, #a04000 100%);
-  border-radius: 60% 40% 50% 50%;
-  transform-origin: bottom right;
-  /* WAAPI控制动画，必须禁用CSS transition避免冲突 */
-  transition: none !important;
-  will-change: transform;
-  z-index: 1;
+	position: absolute;
+	bottom: 25%;
+	left: -45%;
+	width: 80%;
+	height: 85%;
+	background: linear-gradient(135deg, #d35400 0%, #a04000 100%);
+	border-radius: 60% 40% 50% 50%;
+	transform-origin: bottom right;
+	/* WAAPI控制动画，必须禁用CSS transition避免冲突 */
+	transition: none !important;
+	will-change: transform;
+	z-index: 1;
 }
 
 .fox-tail::after {
-  content: '';
-  position: absolute;
-  top: 10%;
-  left: 15%;
-  width: 60%;
-  height: 50%;
-  background: #fff5e6;
-  border-radius: 50%;
+	content: '';
+	position: absolute;
+	top: 10%;
+	left: 15%;
+	width: 60%;
+	height: 50%;
+	background: #fff5e6;
+	border-radius: 50%;
 }
 
 /* 四条腿 */
 /* 后腿远侧（颜色调亮） */
 .fox-leg-back-far {
-  position: absolute;
-  bottom: 0;
-  left: 5%;
-  width: 22%;
-  height: 40%;
-  background: linear-gradient(180deg, #c44d00 0%, #a04000 100%);
-  border-radius: 30%;
-  transform-origin: top center;
-  transition: transform 0.15s ease-out;
-  z-index: 5;
+	position: absolute;
+	bottom: 0;
+	left: 5%;
+	width: 22%;
+	height: 40%;
+	background: linear-gradient(180deg, #c44d00 0%, #a04000 100%);
+	border-radius: 30%;
+	transform-origin: top center;
+	transition: transform 0.15s ease-out;
+	z-index: 5;
 }
 
 /* 后腿近侧 */
 .fox-leg-back-near {
-  position: absolute;
-  bottom: 0;
-  left: 18%;
-  width: 25%;
-  height: 48%;
-  background: linear-gradient(180deg, #e67e22 0%, #d35400 100%);
-  border-radius: 30%;
-  transform-origin: top center;
-  transition: transform 0.15s ease-out;
-  z-index: 6;
+	position: absolute;
+	bottom: 0;
+	left: 18%;
+	width: 25%;
+	height: 48%;
+	background: linear-gradient(180deg, #e67e22 0%, #d35400 100%);
+	border-radius: 30%;
+	transform-origin: top center;
+	transition: transform 0.15s ease-out;
+	z-index: 6;
 }
 
 /* 身体主体 */
 .fox-body {
-  position: absolute;
-  bottom: 15%;
-  left: 15%;
-  width: 65%;
-  height: 50%;
-  background: linear-gradient(180deg, #e67e22 0%, #d35400 100%);
-  border-radius: 45% 40% 35% 40%;
-  z-index: 3;
+	position: absolute;
+	bottom: 15%;
+	left: 15%;
+	width: 65%;
+	height: 50%;
+	background: linear-gradient(180deg, #e67e22 0%, #d35400 100%);
+	border-radius: 45% 40% 35% 40%;
+	z-index: 3;
 }
 
 /* 肚子 */
 .fox-body::after {
-  content: '';
-  position: absolute;
-  bottom: 15%;
-  right: 15%;
-  width: 50%;
-  height: 60%;
-  background: #fff5e6;
-  border-radius: 40%;
+	content: '';
+	position: absolute;
+	bottom: 15%;
+	right: 15%;
+	width: 50%;
+	height: 60%;
+	background: #fff5e6;
+	border-radius: 40%;
 }
 
 /* 前腿（远侧） */
 .fox-leg-front-far {
-  position: absolute;
-  bottom: 0;
-  right: 20%;
-  width: 22%;
-  height: 40%;
-  background: linear-gradient(180deg, #c44d00 0%, #a04000 100%);
-  border-radius: 30%;
-  transform-origin: top center;
-  transition: transform 0.15s ease-out;
-  z-index: 2;
+	position: absolute;
+	bottom: 0;
+	right: 20%;
+	width: 22%;
+	height: 40%;
+	background: linear-gradient(180deg, #c44d00 0%, #a04000 100%);
+	border-radius: 30%;
+	transform-origin: top center;
+	transition: transform 0.15s ease-out;
+	z-index: 2;
 }
 
 /* 头部 */
 .fox-head {
-  position: absolute;
-  top: 10%;
-  right: 0;
-  width: 55%;
-  height: 50%;
-  background: linear-gradient(135deg, #e67e22 0%, #d35400 100%);
-  border-radius: 40% 50% 45% 40%;
-  z-index: 4;
+	position: absolute;
+	top: 10%;
+	right: 0;
+	width: 55%;
+	height: 50%;
+	background: linear-gradient(135deg, #e67e22 0%, #d35400 100%);
+	border-radius: 40% 50% 45% 40%;
+	z-index: 4;
 }
 
 /* 耳朵 - 狐狸耳朵是三角形，位于头顶后方，指向斜前方 */
 /* 近侧耳朵（较大，较清晰，在左侧遮挡后耳） */
 .fox-ear-near {
-  position: absolute;
-  top: -35%;
-  right: 32%;
-  width: 32%;
-  height: 55%;
-  background: linear-gradient(145deg, #e67e22 0%, #d35400 60%, #a04000 100%);
-  border-radius: 70% 30% 40% 60%;
-  transform-origin: bottom center;
-  transform: rotate(15deg);
-  transition: transform 0.15s ease-out;
-  z-index: 5;
+	position: absolute;
+	top: -35%;
+	right: 32%;
+	width: 32%;
+	height: 55%;
+	background: linear-gradient(145deg, #e67e22 0%, #d35400 60%, #a04000 100%);
+	border-radius: 70% 30% 40% 60%;
+	transform-origin: bottom center;
+	transform: rotate(15deg);
+	transition: transform 0.15s ease-out;
+	z-index: 5;
 }
 
 .fox-ear-near::after {
-  content: '';
-  position: absolute;
-  top: 20%;
-  left: 25%;
-  width: 55%;
-  height: 60%;
-  background: #fff0f5;
-  border-radius: 70% 30% 40% 60%;
+	content: '';
+	position: absolute;
+	top: 20%;
+	left: 25%;
+	width: 55%;
+	height: 60%;
+	background: #fff0f5;
+	border-radius: 70% 30% 40% 60%;
 }
 
 /* 远侧耳朵（较小，略暗，在右侧被遮挡，无内部图案） */
 .fox-ear-far {
-  position: absolute;
-  top: -22%;
-  right: 5%;
-  width: 26%;
-  height: 40%;
-  background: linear-gradient(145deg, #d35400 0%, #a04000 100%);
-  border-radius: 70% 30% 40% 60%;
-  transform-origin: bottom center;
-  transform: rotate(25deg);
-  transition: transform 0.15s ease-out;
-  z-index: 2;
+	position: absolute;
+	top: -22%;
+	right: 5%;
+	width: 26%;
+	height: 40%;
+	background: linear-gradient(145deg, #d35400 0%, #a04000 100%);
+	border-radius: 70% 30% 40% 60%;
+	transform-origin: bottom center;
+	transform: rotate(25deg);
+	transition: transform 0.15s ease-out;
+	z-index: 2;
 }
 /* 远侧耳朵不显示内部（背面视角） */
 
 /* 眼睛 */
 .fox-eye {
-  position: absolute;
-  top: 30%;
-  right: 25%;
-  width: 22%;
-  height: 22%;
-  background: #2c3e50;
-  border-radius: 50%;
-  transition: transform 0.1s;
+	position: absolute;
+	top: 30%;
+	right: 25%;
+	width: 22%;
+	height: 22%;
+	background: #2c3e50;
+	border-radius: 50%;
+	transition: transform 0.1s;
 }
 
 .fox-eye::after {
-  content: '';
-  position: absolute;
-  top: 15%;
-  right: 15%;
-  width: 45%;
-  height: 45%;
-  background: white;
-  border-radius: 50%;
+	content: '';
+	position: absolute;
+	top: 15%;
+	right: 15%;
+	width: 45%;
+	height: 45%;
+	background: white;
+	border-radius: 50%;
 }
 
 /* 鼻子 */
 .fox-nose {
-  position: absolute;
-  top: 45%;
-  right: 5%;
-  width: 18%;
-  height: 15%;
-  background: #2c3e50;
-  border-radius: 40%;
+	position: absolute;
+	top: 45%;
+	right: 5%;
+	width: 18%;
+	height: 15%;
+	background: #2c3e50;
+	border-radius: 40%;
 }
 
 /* 前腿（近侧） */
 .fox-leg-front-near {
-  position: absolute;
-  bottom: 0;
-  right: 35%;
-  width: 25%;
-  height: 45%;
-  background: linear-gradient(180deg, #e67e22 0%, #d35400 100%);
-  border-radius: 30%;
-  transform-origin: top center;
-  transition: transform 0.15s ease-out;
-  z-index: 5;
+	position: absolute;
+	bottom: 0;
+	right: 35%;
+	width: 25%;
+	height: 45%;
+	background: linear-gradient(180deg, #e67e22 0%, #d35400 100%);
+	border-radius: 30%;
+	transform-origin: top center;
+	transition: transform 0.15s ease-out;
+	z-index: 5;
 }
 
 /* ========== 动画状态 ========== */
 
 /* 待机 - 呼吸+尾巴自然摇摆 */
 .fox-container.state-idle {
-  animation: foxBreathe 2s ease-in-out infinite;
+	animation: foxBreathe 2s ease-in-out infinite;
 }
 
 /* 尾巴动画由 WAAPI 控制 (见 GameRenderer.js _startTailAnimation) */
 
 /* 奔跑 - 四条腿交替 */
 .fox-container.state-run {
-  animation: foxBob 0.3s ease-in-out infinite;
+	animation: foxBob 0.3s ease-in-out infinite;
 }
 
 .fox-container.state-run .fox-leg-back-far {
-  animation: legRunBack 0.3s ease-in-out infinite;
+	animation: legRunBack 0.3s ease-in-out infinite;
 }
 
 .fox-container.state-run .fox-leg-back-near {
-  animation: legRunBack 0.3s ease-in-out infinite reverse;
+	animation: legRunBack 0.3s ease-in-out infinite reverse;
 }
 
 .fox-container.state-run .fox-leg-front-far {
-  animation: legRunFront 0.3s ease-in-out infinite reverse;
+	animation: legRunFront 0.3s ease-in-out infinite reverse;
 }
 
 .fox-container.state-run .fox-leg-front-near {
-  animation: legRunFront 0.3s ease-in-out infinite;
+	animation: legRunFront 0.3s ease-in-out infinite;
 }
 
 
 
 /* 跳跃上升 */
 .fox-container.state-jump-up {
-  transform: rotate(-15deg) translateY(-5%);
+	transform: rotate(-15deg) translateY(-5%);
 }
 
 .fox-container.state-jump-up .fox-leg-back-far,
 .fox-container.state-jump-up .fox-leg-back-near {
-  transform: rotate(-40deg);
+	transform: rotate(-40deg);
 }
 
 .fox-container.state-jump-up .fox-leg-front-far,
 .fox-container.state-jump-up .fox-leg-front-near {
-  transform: rotate(-30deg) scaleY(0.9);
+	transform: rotate(-30deg) scaleY(0.9);
 }
 
 
@@ -3160,91 +3269,91 @@ window.aiSandbox = {
 /* 跳跃时耳朵向后贴（警觉/流线型） */
 .fox-container.state-jump-up .fox-ear-near,
 .fox-container.state-jump-up .fox-ear-far {
-  transform: rotate(35deg);
+	transform: rotate(35deg);
 }
 
 /* 跳跃下降 */
 .fox-container.state-jump-down {
-  transform: rotate(10deg) translateY(3%);
+	transform: rotate(10deg) translateY(3%);
 }
 
 .fox-container.state-jump-down .fox-leg-back-far,
 .fox-container.state-jump-down .fox-leg-back-near {
-  transform: rotate(30deg);
+	transform: rotate(30deg);
 }
 
 .fox-container.state-jump-down .fox-leg-front-far,
 .fox-container.state-jump-down .fox-leg-front-near {
-  transform: rotate(25deg);
+	transform: rotate(25deg);
 }
 
 
 
 /* 落地 */
 .fox-container.state-land {
-  animation: foxLand 0.2s ease-out;
+	animation: foxLand 0.2s ease-out;
 }
 
 .fox-container.state-land .fox-leg-back-far,
 .fox-container.state-land .fox-leg-back-near,
 .fox-container.state-land .fox-leg-front-far,
 .fox-container.state-land .fox-leg-front-near {
-  transform: scaleY(0.7);
+	transform: scaleY(0.7);
 }
 
 /* ========== 动画定义 ========== */
 
 @keyframes foxBreathe {
-  0%, 100% { transform: scaleY(1); }
-  50% { transform: scaleY(1.02); }
+	0%, 100% { transform: scaleY(1); }
+	50% { transform: scaleY(1.02); }
 }
 
 
 
 @keyframes foxBob {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-6%); }
+	0%, 100% { transform: translateY(0); }
+	50% { transform: translateY(-6%); }
 }
 
 @keyframes legRunBack {
-  0%, 100% { transform: rotate(-25deg); }
-  50% { transform: rotate(35deg); }
+	0%, 100% { transform: rotate(-25deg); }
+	50% { transform: rotate(35deg); }
 }
 
 @keyframes legRunFront {
-  0%, 100% { transform: rotate(30deg); }
-  50% { transform: rotate(-25deg); }
+	0%, 100% { transform: rotate(30deg); }
+	50% { transform: rotate(-25deg); }
 }
 
 
 @keyframes foxLand {
-  0% { transform: scaleY(0.8) translateY(5%); }
-  100% { transform: scaleY(1) translateY(0); }
+	0% { transform: scaleY(0.8) translateY(5%); }
+	100% { transform: scaleY(1) translateY(0); }
 }
 
 /* 死亡 */
 .fox-container.state-dead {
-  animation: foxDead 0.5s ease-in forwards;
-  transform-origin: bottom left;
-  /* 禁用transition确保死亡动画流畅 */
-  transition: none !important;
+	animation: foxDead 0.5s ease-in forwards;
+	transform-origin: bottom left;
+	/* 禁用transition确保死亡动画流畅 */
+	transition: none !important;
 }
 
 @keyframes foxDead {
-  to {
-    transform: translateY(150%) rotate(90deg);
-  }
+	to {
+	transform: translateY(150%) rotate(90deg);
+	}
 }
 
 /* 方向翻转 */
 .fox-container.dir-left {
-  transform: scaleX(-1);
+	transform: scaleX(-1);
 }
 
 /* 平滑过渡 - 增加时间实现动画混合 */
 .fox-container,
 .fox-container * {
-  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+	transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 文件: ./src/style.css
@@ -3252,199 +3361,218 @@ window.aiSandbox = {
 
 /* ---------- 基础重置 ---------- */
 * {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
+	margin: 0;
+	padding: 0;
+	box-sizing: border-box;
+}
+
+/* 当屏幕物理上处于横屏（宽 > 高）时触发 */
+@media screen and (orientation: landscape) {
+  #app-root { /* 假设你的所有 HTML 都在这个容器里 */
+    width: 100vh !important;
+    height: 100vw !important;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) rotate(90deg); /* 顺时针转回竖屏 */
+    transform-origin: center center;
+    overflow: hidden;
+  }
+}
+
+/* 确保所有覆盖层、遮罩也在这个舞台内 */
+.game-overlay {
+  position: absolute; /* 不要用 fixed，否则旋转后会错位 */
 }
 
 /* ---------- CSS 变量 ---------- */
 :root {
-  /* 统一天空主题 - 较暗的蓝色系 */
-  --sky-dark: #2c3e50;
-  --sky-mid: #34495e;
-  --sky-light: #4a6278;
-  
-  /* 全局背景统一 */
-  --color-bg: var(--sky-dark);
-  --color-bg-game: linear-gradient(180deg, #4a6278 0%, #5a7a94 50%, #6a8aa8 100%);
-  --color-bg-neuron: var(--sky-mid);
-  --color-border: #5a7a94;
-  
-  --color-ground: linear-gradient(180deg, #4a8c2a 0%, #3d7a24 50%, #2d5a1a 100%);
-  --color-ground-border: #5a9e3a;
-  --color-pit: #1a2430;
-  
-  --color-player: linear-gradient(135deg, #4a90d9 0%, #2d5aa0 100%);
-  --color-player-border: #6ab0f9;
-  --color-player-glow: rgba(74, 144, 217, 0.6);
-  
-  --color-btn-right: linear-gradient(135deg, #27ae60 0%, #1e8449 100%);
-  --color-btn-right-shadow: #166534;
-  --color-btn-jump: linear-gradient(135deg, #f39c12 0%, #d68910 100%);
-  --color-btn-jump-shadow: #9c5710;
-  
-  /* 文字颜色 - 确保在蓝色背景上清晰可读 */
-  --color-text: #ffffff;
-  --color-text-muted: rgba(255, 255, 255, 0.85);
-  --color-text-dim: rgba(200, 220, 240, 0.7);
-  
-  --color-win: #27ae60;
-  --color-dead: #e74c3c;
-  
-  --grid-line: rgba(255, 255, 255, 0.08);
-  --grid-label: rgba(255, 255, 255, 0.25);
+	/* 统一天空主题 - 较暗的蓝色系 */
+	--sky-dark: #2c3e50;
+	--sky-mid: #34495e;
+	--sky-light: #4a6278;
+	
+	/* 全局背景统一 */
+	--color-bg: var(--sky-dark);
+	--color-bg-game: linear-gradient(180deg, #4a6278 0%, #5a7a94 50%, #6a8aa8 100%);
+	--color-bg-neuron: var(--sky-mid);
+	--color-border: #5a7a94;
+	
+	--color-ground: linear-gradient(180deg, #4a8c2a 0%, #3d7a24 50%, #2d5a1a 100%);
+	--color-ground-border: #5a9e3a;
+	--color-pit: #1a2430;
+	
+	--color-player: linear-gradient(135deg, #4a90d9 0%, #2d5aa0 100%);
+	--color-player-border: #6ab0f9;
+	--color-player-glow: rgba(74, 144, 217, 0.6);
+	
+	--color-btn-right: linear-gradient(135deg, #27ae60 0%, #1e8449 100%);
+	--color-btn-right-shadow: #166534;
+	--color-btn-jump: linear-gradient(135deg, #f39c12 0%, #d68910 100%);
+	--color-btn-jump-shadow: #9c5710;
+	
+	/* 文字颜色 - 确保在蓝色背景上清晰可读 */
+	--color-text: #ffffff;
+	--color-text-muted: rgba(255, 255, 255, 0.85);
+	--color-text-dim: rgba(200, 220, 240, 0.7);
+	
+	--color-win: #27ae60;
+	--color-dead: #e74c3c;
+	
+	--grid-line: rgba(255, 255, 255, 0.08);
+	--grid-label: rgba(255, 255, 255, 0.25);
 }
 
 /* ---------- 布局 ---------- */
 body {
-  background: var(--color-bg);
-  color: var(--color-text);
-  font-family: 'Courier New', monospace;
-  height: 100dvh;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  padding-bottom: env(safe-area-inset-bottom);
+	background: var(--color-bg);
+	color: var(--color-text);
+	font-family: 'Courier New', monospace;
+	height: 100dvh;
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+	padding-bottom: env(safe-area-inset-bottom);
 }
 
 /* ---------- 云朵装饰 ---------- */
 .cloud {
-  position: absolute;
-  background: rgba(255, 255, 255, 0.15);
-  border-radius: 100px;
-  opacity: 0.7;
+	position: absolute;
+	background: rgba(255, 255, 255, 0.15);
+	border-radius: 100px;
+	opacity: 0.7;
 }
 
 .cloud::before,
 .cloud::after {
-  content: '';
-  position: absolute;
-  background: rgba(255, 255, 255, 0.15);
-  border-radius: 100px;
+	content: '';
+	position: absolute;
+	background: rgba(255, 255, 255, 0.15);
+	border-radius: 100px;
 }
 
 /* 大云朵 */
 .cloud-1 {
-  width: 100px;
-  height: 40px;
-  top: 10%;
-  animation: float 20s infinite linear;
+	width: 100px;
+	height: 40px;
+	top: 10%;
+	animation: float 20s infinite linear;
 }
 
 .cloud-1::before {
-  width: 50px;
-  height: 50px;
-  top: -25px;
-  left: 10px;
+	width: 50px;
+	height: 50px;
+	top: -25px;
+	left: 10px;
 }
 
 .cloud-1::after {
-  width: 60px;
-  height: 40px;
-  top: -15px;
-  right: 10px;
+	width: 60px;
+	height: 40px;
+	top: -15px;
+	right: 10px;
 }
 
 /* 中云朵 */
 .cloud-2 {
-  width: 80px;
-  height: 35px;
-  top: 25%;
-  animation: float 25s infinite linear;
-  animation-delay: -5s;
+	width: 80px;
+	height: 35px;
+	top: 25%;
+	animation: float 25s infinite linear;
+	animation-delay: -5s;
 }
 
 .cloud-2::before {
-  width: 40px;
-  height: 40px;
-  top: -20px;
-  left: 15px;
+	width: 40px;
+	height: 40px;
+	top: -20px;
+	left: 15px;
 }
 
 .cloud-2::after {
-  width: 50px;
-  height: 35px;
-  top: -10px;
-  right: 15px;
+	width: 50px;
+	height: 35px;
+	top: -10px;
+	right: 15px;
 }
 
 /* 小云朵 */
 .cloud-3 {
-  width: 60px;
-  height: 25px;
-  top: 15%;
-  animation: float 18s infinite linear;
-  animation-delay: -10s;
+	width: 60px;
+	height: 25px;
+	top: 15%;
+	animation: float 18s infinite linear;
+	animation-delay: -10s;
 }
 
 .cloud-3::before {
-  width: 30px;
-  height: 30px;
-  top: -15px;
-  left: 10px;
+	width: 30px;
+	height: 30px;
+	top: -15px;
+	left: 10px;
 }
 
 .cloud-3::after {
-  width: 35px;
-  height: 25px;
-  top: -8px;
-  right: 10px;
+	width: 35px;
+	height: 25px;
+	top: -8px;
+	right: 10px;
 }
 
 @keyframes float {
-  0% { transform: translateX(-150px); }
-  100% { transform: translateX(calc(100vw + 150px)); }
+	0% { transform: translateX(-150px); }
+	100% { transform: translateX(calc(100vw + 150px)); }
 }
 
 /* ---------- 游戏区域 ---------- */
 #game-area {
-  flex: 0 0 50%;
-  background: var(--color-bg-game);
-  position: relative;
-  overflow: hidden;
-  border-bottom: 2px solid var(--color-border);
+	flex: 0 0 40%;
+	background: var(--color-bg-game);
+	position: relative;
+	overflow: hidden;
+	border-bottom: 2px solid var(--color-border);
 }
 
 /* 游戏信息 - 确保在蓝色背景上清晰可见 */
 #game-info {
-  position: absolute;
-  top: 10px;
-  left: 10px;
-  font-size: 10px;
-  font-weight: bold;
-  color: rgba(255, 255, 255, 0.95);
-  z-index: 1000;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
-  background: rgba(0, 0, 0, 0.2);
-  padding: 4px 8px;
-  border-radius: 4px;
+	position: absolute;
+	top: 10px;
+	left: 10px;
+	font-size: 10px;
+	font-weight: bold;
+	color: rgba(255, 255, 255, 0.95);
+	z-index: 1000;
+	text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+	background: rgba(0, 0, 0, 0.2);
+	padding: 4px 8px;
+	border-radius: 4px;
 }
 
 #game-world,
 .world-content {
-  position: absolute;
-  height: 100%;
-  transform-origin: left center;
-  will-change: transform;
+	position: absolute;
+	height: 100%;
+	transform-origin: left center;
+	will-change: transform;
 }
 
 /* 状态提示 */
 #status-text {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  font-size: 48px;
-  font-weight: bold;
-  text-shadow: 0 0 30px currentColor;
-  opacity: 0;
-  pointer-events: none;
-  z-index: 2000;
-  transition: opacity 0.3s;
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	font-size: 48px;
+	font-weight: bold;
+	text-shadow: 0 0 30px currentColor;
+	opacity: 0;
+	pointer-events: none;
+	z-index: 2000;
+	transition: opacity 0.3s;
 }
 
 #status-text.show {
-  opacity: 1;
+	opacity: 1;
 }
 
 #status-text.dead { color: var(--color-dead); }
@@ -3452,287 +3580,309 @@ body {
 
 /* ---------- 世界网格 ---------- */
 .world-grid {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-  z-index: 5;
+	position: absolute;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 100%;
+	pointer-events: none;
+	z-index: 5;
 }
 
 .grid-vline {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 1px;
-  background: var(--grid-line);
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	width: 1px;
+	background: var(--grid-line);
 }
 
 .grid-label {
-  position: absolute;
-  font-size: 10px;
-  color: var(--grid-label);
-  transform: translateX(-50%);
-  font-family: monospace;
+	position: absolute;
+	font-size: 10px;
+	color: var(--grid-label);
+	transform: translateX(-50%);
+	font-family: monospace;
 }
 
 /* ---------- 地形 ---------- */
 .ground {
-  position: absolute;
-  bottom: 0;
-  background: var(--color-ground);
-  border-top: 4px solid var(--color-ground-border);
-  /* 高度由 JS 动态设置 */
+	position: absolute;
+	bottom: 0;
+	background: var(--color-ground);
+	border-top: 4px solid var(--color-ground-border);
+	/* 高度由 JS 动态设置 */
 }
 
 .pit-zone {
-  position: absolute;
-  bottom: 0;
-  background: var(--color-pit);
-  /* 宽高由 JS 动态设置 */
+	position: absolute;
+	bottom: 0;
+	background: var(--color-pit);
+	/* 宽高由 JS 动态设置 */
 }
 
 .pit-zone::after {
-  content: '▼▼▼';
-  position: absolute;
-  bottom: 5px;
-  left: 50%;
-  transform: translateX(-50%);
-  font-size: 8px;
-  color: #222;
-  letter-spacing: 2px;
+	content: '▼▼▼';
+	position: absolute;
+	bottom: 5px;
+	left: 50%;
+	transform: translateX(-50%);
+	font-size: 8px;
+	color: #222;
+	letter-spacing: 2px;
 }
 
 /* ---------- 终点 ---------- */
 .goal {
-  position: absolute;
-  /* 尺寸和位置由 JS 动态设置 */
+	position: absolute;
+	/* 尺寸和位置由 JS 动态设置 */
 }
 
 @keyframes wave {
-  0%, 100% { transform: skewY(0deg); }
-  50% { transform: skewY(5deg); }
+	0%, 100% { transform: skewY(0deg); }
+	50% { transform: skewY(5deg); }
 }
 
 /* ---------- 玩家 ---------- */
 /* 玩家基础样式，狐狸详细样式在 style-fox.css */
 #player {
-  position: absolute;
-  z-index: 100;
+	position: absolute;
+	z-index: 100;
 }
 
 /* 死亡动画在 style-fox.css 中定义 (.fox-container.state-dead)
 
 /* ---------- 神经元区域 ---------- */
 #neuron-area {
-  flex: 1;
-  background: var(--color-bg-neuron);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  border-bottom: 2px solid var(--color-border);
-  position: relative;  /* 为绝对定位子元素提供上下文 */
+	flex: 1;
+	background: var(--color-bg-neuron);
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	border-bottom: 2px solid var(--color-border);
+	position: relative;  /* 为绝对定位子元素提供上下文 */
 }
 
 #neuron-placeholder {
-  width: 90%;
-  height: 85%;
-  background: rgba(44, 62, 80, 0.5);
-  border: 2px dashed rgba(90, 122, 148, 0.5);
-  border-radius: 12px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  color: rgba(255, 255, 255, 0.6);
-  font-size: 14px;
+	width: 90%;
+	height: 85%;
+	background: rgba(44, 62, 80, 0.5);
+	border: 2px dashed rgba(90, 122, 148, 0.5);
+	border-radius: 12px;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	color: rgba(255, 255, 255, 0.6);
+	font-size: 14px;
 }
 
 .neuron-icon {
-  font-size: 48px;
-  margin-bottom: 12px;
-  opacity: 0.5;
+	font-size: 48px;
+	margin-bottom: 12px;
+	opacity: 0.5;
 }
 
 /* ---------- 控制区域 ---------- */
 #control-area {
-  flex: 0 0 auto;
-  min-height: 120px;
-  background: var(--sky-dark);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 50px;
-  padding: 15px 20px calc(15px + env(safe-area-inset-bottom, 0px));
+	flex: 0 0 auto;
+	min-height: 120px;
+	background: var(--sky-dark);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 50px;
+	padding: 15px 20px calc(15px + env(safe-area-inset-bottom, 0px));
 }
 
 .btn {
-  width: 100px;
-  height: 100px;
-  border: none;
-  border-radius: 50%;
-  font-size: 36px;
-  cursor: pointer;
-  user-select: none;
-  -webkit-tap-highlight-color: transparent;
-  position: relative;
-  transition: transform 0.05s;
+	width: 100px;
+	height: 100px;
+	border: none;
+	border-radius: 50%;
+	font-size: 36px;
+	cursor: pointer;
+	user-select: none;
+	-webkit-tap-highlight-color: transparent;
+	position: relative;
+	transition: transform 0.05s;
 }
 
 .btn:active {
-  transform: scale(0.92);
+	transform: scale(0.92);
 }
 
 .btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+	opacity: 0.5;
+	cursor: not-allowed;
 }
 
 .btn-label {
-  position: absolute;
-  bottom: -28px;
-  left: 50%;
-  transform: translateX(-50%);
-  font-size: 12px;
-  color: #888;
-  white-space: nowrap;
+	position: absolute;
+	bottom: -28px;
+	left: 50%;
+	transform: translateX(-50%);
+	font-size: 12px;
+	color: #888;
+	white-space: nowrap;
 }
 
 /* 右移按钮 */
 #btn-right {
-  background: var(--color-btn-right);
-  box-shadow: 0 8px 0 var(--color-btn-right-shadow), 0 10px 30px rgba(39, 174, 96, 0.4);
-  color: white;
+	background: var(--color-btn-right);
+	box-shadow: 0 8px 0 var(--color-btn-right-shadow), 0 10px 30px rgba(39, 174, 96, 0.4);
+	color: white;
 }
 
 #btn-right:active:not(:disabled) {
-  box-shadow: 0 4px 0 var(--color-btn-right-shadow), 0 5px 15px rgba(39, 174, 96, 0.4);
-  transform: translateY(4px) scale(0.92);
+	box-shadow: 0 4px 0 var(--color-btn-right-shadow), 0 5px 15px rgba(39, 174, 96, 0.4);
+	transform: translateY(4px) scale(0.92);
 }
 
 /* 跳跃按钮 */
 #btn-jump {
-  background: var(--color-btn-jump);
-  box-shadow: 0 8px 0 var(--color-btn-jump-shadow), 0 10px 30px rgba(243, 156, 18, 0.4);
-  color: white;
+	background: var(--color-btn-jump);
+	box-shadow: 0 8px 0 var(--color-btn-jump-shadow), 0 10px 30px rgba(243, 156, 18, 0.4);
+	color: white;
 }
 
 #btn-jump:active:not(:disabled) {
-  box-shadow: 0 4px 0 var(--color-btn-jump-shadow), 0 5px 15px rgba(243, 156, 18, 0.4);
-  transform: translateY(4px) scale(0.92);
+	box-shadow: 0 4px 0 var(--color-btn-jump-shadow), 0 5px 15px rgba(243, 156, 18, 0.4);
+	transform: translateY(4px) scale(0.92);
 }
 
 /* ---------- 开始游戏遮罩 ---------- */
 .game-overlay {
-  position: absolute;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.25);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1500;
-  opacity: 1;
-  transition: opacity 0.4s ease;
+	position: absolute;
+	inset: 0;
+	background: rgba(0, 0, 0, 0.25);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	z-index: 1500;
+	opacity: 1;
+	transition: opacity 0.4s ease;
 }
 
 .game-overlay.hidden {
-  opacity: 0;
-  pointer-events: none;
+	opacity: 0;
+	pointer-events: none;
 }
 
 .overlay-content {
-  text-align: center;
-  color: white;
+	text-align: center;
+	color: white;
 }
 
 .overlay-content h2 {
-  font-size: 18px;
-  margin-bottom: 24px;
-  text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+	font-size: 18px;
+	margin-bottom: 24px;
+	text-shadow: 0 2px 4px rgba(0,0,0,0.5);
 }
 
 .start-button {
-  padding: 16px 48px;
-  font-size: 18px;
-  font-weight: bold;
-  color: white;
-  background: linear-gradient(135deg, #27ae60 0%, #1e8449 100%);
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  box-shadow: 0 4px 15px rgba(39, 174, 96, 0.4);
-  transition: transform 0.1s, box-shadow 0.1s;
+	padding: 16px 48px;
+	font-size: 18px;
+	font-weight: bold;
+	color: white;
+	background: linear-gradient(135deg, #27ae60 0%, #1e8449 100%);
+	border: none;
+	border-radius: 8px;
+	cursor: pointer;
+	box-shadow: 0 4px 15px rgba(39, 174, 96, 0.4);
+	transition: transform 0.1s, box-shadow 0.1s;
 }
 
 .start-button:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(39, 174, 96, 0.5);
+	transform: translateY(-2px);
+	box-shadow: 0 6px 20px rgba(39, 174, 96, 0.5);
 }
 
 .start-button:active {
-  transform: translateY(0);
+	transform: translateY(0);
 }
 
 .overlay-hint {
-  margin-top: 16px;
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.6);
+	margin-top: 16px;
+	font-size: 12px;
+	color: rgba(255, 255, 255, 0.6);
 }
 
+/* 确保全屏引导在最上层 */
+#fs-guide-overlay {
+	cursor: pointer;
+	user-select: none;
+}
+
+#fs-guide-overlay .start-button {
+	pointer-events: none; /* 让点击穿透到遮罩本身，方便用户点哪里都能进入 */
+}
 文件: ./index.html
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="mobile-web-app-capable" content="yes">
-  <title>AI 神经元训练沙盘</title>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+	<meta name="apple-mobile-web-app-capable" content="yes">
+	<meta name="mobile-web-app-capable" content="yes">
+	<title>AI 神经元训练沙盘</title>
 </head>
 <body>
-  <!-- 游戏区域 -->
-  <div id="game-area">
-    <div id="game-info">
-      POS: <span id="pos-display">0</span> | 
-      GEN: <span id="gen-display">1</span>
-    </div>
-    <div id="status-text"></div>
-    <div id="game-world"></div>
-    
-    <!-- 开始游戏遮罩 -->
-    <div id="start-overlay" class="game-overlay">
-      <div class="overlay-content">
-        <h2>AI 神经元训练沙盘</h2>
-        <button id="start-btn" class="start-button">开始游戏</button>
-        <p class="overlay-hint">点击按钮开始挑战</p>
-      </div>
-    </div>
-  </div>
-  
-  <!-- 神经元区域 -->
-  <div id="neuron-area">
-    <div id="neuron-placeholder">
-      <div class="neuron-icon">🧠</div>
-      <div>[ 神经元网络区域 ]</div>
-      <div style="font-size: 12px; margin-top: 10px; opacity: 0.5;">等待 AI 接入控制...</div>
-    </div>
-  </div>
-  
-  <!-- 控制区域 -->
-  <div id="control-area">
-    <button class="btn" id="btn-right">
-      ▶
-      <span class="btn-label">移动 (x+1)</span>
-    </button>
-    <button class="btn" id="btn-jump">
-      ⬆
-      <span class="btn-label">跳跃 (x+2)</span>
-    </button>
-  </div>
+	<!-- 全屏引导遮罩（默认隐藏） -->
+	<div id="fs-guide-overlay" class="game-overlay hidden" style="z-index: 9999; background: rgba(0,0,0,0.85); backdrop-filter: blur(4px);">
+		<div class="overlay-content">
+			<div style="font-size: 40px; margin-bottom: 20px;">📱</div>
+			<h2 style="margin-bottom: 10px;">全屏模式已就绪</h2>
+			<p style="color: rgba(255,255,255,0.6); margin-bottom: 30px; font-size: 14px;">点击屏幕进入最佳体验环境</p>
+			<button class="start-button" style="background: linear-gradient(135deg, #3498db 0%, #2980b9 100%); box-shadow: 0 4px 15px rgba(52, 152, 219, 0.4);">
+			进入全屏
+			</button>
+		</div>
+	</div>
+	
+	<!-- 游戏区域 -->
+	<div id="game-area">
+		
+		<div id="game-info">
+			POS: <span id="pos-display">0</span> | 
+			GEN: <span id="gen-display">1</span>
+		</div>
+		<div id="status-text"></div>
+		<div id="game-world"></div>
+	
+	<!-- 开始游戏遮罩 -->
+	<div id="start-overlay" class="game-overlay">
+		<div class="overlay-content">
+		<h2>AI 神经元训练沙盘</h2>
+		<button id="start-btn" class="start-button">开始游戏</button>
+		<p class="overlay-hint">点击按钮开始挑战</p>
+		</div>
+	</div>
+	</div>
+	
+	<!-- 神经元区域 -->
+	<div id="neuron-area">
+	<div id="neuron-placeholder">
+		<div class="neuron-icon">🧠</div>
+		<div>[ 神经元网络区域 ]</div>
+		<div style="font-size: 12px; margin-top: 10px; opacity: 0.5;">等待 AI 接入控制...</div>
+	</div>
+	</div>
+	
+	<!-- 控制区域 -->
+	<div id="control-area">
+	<button class="btn" id="btn-right">
+		▶
+		<span class="btn-label">移动 (x+1)</span>
+	</button>
+	<button class="btn" id="btn-jump">
+		⬆
+		<span class="btn-label">跳跃 (x+2)</span>
+	</button>
+	</div>
 
-  <script type="module" src="/src/main.js"></script>
+	<script type="module" src="/src/main.js"></script>
 </body>
 </html>
 
@@ -3740,22 +3890,61 @@ body {
 import { resolve } from 'path'
 
 export default {
-  server: {
-    host: '0.0.0.0',
-    port: 4000
-  },
-  build: {
-    outDir: 'dist',
-    assetsDir: 'assets'
-  },
-  resolve: {
-    alias: {
-      '@game': resolve(__dirname, 'src/game'),
-      '@render': resolve(__dirname, 'src/render'),
-      '@ai': resolve(__dirname, 'src/ai'),
-      '@views': resolve(__dirname, 'src/views'),
-      '@utils': resolve(__dirname, 'src/utils')
-    }
-  }
+	server: {
+		host: '0.0.0.0',
+		port: 4000
+	},
+	build: {
+		outDir: 'dist',
+		assetsDir: 'assets'
+	},
+	resolve: {
+		alias: {
+			'@game': resolve(__dirname, 'src/game'),
+			'@render': resolve(__dirname, 'src/render'),
+			'@ai': resolve(__dirname, 'src/ai'),
+			'@views': resolve(__dirname, 'src/views'),
+			'@utils': resolve(__dirname, 'src/utils')
+		}
+	}
 }
+
+文件: ./eslint.config.js
+export default [
+	{
+		name: 'app-files',
+		files: ['**/*.js', '**/*.mjs'],
+		languageOptions: {
+			ecmaVersion: 'latest',
+			sourceType: 'module',
+			globals: {
+				document: 'readonly',
+				window: 'readonly',
+				console: 'readonly',
+				setInterval: 'readonly',
+				clearInterval: 'readonly',
+				localStorage: 'readonly',
+			},
+		},
+		rules: {
+			// 强制使用 tab 缩进
+			'indent': ['error', 'tab', { 'SwitchCase': 1 }],
+      
+			// 强制使用单引号
+			//'quotes': ['error', 'single'],
+      
+			// 强制分号
+			'semi': ['error', 'never'],
+      
+			// 禁止使用 var
+			'no-var': 'error',
+      
+			// 强制使用 const/let
+			'prefer-const': 'error',
+      
+			// 禁止 console（开发时可注释掉）
+			// 'no-console': 'warn',
+		},
+	},
+]
 

@@ -10,23 +10,25 @@
 <body>
 	<!-- 全屏引导遮罩（默认隐藏） -->
 	<div id="fs-guide-overlay" class="game-overlay hidden" style="z-index: 9999; background: rgba(0,0,0,0.85); backdrop-filter: blur(4px);">
-	<div class="overlay-content">
-		<div style="font-size: 40px; margin-bottom: 20px;">📱</div>
-		<h2 style="margin-bottom: 10px;">全屏模式已就绪</h2>
-		<p style="color: rgba(255,255,255,0.6); margin-bottom: 30px; font-size: 14px;">点击屏幕进入最佳体验环境</p>
-		<button class="start-button" style="background: linear-gradient(135deg, #3498db 0%, #2980b9 100%); box-shadow: 0 4px 15px rgba(52, 152, 219, 0.4);">
-		进入全屏
-		</button>
+		<div class="overlay-content">
+			<div style="font-size: 40px; margin-bottom: 20px;">📱</div>
+			<h2 style="margin-bottom: 10px;">全屏模式已就绪</h2>
+			<p style="color: rgba(255,255,255,0.6); margin-bottom: 30px; font-size: 14px;">点击屏幕进入最佳体验环境</p>
+			<button class="start-button" style="background: linear-gradient(135deg, #3498db 0%, #2980b9 100%); box-shadow: 0 4px 15px rgba(52, 152, 219, 0.4);">
+			进入全屏
+			</button>
+		</div>
 	</div>
-	</div>
+	
 	<!-- 游戏区域 -->
 	<div id="game-area">
-	<div id="game-info">
-		POS: <span id="pos-display">0</span> | 
-		GEN: <span id="gen-display">1</span>
-	</div>
-	<div id="status-text"></div>
-	<div id="game-world"></div>
+		
+		<div id="game-info">
+			POS: <span id="pos-display">0</span> | 
+			GEN: <span id="gen-display">1</span>
+		</div>
+		<div id="status-text"></div>
+		<div id="game-world"></div>
 	
 	<!-- 开始游戏遮罩 -->
 	<div id="start-overlay" class="game-overlay">
