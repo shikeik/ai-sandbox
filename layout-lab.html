@@ -130,10 +130,24 @@
         .c-card--control { height: 20%; background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
 
         /* ===== 抽屉组件 (Drawer) - 完全自包含 ===== */
-        .c-drawer {
+        .c-drawer-wrapper {
             position: fixed;
             top: 10px;
-            right: 10px;
+            right: 0px;
+            padding-right: 10px;
+            width: var(--drawer-w);
+            height: auto;
+            z-index: 1000;
+            pointer-events: none;  /* 关键：让点击穿透到下面的把手 */
+            will-change: transform;  /* 添加这一行 */
+        }
+        
+        .c-drawer-wrapper > * {
+            pointer-events: auto;  /* 抽屉内部恢复点击 */
+        }
+        
+        .c-drawer {
+            position: relative;
             width: var(--drawer-w);
             background: var(--color-surface-elevated);
             backdrop-filter: blur(10px);
@@ -144,7 +158,7 @@
         }
 
         .c-drawer--collapsed {
-            transform: translateX(calc(100% - 40px));
+            transform: translateX(100%);
         }
 
         .c-drawer__handle {
@@ -152,8 +166,8 @@
             left: 0;
             top: 50%;
             transform: translate(-100%, -50%);
-            width: 32px;
-            height: 50px;
+            width: 22px;
+            height: 40px;
             background: inherit;
             border-radius: var(--radius-sm) 0 0 var(--radius-sm);
             border: 1px solid var(--color-border);
@@ -713,8 +727,19 @@
             constructor() {
                 super('div', 'c-drawer');
                 this.#render();
+                
+                // 新增：创建 wrapper 并包裹 drawer
+                this.wrapper = document.createElement('div');
+                this.wrapper.className = 'c-drawer-wrapper';
+                this.wrapper.appendChild(this.element);
+    
                 this.#bindEvents();
                 this.#subscribe();
+            }
+            
+            mount(parent) {
+                parent.appendChild(this.wrapper);  // Drawer 特殊，挂载 wrapper
+                return this;
             }
 
             #render() {
@@ -1103,9 +1128,6 @@
                 
                 // 初始布局
                 this.#updateLayout();
-                
-                // 默认收起抽屉
-                setTimeout(() => this.#drawer.toggle(false), 500);
             }
 
             #bindBusEvents() {
