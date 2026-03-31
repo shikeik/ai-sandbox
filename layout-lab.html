@@ -114,6 +114,11 @@
             font-weight: 600;
             background: rgba(0,0,0,0.2);
             border-bottom: 1px solid var(--color-border);
+            transition: display 0.2s;
+        }
+
+        .c-card__header--hidden {
+            display: none !important;
         }
 
         .c-card__content {
@@ -292,6 +297,14 @@
             border-radius: var(--radius-md);
             position: relative;
             overflow: hidden;
+            transition: all 0.3s;
+        }
+
+        .c-game-simulator--hidden {
+            width: 100% !important;
+            height: 100% !important;
+            background: rgba(0,0,0,0.4) !important;  /* 保持深色背景，稍微加深 */
+            border-radius: 0 !important;  /* 去掉圆角 */
         }
 
         .c-fox {
@@ -442,7 +455,9 @@
         // ===== 全局配置 =====
         const CONFIG = {
             initialMargin: 0.00,
-            aspectRatio: 9 / 19.5  // 默认 iPhone 比例，可通过调试面板修改
+            aspectRatio: 9 / 19.5,  // 默认 iPhone 比例
+            showCardHeaders: true,   // 卡片标题显隐
+            showGameFrame: true      // 游戏区域圆角槽显隐
         };
 
         // ===== 1. 事件总线 (EventBus) - 核心解耦机制 =====
@@ -909,6 +924,19 @@
                             </div>
                         </div>
 
+                        <!-- 元素显隐控制 -->
+                        <div style="margin: 12px 0; padding: 10px; background: rgba(255,255,255,0.05); border-radius: 8px; border: 1px solid rgba(243,156,18,0.3);">
+                            <div style="font-size: 11px; color: rgba(255,255,255,0.6); margin-bottom: 8px;">🎨 元素显隐</div>
+                            <label style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; cursor: pointer;">
+                                <span style="font-size: 10px; color: #fff;">显示卡片标题</span>
+                                <input type="checkbox" id="toggle-headers" checked style="accent-color: #4ecdc4;">
+                            </label>
+                            <label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer;">
+                                <span style="font-size: 10px; color: #fff;">显示游戏内框</span>
+                                <input type="checkbox" id="toggle-gameframe" checked style="accent-color: #4ecdc4;">
+                            </label>
+                        </div>
+
                         <div class="c-info-panel" id="info-panel">
                             <div class="c-info-panel__row">
                                 <span class="c-info-panel__label">物理:</span>
@@ -995,6 +1023,24 @@
                         bus.emit('layout:update');
                     });
                 });
+
+                // 显隐控制复选框
+                const headerToggle = this.element.querySelector('#toggle-headers');
+                const gameFrameToggle = this.element.querySelector('#toggle-gameframe');
+
+                if (headerToggle) {
+                    headerToggle.addEventListener('change', (e) => {
+                        CONFIG.showCardHeaders = e.target.checked;
+                        bus.emit('ui:toggleHeaders', e.target.checked);
+                    });
+                }
+
+                if (gameFrameToggle) {
+                    gameFrameToggle.addEventListener('change', (e) => {
+                        CONFIG.showGameFrame = e.target.checked;
+                        bus.emit('ui:toggleGameFrame', e.target.checked);
+                    });
+                }
             }
 
             #subscribe() {
@@ -1351,6 +1397,20 @@
                 // 宽高比变化时更新布局
                 bus.on('layout:update', () => {
                     this.#updateLayout();
+                });
+
+                // UI 显隐控制
+                bus.on('ui:toggleHeaders', (show) => {
+                    document.querySelectorAll('.c-card__header').forEach(el => {
+                        el.classList.toggle('c-card__header--hidden', !show);
+                    });
+                });
+
+                bus.on('ui:toggleGameFrame', (show) => {
+                    const gameFrame = document.querySelector('.c-game-simulator');
+                    if (gameFrame) {
+                        gameFrame.classList.toggle('c-game-simulator--hidden', !show);
+                    }
                 });
             }
 
