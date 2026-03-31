@@ -3,9 +3,39 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Layout Lab - 虚拟手机布局系统</title>
+    <title>Layout Lab - 重构版</title>
     <style>
-        * {
+        /* ===== 设计令牌 (Design Tokens) ===== */
+        :root {
+            /* 颜色系统 */
+            --color-bg: #1a1a2e;
+            --color-surface: #0f0f1e;
+            --color-surface-elevated: rgba(0, 0, 0, 0.9);
+            --color-primary: #4ecdc4;
+            --color-secondary: #f39c12;
+            --color-success: #2ecc71;
+            --color-danger: #e74c3c;
+            --color-text: #ffffff;
+            --color-text-muted: rgba(255, 255, 255, 0.6);
+            --color-border: rgba(255, 255, 255, 0.1);
+            
+            /* 尺寸系统 */
+            --phone-w: 1080px;
+            --phone-h: 1920px;
+            --drawer-w: 220px;
+            --radius-sm: 8px;
+            --radius-md: 12px;
+            --radius-lg: 20px;
+            --radius-xl: 40px;
+            
+            /* 动画 */
+            --ease-out: cubic-bezier(0.4, 0, 0.2, 1);
+            --duration-fast: 0.2s;
+            --duration-normal: 0.3s;
+        }
+
+        /* ===== 重置与基础 ===== */
+        *, *::before, *::after {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
@@ -13,280 +43,314 @@
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #1a1a2e;
-            color: #fff;
+            background: var(--color-bg);
+            color: var(--color-text);
             overflow: hidden;
             height: 100vh;
             width: 100vw;
+            -webkit-tap-highlight-color: transparent;
         }
 
-        /* ========== 布局实验室控制面板 ========== */
-        #lab-controls {
-            position: fixed;
-            top: 10px;
-            right: 10px;
-            z-index: 10000;
-            background: rgba(0, 0, 0, 0.85);
-            backdrop-filter: blur(10px);
-            padding: 15px;
-            border-radius: 12px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            min-width: 200px;
-            max-height: 90vh;
-            overflow-y: auto;
+        /* ===== 布局层 (Layout Layer) ===== */
+        .l-app {
+            width: 100%;
+            height: 100%;
+            position: relative;
         }
 
-        #lab-controls h3 {
-            font-size: 14px;
-            margin-bottom: 5px;
-            color: #4ecdc4;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .mode-btn, .action-btn {
-            padding: 8px 12px;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            background: rgba(255, 255, 255, 0.1);
-            color: #fff;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 12px;
-            transition: all 0.2s;
-            text-align: left;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-
-        .mode-btn:hover, .action-btn:hover {
-            background: rgba(255, 255, 255, 0.2);
-        }
-
-        .mode-btn.active {
-            background: #4ecdc4;
-            color: #000;
-            border-color: #4ecdc4;
-        }
-
-        .action-btn {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            border: none;
-            font-weight: bold;
-            margin-top: 5px;
-        }
-
-        .action-btn:active {
-            transform: scale(0.95);
-        }
-
-        .action-btn.exit {
-            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-        }
-
-        .status-badge {
-            display: inline-block;
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: #e74c3c;
-            margin-left: 8px;
-        }
-
-        .status-badge.active {
-            background: #2ecc71;
-            box-shadow: 0 0 8px #2ecc71;
-        }
-
-        .info-panel {
-            margin-top: 10px;
-            padding-top: 10px;
-            border-top: 1px solid rgba(255, 255, 255, 0.1);
-            font-size: 11px;
-            color: rgba(255, 255, 255, 0.6);
-            font-family: monospace;
-        }
-
-        .warning-text {
-            color: #f39c12;
-            font-size: 10px;
-            margin-top: 5px;
-            line-height: 1.4;
-        }
-
-        /* ========== 物理容器（真实屏幕） ========== */
-        #physical-container {
-            width: 100vw;
-            height: 100vh;
+        .l-viewport {
+            width: 100%;
+            height: 100%;
             display: flex;
             align-items: center;
             justify-content: center;
             position: relative;
         }
 
-        /* ========== 虚拟手机（1080x1920） ========== */
-        #virtual-phone {
-            width: 1080px;
-            height: 1920px;
-            background: #0f0f1e;
+        /* ===== 虚拟手机组件 (VirtualPhone) ===== */
+        .c-virtual-phone {
+            width: var(--phone-w);
+            height: var(--phone-h);
+            background: var(--color-surface);
+            border-radius: var(--radius-xl);
             position: relative;
             overflow: hidden;
-            box-shadow: 0 0 100px rgba(0, 0, 0, 0.8);
-            transform-origin: center center;
-            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        /* PC 手机壳样式 */
-        .phone-frame {
-            border: 12px solid #2c3e50;
-            border-radius: 40px;
             box-shadow: 
-                0 0 0 2px #34495e,
-                0 20px 60px rgba(0, 0, 0, 0.6),
-                inset 0 0 20px rgba(0, 0, 0, 0.5);
+                0 0 0 2px rgba(255,255,255,0.1),
+                0 20px 60px rgba(0,0,0,0.6),
+                inset 0 0 40px rgba(0,0,0,0.3);
+            transform-origin: center center;
+            will-change: transform;
+            transition: transform var(--duration-normal) var(--ease-out);
         }
 
-        /* ========== 卡片布局系统 ========== */
-        #card-stack {
+        .c-virtual-phone--framed {
+            border: 12px solid #2c3e50;
+        }
+
+        /* ===== 卡片堆叠组件 (CardStack) ===== */
+        .c-card-stack {
             width: 100%;
             height: 100%;
             display: flex;
             flex-direction: column;
-            padding: 5%;  /* 10% margin 分摊到上下左右 */
-            gap: 3%;      /* 间隙 */
+            padding: 5%;
+            gap: 3%;
         }
 
-        .card {
+        .c-card {
             width: 100%;
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 20px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--color-border);
             position: relative;
             overflow: hidden;
             display: flex;
             flex-direction: column;
         }
 
-        /* 高度比例：35% / 35% / 20% （剩余10%是padding和gap） */
-        #card-debug { height: 35%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
-        #card-game { height: 35%; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
-        #card-control { height: 20%; background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
-
-        .card-header {
+        .c-card__header {
             padding: 20px 30px;
             font-size: 24px;
-            font-weight: bold;
-            background: rgba(0, 0, 0, 0.2);
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            font-weight: 600;
+            background: rgba(0,0,0,0.2);
+            border-bottom: 1px solid var(--color-border);
         }
 
-        .card-content {
+        .c-card__content {
             flex: 1;
             position: relative;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 32px;
-            color: rgba(255, 255, 255, 0.8);
         }
 
-        /* 模拟游戏画面 */
-        .game-simulator {
-            width: 90%;
-            height: 80%;
-            background: rgba(0, 0, 0, 0.3);
-            border-radius: 12px;
+        /* 卡片变体 - 高度比例 */
+        .c-card--debug { height: 35%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .c-card--game { height: 35%; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
+        .c-card--control { height: 20%; background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
+
+        /* ===== 抽屉组件 (Drawer) - 完全自包含 ===== */
+        .c-drawer {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            width: var(--drawer-w);
+            background: var(--color-surface-elevated);
+            backdrop-filter: blur(10px);
+            border-radius: var(--radius-md);
+            border: 1px solid var(--color-border);
+            z-index: 1000;
+            transition: transform var(--duration-normal) var(--ease-out);
+        }
+
+        .c-drawer--collapsed {
+            transform: translateX(calc(100% - 40px));
+        }
+
+        .c-drawer__handle {
+            position: absolute;
+            left: 0;
+            top: 50%;
+            transform: translate(-100%, -50%);
+            width: 32px;
+            height: 50px;
+            background: inherit;
+            border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+            border: 1px solid var(--color-border);
+            border-right: none;
+            cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
+            color: var(--color-primary);
+            transition: background var(--duration-fast);
+        }
+
+        .c-drawer__handle:hover {
+            background: rgba(255,255,255,0.1);
+        }
+
+        .c-drawer__handle-icon {
+            transition: transform var(--duration-normal) var(--ease-out);
+            font-size: 12px;
+        }
+
+        .c-drawer--collapsed .c-drawer__handle-icon {
+            transform: rotate(180deg);
+        }
+
+        .c-drawer__content {
+            padding: 15px;
+            opacity: 1;
+            transition: opacity var(--duration-fast);
+        }
+
+        .c-drawer--collapsed .c-drawer__content {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        /* ===== 按钮组件 (Button) ===== */
+        .c-btn {
+            width: 100%;
+            padding: 10px 12px;
+            margin-bottom: 8px;
+            border: 1px solid var(--color-border);
+            background: rgba(255,255,255,0.1);
+            color: var(--color-text);
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            font-size: 12px;
+            transition: all var(--duration-fast);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .c-btn:hover {
+            background: rgba(255,255,255,0.15);
+            border-color: rgba(255,255,255,0.2);
+        }
+
+        .c-btn--primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            font-weight: 600;
+        }
+
+        .c-btn--primary:hover {
+            filter: brightness(1.1);
+        }
+
+        .c-btn--danger {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            border: none;
+        }
+
+        .c-status-badge {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--color-danger);
+            transition: background var(--duration-fast);
+        }
+
+        .c-status-badge--active {
+            background: var(--color-success);
+            box-shadow: 0 0 8px var(--color-success);
+        }
+
+        /* ===== 信息面板组件 (InfoPanel) ===== */
+        .c-info-panel {
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid var(--color-border);
+            font-size: 11px;
+            color: var(--color-text-muted);
+            font-family: monospace;
+            line-height: 1.6;
+        }
+
+        .c-info-panel__row {
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .c-info-panel__label {
+            color: var(--color-text-muted);
+        }
+
+        .c-info-panel__value {
+            color: var(--color-primary);
+        }
+
+        /* ===== 游戏模拟组件 (GameSimulator) ===== */
+        .c-game-simulator {
+            width: 90%;
+            height: 80%;
+            background: rgba(0,0,0,0.3);
+            border-radius: var(--radius-md);
             position: relative;
             overflow: hidden;
         }
 
-        .fox-avatar {
+        .c-fox {
             width: 80px;
             height: 80px;
             background: #e67e22;
             border-radius: 50%;
             position: absolute;
-            transition: all 0.3s;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
             display: flex;
             align-items: center;
             justify-content: center;
             font-size: 40px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            cursor: pointer;
+            user-select: none;
         }
 
-        /* 模拟神经网络可视化 */
-        .neuron-grid {
+        .c-fox--jumping {
+            animation: fox-jump 0.3s ease;
+        }
+
+        @keyframes fox-jump {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-50px); }
+        }
+
+        .c-control-grid {
+            display: flex;
+            gap: 40px;
+        }
+
+        .c-control-btn {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.15);
+            border: 2px solid rgba(255,255,255,0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+            cursor: pointer;
+            transition: transform 0.1s;
+            user-select: none;
+        }
+
+        .c-control-btn:active {
+            transform: scale(0.9);
+            background: rgba(255,255,255,0.25);
+        }
+
+        /* ===== 神经元可视化组件 (NeuronVisualizer) ===== */
+        .c-neuron-grid {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
             gap: 20px;
             width: 80%;
         }
 
-        .neuron-node {
+        .c-neuron-node {
             aspect-ratio: 1;
-            background: rgba(255, 255, 255, 0.2);
+            background: rgba(255,255,255,0.15);
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
             font-size: 20px;
-            animation: pulse 2s infinite;
+            animation: neuron-pulse 2s infinite;
+            border: 2px solid rgba(255,255,255,0.1);
         }
 
-        @keyframes pulse {
+        @keyframes neuron-pulse {
             0%, 100% { transform: scale(1); opacity: 0.6; }
             50% { transform: scale(1.1); opacity: 1; }
         }
 
-        /* 控制按钮模拟 */
-        .control-grid {
-            display: flex;
-            gap: 40px;
-        }
-
-        .control-btn {
-            width: 120px;
-            height: 120px;
-            border-radius: 50%;
-            background: rgba(255, 255, 255, 0.2);
-            border: 2px solid rgba(255, 255, 255, 0.4);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 40px;
-            cursor: pointer;
-            transition: transform 0.1s;
-            user-select: none;
-        }
-
-        .control-btn:active {
-            transform: scale(0.9);
-            background: rgba(255, 255, 255, 0.3);
-        }
-
-        /* 方向指示器 */
-        #orientation-indicator {
-            position: fixed;
-            top: 10px;
-            left: 10px;
-            background: rgba(0, 0, 0, 0.8);
-            padding: 10px 15px;
-            border-radius: 8px;
-            font-size: 12px;
-            font-family: monospace;
-            z-index: 10000;
-            color: #4ecdc4;
-        }
-
-        /* 触摸测试点 */
-        .touch-dot {
+        /* ===== 触摸指示器 (TouchIndicator) ===== */
+        .c-touch-dot {
             position: absolute;
             width: 40px;
             height: 40px;
@@ -295,589 +359,832 @@
             pointer-events: none;
             transform: translate(-50%, -50%);
             z-index: 1000;
-            animation: fadeOut 1s forwards;
+            animation: touch-fade 1s forwards;
         }
 
-        @keyframes fadeOut {
+        @keyframes touch-fade {
             to { opacity: 0; transform: translate(-50%, -50%) scale(2); }
         }
 
-        /* 全屏按钮特殊样式 */
-        #fullscreen-btn {
-            position: relative;
-            overflow: hidden;
+        /* ===== 警告提示 (Alert) ===== */
+        .c-alert {
+            margin-top: 10px;
+            padding: 8px;
+            background: rgba(243, 156, 18, 0.2);
+            border: 1px solid rgba(243, 156, 18, 0.3);
+            border-radius: var(--radius-sm);
+            font-size: 10px;
+            color: #f39c12;
+            line-height: 1.4;
         }
 
-        #fullscreen-btn::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
-            transition: left 0.5s;
+        .c-alert--hidden {
+            display: none;
         }
 
-        #fullscreen-btn:hover::before {
-            left: 100%;
-        }
+        /* ===== 工具类 (Utilities) ===== */
+        .u-text-center { text-align: center; }
+        .u-text-muted { color: var(--color-text-muted); }
+        .u-text-small { font-size: 0.85em; }
+        .u-mt-sm { margin-top: 8px; }
+        .u-hidden { display: none !important; }
     </style>
 </head>
 <body>
-
-    <!-- 方向指示器 -->
-    <div id="orientation-indicator">
-        <div>物理: <span id="phys-size">-</span></div>
-        <div>逻辑: <span id="logic-size">1080x1920</span></div>
-        <div>模式: <span id="current-mode">-</span></div>
-        <div>缩放: <span id="scale-ratio">-</span></div>
-        <div>全屏: <span id="fullscreen-status">❌ 未全屏</span></div>
-    </div>
-
-    <!-- 实验室控制面板 -->
-    <div id="lab-controls">
-        <h3>🧪 布局实验室</h3>
-        
-        <!-- 全屏控制按钮 -->
-        <button class="action-btn" id="fullscreen-btn" onclick="fullscreenManager.toggle()">
-            <span>🖥️ 进入全屏</span>
-            <span class="status-badge" id="fs-badge"></span>
-        </button>
-        <button class="action-btn exit hidden" id="exit-fs-btn" onclick="fullscreenManager.exit()" style="display: none;">
-            <span>❌ 退出全屏</span>
-        </button>
-        
-        <div class="warning-text" id="fs-warning">
-            提示：iOS Safari 不支持全屏 API，请使用"添加到主屏幕"获得类似体验
+    <div id="app" class="l-app">
+        <!-- 视口层 -->
+        <div class="l-viewport" id="viewport">
+            <!-- 虚拟手机由 JS 动态创建和管理 -->
         </div>
 
-        <div style="height: 1px; background: rgba(255,255,255,0.1); margin: 10px 0;"></div>
-
-        <button class="mode-btn active" onclick="layoutEngine.setMode('auto')">自动检测</button>
-        <button class="mode-btn" onclick="layoutEngine.setMode('portrait')">强制竖屏</button>
-        <button class="mode-btn" onclick="layoutEngine.setMode('landscape')">强制横屏(旋转)</button>
-        <button class="mode-btn" onclick="layoutEngine.setMode('desktop')">PC手机壳</button>
-        
-        <div class="info-panel">
-            <div>点击卡片测试坐标转换</div>
-            <div>黄色圆点 = 触摸位置</div>
-            <div style="margin-top: 8px; color: #4ecdc4;">全屏后自动锁定竖屏</div>
-        </div>
+        <!-- 抽屉由 JS 动态创建 -->
     </div>
 
-    <!-- 物理容器 -->
-    <div id="physical-container">
-        <!-- 虚拟手机（1080x1920 逻辑像素） -->
-        <div id="virtual-phone" class="phone-frame">
-            <div id="card-stack">
-                
-                <!-- 卡片1: 调试/神经元区域 (35%) -->
-                <div id="card-debug" class="card">
-                    <div class="card-header">🧠 神经网络可视化 (35%)</div>
-                    <div class="card-content">
-                        <div class="neuron-grid">
-                            <div class="neuron-node">N1</div>
-                            <div class="neuron-node">N2</div>
-                            <div class="neuron-node">N3</div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- 卡片2: 游戏区域 (35%) -->
-                <div id="card-game" class="card">
-                    <div class="card-header">🎮 游戏区域 (35%)</div>
-                    <div class="card-content">
-                        <div class="game-simulator" id="game-area">
-                            <div class="fox-avatar" id="fox">🦊</div>
-                            <div style="position: absolute; bottom: 20px; color: rgba(255,255,255,0.5); font-size: 18px;">
-                                点击移动狐狸 | 双指拖动切换视图
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- 卡片3: 控制区域 (20%) -->
-                <div id="card-control" class="card">
-                    <div class="card-header">🎮 操作控制 (20%)</div>
-                    <div class="card-content">
-                        <div class="control-grid">
-                            <div class="control-btn" onclick="gameLogic.move('left')">⬅️</div>
-                            <div class="control-btn" onclick="gameLogic.jump()">⬆️</div>
-                            <div class="control-btn" onclick="gameLogic.move('right')">➡️</div>
-                        </div>
-                    </div>
-                </div>
-
-            </div>
-        </div>
-    </div>
-
-    <script>
+    <script type="module">
         /**
-         * 全屏管理器 - FullscreenManager
-         * 处理跨浏览器全屏 API 和屏幕方向锁定
+         * @typedef {Object} LayoutConfig
+         * @property {number} virtualWidth
+         * @property {number} virtualHeight
+         * @property {number} margin
          */
-        class FullscreenManager {
-            constructor() {
-                this.isFullscreen = false;
-                this.isSupported = this.checkSupport();
-                this.init();
+
+        /**
+         * @typedef {Object} TransformResult
+         * @property {number} scale
+         * @property {number} rotation
+         * @property {string} mode
+         */
+
+        /**
+         * @typedef {'auto'|'portrait'|'landscape'|'desktop'} LayoutMode
+         */
+
+        // ===== 1. 事件总线 (EventBus) - 核心解耦机制 =====
+        
+        class EventBus {
+            /** @type {Map<string, Set<Function>>} */
+            #events = new Map();
+
+            /**
+             * @param {string} event
+             * @param {Function} callback
+             * @returns {Function} unsubscribe
+             */
+            on(event, callback) {
+                if (!this.#events.has(event)) {
+                    this.#events.set(event, new Set());
+                }
+                this.#events.get(event).add(callback);
+                
+                return () => this.off(event, callback);
             }
 
-            init() {
-                // 监听全屏状态变化
-                const events = ['fullscreenchange', 'webkitfullscreenchange', 'mozfullscreenchange', 'MSFullscreenChange'];
-                events.forEach(event => {
-                    document.addEventListener(event, () => this.onChange(), false);
+            /**
+             * @param {string} event
+             * @param {Function} callback
+             */
+            off(event, callback) {
+                this.#events.get(event)?.delete(callback);
+            }
+
+            /**
+             * @param {string} event
+             * @param {*} data
+             */
+            emit(event, data) {
+                this.#events.get(event)?.forEach(cb => {
+                    try {
+                        cb(data);
+                    } catch (err) {
+                        console.error(`Event handler error for ${event}:`, err);
+                    }
                 });
-
-                // 更新 UI
-                this.updateUI();
-            }
-
-            checkSupport() {
-                const doc = document.documentElement;
-                return !!(
-                    doc.requestFullscreen ||
-                    doc.webkitRequestFullscreen ||
-                    doc.mozRequestFullScreen ||
-                    doc.msRequestFullscreen
-                );
-            }
-
-            /**
-             * 进入全屏（跨浏览器兼容）
-             */
-            async enter() {
-                const doc = document.documentElement;
-                
-                try {
-                    if (doc.requestFullscreen) {
-                        await doc.requestFullscreen();
-                    } else if (doc.webkitRequestFullscreen) {
-                        await doc.webkitRequestFullscreen(Element.ALLOW_KEYBOARD_INPUT);
-                    } else if (doc.mozRequestFullScreen) {
-                        await doc.mozRequestFullScreen();
-                    } else if (doc.msRequestFullscreen) {
-                        await doc.msRequestFullscreen();
-                    } else {
-                        throw new Error('Fullscreen API not supported');
-                    }
-
-                    // 全屏成功后尝试锁定竖屏
-                    setTimeout(() => this.lockOrientation(), 100);
-                    
-                } catch (err) {
-                    console.warn('进入全屏失败:', err);
-                    alert('进入全屏失败，请确保是通过点击按钮触发');
-                }
-            }
-
-            /**
-             * 退出全屏
-             */
-            async exit() {
-                try {
-                    if (document.exitFullscreen) {
-                        await document.exitFullscreen();
-                    } else if (document.webkitExitFullscreen) {
-                        await document.webkitExitFullscreen();
-                    } else if (document.mozCancelFullScreen) {
-                        await document.mozCancelFullScreen();
-                    } else if (document.msExitFullscreen) {
-                        await document.msExitFullscreen();
-                    }
-                } catch (err) {
-                    console.warn('退出全屏失败:', err);
-                }
-            }
-
-            toggle() {
-                if (this.isFullscreen) {
-                    this.exit();
-                } else {
-                    this.enter();
-                }
-            }
-
-            /**
-             * 锁定屏幕方向为竖屏（必须在全屏后调用）
-             */
-            async lockOrientation() {
-                try {
-                    if (screen.orientation && screen.orientation.lock) {
-                        await screen.orientation.lock('portrait-primary');
-                        console.log('✅ 屏幕方向已锁定为竖屏');
-                    } else if (screen.lockOrientation) {
-                        // 旧版 API
-                        screen.lockOrientation('portrait-primary');
-                    } else if (screen.webkitLockOrientation) {
-                        screen.webkitLockOrientation('portrait-primary');
-                    } else if (screen.mozLockOrientation) {
-                        screen.mozLockOrientation('portrait-primary');
-                    } else if (screen.msLockOrientation) {
-                        screen.msLockOrientation('portrait-primary');
-                    } else {
-                        console.warn('屏幕方向锁定不支持');
-                    }
-                } catch (err) {
-                    console.warn('锁定屏幕方向失败:', err);
-                }
-            }
-
-            /**
-             * 解锁屏幕方向
-             */
-            unlockOrientation() {
-                try {
-                    if (screen.orientation && screen.orientation.unlock) {
-                        screen.orientation.unlock();
-                    } else if (screen.unlockOrientation) {
-                        screen.unlockOrientation();
-                    } else if (screen.webkitUnlockOrientation) {
-                        screen.webkitUnlockOrientation();
-                    } else if (screen.mozUnlockOrientation) {
-                        screen.mozUnlockOrientation();
-                    } else if (screen.msUnlockOrientation) {
-                        screen.msUnlockOrientation();
-                    }
-                } catch (err) {
-                    console.warn('解锁屏幕方向失败:', err);
-                }
-            }
-
-            onChange() {
-                const fullscreenElement = 
-                    document.fullscreenElement ||
-                    document.webkitFullscreenElement ||
-                    document.mozFullScreenElement ||
-                    document.msFullscreenElement;
-
-                this.isFullscreen = !!fullscreenElement;
-                this.updateUI();
-                
-                // 通知布局引擎重新计算
-                if (layoutEngine) {
-                    setTimeout(() => layoutEngine.handleFullscreenChange(this.isFullscreen), 100);
-                }
-
-                // 如果退出全屏，解锁方向
-                if (!this.isFullscreen) {
-                    this.unlockOrientation();
-                }
-            }
-
-            updateUI() {
-                const enterBtn = document.getElementById('fullscreen-btn');
-                const exitBtn = document.getElementById('exit-fs-btn');
-                const badge = document.getElementById('fs-badge');
-                const status = document.getElementById('fullscreen-status');
-                const warning = document.getElementById('fs-warning');
-
-                if (this.isFullscreen) {
-                    enterBtn.style.display = 'none';
-                    exitBtn.style.display = 'flex';
-                    badge.classList.add('active');
-                    status.innerHTML = '✅ 已全屏';
-                    status.style.color = '#2ecc71';
-                } else {
-                    enterBtn.style.display = 'flex';
-                    exitBtn.style.display = 'none';
-                    badge.classList.remove('active');
-                    status.innerHTML = '❌ 未全屏';
-                    status.style.color = '#e74c3c';
-                }
-
-                // iOS 警告
-                const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-                if (isIOS) {
-                    warning.style.display = 'block';
-                    warning.textContent = 'iOS 不支持全屏 API，请使用"添加到主屏幕"并从中打开以获得全屏体验';
-                } else if (!this.isSupported) {
-                    warning.style.display = 'block';
-                    warning.textContent = '您的浏览器不支持全屏 API';
-                } else {
-                    warning.style.display = 'none';
-                }
             }
         }
 
+        const bus = new EventBus();
+
+        // ===== 2. 领域服务 (Domain Services) =====
+
         /**
-         * 布局引擎 - LayoutEngine
-         * 核心职责：将物理屏幕适配到 1080x1920 虚拟手机
+         * 布局计算服务 - 纯数学，无DOM操作
          */
-        class LayoutEngine {
-            constructor() {
-                this.virtualWidth = 1080;
-                this.virtualHeight = 1920;
-                this.mode = 'auto';
-                this.physWidth = window.innerWidth;
-                this.physHeight = window.innerHeight;
-                this.isFullscreen = false;
-                
-                this.els = {
-                    phone: document.getElementById('virtual-phone'),
-                    container: document.getElementById('physical-container'),
-                    indicator: {
-                        phys: document.getElementById('phys-size'),
-                        logic: document.getElementById('logic-size'),
-                        mode: document.getElementById('current-mode'),
-                        scale: document.getElementById('scale-ratio')
-                    }
-                };
-
-                this.init();
-            }
-
-            init() {
-                this.detect();
-                this.bindEvents();
-                this.setupInputTransformation();
-            }
-
-            bindEvents() {
-                window.addEventListener('resize', () => {
-                    this.physWidth = window.innerWidth;
-                    this.physHeight = window.innerHeight;
-                    if (this.mode === 'auto') this.detect();
-                    else this.applyMode(this.mode);
-                });
-
-                window.addEventListener('orientationchange', () => {
-                    setTimeout(() => {
-                        this.physWidth = window.innerWidth;
-                        this.physHeight = window.innerHeight;
-                        if (this.mode === 'auto') this.detect();
-                    }, 300); // iOS 需要更长的延迟
-                });
-            }
-
-            handleFullscreenChange(isFullscreen) {
-                this.isFullscreen = isFullscreen;
-                // 全屏变化后重新检测布局
-                setTimeout(() => {
-                    this.physWidth = window.innerWidth;
-                    this.physHeight = window.innerHeight;
-                    if (this.mode === 'auto') this.detect();
-                    else this.applyMode(this.mode);
-                }, 100);
-            }
+        class LayoutService {
+            /** @type {LayoutConfig} */
+            #config = {
+                virtualWidth: 1080,
+                virtualHeight: 1920,
+                margin: 0.05
+            };
 
             /**
-             * 自动检测设备类型和方向
+             * 计算布局变换参数
+             * @param {number} physWidth
+             * @param {number} physHeight
+             * @param {LayoutMode} mode
+             * @returns {TransformResult}
              */
-            detect() {
-                const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-                const isLandscape = this.physWidth > this.physHeight;
+            calculate(physWidth, physHeight, mode) {
+                const { virtualWidth: vw, virtualHeight: vh } = this.#config;
+                const isPhysLandscape = physWidth > physHeight;
                 
-                // 全屏模式下的特殊处理
-                if (this.isFullscreen && isLandscape) {
-                    // 全屏时如果是横屏，使用旋转模式
-                    this.applyMode('landscape');
-                    return;
-                }
+                let scale, rotation, finalMode;
 
-                if (!isMobile && this.physWidth > 1024) {
-                    this.applyMode('desktop');
-                } else if (isLandscape) {
-                    this.applyMode('landscape');
-                } else {
-                    this.applyMode('portrait');
-                }
-            }
-
-            setMode(mode) {
-                this.mode = mode;
-                
-                // 更新按钮状态
-                document.querySelectorAll('.mode-btn').forEach(btn => {
-                    btn.classList.remove('active');
-                    if (btn.textContent.includes(this.getModeLabel(mode))) {
-                        btn.classList.add('active');
-                    }
-                });
-                
-                this.applyMode(mode);
-            }
-
-            getModeLabel(mode) {
-                const labels = {
-                    'auto': '自动',
-                    'portrait': '竖屏',
-                    'landscape': '横屏',
-                    'desktop': 'PC'
-                };
-                return labels[mode] || mode;
-            }
-
-            /**
-             * 应用特定模式
-             */
-            applyMode(mode) {
-                const phone = this.els.phone;
-                
-                this.els.indicator.mode.textContent = mode.toUpperCase();
-                this.els.indicator.phys.textContent = `${this.physWidth}x${this.physHeight}`;
-
-                switch(mode) {
-                    case 'portrait':
-                        this.applyPortrait(phone);
+                switch (mode) {
+                    case 'desktop':
+                        scale = (physWidth * 0.4) / vw;
+                        rotation = 0;
+                        finalMode = 'desktop';
                         break;
                     
                     case 'landscape':
-                        this.applyLandscape(phone);
+                        scale = Math.min(physHeight / vw, physWidth / vh) * 0.95;
+                        rotation = -90;
+                        finalMode = 'landscape';
                         break;
                     
-                    case 'desktop':
-                        this.applyDesktop(phone);
+                    case 'portrait':
+                        scale = Math.min(physWidth / vw, physHeight / vh) * 0.95;
+                        rotation = 0;
+                        finalMode = 'portrait';
                         break;
                     
+                    case 'auto':
                     default:
-                        this.detect();
+                        if (!this.#isMobile() && physWidth > 1024) {
+                            scale = (physWidth * 0.4) / vw;
+                            rotation = 0;
+                            finalMode = 'desktop';
+                        } else if (isPhysLandscape) {
+                            scale = Math.min(physHeight / vw, physWidth / vh) * 0.95;
+                            rotation = -90;
+                            finalMode = 'landscape';
+                        } else {
+                            scale = Math.min(physWidth / vw, physHeight / vh) * 0.95;
+                            rotation = 0;
+                            finalMode = 'portrait';
+                        }
                 }
-            }
 
-            applyPortrait(phone) {
-                // 计算缩放：让虚拟手机高度填满物理屏幕的 95%
-                const scale = Math.min(
-                    this.physWidth / this.virtualWidth,
-                    this.physHeight / this.virtualHeight
-                ) * 0.95;
-
-                phone.style.transform = `scale(${scale})`;
-                phone.className = 'phone-frame';
-                
-                this.els.indicator.scale.textContent = `${(scale*100).toFixed(1)}%`;
-                this.currentTransform = { scale, rotate: 0 };
-            }
-
-            applyLandscape(phone) {
-                // 物理横屏但显示竖屏内容：旋转90度
-                const scale = Math.min(
-                    this.physHeight / this.virtualWidth,
-                    this.physWidth / this.virtualHeight
-                ) * 0.95;
-
-                // rotate(90deg) 让竖屏内容在横屏上显示
-                phone.style.transform = `rotate(90deg) scale(${scale})`;
-                phone.className = 'phone-frame rotated-mode';
-                
-                this.els.indicator.scale.textContent = `${(scale*100).toFixed(1)}% (rotated)`;
-                this.currentTransform = { scale, rotate: 90 };
-            }
-
-            applyDesktop(phone) {
-                // PC端：居中显示手机壳
-                const maxWidth = this.physWidth * 0.4;
-                const scale = maxWidth / this.virtualWidth;
-                
-                phone.style.transform = `scale(${scale})`;
-                phone.className = 'phone-frame desktop-mode';
-                
-                this.els.indicator.scale.textContent = `${(scale*100).toFixed(1)}% (desktop)`;
-                this.currentTransform = { scale, rotate: 0 };
+                return { scale, rotation, mode: finalMode };
             }
 
             /**
-             * 设置输入坐标转换
+             * 坐标转换：物理屏幕 → 虚拟手机逻辑坐标
+             * @param {number} clientX
+             * @param {number} clientY
+             * @param {DOMRect} rect
+             * @param {TransformResult} transform
+             * @returns {{x: number, y: number}}
              */
-            setupInputTransformation() {
-                const cards = document.querySelectorAll('.card');
-                cards.forEach(card => {
-                    card.addEventListener('touchstart', (e) => this.handleInput(e), {passive: false});
-                    card.addEventListener('click', (e) => this.handleInput(e));
-                });
-
-                const gameArea = document.getElementById('game-area');
-                gameArea.addEventListener('touchstart', (e) => {
-                    e.preventDefault();
-                    const touch = e.touches[0];
-                    const logicPos = this.transformCoordinates(touch.clientX, touch.clientY);
-                    this.showTouchIndicator(logicPos.x, logicPos.y);
-                    gameLogic.moveTo(logicPos.x, logicPos.y);
-                });
-            }
-
-            transformCoordinates(clientX, clientY) {
-                const phone = this.els.phone;
-                const rect = phone.getBoundingClientRect();
-                
+            toVirtualCoordinates(clientX, clientY, rect, transform) {
                 let x = clientX - rect.left;
                 let y = clientY - rect.top;
-                
-                if (this.currentTransform?.rotate === 90) {
+
+                // 如果有旋转，需要逆向旋转坐标
+                if (transform.rotation === -90) {
                     const centerX = rect.width / 2;
                     const centerY = rect.height / 2;
                     const dx = x - centerX;
                     const dy = y - centerY;
-                    const newDx = dy;
-                    const newDy = -dx;
+                    // 逆旋转 -90 度
+                    const newDx = -dy;
+                    const newDy = dx;
                     x = centerX + newDx;
                     y = centerY + newDy;
                 }
-                
-                const scale = this.currentTransform?.scale || 1;
-                x = x / scale;
-                y = y / scale;
-                
-                return { x, y };
+
+                x = x / transform.scale;
+                y = y / transform.scale;
+
+                return {
+                    x: Math.max(0, Math.min(1080, x)),
+                    y: Math.max(0, Math.min(1920, y))
+                };
             }
 
-            showTouchIndicator(x, y) {
-                const dot = document.createElement('div');
-                dot.className = 'touch-dot';
-                dot.style.left = x + 'px';
-                dot.style.top = y + 'px';
-                document.getElementById('virtual-phone').appendChild(dot);
-                setTimeout(() => dot.remove(), 1000);
-            }
-
-            handleInput(e) {
-                if (e.type === 'touchstart') e.preventDefault();
+            #isMobile() {
+                return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
             }
         }
 
         /**
-         * 游戏逻辑模拟
+         * 全屏服务 - 封装浏览器差异
          */
-        const gameLogic = {
-            fox: document.getElementById('fox'),
+        class FullscreenService {
+            /**
+             * @returns {boolean}
+             */
+            isSupported() {
+                const el = document.documentElement;
+                return !!(el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen);
+            }
+
+            /**
+             * @returns {Promise<void>}
+             */
+            async enter() {
+                const el = document.documentElement;
+                try {
+                    if (el.requestFullscreen) await el.requestFullscreen();
+                    else if (el.webkitRequestFullscreen) await el.webkitRequestFullscreen();
+                    else if (el.mozRequestFullScreen) await el.mozRequestFullScreen();
+                    else if (el.msRequestFullscreen) await el.msRequestFullscreen();
+                } catch (err) {
+                    throw new Error(`Fullscreen failed: ${err.message}`);
+                }
+            }
+
+            /**
+             * @returns {Promise<void>}
+             */
+            async exit() {
+                try {
+                    if (document.exitFullscreen) await document.exitFullscreen();
+                    else if (document.webkitExitFullscreen) await document.webkitExitFullscreen();
+                    else if (document.mozCancelFullScreen) await document.mozCancelFullScreen();
+                    else if (document.msExitFullscreen) await document.msExitFullscreen();
+                } catch (err) {
+                    throw new Error(`Exit fullscreen failed: ${err.message}`);
+                }
+            }
+
+            /**
+             * @returns {boolean}
+             */
+            isActive() {
+                return !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement);
+            }
+
+            /**
+             * @param {Function} callback
+             */
+            onChange(callback) {
+                ['fullscreenchange', 'webkitfullscreenchange', 'mozfullscreenchange', 'MSFullscreenChange']
+                    .forEach(evt => document.addEventListener(evt, callback));
+            }
+        }
+
+        /**
+         * 屏幕方向服务
+         */
+        class OrientationService {
+            /**
+             * @returns {boolean}
+             */
+            isSupported() {
+                return !!(screen.orientation?.lock || screen.lockOrientation || screen.webkitLockOrientation);
+            }
+
+            /**
+             * @returns {Promise<void>}
+             */
+            async lockPortrait() {
+                try {
+                    if (screen.orientation?.lock) {
+                        await screen.orientation.lock('portrait-primary');
+                    } else if (screen.lockOrientation) {
+                        screen.lockOrientation('portrait-primary');
+                    } else if (screen.webkitLockOrientation) {
+                        screen.webkitLockOrientation('portrait-primary');
+                    }
+                } catch (err) {
+                    console.warn('Orientation lock failed:', err);
+                }
+            }
+
+            /**
+             * @returns {void}
+             */
+            unlock() {
+                try {
+                    if (screen.orientation?.unlock) screen.orientation.unlock();
+                    else if (screen.unlockOrientation) screen.unlockOrientation();
+                } catch (err) {
+                    console.warn('Orientation unlock failed:', err);
+                }
+            }
+        }
+
+        // ===== 3. UI 组件基类与具体实现 =====
+
+        /**
+         * 组件基类
+         */
+        class Component {
+            /** @type {HTMLElement} */
+            element = null;
             
-            moveTo(x, y) {
-                const gameArea = document.getElementById('game-area');
-                const relX = (x / 1080) * 100;
-                const relY = (y / 1920) * 100;
+            /**
+             * @param {string} tag
+             * @param {string} className
+             */
+            constructor(tag = 'div', className = '') {
+                this.element = document.createElement(tag);
+                if (className) this.element.className = className;
+            }
+
+            /**
+             * @param {HTMLElement} parent
+             * @returns {this}
+             */
+            mount(parent) {
+                parent.appendChild(this.element);
+                return this;
+            }
+
+            /**
+             * @returns {void}
+             */
+            destroy() {
+                this.element?.remove();
+            }
+        }
+
+        /**
+         * 抽屉组件 - 完全自包含
+         */
+        class Drawer extends Component {
+            /** @type {boolean} */
+            #isOpen = true;
+            /** @type {Function} */
+            #unsubscribe = null;
+
+            constructor() {
+                super('div', 'c-drawer');
+                this.#render();
+                this.#bindEvents();
+                this.#subscribe();
+            }
+
+            #render() {
+                this.element.innerHTML = `
+                    <div class="c-drawer__handle" data-action="toggle">
+                        <span class="c-drawer__handle-icon">◀</span>
+                    </div>
+                    <div class="c-drawer__content">
+                        <h3 style="font-size: 14px; margin-bottom: 12px; color: var(--color-primary);">
+                            🧪 布局实验室
+                        </h3>
+                        
+                        <button class="c-btn c-btn--primary" id="btn-fullscreen">
+                            <span>🖥️ 进入全屏</span>
+                            <span class="c-status-badge" id="fs-badge"></span>
+                        </button>
+                        <button class="c-btn u-hidden" id="btn-exit-fullscreen">
+                            <span>❌ 退出全屏</span>
+                        </button>
+                        
+                        <div class="c-alert c-alert--hidden" id="ios-warning">
+                            iOS 不支持全屏 API，请使用"添加到主屏幕"
+                        </div>
+
+                        <div style="height: 1px; background: var(--color-border); margin: 12px 0;"></div>
+
+                        <button class="c-btn" data-mode="auto">🔄 自动检测</button>
+                        <button class="c-btn" data-mode="portrait">📱 强制竖屏</button>
+                        <button class="c-btn" data-mode="landscape">📲 强制横屏(旋转)</button>
+                        <button class="c-btn" data-mode="desktop">💻 PC手机壳</button>
+
+                        <div class="c-info-panel" id="info-panel">
+                            <div class="c-info-panel__row">
+                                <span class="c-info-panel__label">物理:</span>
+                                <span class="c-info-panel__value" id="info-phys">-</span>
+                            </div>
+                            <div class="c-info-panel__row">
+                                <span class="c-info-panel__label">逻辑:</span>
+                                <span class="c-info-panel__value">1080x1920</span>
+                            </div>
+                            <div class="c-info-panel__row">
+                                <span class="c-info-panel__label">模式:</span>
+                                <span class="c-info-panel__value" id="info-mode">-</span>
+                            </div>
+                            <div class="c-info-panel__row">
+                                <span class="c-info-panel__label">缩放:</span>
+                                <span class="c-info-panel__value" id="info-scale">-</span>
+                            </div>
+                            <div class="c-info-panel__row">
+                                <span class="c-info-panel__label">全屏:</span>
+                                <span class="c-info-panel__value" id="info-fullscreen">❌ 否</span>
+                            </div>
+                        </div>
+
+                        <div class="u-mt-sm u-text-small u-text-muted">
+                            点击卡片测试坐标<br>黄色圆点 = 触摸位置
+                        </div>
+                    </div>
+                `;
+            }
+
+            #bindEvents() {
+                // 抽屉把手
+                this.element.querySelector('.c-drawer__handle').addEventListener('click', () => {
+                    this.toggle();
+                });
+
+                // 全屏按钮
+                const fsBtn = this.element.querySelector('#btn-fullscreen');
+                const exitBtn = this.element.querySelector('#btn-exit-fullscreen');
                 
-                this.fox.style.left = `calc(${relX}% - 40px)`;
-                this.fox.style.top = `calc(${relY}% - 40px)`;
-            },
+                fsBtn.addEventListener('click', () => bus.emit('fullscreen:request'));
+                exitBtn.addEventListener('click', () => bus.emit('fullscreen:exit'));
+
+                // 模式按钮
+                this.element.querySelectorAll('[data-mode]').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        const mode = e.target.dataset.mode;
+                        bus.emit('layout:setMode', mode);
+                        this.#updateActiveButton(mode);
+                    });
+                });
+            }
+
+            #subscribe() {
+                this.#unsubscribe = bus.on('state:update', (state) => {
+                    this.#updateUI(state);
+                });
+            }
+
+            /**
+             * @param {boolean} force
+             * @returns {this}
+             */
+            toggle(force) {
+                this.#isOpen = force !== undefined ? force : !this.#isOpen;
+                this.element.classList.toggle('c-drawer--collapsed', !this.#isOpen);
+                bus.emit('drawer:toggle', this.#isOpen);
+                return this;
+            }
+
+            /**
+             * @private
+             */
+            #updateActiveButton(activeMode) {
+                this.element.querySelectorAll('[data-mode]').forEach(btn => {
+                    btn.style.background = btn.dataset.mode === activeMode 
+                        ? 'rgba(78, 205, 196, 0.3)' 
+                        : '';
+                });
+            }
+
+            /**
+             * @private
+             * @param {Object} state
+             */
+            #updateUI(state) {
+                // 更新信息面板
+                this.element.querySelector('#info-phys').textContent = 
+                    `${state.physical.width}x${state.physical.height}`;
+                this.element.querySelector('#info-mode').textContent = 
+                    state.layout.mode.toUpperCase();
+                this.element.querySelector('#info-scale').textContent = 
+                    `${(state.layout.scale * 100).toFixed(1)}%`;
+                this.element.querySelector('#info-fullscreen').textContent = 
+                    state.fullscreen ? '✅ 是' : '❌ 否';
+
+                // 更新全屏按钮状态
+                const fsBtn = this.element.querySelector('#btn-fullscreen');
+                const exitBtn = this.element.querySelector('#btn-exit-fullscreen');
+                const badge = this.element.querySelector('#fs-badge');
+                
+                if (state.fullscreen) {
+                    fsBtn.classList.add('u-hidden');
+                    exitBtn.classList.remove('u-hidden');
+                    badge.classList.add('c-status-badge--active');
+                } else {
+                    fsBtn.classList.remove('u-hidden');
+                    exitBtn.classList.add('u-hidden');
+                    badge.classList.remove('c-status-badge--active');
+                }
+
+                // iOS 警告
+                const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+                if (isIOS) {
+                    this.element.querySelector('#ios-warning').classList.remove('c-alert--hidden');
+                }
+            }
+
+            destroy() {
+                this.#unsubscribe?.();
+                super.destroy();
+            }
+        }
+
+        /**
+         * 虚拟手机组件
+         */
+        class VirtualPhone extends Component {
+            /** @type {LayoutService} */
+            #layoutService;
+            /** @type {Function} */
+            #unsubscribe;
+
+            constructor(layoutService) {
+                super('div', 'c-virtual-phone c-virtual-phone--framed');
+                this.#layoutService = layoutService;
+                this.#render();
+                this.#bindEvents();
+                this.#subscribe();
+            }
+
+            #render() {
+                this.element.innerHTML = `
+                    <div class="c-card-stack">
+                        <div class="c-card c-card--debug" id="card-debug">
+                            <div class="c-card__header">🧠 神经网络 (35%)</div>
+                            <div class="c-card__content">
+                                <div class="c-neuron-grid">
+                                    <div class="c-neuron-node">N1</div>
+                                    <div class="c-neuron-node">N2</div>
+                                    <div class="c-neuron-node">N3</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="c-card c-card--game" id="card-game">
+                            <div class="c-card__header">🎮 游戏区域 (35%)</div>
+                            <div class="c-card__content">
+                                <div class="c-game-simulator" id="game-area">
+                                    <div class="c-fox" id="fox" style="left: 50%; top: 50%;">🦊</div>
+                                    <div style="position: absolute; bottom: 10px; font-size: 14px;" class="u-text-muted">
+                                        点击移动狐狸 | 双指拖动切换视图
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="c-card c-card--control" id="card-control">
+                            <div class="c-card__header">🎮 操作控制 (20%)</div>
+                            <div class="c-card__content">
+                                <div class="c-control-grid">
+                                    <div class="c-control-btn" data-action="move-left">⬅️</div>
+                                    <div class="c-control-btn" data-action="jump">⬆️</div>
+                                    <div class="c-control-btn" data-action="move-right">➡️</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            #bindEvents() {
+                // 游戏区域触摸 - 坐标转换测试
+                const gameArea = this.element.querySelector('#game-area');
+                gameArea.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    const touch = e.touches[0];
+                    this.#handleGameTouch(touch.clientX, touch.clientY);
+                }, { passive: false });
+
+                gameArea.addEventListener('click', (e) => {
+                    this.#handleGameTouch(e.clientX, e.clientY);
+                });
+
+                // 控制按钮
+                this.element.querySelectorAll('.c-control-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        const action = e.target.dataset.action;
+                        bus.emit(`game:${action}`);
+                    });
+                });
+            }
+
+            #subscribe() {
+                this.#unsubscribe = bus.on('layout:transform', (transform) => {
+                    this.#applyTransform(transform);
+                });
+            }
+
+            /**
+             * @private
+             * @param {TransformResult} transform
+             */
+            #applyTransform(transform) {
+                const transformStr = transform.rotation 
+                    ? `rotate(${transform.rotation}deg) scale(${transform.scale})`
+                    : `scale(${transform.scale})`;
+                
+                this.element.style.transform = transformStr;
+            }
+
+            /**
+             * @private
+             * @param {number} clientX
+             * @param {number} clientY
+             */
+            #handleGameTouch(clientX, clientY) {
+                const rect = this.element.getBoundingClientRect();
+                const state = window.__APP_STATE__; // 临时获取当前状态，实际应通过事件传递
+                if (!state) return;
+
+                const virtualPos = this.#layoutService.toVirtualCoordinates(
+                    clientX, clientY, rect, state.layout
+                );
+
+                // 显示触摸点
+                this.#showTouchIndicator(virtualPos.x, virtualPos.y);
+                
+                // 移动狐狸
+                bus.emit('game:moveTo', virtualPos);
+            }
+
+            /**
+             * @private
+             * @param {number} x - 虚拟坐标x
+             * @param {number} y - 虚拟坐标y
+             */
+            #showTouchIndicator(x, y) {
+                const dot = document.createElement('div');
+                dot.className = 'c-touch-dot';
+                dot.style.left = x + 'px';
+                dot.style.top = y + 'px';
+                this.element.appendChild(dot);
+                setTimeout(() => dot.remove(), 1000);
+            }
+
+            /**
+             * @returns {HTMLElement}
+             */
+            getFoxElement() {
+                return this.element.querySelector('#fox');
+            }
+        }
+
+        // ===== 4. 游戏逻辑控制器 =====
+
+        class GameController {
+            /** @type {HTMLElement} */
+            #foxEl;
+            /** @type {{x: number, y: number}} */
+            #position = { x: 50, y: 50 }; // 百分比
+
+            constructor(foxElement) {
+                this.#foxEl = foxElement;
+                this.#bindEvents();
+            }
+
+            #bindEvents() {
+                bus.on('game:move-left', () => this.move('left'));
+                bus.on('game:move-right', () => this.move('right'));
+                bus.on('game:jump', () => this.jump());
+                bus.on('game:moveTo', (pos) => this.moveTo(pos));
+            }
 
             move(direction) {
-                const currentLeft = parseFloat(this.fox.style.left) || 50;
                 const step = 10;
-                
                 if (direction === 'left') {
-                    this.fox.style.left = Math.max(10, currentLeft - step) + '%';
-                } else if (direction === 'right') {
-                    this.fox.style.left = Math.min(90, currentLeft + step) + '%';
+                    this.#position.x = Math.max(10, this.#position.x - step);
+                } else {
+                    this.#position.x = Math.min(90, this.#position.x + step);
                 }
-            },
+                this.#render();
+            }
 
             jump() {
-                this.fox.style.transform = 'translateY(-50px)';
+                this.#foxEl.classList.add('c-fox--jumping');
                 setTimeout(() => {
-                    this.fox.style.transform = 'translateY(0)';
+                    this.#foxEl.classList.remove('c-fox--jumping');
                 }, 300);
             }
-        };
 
-        // 初始化
-        const fullscreenManager = new FullscreenManager();
-        const layoutEngine = new LayoutEngine();
+            moveTo(pos) {
+                // 将虚拟坐标转为百分比
+                this.#position.x = (pos.x / 1080) * 100;
+                this.#position.y = (pos.y / 1920) * 100;
+                this.#render();
+            }
+
+            #render() {
+                this.#foxEl.style.left = `${this.#position.x}%`;
+                this.#foxEl.style.top = `${this.#position.y}%`;
+                this.#foxEl.style.transform = 'translate(-50%, -50%)';
+            }
+        }
+
+        // ===== 5. 应用主控制器 (App Controller) =====
+
+        class App {
+            /** @type {LayoutService} */
+            #layoutService;
+            /** @type {FullscreenService} */
+            #fullscreenService;
+            /** @type {OrientationService} */
+            #orientationService;
+            /** @type {Drawer} */
+            #drawer;
+            /** @type {VirtualPhone} */
+            #virtualPhone;
+            /** @type {GameController} */
+            #game;
+            
+            /** @type {LayoutMode} */
+            #currentMode = 'auto';
+            /** @type {boolean} */
+            #isFullscreen = false;
+
+            constructor() {
+                this.#layoutService = new LayoutService();
+                this.#fullscreenService = new FullscreenService();
+                this.#orientationService = new OrientationService();
+                
+                this.#init();
+            }
+
+            #init() {
+                // 初始化 UI
+                const appEl = document.getElementById('app');
+                const viewportEl = document.getElementById('viewport');
+
+                this.#drawer = new Drawer().mount(appEl);
+                this.#virtualPhone = new VirtualPhone(this.#layoutService).mount(viewportEl);
+                this.#game = new GameController(this.#virtualPhone.getFoxElement());
+
+                // 绑定全局事件
+                this.#bindBusEvents();
+                this.#bindWindowEvents();
+                
+                // 初始布局
+                this.#updateLayout();
+                
+                // 默认收起抽屉
+                setTimeout(() => this.#drawer.toggle(false), 500);
+            }
+
+            #bindBusEvents() {
+                // 全屏控制
+                bus.on('fullscreen:request', () => this.#enterFullscreen());
+                bus.on('fullscreen:exit', () => this.#exitFullscreen());
+                
+                // 布局控制
+                bus.on('layout:setMode', (mode) => {
+                    this.#currentMode = mode;
+                    this.#updateLayout();
+                });
+            }
+
+            #bindWindowEvents() {
+                window.addEventListener('resize', () => {
+                    this.#updateLayout();
+                });
+
+                this.#fullscreenService.onChange(() => {
+                    this.#isFullscreen = this.#fullscreenService.isActive();
+                    if (this.#isFullscreen) {
+                        this.#orientationService.lockPortrait();
+                    } else {
+                        this.#orientationService.unlock();
+                    }
+                    this.#emitState();
+                });
+            }
+
+            async #enterFullscreen() {
+                try {
+                    await this.#fullscreenService.enter();
+                } catch (err) {
+                    console.error('Fullscreen failed:', err);
+                    alert('进入全屏失败，请确保是通过点击按钮触发');
+                }
+            }
+
+            async #exitFullscreen() {
+                try {
+                    await this.#fullscreenService.exit();
+                } catch (err) {
+                    console.error('Exit fullscreen failed:', err);
+                }
+            }
+
+            #updateLayout() {
+                const physWidth = window.innerWidth;
+                const physHeight = window.innerHeight;
+                
+                const transform = this.#layoutService.calculate(
+                    physWidth, 
+                    physHeight, 
+                    this.#currentMode
+                );
+
+                // 发布布局变换
+                bus.emit('layout:transform', transform);
+                
+                // 保存状态供坐标转换使用
+                window.__APP_STATE__ = {
+                    physical: { width: physWidth, height: physHeight },
+                    layout: transform,
+                    fullscreen: this.#isFullscreen
+                };
+
+                this.#emitState();
+            }
+
+            #emitState() {
+                bus.emit('state:update', window.__APP_STATE__);
+            }
+        }
+
+        // ===== 6. 启动应用 =====
         
-        window.addEventListener('load', () => {
-            layoutEngine.detect();
+        document.addEventListener('DOMContentLoaded', () => {
+            new App();
         });
     </script>
 </body>
