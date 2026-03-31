@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=0.75, user-scalable=no, viewport-fit=cover">
     <title>Layout Lab - 重构版</title>
     <style>
         /* ===== 设计令牌 (Design Tokens) ===== */
@@ -26,7 +26,7 @@
             --radius-sm: 8px;
             --radius-md: 12px;
             --radius-lg: 20px;
-            --radius-xl: 40px;
+            --radius-xl: 18px;  /* 12px卡片圆角 + 6px边框补偿 */
             
             /* 动画 */
             --ease-out: cubic-bezier(0.4, 0, 0.2, 1);
@@ -85,7 +85,7 @@
         }
 
         .c-virtual-phone--framed {
-            border: 12px solid #2c3e50;
+            border: 6px solid #2c3e50;
         }
 
         /* ===== 卡片堆叠组件 (CardStack) ===== */
@@ -94,8 +94,8 @@
             height: 100%;
             display: flex;
             flex-direction: column;
-            padding: 5%;  // 5%
-            gap: 3%;  // 3%
+            padding: 2%;  /* 改小内边距 */
+            gap: 2%;  /* 改小间距 */
         }
 
         .c-card {
@@ -441,7 +441,8 @@
 
         // ===== 全局配置 =====
         const CONFIG = {
-            initialMargin: 0.00
+            initialMargin: 0.00,
+            aspectRatio: 9 / 19.5  // 默认 iPhone 比例，可通过调试面板修改
         };
 
         // ===== 1. 事件总线 (EventBus) - 核心解耦机制 =====
@@ -514,33 +515,94 @@
              * @returns {TransformResult}
              */
             calculate(physWidth, physHeight, mode) {
-                // 竖屏比例 9:16（宽:高）
-                const ASPECT_RATIO = 1080 / 1920;  // 约 0.5625
+                // 获取当前设定的宽高比（可从 CONFIG 或外部传入）
+                const ASPECT_RATIO = CONFIG.aspectRatio;
 
                 let virtualWidth, virtualHeight, rotation;
+                let fitMode = 'normal';  // 记录使用了哪种适配模式
+
+                // 设备边长
+                const minSide = Math.min(physWidth, physHeight);  // 短边
+                const maxSide = Math.max(physWidth, physHeight);  // 长边
+
+                // 方案A：以短边为宽度（传统方式）
+                const widthA = minSide;
+                const heightA = widthA / ASPECT_RATIO;
+
+                // 方案B：以长边为高度（防溢出方式）
+                const heightB = maxSide * 0.95;  // 留 5% 边距
+                const widthB = heightB * ASPECT_RATIO;
+
+                // 智能选择：哪个方案不溢出选哪个
+                const overflowA = heightA > maxSide * 0.95;  // A方案高度溢出？
+                const overflowB = widthB > minSide;          // B方案宽度溢出？（理论上不会）
+
+                if (overflowA && !overflowB) {
+                    // A溢出，B不溢出 → 选B（以长边为高）
+                    virtualWidth = widthB;
+                    virtualHeight = heightB;
+                    fitMode = 'by-height';
+                } else {
+                    // 默认选A（以短边为宽），或A不溢出时优先A
+                    virtualWidth = widthA;
+                    virtualHeight = heightA;
+                    fitMode = 'by-width';
+                }
                 let isMobile = physWidth < 1024;
                 let layoutMode = 'auto';
 
                 // 根据mode覆盖自动检测
                 switch(mode) {
                     case 'portrait':
-                        // 强制竖屏：不旋转，按竖屏计算
+                        // 强制竖屏：不旋转，应用溢出检测
                         isMobile = true;
                         layoutMode = 'portrait';
                         const pMin = Math.min(physWidth, physHeight);
-                        virtualWidth = pMin;
-                        virtualHeight = pMin / ASPECT_RATIO;
-                        rotation = 0;  // 不旋转
+                        const pMax = Math.max(physWidth, physHeight);
+                        const phA = pMin / ASPECT_RATIO;
+
+                        if (phA > pMax * 0.95) {
+                            virtualHeight = pMax * 0.95;
+                            virtualWidth = virtualHeight * ASPECT_RATIO;
+                            fitMode = 'by-height-portrait';
+                        } else {
+                            virtualWidth = pMin;
+                            virtualHeight = phA;
+                            fitMode = 'by-width-portrait';
+                        }
+                        rotation = 0;
                         break;
 
                     case 'landscape':
-                        // 强制横屏：旋转-90°，按横屏计算但视觉保持竖屏
+                        // 强制横屏：旋转-90°，应用同样的溢出检测
                         isMobile = true;
                         layoutMode = 'landscape';
+
+                        // 横屏时，旋转后虚拟手机的"高"会变成视觉"宽"
+                        // 需要确保旋转后不溢出
                         const lMin = Math.min(physWidth, physHeight);
-                        virtualWidth = lMin;
-                        virtualHeight = lMin / ASPECT_RATIO;
-                        rotation = -90;  // 强制旋转
+                        const lMax = Math.max(physWidth, physHeight);
+
+                        // 方案A：以短边为虚拟宽
+                        const lwA = lMin;
+                        const lhA = lMin / ASPECT_RATIO;
+
+                        // 旋转后，虚拟高(lhA)会变成视觉宽，不能超过设备长边
+                        const overflowA = lhA > lMax * 0.95;
+
+                        if (overflowA) {
+                            // 溢出，以设备长边为限（旋转后变成视觉宽）
+                            const lhB = lMax * 0.95;
+                            const lwB = lhB * ASPECT_RATIO;
+                            virtualWidth = lwB;
+                            virtualHeight = lhB;
+                            fitMode = 'by-height-landscape';
+                        } else {
+                            virtualWidth = lwA;
+                            virtualHeight = lhA;
+                            fitMode = 'by-width-landscape';
+                        }
+                        rotation = -90;
                         break;
 
                     case 'desktop':
@@ -554,18 +616,11 @@
 
                     case 'auto':
                     default:
-                        // 自动检测（原有逻辑）
+                        // 自动检测：使用前面智能计算好的 virtualWidth/virtualHeight
                         layoutMode = 'auto';
-                        if (isMobile) {
-                            const minSide = Math.min(physWidth, physHeight);
-                            virtualWidth = minSide;
-                            virtualHeight = minSide / ASPECT_RATIO;
-                            rotation = (physWidth > physHeight) ? -90 : 0;
-                        } else {
-                            virtualHeight = physHeight;
-                            virtualWidth = physHeight * ASPECT_RATIO;
-                            rotation = 0;
-                        }
+                        // 只需计算旋转角度
+                        rotation = (physWidth > physHeight) ? -90 : 0;
+                        // virtualWidth/virtualHeight 已在前面智能计算好，不再覆盖
                         break;
                 }
 
@@ -578,7 +633,8 @@
                     rotation, 
                     mode: layoutMode,
                     virtualWidth,
-                    virtualHeight
+                    virtualHeight,
+                    fitMode  // 适配模式：'by-width' 或 'by-height'
                 };
             }
 
@@ -834,6 +890,25 @@
                             </div>
                         </div>
 
+                        <!-- 宽高比调试控制 -->
+                        <div style="margin: 12px 0; padding: 10px; background: rgba(255,255,255,0.05); border-radius: 8px; border: 1px solid rgba(78,205,196,0.3);">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                                <span style="font-size: 11px; color: rgba(255,255,255,0.6);">🧪 宽高比 (宽/高)</span>
+                                <span style="font-size: 11px; color: #4ecdc4;" id="ratio-value">0.4615</span>
+                            </div>
+                            <input type="range" id="ratio-slider" min="30" max="60" value="46"
+                                style="width: 100%; height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; outline: none; -webkit-appearance: none;">
+                            <div style="display: flex; justify-content: space-between; font-size: 9px; color: rgba(255,255,255,0.4); margin-top: 4px;">
+                                <span>9:30 (0.30)</span>
+                                <span>9:16 (0.56)</span>
+                            </div>
+                            <div style="margin-top: 8px; display: flex; gap: 4px; flex-wrap: wrap;">
+                                <button class="c-btn" style="flex: 1; font-size: 9px; padding: 4px;" data-ratio="0.5625">9:16</button>
+                                <button class="c-btn" style="flex: 1; font-size: 9px; padding: 4px;" data-ratio="0.4615">9:19.5</button>
+                                <button class="c-btn" style="flex: 1; font-size: 9px; padding: 4px;" data-ratio="0.3750">9:24</button>
+                            </div>
+                        </div>
+
                         <div class="c-info-panel" id="info-panel">
                             <div class="c-info-panel__row">
                                 <span class="c-info-panel__label">物理:</span>
@@ -896,6 +971,30 @@
                         bus.emit('layout:setMargin', percent / 100);
                     });
                 }
+
+                // 宽高比滑块
+                const ratioSlider = this.element.querySelector('#ratio-slider');
+                const ratioValue = this.element.querySelector('#ratio-value');
+                if (ratioSlider) {
+                    ratioSlider.addEventListener('input', (e) => {
+                        const val = parseInt(e.target.value);
+                        const ratio = val / 100;  // 30-60 → 0.30-0.60
+                        if (ratioValue) ratioValue.textContent = ratio.toFixed(4);
+                        CONFIG.aspectRatio = ratio;
+                        bus.emit('layout:update');  // 触发布局更新
+                    });
+                }
+
+                // 宽高比快捷按钮
+                this.element.querySelectorAll('[data-ratio]').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        const ratio = parseFloat(e.target.dataset.ratio);
+                        CONFIG.aspectRatio = ratio;
+                        if (ratioSlider) ratioSlider.value = Math.round(ratio * 100);
+                        if (ratioValue) ratioValue.textContent = ratio.toFixed(4);
+                        bus.emit('layout:update');
+                    });
+                });
             }
 
             #subscribe() {
@@ -934,8 +1033,9 @@
                 // 更新信息面板
                 this.element.querySelector('#info-phys').textContent = 
                     `${state.physical.width}x${state.physical.height}`;
-                this.element.querySelector('#info-logic').textContent = 
-                    `${Math.round(state.layout.virtualWidth)}x${Math.round(state.layout.virtualHeight)}`;
+                const fitInfo = state.layout.fitMode === 'by-height' ? '(限高)' : '(限宽)';
+                    this.element.querySelector('#info-logic').textContent = 
+                        `${Math.round(state.layout.virtualWidth)}x${Math.round(state.layout.virtualHeight)}${fitInfo}`;
                 this.element.querySelector('#info-mode').textContent = 
                     state.layout.mode.toUpperCase();
                 this.element.querySelector('#info-scale').textContent = 
@@ -1245,6 +1345,11 @@
                 // 边距控制
                 bus.on('layout:setMargin', (margin) => {
                     this.#layoutService.setMargin(margin);
+                    this.#updateLayout();
+                });
+
+                // 宽高比变化时更新布局
+                bus.on('layout:update', () => {
                     this.#updateLayout();
                 });
             }
