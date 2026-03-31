@@ -514,38 +514,69 @@
              * @returns {TransformResult}
              */
             calculate(physWidth, physHeight, mode) {
-                // 你的竖屏比例 9:16（宽:高）
+                // 竖屏比例 9:16（宽:高）
                 const ASPECT_RATIO = 1080 / 1920;  // 约 0.5625
-                
+
                 let virtualWidth, virtualHeight, rotation;
-                
-                // 判断是手机还是电脑（简单用宽度阈值）
-                const isMobile = physWidth < 1024;
-                
-                if (isMobile) {
-                    // 手机：取短边做宽，按比例算高
-                    const minSide = Math.min(physWidth, physHeight);
-                    virtualWidth = minSide;
-                    virtualHeight = minSide / ASPECT_RATIO;
-                    rotation = (physWidth > physHeight) ? -90 : 0;  // 横屏就转回来
-                } else {
-                    // 电脑：取高做短边，按比例算宽（竖屏居中）
-                    virtualHeight = physHeight;
-                    virtualWidth = physHeight * ASPECT_RATIO;
-                    rotation = 0;
+                let isMobile = physWidth < 1024;
+                let layoutMode = 'auto';
+
+                // 根据mode覆盖自动检测
+                switch(mode) {
+                    case 'portrait':
+                        // 强制竖屏：不旋转，按竖屏计算
+                        isMobile = true;
+                        layoutMode = 'portrait';
+                        const pMin = Math.min(physWidth, physHeight);
+                        virtualWidth = pMin;
+                        virtualHeight = pMin / ASPECT_RATIO;
+                        rotation = 0;  // 不旋转
+                        break;
+
+                    case 'landscape':
+                        // 强制横屏：旋转-90°，按横屏计算但视觉保持竖屏
+                        isMobile = true;
+                        layoutMode = 'landscape';
+                        const lMin = Math.min(physWidth, physHeight);
+                        virtualWidth = lMin;
+                        virtualHeight = lMin / ASPECT_RATIO;
+                        rotation = -90;  // 强制旋转
+                        break;
+
+                    case 'desktop':
+                        // PC模式：固定比例，不旋转，居中显示
+                        isMobile = false;
+                        layoutMode = 'desktop';
+                        virtualHeight = physHeight * 0.9;  // 留10%边距
+                        virtualWidth = virtualHeight * ASPECT_RATIO;
+                        rotation = 0;
+                        break;
+
+                    case 'auto':
+                    default:
+                        // 自动检测（原有逻辑）
+                        layoutMode = 'auto';
+                        if (isMobile) {
+                            const minSide = Math.min(physWidth, physHeight);
+                            virtualWidth = minSide;
+                            virtualHeight = minSide / ASPECT_RATIO;
+                            rotation = (physWidth > physHeight) ? -90 : 0;
+                        } else {
+                            virtualHeight = physHeight;
+                            virtualWidth = physHeight * ASPECT_RATIO;
+                            rotation = 0;
+                        }
+                        break;
                 }
-                
-                // 现在虚拟尺寸就是屏幕可用尺寸，scale=1.0（无需缩放）
-                const scale = 1.0;
-                
-                // 边距控制通过scale实现: margin=0 → scale=1.0, margin=0.1 → scale=0.8
+
+                // 边距控制通过scale实现
                 const margin = this.#config.margin;
-                const finalScale = scale * (1.0 - margin * 2);
+                const finalScale = 1.0 - (margin * 2);
 
                 return { 
                     scale: finalScale, 
                     rotation, 
-                    mode: isMobile ? 'mobile' : 'desktop',
+                    mode: layoutMode,
                     virtualWidth,
                     virtualHeight
                 };
