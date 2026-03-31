@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Layout Lab - 虚拟手机布局系统</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #1a1a2e;
+            color: #fff;
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+        }
+
+        /* ========== 布局实验室控制面板 ========== */
+        #lab-controls {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            z-index: 10000;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(10px);
+            padding: 15px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            min-width: 200px;
+        }
+
+        #lab-controls h3 {
+            font-size: 14px;
+            margin-bottom: 5px;
+            color: #4ecdc4;
+        }
+
+        .mode-btn {
+            padding: 8px 12px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.2s;
+            text-align: left;
+        }
+
+        .mode-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .mode-btn.active {
+            background: #4ecdc4;
+            color: #000;
+            border-color: #4ecdc4;
+        }
+
+        .info-panel {
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.6);
+            font-family: monospace;
+        }
+
+        /* ========== 物理容器（真实屏幕） ========== */
+        #physical-container {
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        /* ========== 虚拟手机（1080x1920） ========== */
+        #virtual-phone {
+            width: 1080px;
+            height: 1920px;
+            background: #0f0f1e;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 0 100px rgba(0, 0, 0, 0.8);
+            
+            /* 默认 transformation（会被 JS 动态覆盖） */
+            transform-origin: center center;
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* PC 手机壳样式 */
+        .phone-frame {
+            border: 12px solid #2c3e50;
+            border-radius: 40px;
+            box-shadow: 
+                0 0 0 2px #34495e,
+                0 20px 60px rgba(0, 0, 0, 0.6),
+                inset 0 0 20px rgba(0, 0, 0, 0.5);
+        }
+
+        /* 横屏旋转模式（物理横屏但显示竖屏内容） */
+        .rotated-mode {
+            /* 注意：这里 CSS rotate 只是视觉，实际逻辑坐标转换在 JS 中处理 */
+        }
+
+        /* ========== 卡片布局系统 ========== */
+        #card-stack {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            padding: 5%;  /* 10% margin 分摊到上下左右 */
+            gap: 3%;      /* 间隙 */
+        }
+
+        .card {
+            width: 100%;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* 高度比例：35% / 35% / 20% （剩余10%是padding和gap） */
+        #card-debug { height: 35%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        #card-game { height: 35%; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
+        #card-control { height: 20%; background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
+
+        .card-header {
+            padding: 20px 30px;
+            font-size: 24px;
+            font-weight: bold;
+            background: rgba(0, 0, 0, 0.2);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .card-content {
+            flex: 1;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        /* 模拟游戏画面 */
+        .game-simulator {
+            width: 90%;
+            height: 80%;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .fox-avatar {
+            width: 80px;
+            height: 80px;
+            background: #e67e22;
+            border-radius: 50%;
+            position: absolute;
+            transition: all 0.3s;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        /* 模拟神经网络可视化 */
+        .neuron-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            width: 80%;
+        }
+
+        .neuron-node {
+            aspect-ratio: 1;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 0.6; }
+            50% { transform: scale(1.1); opacity: 1; }
+        }
+
+        /* 控制按钮模拟 */
+        .control-grid {
+            display: flex;
+            gap: 40px;
+        }
+
+        .control-btn {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px solid rgba(255, 255, 255, 0.4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 40px;
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+
+        .control-btn:active {
+            transform: scale(0.9);
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        /* 方向指示器 */
+        #orientation-indicator {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 10px 15px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-family: monospace;
+            z-index: 10000;
+            color: #4ecdc4;
+        }
+
+        /* 触摸测试点 */
+        .touch-dot {
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            background: rgba(255, 255, 0, 0.8);
+            border-radius: 50%;
+            pointer-events: none;
+            transform: translate(-50%, -50%);
+            z-index: 1000;
+            animation: fadeOut 1s forwards;
+        }
+
+        @keyframes fadeOut {
+            to { opacity: 0; transform: translate(-50%, -50%) scale(2); }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 方向指示器 -->
+    <div id="orientation-indicator">
+        <div>物理: <span id="phys-size">-</span></div>
+        <div>逻辑: <span id="logic-size">1080x1920</span></div>
+        <div>模式: <span id="current-mode">-</span></div>
+        <div>缩放: <span id="scale-ratio">-</span></div>
+    </div>
+
+    <!-- 实验室控制面板 -->
+    <div id="lab-controls">
+        <h3>🧪 布局实验室</h3>
+        <button class="mode-btn active" onclick="layoutEngine.setMode('auto')">自动检测</button>
+        <button class="mode-btn" onclick="layoutEngine.setMode('portrait')">强制竖屏</button>
+        <button class="mode-btn" onclick="layoutEngine.setMode('landscape')">强制横屏(旋转)</button>
+        <button class="mode-btn" onclick="layoutEngine.setMode('desktop')">PC手机壳</button>
+        
+        <div class="info-panel">
+            <div>点击卡片测试坐标转换</div>
+            <div>黄色圆点 = 触摸位置</div>
+        </div>
+    </div>
+
+    <!-- 物理容器 -->
+    <div id="physical-container">
+        <!-- 虚拟手机（1080x1920 逻辑像素） -->
+        <div id="virtual-phone" class="phone-frame">
+            <div id="card-stack">
+                
+                <!-- 卡片1: 调试/神经元区域 (35%) -->
+                <div id="card-debug" class="card">
+                    <div class="card-header">🧠 神经网络可视化 (35%)</div>
+                    <div class="card-content">
+                        <div class="neuron-grid">
+                            <div class="neuron-node">N1</div>
+                            <div class="neuron-node">N2</div>
+                            <div class="neuron-node">N3</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 卡片2: 游戏区域 (35%) -->
+                <div id="card-game" class="card">
+                    <div class="card-header">🎮 游戏区域 (35%)</div>
+                    <div class="card-content">
+                        <div class="game-simulator" id="game-area">
+                            <div class="fox-avatar" id="fox">🦊</div>
+                            <div style="position: absolute; bottom: 20px; color: rgba(255,255,255,0.5);">
+                                点击移动狐狸
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 卡片3: 控制区域 (20%) -->
+                <div id="card-control" class="card">
+                    <div class="card-header">🎮 操作控制 (20%)</div>
+                    <div class="card-content">
+                        <div class="control-grid">
+                            <div class="control-btn" onclick="gameLogic.move('left')">⬅️</div>
+                            <div class="control-btn" onclick="gameLogic.jump()">⬆️</div>
+                            <div class="control-btn" onclick="gameLogic.move('right')">➡️</div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /**
+         * 布局引擎 - LayoutEngine
+         * 核心职责：将物理屏幕适配到 1080x1920 虚拟手机
+         */
+        class LayoutEngine {
+            constructor() {
+                this.virtualWidth = 1080;
+                this.virtualHeight = 1920;
+                this.mode = 'auto';
+                this.physWidth = window.innerWidth;
+                this.physHeight = window.innerHeight;
+                
+                this.els = {
+                    phone: document.getElementById('virtual-phone'),
+                    container: document.getElementById('physical-container'),
+                    indicator: {
+                        phys: document.getElementById('phys-size'),
+                        logic: document.getElementById('logic-size'),
+                        mode: document.getElementById('current-mode'),
+                        scale: document.getElementById('scale-ratio')
+                    }
+                };
+
+                this.init();
+            }
+
+            init() {
+                this.detect();
+                this.bindEvents();
+                this.setupInputTransformation();
+            }
+
+            bindEvents() {
+                window.addEventListener('resize', () => {
+                    this.physWidth = window.innerWidth;
+                    this.physHeight = window.innerHeight;
+                    if (this.mode === 'auto') this.detect();
+                    else this.applyMode(this.mode);
+                });
+
+                window.addEventListener('orientationchange', () => {
+                    setTimeout(() => {
+                        this.physWidth = window.innerWidth;
+                        this.physHeight = window.innerHeight;
+                        if (this.mode === 'auto') this.detect();
+                    }, 100);
+                });
+            }
+
+            /**
+             * 自动检测设备类型和方向
+             */
+            detect() {
+                const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+                const isLandscape = this.physWidth > this.physHeight;
+                
+                if (!isMobile && this.physWidth > 1024) {
+                    this.applyMode('desktop');
+                } else if (isLandscape) {
+                    this.applyMode('landscape');
+                } else {
+                    this.applyMode('portrait');
+                }
+            }
+
+            setMode(mode) {
+                this.mode = mode;
+                
+                // 更新按钮状态
+                document.querySelectorAll('.mode-btn').forEach(btn => {
+                    btn.classList.remove('active');
+                    if (btn.textContent.includes(this.getModeLabel(mode))) {
+                        btn.classList.add('active');
+                    }
+                });
+                
+                this.applyMode(mode);
+            }
+
+            getModeLabel(mode) {
+                const labels = {
+                    'auto': '自动',
+                    'portrait': '竖屏',
+                    'landscape': '横屏',
+                    'desktop': 'PC'
+                };
+                return labels[mode] || mode;
+            }
+
+            /**
+             * 应用特定模式
+             */
+            applyMode(mode) {
+                const phone = this.els.phone;
+                const ratio = this.virtualHeight / this.virtualWidth; // 16:9
+                
+                this.els.indicator.mode.textContent = mode.toUpperCase();
+                this.els.indicator.phys.textContent = `${this.physWidth}x${this.physHeight}`;
+
+                switch(mode) {
+                    case 'portrait':
+                        // 手机竖屏：直接等比缩放
+                        this.applyPortrait(phone);
+                        break;
+                    
+                    case 'landscape':
+                        // 手机横屏：旋转90度，让竖屏内容在横屏上正常显示
+                        this.applyLandscape(phone);
+                        break;
+                    
+                    case 'desktop':
+                        // PC端：手机壳模拟，居中显示
+                        this.applyDesktop(phone);
+                        break;
+                    
+                    default:
+                        this.detect();
+                }
+            }
+
+            applyPortrait(phone) {
+                // 计算缩放：让虚拟手机高度填满物理屏幕的 95%
+                const scale = Math.min(
+                    this.physWidth / this.virtualWidth,
+                    this.physHeight / this.virtualHeight
+                ) * 0.95;
+
+                phone.style.transform = `scale(${scale})`;
+                phone.className = 'phone-frame';
+                
+                this.els.indicator.scale.textContent = `${(scale*100).toFixed(1)}%`;
+                this.currentTransform = { scale, rotate: 0 };
+            }
+
+            applyLandscape(phone) {
+                // 物理横屏但显示竖屏内容：旋转90度
+                // 此时虚拟手机的"高"对应物理屏幕的"宽"
+                
+                const scale = Math.min(
+                    this.physHeight / this.virtualWidth,   // 物理高对应虚拟宽
+                    this.physWidth / this.virtualHeight    // 物理宽对应虚拟高
+                ) * 0.95;
+
+                // 关键：rotate(90deg) 然后调整位置
+                // 注意：rotate 后 width/height 交换
+                phone.style.transform = `rotate(90deg) scale(${scale})`;
+                phone.className = 'phone-frame rotated-mode';
+                
+                this.els.indicator.scale.textContent = `${(scale*100).toFixed(1)}% (rotated)`;
+                this.currentTransform = { scale, rotate: 90 };
+            }
+
+            applyDesktop(phone) {
+                // PC端：居中显示手机壳，固定大小或适配
+                const maxWidth = this.physWidth * 0.4;  // PC上只占用40%宽度
+                const scale = maxWidth / this.virtualWidth;
+                
+                phone.style.transform = `scale(${scale})`;
+                phone.className = 'phone-frame desktop-mode';
+                
+                this.els.indicator.scale.textContent = `${(scale*100).toFixed(1)}% (desktop)`;
+                this.currentTransform = { scale, rotate: 0 };
+            }
+
+            /**
+             * 设置输入坐标转换
+             * 核心：将物理屏幕的触摸坐标转换为虚拟手机的逻辑坐标
+             */
+            setupInputTransformation() {
+                const phone = this.els.phone;
+                
+                // 监听所有卡片区域的触摸/点击
+                const cards = document.querySelectorAll('.card');
+                cards.forEach(card => {
+                    card.addEventListener('touchstart', (e) => this.handleInput(e), {passive: false});
+                    card.addEventListener('click', (e) => this.handleInput(e));
+                });
+
+                // 特别处理游戏区域
+                const gameArea = document.getElementById('game-area');
+                gameArea.addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    const logicPos = this.transformCoordinates(e.touches[0].clientX, e.touches[0].clientY);
+                    this.showTouchIndicator(logicPos.x, logicPos.y);
+                    gameLogic.moveTo(logicPos.x, logicPos.y);
+                });
+            }
+
+            /**
+             * 坐标转换核心算法
+             * 将物理屏幕坐标 (clientX, clientY) → 虚拟手机坐标 (0-1080, 0-1920)
+             */
+            transformCoordinates(clientX, clientY) {
+                const phone = this.els.phone;
+                const rect = phone.getBoundingClientRect();
+                
+                // 基础相对位置（在 phone 元素内的坐标）
+                let x = clientX - rect.left;
+                let y = clientY - rect.top;
+                
+                // 如果有旋转，需要反向旋转坐标
+                if (this.currentTransform?.rotate === 90) {
+                    // rotate(90deg) 的逆变换
+                    // 原点在中心，需要先平移再旋转
+                    const centerX = rect.width / 2;
+                    const centerY = rect.height / 2;
+                    
+                    // 相对于中心
+                    const dx = x - centerX;
+                    const dy = y - centerY;
+                    
+                    // 逆旋转 -90 度
+                    const newDx = dy;   // cos(-90)=0, sin(-90)=-1 → x' = x*0 - y*(-1) = y
+                    const newDy = -dx;  // y' = x*(-1) + y*0 = -x
+                    
+                    x = centerX + newDx;
+                    y = centerY + newDy;
+                }
+                
+                // 考虑缩放
+                const scale = this.currentTransform?.scale || 1;
+                x = x / scale;
+                y = y / scale;
+                
+                return { x, y };
+            }
+
+            showTouchIndicator(x, y) {
+                const dot = document.createElement('div');
+                dot.className = 'touch-dot';
+                dot.style.left = x + 'px';
+                dot.style.top = y + 'px';
+                document.getElementById('virtual-phone').appendChild(dot);
+                setTimeout(() => dot.remove(), 1000);
+            }
+
+            handleInput(e) {
+                // 阻止默认行为防止缩放
+                if (e.type === 'touchstart') e.preventDefault();
+            }
+        }
+
+        /**
+         * 游戏逻辑模拟
+         * 业务代码示例：只关心虚拟手机坐标，不感知物理屏幕
+         */
+        const gameLogic = {
+            fox: document.getElementById('fox'),
+            
+            moveTo(x, y) {
+                // 限制在卡片区域内移动（简单的边界检查示例）
+                const card = document.getElementById('card-game');
+                const cardRect = card.getBoundingClientRect();
+                
+                // 这里的 x, y 已经是虚拟手机坐标系下的值
+                // 业务代码只需要处理 0-1080, 0-1920 的范围
+                console.log(`Fox moving to virtual: ${x.toFixed(0)}, ${y.toFixed(0)}`);
+                
+                // 视觉反馈：移动狐狸（相对于游戏区域）
+                const gameArea = document.getElementById('game-area');
+                const relX = (x / 1080) * 100;
+                const relY = (y / 1920) * 100;
+                
+                this.fox.style.left = `calc(${relX}% - 40px)`;
+                this.fox.style.top = `calc(${relY}% - 40px)`;
+            },
+
+            move(direction) {
+                const currentLeft = parseFloat(this.fox.style.left) || 50;
+                const step = 10;
+                
+                if (direction === 'left') {
+                    this.fox.style.left = Math.max(10, currentLeft - step) + '%';
+                } else if (direction === 'right') {
+                    this.fox.style.left = Math.min(90, currentLeft + step) + '%';
+                }
+                console.log(`Move ${direction}`);
+            },
+
+            jump() {
+                this.fox.style.transform = 'translateY(-50px)';
+                setTimeout(() => {
+                    this.fox.style.transform = 'translateY(0)';
+                }, 300);
+                console.log('Jump!');
+            }
+        };
+
+        // 初始化
+        const layoutEngine = new LayoutEngine();
+        
+        // 初始自动检测
+        window.addEventListener('load', () => {
+            layoutEngine.detect();
+        });
+    </script>
+</body>
+</html>
