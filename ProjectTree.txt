@@ -1,0 +1,53 @@
+项目目录结构: /storage/emulated/0/AppProjects/html/ai-sandbox
+
+├── OPTIMIZATION.md
+├── ProjectCode.txt
+├── ProjectDocsCode.txt
+├── TODO.md
+├── collectProjCode.sh
+├── collectProjDocsCode.sh
+├── docs
+│   ├── 双输出网络结构.md
+│   ├── 神经网络设计.md
+│   ├── 训练逻辑核心理解.md
+│   ├── 需求
+│   │   ├── 开始游戏遮罩与重生转场
+│   │   │   ├── 00_需求.md
+│   │   │   ├── 01_难度分析.md
+│   │   │   ├── 02_阶段一_代码清理完成.md
+│   │   │   ├── 03_阶段二_开始遮罩完成.md
+│   │   │   ├── 04_阶段三_重生转场完成.md
+│   │   │   ├── 05_阶段三修正_直接开始.md
+│   │   │   ├── 06_阶段A_RUNNING状态完成.md
+│   │   │   ├── 07_BUG分析_阶段A.md
+│   │   │   └── 08_阶段B_状态分离完成.md
+│   │   └── 神经网络与AI训练
+│   │       └── 00_需求.md
+│   └── 预期最复杂环境.md
+├── eslint.config.js
+├── indentFix.sh
+├── index.html
+├── package.json
+├── public
+├── scripts
+├── src
+│   ├── ai
+│   │   ├── HistoryStore.js
+│   │   ├── NeuralNetwork.js
+│   │   └── PlayerBestStore.js
+│   ├── game
+│   │   └── JumpGame.js
+│   ├── main.js
+│   ├── render
+│   │   ├── GameRenderer.js
+│   │   └── TransitionManager.js
+│   ├── style-fox.css
+│   ├── style.css
+│   ├── utils
+│   │   └── timeUtils.js
+│   └── views
+│       ├── HistoryView.js
+│       ├── MatrixView.js
+│       ├── NetworkView.js
+│       └── NeuronAreaManager.js
+└── vite.config.js
