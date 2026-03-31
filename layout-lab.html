@@ -26,7 +26,7 @@
             top: 10px;
             right: 10px;
             z-index: 10000;
-            background: rgba(0, 0, 0, 0.8);
+            background: rgba(0, 0, 0, 0.85);
             backdrop-filter: blur(10px);
             padding: 15px;
             border-radius: 12px;
@@ -35,15 +35,20 @@
             flex-direction: column;
             gap: 8px;
             min-width: 200px;
+            max-height: 90vh;
+            overflow-y: auto;
         }
 
         #lab-controls h3 {
             font-size: 14px;
             margin-bottom: 5px;
             color: #4ecdc4;
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
 
-        .mode-btn {
+        .mode-btn, .action-btn {
             padding: 8px 12px;
             border: 1px solid rgba(255, 255, 255, 0.2);
             background: rgba(255, 255, 255, 0.1);
@@ -53,9 +58,12 @@
             font-size: 12px;
             transition: all 0.2s;
             text-align: left;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
         }
 
-        .mode-btn:hover {
+        .mode-btn:hover, .action-btn:hover {
             background: rgba(255, 255, 255, 0.2);
         }
 
@@ -65,6 +73,35 @@
             border-color: #4ecdc4;
         }
 
+        .action-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            font-weight: bold;
+            margin-top: 5px;
+        }
+
+        .action-btn:active {
+            transform: scale(0.95);
+        }
+
+        .action-btn.exit {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+
+        .status-badge {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #e74c3c;
+            margin-left: 8px;
+        }
+
+        .status-badge.active {
+            background: #2ecc71;
+            box-shadow: 0 0 8px #2ecc71;
+        }
+
         .info-panel {
             margin-top: 10px;
             padding-top: 10px;
@@ -72,6 +109,13 @@
             font-size: 11px;
             color: rgba(255, 255, 255, 0.6);
             font-family: monospace;
+        }
+
+        .warning-text {
+            color: #f39c12;
+            font-size: 10px;
+            margin-top: 5px;
+            line-height: 1.4;
         }
 
         /* ========== 物理容器（真实屏幕） ========== */
@@ -92,8 +136,6 @@
             position: relative;
             overflow: hidden;
             box-shadow: 0 0 100px rgba(0, 0, 0, 0.8);
-            
-            /* 默认 transformation（会被 JS 动态覆盖） */
             transform-origin: center center;
             transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
@@ -106,11 +148,6 @@
                 0 0 0 2px #34495e,
                 0 20px 60px rgba(0, 0, 0, 0.6),
                 inset 0 0 20px rgba(0, 0, 0, 0.5);
-        }
-
-        /* 横屏旋转模式（物理横屏但显示竖屏内容） */
-        .rotated-mode {
-            /* 注意：这里 CSS rotate 只是视觉，实际逻辑坐标转换在 JS 中处理 */
         }
 
         /* ========== 卡片布局系统 ========== */
@@ -178,6 +215,10 @@
             position: absolute;
             transition: all 0.3s;
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 40px;
         }
 
         /* 模拟神经网络可视化 */
@@ -222,6 +263,7 @@
             font-size: 40px;
             cursor: pointer;
             transition: transform 0.1s;
+            user-select: none;
         }
 
         .control-btn:active {
@@ -259,6 +301,27 @@
         @keyframes fadeOut {
             to { opacity: 0; transform: translate(-50%, -50%) scale(2); }
         }
+
+        /* 全屏按钮特殊样式 */
+        #fullscreen-btn {
+            position: relative;
+            overflow: hidden;
+        }
+
+        #fullscreen-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+            transition: left 0.5s;
+        }
+
+        #fullscreen-btn:hover::before {
+            left: 100%;
+        }
     </style>
 </head>
 <body>
@@ -269,11 +332,28 @@
         <div>逻辑: <span id="logic-size">1080x1920</span></div>
         <div>模式: <span id="current-mode">-</span></div>
         <div>缩放: <span id="scale-ratio">-</span></div>
+        <div>全屏: <span id="fullscreen-status">❌ 未全屏</span></div>
     </div>
 
     <!-- 实验室控制面板 -->
     <div id="lab-controls">
         <h3>🧪 布局实验室</h3>
+        
+        <!-- 全屏控制按钮 -->
+        <button class="action-btn" id="fullscreen-btn" onclick="fullscreenManager.toggle()">
+            <span>🖥️ 进入全屏</span>
+            <span class="status-badge" id="fs-badge"></span>
+        </button>
+        <button class="action-btn exit hidden" id="exit-fs-btn" onclick="fullscreenManager.exit()" style="display: none;">
+            <span>❌ 退出全屏</span>
+        </button>
+        
+        <div class="warning-text" id="fs-warning">
+            提示：iOS Safari 不支持全屏 API，请使用"添加到主屏幕"获得类似体验
+        </div>
+
+        <div style="height: 1px; background: rgba(255,255,255,0.1); margin: 10px 0;"></div>
+
         <button class="mode-btn active" onclick="layoutEngine.setMode('auto')">自动检测</button>
         <button class="mode-btn" onclick="layoutEngine.setMode('portrait')">强制竖屏</button>
         <button class="mode-btn" onclick="layoutEngine.setMode('landscape')">强制横屏(旋转)</button>
@@ -282,6 +362,7 @@
         <div class="info-panel">
             <div>点击卡片测试坐标转换</div>
             <div>黄色圆点 = 触摸位置</div>
+            <div style="margin-top: 8px; color: #4ecdc4;">全屏后自动锁定竖屏</div>
         </div>
     </div>
 
@@ -309,8 +390,8 @@
                     <div class="card-content">
                         <div class="game-simulator" id="game-area">
                             <div class="fox-avatar" id="fox">🦊</div>
-                            <div style="position: absolute; bottom: 20px; color: rgba(255,255,255,0.5);">
-                                点击移动狐狸
+                            <div style="position: absolute; bottom: 20px; color: rgba(255,255,255,0.5); font-size: 18px;">
+                                点击移动狐狸 | 双指拖动切换视图
                             </div>
                         </div>
                     </div>
@@ -334,6 +415,195 @@
 
     <script>
         /**
+         * 全屏管理器 - FullscreenManager
+         * 处理跨浏览器全屏 API 和屏幕方向锁定
+         */
+        class FullscreenManager {
+            constructor() {
+                this.isFullscreen = false;
+                this.isSupported = this.checkSupport();
+                this.init();
+            }
+
+            init() {
+                // 监听全屏状态变化
+                const events = ['fullscreenchange', 'webkitfullscreenchange', 'mozfullscreenchange', 'MSFullscreenChange'];
+                events.forEach(event => {
+                    document.addEventListener(event, () => this.onChange(), false);
+                });
+
+                // 更新 UI
+                this.updateUI();
+            }
+
+            checkSupport() {
+                const doc = document.documentElement;
+                return !!(
+                    doc.requestFullscreen ||
+                    doc.webkitRequestFullscreen ||
+                    doc.mozRequestFullScreen ||
+                    doc.msRequestFullscreen
+                );
+            }
+
+            /**
+             * 进入全屏（跨浏览器兼容）
+             */
+            async enter() {
+                const doc = document.documentElement;
+                
+                try {
+                    if (doc.requestFullscreen) {
+                        await doc.requestFullscreen();
+                    } else if (doc.webkitRequestFullscreen) {
+                        await doc.webkitRequestFullscreen(Element.ALLOW_KEYBOARD_INPUT);
+                    } else if (doc.mozRequestFullScreen) {
+                        await doc.mozRequestFullScreen();
+                    } else if (doc.msRequestFullscreen) {
+                        await doc.msRequestFullscreen();
+                    } else {
+                        throw new Error('Fullscreen API not supported');
+                    }
+
+                    // 全屏成功后尝试锁定竖屏
+                    setTimeout(() => this.lockOrientation(), 100);
+                    
+                } catch (err) {
+                    console.warn('进入全屏失败:', err);
+                    alert('进入全屏失败，请确保是通过点击按钮触发');
+                }
+            }
+
+            /**
+             * 退出全屏
+             */
+            async exit() {
+                try {
+                    if (document.exitFullscreen) {
+                        await document.exitFullscreen();
+                    } else if (document.webkitExitFullscreen) {
+                        await document.webkitExitFullscreen();
+                    } else if (document.mozCancelFullScreen) {
+                        await document.mozCancelFullScreen();
+                    } else if (document.msExitFullscreen) {
+                        await document.msExitFullscreen();
+                    }
+                } catch (err) {
+                    console.warn('退出全屏失败:', err);
+                }
+            }
+
+            toggle() {
+                if (this.isFullscreen) {
+                    this.exit();
+                } else {
+                    this.enter();
+                }
+            }
+
+            /**
+             * 锁定屏幕方向为竖屏（必须在全屏后调用）
+             */
+            async lockOrientation() {
+                try {
+                    if (screen.orientation && screen.orientation.lock) {
+                        await screen.orientation.lock('portrait-primary');
+                        console.log('✅ 屏幕方向已锁定为竖屏');
+                    } else if (screen.lockOrientation) {
+                        // 旧版 API
+                        screen.lockOrientation('portrait-primary');
+                    } else if (screen.webkitLockOrientation) {
+                        screen.webkitLockOrientation('portrait-primary');
+                    } else if (screen.mozLockOrientation) {
+                        screen.mozLockOrientation('portrait-primary');
+                    } else if (screen.msLockOrientation) {
+                        screen.msLockOrientation('portrait-primary');
+                    } else {
+                        console.warn('屏幕方向锁定不支持');
+                    }
+                } catch (err) {
+                    console.warn('锁定屏幕方向失败:', err);
+                }
+            }
+
+            /**
+             * 解锁屏幕方向
+             */
+            unlockOrientation() {
+                try {
+                    if (screen.orientation && screen.orientation.unlock) {
+                        screen.orientation.unlock();
+                    } else if (screen.unlockOrientation) {
+                        screen.unlockOrientation();
+                    } else if (screen.webkitUnlockOrientation) {
+                        screen.webkitUnlockOrientation();
+                    } else if (screen.mozUnlockOrientation) {
+                        screen.mozUnlockOrientation();
+                    } else if (screen.msUnlockOrientation) {
+                        screen.msUnlockOrientation();
+                    }
+                } catch (err) {
+                    console.warn('解锁屏幕方向失败:', err);
+                }
+            }
+
+            onChange() {
+                const fullscreenElement = 
+                    document.fullscreenElement ||
+                    document.webkitFullscreenElement ||
+                    document.mozFullScreenElement ||
+                    document.msFullscreenElement;
+
+                this.isFullscreen = !!fullscreenElement;
+                this.updateUI();
+                
+                // 通知布局引擎重新计算
+                if (layoutEngine) {
+                    setTimeout(() => layoutEngine.handleFullscreenChange(this.isFullscreen), 100);
+                }
+
+                // 如果退出全屏，解锁方向
+                if (!this.isFullscreen) {
+                    this.unlockOrientation();
+                }
+            }
+
+            updateUI() {
+                const enterBtn = document.getElementById('fullscreen-btn');
+                const exitBtn = document.getElementById('exit-fs-btn');
+                const badge = document.getElementById('fs-badge');
+                const status = document.getElementById('fullscreen-status');
+                const warning = document.getElementById('fs-warning');
+
+                if (this.isFullscreen) {
+                    enterBtn.style.display = 'none';
+                    exitBtn.style.display = 'flex';
+                    badge.classList.add('active');
+                    status.innerHTML = '✅ 已全屏';
+                    status.style.color = '#2ecc71';
+                } else {
+                    enterBtn.style.display = 'flex';
+                    exitBtn.style.display = 'none';
+                    badge.classList.remove('active');
+                    status.innerHTML = '❌ 未全屏';
+                    status.style.color = '#e74c3c';
+                }
+
+                // iOS 警告
+                const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+                if (isIOS) {
+                    warning.style.display = 'block';
+                    warning.textContent = 'iOS 不支持全屏 API，请使用"添加到主屏幕"并从中打开以获得全屏体验';
+                } else if (!this.isSupported) {
+                    warning.style.display = 'block';
+                    warning.textContent = '您的浏览器不支持全屏 API';
+                } else {
+                    warning.style.display = 'none';
+                }
+            }
+        }
+
+        /**
          * 布局引擎 - LayoutEngine
          * 核心职责：将物理屏幕适配到 1080x1920 虚拟手机
          */
@@ -344,6 +614,7 @@
                 this.mode = 'auto';
                 this.physWidth = window.innerWidth;
                 this.physHeight = window.innerHeight;
+                this.isFullscreen = false;
                 
                 this.els = {
                     phone: document.getElementById('virtual-phone'),
@@ -378,8 +649,19 @@
                         this.physWidth = window.innerWidth;
                         this.physHeight = window.innerHeight;
                         if (this.mode === 'auto') this.detect();
-                    }, 100);
+                    }, 300); // iOS 需要更长的延迟
                 });
+            }
+
+            handleFullscreenChange(isFullscreen) {
+                this.isFullscreen = isFullscreen;
+                // 全屏变化后重新检测布局
+                setTimeout(() => {
+                    this.physWidth = window.innerWidth;
+                    this.physHeight = window.innerHeight;
+                    if (this.mode === 'auto') this.detect();
+                    else this.applyMode(this.mode);
+                }, 100);
             }
 
             /**
@@ -389,6 +671,13 @@
                 const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
                 const isLandscape = this.physWidth > this.physHeight;
                 
+                // 全屏模式下的特殊处理
+                if (this.isFullscreen && isLandscape) {
+                    // 全屏时如果是横屏，使用旋转模式
+                    this.applyMode('landscape');
+                    return;
+                }
+
                 if (!isMobile && this.physWidth > 1024) {
                     this.applyMode('desktop');
                 } else if (isLandscape) {
@@ -427,24 +716,20 @@
              */
             applyMode(mode) {
                 const phone = this.els.phone;
-                const ratio = this.virtualHeight / this.virtualWidth; // 16:9
                 
                 this.els.indicator.mode.textContent = mode.toUpperCase();
                 this.els.indicator.phys.textContent = `${this.physWidth}x${this.physHeight}`;
 
                 switch(mode) {
                     case 'portrait':
-                        // 手机竖屏：直接等比缩放
                         this.applyPortrait(phone);
                         break;
                     
                     case 'landscape':
-                        // 手机横屏：旋转90度，让竖屏内容在横屏上正常显示
                         this.applyLandscape(phone);
                         break;
                     
                     case 'desktop':
-                        // PC端：手机壳模拟，居中显示
                         this.applyDesktop(phone);
                         break;
                     
@@ -469,15 +754,12 @@
 
             applyLandscape(phone) {
                 // 物理横屏但显示竖屏内容：旋转90度
-                // 此时虚拟手机的"高"对应物理屏幕的"宽"
-                
                 const scale = Math.min(
-                    this.physHeight / this.virtualWidth,   // 物理高对应虚拟宽
-                    this.physWidth / this.virtualHeight    // 物理宽对应虚拟高
+                    this.physHeight / this.virtualWidth,
+                    this.physWidth / this.virtualHeight
                 ) * 0.95;
 
-                // 关键：rotate(90deg) 然后调整位置
-                // 注意：rotate 后 width/height 交换
+                // rotate(90deg) 让竖屏内容在横屏上显示
                 phone.style.transform = `rotate(90deg) scale(${scale})`;
                 phone.className = 'phone-frame rotated-mode';
                 
@@ -486,8 +768,8 @@
             }
 
             applyDesktop(phone) {
-                // PC端：居中显示手机壳，固定大小或适配
-                const maxWidth = this.physWidth * 0.4;  // PC上只占用40%宽度
+                // PC端：居中显示手机壳
+                const maxWidth = this.physWidth * 0.4;
                 const scale = maxWidth / this.virtualWidth;
                 
                 phone.style.transform = `scale(${scale})`;
@@ -499,60 +781,42 @@
 
             /**
              * 设置输入坐标转换
-             * 核心：将物理屏幕的触摸坐标转换为虚拟手机的逻辑坐标
              */
             setupInputTransformation() {
-                const phone = this.els.phone;
-                
-                // 监听所有卡片区域的触摸/点击
                 const cards = document.querySelectorAll('.card');
                 cards.forEach(card => {
                     card.addEventListener('touchstart', (e) => this.handleInput(e), {passive: false});
                     card.addEventListener('click', (e) => this.handleInput(e));
                 });
 
-                // 特别处理游戏区域
                 const gameArea = document.getElementById('game-area');
                 gameArea.addEventListener('touchstart', (e) => {
                     e.preventDefault();
-                    const logicPos = this.transformCoordinates(e.touches[0].clientX, e.touches[0].clientY);
+                    const touch = e.touches[0];
+                    const logicPos = this.transformCoordinates(touch.clientX, touch.clientY);
                     this.showTouchIndicator(logicPos.x, logicPos.y);
                     gameLogic.moveTo(logicPos.x, logicPos.y);
                 });
             }
 
-            /**
-             * 坐标转换核心算法
-             * 将物理屏幕坐标 (clientX, clientY) → 虚拟手机坐标 (0-1080, 0-1920)
-             */
             transformCoordinates(clientX, clientY) {
                 const phone = this.els.phone;
                 const rect = phone.getBoundingClientRect();
                 
-                // 基础相对位置（在 phone 元素内的坐标）
                 let x = clientX - rect.left;
                 let y = clientY - rect.top;
                 
-                // 如果有旋转，需要反向旋转坐标
                 if (this.currentTransform?.rotate === 90) {
-                    // rotate(90deg) 的逆变换
-                    // 原点在中心，需要先平移再旋转
                     const centerX = rect.width / 2;
                     const centerY = rect.height / 2;
-                    
-                    // 相对于中心
                     const dx = x - centerX;
                     const dy = y - centerY;
-                    
-                    // 逆旋转 -90 度
-                    const newDx = dy;   // cos(-90)=0, sin(-90)=-1 → x' = x*0 - y*(-1) = y
-                    const newDy = -dx;  // y' = x*(-1) + y*0 = -x
-                    
+                    const newDx = dy;
+                    const newDy = -dx;
                     x = centerX + newDx;
                     y = centerY + newDy;
                 }
                 
-                // 考虑缩放
                 const scale = this.currentTransform?.scale || 1;
                 x = x / scale;
                 y = y / scale;
@@ -570,28 +834,17 @@
             }
 
             handleInput(e) {
-                // 阻止默认行为防止缩放
                 if (e.type === 'touchstart') e.preventDefault();
             }
         }
 
         /**
          * 游戏逻辑模拟
-         * 业务代码示例：只关心虚拟手机坐标，不感知物理屏幕
          */
         const gameLogic = {
             fox: document.getElementById('fox'),
             
             moveTo(x, y) {
-                // 限制在卡片区域内移动（简单的边界检查示例）
-                const card = document.getElementById('card-game');
-                const cardRect = card.getBoundingClientRect();
-                
-                // 这里的 x, y 已经是虚拟手机坐标系下的值
-                // 业务代码只需要处理 0-1080, 0-1920 的范围
-                console.log(`Fox moving to virtual: ${x.toFixed(0)}, ${y.toFixed(0)}`);
-                
-                // 视觉反馈：移动狐狸（相对于游戏区域）
                 const gameArea = document.getElementById('game-area');
                 const relX = (x / 1080) * 100;
                 const relY = (y / 1920) * 100;
@@ -609,7 +862,6 @@
                 } else if (direction === 'right') {
                     this.fox.style.left = Math.min(90, currentLeft + step) + '%';
                 }
-                console.log(`Move ${direction}`);
             },
 
             jump() {
@@ -617,14 +869,13 @@
                 setTimeout(() => {
                     this.fox.style.transform = 'translateY(0)';
                 }, 300);
-                console.log('Jump!');
             }
         };
 
         // 初始化
+        const fullscreenManager = new FullscreenManager();
         const layoutEngine = new LayoutEngine();
         
-        // 初始自动检测
         window.addEventListener('load', () => {
             layoutEngine.detect();
         });
