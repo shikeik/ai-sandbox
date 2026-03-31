@@ -20,8 +20,8 @@
             --color-border: rgba(255, 255, 255, 0.1);
             
             /* 尺寸系统 */
-            --phone-w: 1080px;
-            --phone-h: 1920px;
+            --phone-w: 384px;
+            --phone-h: 853px;
             --drawer-w: 165px;
             --radius-sm: 8px;
             --radius-md: 12px;
@@ -94,8 +94,8 @@
             height: 100%;
             display: flex;
             flex-direction: column;
-            padding: 5%;
-            gap: 3%;
+            padding: 5%;  // 5%
+            gap: 3%;  // 3%
         }
 
         .c-card {
@@ -109,7 +109,7 @@
         }
 
         .c-card__header {
-            padding: 20px 30px;
+            padding: 20px 15px;
             font-size: 24px;
             font-weight: 600;
             background: rgba(0,0,0,0.2);
@@ -125,9 +125,9 @@
         }
 
         /* 卡片变体 - 高度比例 */
-        .c-card--debug { height: 35%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
-        .c-card--game { height: 35%; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
-        .c-card--control { height: 20%; background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
+        .c-card--debug { height: 100%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .c-card--game { height: 60%; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
+        .c-card--control { height: 30%; background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
 
         /* ===== 抽屉组件 (Drawer) - 完全自包含 ===== */
         .c-drawer-wrapper {
@@ -166,7 +166,7 @@
             left: 0;
             top: 50%;
             transform: translate(-100%, -50%);
-            width: 22px;
+            width: 26px;
             height: 40px;
             background: inherit;
             border-radius: var(--radius-sm) 0 0 var(--radius-sm);
@@ -486,8 +486,8 @@
         class LayoutService {
             /** @type {LayoutConfig} */
             #config = {
-                virtualWidth: 1080,
-                virtualHeight: 1920,
+                virtualWidth: 384,
+                virtualHeight: 853,
                 margin: 0.05
             };
 
@@ -499,48 +499,37 @@
              * @returns {TransformResult}
              */
             calculate(physWidth, physHeight, mode) {
-                const { virtualWidth: vw, virtualHeight: vh } = this.#config;
-                const isPhysLandscape = physWidth > physHeight;
+                // 你的竖屏比例 9:16（宽:高）
+                const ASPECT_RATIO = 1080 / 1920;  // 约 0.5625
                 
-                let scale, rotation, finalMode;
-
-                switch (mode) {
-                    case 'desktop':
-                        scale = (physWidth * 0.4) / vw;
-                        rotation = 0;
-                        finalMode = 'desktop';
-                        break;
-                    
-                    case 'landscape':
-                        scale = Math.min(physHeight / vw, physWidth / vh) * 0.95;
-                        rotation = -90;
-                        finalMode = 'landscape';
-                        break;
-                    
-                    case 'portrait':
-                        scale = Math.min(physWidth / vw, physHeight / vh) * 0.95;
-                        rotation = 0;
-                        finalMode = 'portrait';
-                        break;
-                    
-                    case 'auto':
-                    default:
-                        if (!this.#isMobile() && physWidth > 1024) {
-                            scale = (physWidth * 0.4) / vw;
-                            rotation = 0;
-                            finalMode = 'desktop';
-                        } else if (isPhysLandscape) {
-                            scale = Math.min(physHeight / vw, physWidth / vh) * 0.95;
-                            rotation = -90;
-                            finalMode = 'landscape';
-                        } else {
-                            scale = Math.min(physWidth / vw, physHeight / vh) * 0.95;
-                            rotation = 0;
-                            finalMode = 'portrait';
-                        }
+                let virtualWidth, virtualHeight, rotation;
+                
+                // 判断是手机还是电脑（简单用宽度阈值）
+                const isMobile = physWidth < 1024;
+                
+                if (isMobile) {
+                    // 手机：取短边做宽，按比例算高
+                    const minSide = Math.min(physWidth, physHeight);
+                    virtualWidth = minSide;
+                    virtualHeight = minSide / ASPECT_RATIO;
+                    rotation = (physWidth > physHeight) ? -90 : 0;  // 横屏就转回来
+                } else {
+                    // 电脑：取高做短边，按比例算宽（竖屏居中）
+                    virtualHeight = physHeight;
+                    virtualWidth = physHeight * ASPECT_RATIO;
+                    rotation = 0;
                 }
-
-                return { scale, rotation, mode: finalMode };
+                
+                // 现在虚拟尺寸就是屏幕可用尺寸，scale=1.0（无需缩放）
+                const scale = 1.0;
+                
+                return { 
+                    scale, 
+                    rotation, 
+                    mode: isMobile ? 'mobile' : 'desktop',
+                    virtualWidth,
+                    virtualHeight
+                };
             }
 
             /**
@@ -572,8 +561,8 @@
                 y = y / transform.scale;
 
                 return {
-                    x: Math.max(0, Math.min(1080, x)),
-                    y: Math.max(0, Math.min(1920, y))
+                    x: Math.max(0, Math.min(384, x)),
+                    y: Math.max(0, Math.min(853, y))
                 };
             }
 
@@ -639,6 +628,7 @@
             }
         }
 
+
         /**
          * 屏幕方向服务
          */
@@ -649,24 +639,25 @@
             isSupported() {
                 return !!(screen.orientation?.lock || screen.lockOrientation || screen.webkitLockOrientation);
             }
-
+        
             /**
+             * @param {'portrait-primary'|'landscape-primary'} orientation
              * @returns {Promise<void>}
              */
-            async lockPortrait() {
+            async lock(orientation) {
                 try {
                     if (screen.orientation?.lock) {
-                        await screen.orientation.lock('portrait-primary');
+                        await screen.orientation.lock(orientation);
                     } else if (screen.lockOrientation) {
-                        screen.lockOrientation('portrait-primary');
+                        screen.lockOrientation(orientation);
                     } else if (screen.webkitLockOrientation) {
-                        screen.webkitLockOrientation('portrait-primary');
+                        screen.webkitLockOrientation(orientation);
                     }
                 } catch (err) {
                     console.warn('Orientation lock failed:', err);
                 }
             }
-
+        
             /**
              * @returns {void}
              */
@@ -778,7 +769,7 @@
                             </div>
                             <div class="c-info-panel__row">
                                 <span class="c-info-panel__label">逻辑:</span>
-                                <span class="c-info-panel__value">1080x1920</span>
+                                <span class="c-info-panel__value">384x853</span>
                             </div>
                             <div class="c-info-panel__row">
                                 <span class="c-info-panel__label">模式:</span>
@@ -1072,8 +1063,8 @@
 
             moveTo(pos) {
                 // 将虚拟坐标转为百分比
-                this.#position.x = (pos.x / 1080) * 100;
-                this.#position.y = (pos.y / 1920) * 100;
+                this.#position.x = (pos.x / 384) * 100;
+                this.#position.y = (pos.y / 853) * 100;
                 this.#render();
             }
 
@@ -1149,21 +1140,38 @@
 
                 this.#fullscreenService.onChange(() => {
                     this.#isFullscreen = this.#fullscreenService.isActive();
+                    
                     if (this.#isFullscreen) {
-                        this.#orientationService.lockPortrait();
+                        // 进入全屏：根据当前模式锁定方向，防止重力翻转
+                        const lockMode = this.#currentMode === 'landscape' 
+                            ? 'landscape-primary' 
+                            : 'portrait-primary';
+                        this.#orientationService.lock(lockMode);
                     } else {
+                        // 退出全屏：解锁
                         this.#orientationService.unlock();
                     }
+                    
                     this.#emitState();
                 });
             }
-
+            
+            
             async #enterFullscreen() {
                 try {
-                    await this.#fullscreenService.enter();
+                    // 1. 强制锁定横屏（无论手机当前怎么拿）
+                    await this.#orientationService.lock('landscape-primary');
+                    
+                    // 2. 延迟一点等方向锁定生效，再进全屏
+                    setTimeout(async () => {
+                        await this.#fullscreenService.enter();
+                        // 3. 强制使用 landscape 旋转模式（-90° 抵消）
+                        this.#currentMode = 'landscape';
+                        this.#updateLayout();
+                    }, 300);
+                    
                 } catch (err) {
                     console.error('Fullscreen failed:', err);
-                    alert('进入全屏失败，请确保是通过点击按钮触发');
                 }
             }
 
