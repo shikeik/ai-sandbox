@@ -457,7 +457,9 @@ export class JumpGame {
 			}
 		}
 	
-		this._addGround(currentGrid, 2)
+		// 终点后再延伸5格地面，防止玩家跳过终点后落到空气上
+		const finalLength = CONFIG.WORLD_LENGTH + 5 - currentGrid
+		this._addGround(currentGrid, Math.max(finalLength, 1))
 	}
 	
 	_addGround(startGrid, length) {
