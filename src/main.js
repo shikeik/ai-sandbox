@@ -664,6 +664,8 @@ function initConsolePanel() {
 		})
 	}
 
+	let autoScroll = true
+
 	function appendLine(level, args) {
 		const { tag, rest } = extractTag(args)
 		registerTag(tag)
@@ -690,7 +692,9 @@ function initConsolePanel() {
 		})
 
 		logsContainer.appendChild(entry)
-		logsContainer.scrollTop = logsContainer.scrollHeight
+		if (autoScroll) {
+			logsContainer.scrollTop = logsContainer.scrollHeight
+		}
 	}
 
 	function makeTaggedLogger(orig, level) {
@@ -716,6 +720,7 @@ function initConsolePanel() {
 	const btnClear = document.getElementById('btn-clear-console')
 	const btnDownload = document.getElementById('btn-download-console')
 	const btnFilter = document.getElementById('btn-filter-console')
+	const btnAutoscroll = document.getElementById('btn-autoscroll')
 	const filterMenu = document.getElementById('console-filter-menu')
 
 	if (btnClear) {
@@ -739,6 +744,13 @@ function initConsolePanel() {
 			a.click()
 			document.body.removeChild(a)
 			URL.revokeObjectURL(url)
+		})
+	}
+
+	if (btnAutoscroll) {
+		btnAutoscroll.addEventListener('click', () => {
+			autoScroll = !autoScroll
+			btnAutoscroll.classList.toggle('active', autoScroll)
 		})
 	}
 

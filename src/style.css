@@ -203,6 +203,12 @@ html, body {
 	background: #0f0;
 }
 
+.console-toolbar-btn.active {
+	opacity: 1;
+	background: #0f0;
+	color: #000;
+}
+
 .console-content {
 	flex: 1;
 	width: 100%;
