@@ -13,6 +13,7 @@ import { PlayerBestStore } from '@ai/PlayerBestStore.js'
 import { NeuronAreaManager } from '@views/NeuronAreaManager.js'
 import './style.css'
 import './style-fox.css'
+import EPS from './eps.js'
 
 // ========== 全局实例 ==========
 let game = null
@@ -68,6 +69,7 @@ const gameArea = document.getElementById('game-area')
 
 // ========== 初始化 ==========
 function init() {
+	EPS.init()
 	game = new JumpGame()
 	renderer = new GameRenderer('game-world')
 	renderer.setGame(game)
@@ -167,37 +169,32 @@ function init() {
 	const fsOverlay = document.getElementById('fs-guide-overlay')
 
 	if (isFullscreenRequested && fsOverlay) {
-		// 1. 显示遮罩
 		fsOverlay.classList.remove('hidden')
-
-		// 2. 绑定点击事件
-		// 在进入全屏的代码块中加入方向锁定
 		fsOverlay.addEventListener('click', async () => {
-			const docElm = document.documentElement
-	
 			try {
-				// 1. 进入全屏
-				if (docElm.requestFullscreen) {
-					await docElm.requestFullscreen()
-				} else if (docElm.webkitRequestFullscreen) {
-					await docElm.webkitRequestFullscreen()
-				}
-
-				// 2. 【核心代码】：锁定为竖屏
-				// 注意：必须在进入全屏成功后执行
-				if (screen.orientation && screen.orientation.lock) {
-					await screen.orientation.lock('portrait-primary').catch(err => {
-						console.warn('方向锁定失败，可能浏览器不支持:', err)
-					})
-				}
+				await EPS.fullscreen()
 			} catch (e) {
 				console.error('进入全屏失败:', e)
 			}
-
 			fsOverlay.classList.add('hidden')
-			setTimeout(() => fsOverlay.remove(), 500) // 彻底从 DOM 中移除
 		})
 	}
+
+	// --- 控制栏按钮 ---
+	const btnToggle = document.getElementById('btn-toggle')
+	const btnFullscreen = document.getElementById('btn-fullscreen')
+	if (btnToggle) {
+		btnToggle.addEventListener('click', () => {
+			EPS.toggle()
+			console.log('EPS:', EPS.isActive() ? 'ON' : 'OFF')
+		})
+	}
+	if (btnFullscreen) {
+		btnFullscreen.addEventListener('click', () => {
+			EPS.fullscreen()
+		})
+	}
+	// ------------------
 }
 
 // ========== 动态 UI 控制面板 ==========
@@ -567,15 +564,16 @@ function handleKeyDown(e) {
 
 // ========== 窗口适配 ==========
 function handleResize() {
+	EPS.updateViewport()
 	// 如果是横屏且触发了 CSS 旋转，我们需要取相反的尺寸
-	const isLandscape = window.innerWidth > window.innerHeight;
-	const realWidth = isLandscape ? window.innerHeight : window.innerWidth;
+	const isLandscape = window.innerWidth > window.innerHeight
+	const realWidth = isLandscape ? window.innerHeight : window.innerWidth
 	
-	game.setViewportSize(realWidth);
-	const visualX = renderer.visual.x;
-	game._updateCamera(visualX);
-	renderer.updateCamera(game.camera);
-	renderCurrentAIView();
+	game.setViewportSize(realWidth)
+	const visualX = renderer.visual.x
+	game._updateCamera(visualX)
+	renderer.updateCamera(game.camera)
+	renderCurrentAIView()
 }
 
 // ========== 启动 ==========

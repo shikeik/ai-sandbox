@@ -7,73 +7,121 @@
 	box-sizing: border-box;
 }
 
-/* 当屏幕物理上处于横屏（宽 > 高）时触发 */
-@media screen and (orientation: landscape) {
-  #app-root { /* 假设你的所有 HTML 都在这个容器里 */
-    width: 100vh !important;
-    height: 100vw !important;
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%) rotate(90deg); /* 顺时针转回竖屏 */
-    transform-origin: center center;
-    overflow: hidden;
-  }
+html, body {
+	width: 100%;
+	height: 100%;
+	background: #000;
+	overflow: hidden;
+	font-family: 'Courier New', monospace;
 }
 
-/* 确保所有覆盖层、遮罩也在这个舞台内 */
+/* 当屏幕物理上处于横屏（宽 > 高）时，.ever-portrait 通过 rotate 强制内容竖屏显示 */
 .game-overlay {
-  position: absolute; /* 不要用 fixed，否则旋转后会错位 */
+	position: absolute;
+}
+
+/* ---------- EPS 核心：恒竖布局 ---------- */
+.ever-portrait {
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	width: var(--ep-avail-width, 100vw);
+	height: var(--ep-avail-height, 100vh);
+	transform: translate(-50%, -50%);
+	overflow: hidden;
+	background: #1a1a2e;
+	border: 1.5px dashed #0f0;
+}
+
+@media (orientation: landscape) {
+	.ever-portrait.active {
+		width: var(--ep-avail-height, 100vh);
+		height: var(--ep-avail-width, 100vw);
+		transform: translate(-50%, -50%) rotate(-90deg);
+	}
 }
 
 /* ---------- CSS 变量 ---------- */
 :root {
-	/* 统一天空主题 - 较暗的蓝色系 */
 	--sky-dark: #2c3e50;
 	--sky-mid: #34495e;
 	--sky-light: #4a6278;
-	
-	/* 全局背景统一 */
 	--color-bg: var(--sky-dark);
 	--color-bg-game: linear-gradient(180deg, #4a6278 0%, #5a7a94 50%, #6a8aa8 100%);
 	--color-bg-neuron: var(--sky-mid);
 	--color-border: #5a7a94;
-	
 	--color-ground: linear-gradient(180deg, #4a8c2a 0%, #3d7a24 50%, #2d5a1a 100%);
 	--color-ground-border: #5a9e3a;
 	--color-pit: #1a2430;
-	
 	--color-player: linear-gradient(135deg, #4a90d9 0%, #2d5aa0 100%);
 	--color-player-border: #6ab0f9;
 	--color-player-glow: rgba(74, 144, 217, 0.6);
-	
+	--color-text: #ffffff;
+	--color-text-muted: rgba(255, 255, 255, 0.85);
+	--color-text-dim: rgba(200, 220, 240, 0.7);
+	--color-win: #27ae60;
+	--color-dead: #e74c3c;
+	--grid-line: rgba(255, 255, 255, 0.08);
+	--grid-label: rgba(255, 255, 255, 0.25);
 	--color-btn-right: linear-gradient(135deg, #27ae60 0%, #1e8449 100%);
 	--color-btn-right-shadow: #166534;
 	--color-btn-jump: linear-gradient(135deg, #f39c12 0%, #d68910 100%);
 	--color-btn-jump-shadow: #9c5710;
-	
-	/* 文字颜色 - 确保在蓝色背景上清晰可读 */
-	--color-text: #ffffff;
-	--color-text-muted: rgba(255, 255, 255, 0.85);
-	--color-text-dim: rgba(200, 220, 240, 0.7);
-	
-	--color-win: #27ae60;
-	--color-dead: #e74c3c;
-	
-	--grid-line: rgba(255, 255, 255, 0.08);
-	--grid-label: rgba(255, 255, 255, 0.25);
 }
 
 /* ---------- 布局 ---------- */
-body {
-	background: var(--color-bg);
-	color: var(--color-text);
-	font-family: 'Courier New', monospace;
-	height: 100dvh;
+#app {
+	width: 100%;
+	height: 100%;
 	display: flex;
 	flex-direction: column;
+	position: relative;
+}
+
+/* 游戏主容器：扣除菜单栏后的剩余空间 */
+#game-container {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	position: relative;
 	overflow: hidden;
-	padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* 控制栏 */
+.control-bar {
+	height: 36px;
+	background: #0f0f23;
+	border-bottom: 1px solid #0f0;
+	display: flex;
+	align-items: center;
+	padding: 0 8px;
+	gap: 8px;
+	flex-shrink: 0;
+	z-index: 3000;
+}
+
+.ctrl-btn {
+	padding: 4px 10px;
+	background: #222;
+	border: 1px solid #0f0;
+	color: #0f0;
+	font-size: 11px;
+	cursor: pointer;
+	border-radius: 4px;
+	font-family: monospace;
+}
+
+.ctrl-btn:active {
+	background: #0f0;
+	color: #000;
+}
+
+.eps-status {
+	flex: 1;
+	text-align: right;
+	font-size: 10px;
+	color: #0f0;
+	font-family: monospace;
 }
 
 /* ---------- 云朵装饰 ---------- */
@@ -92,7 +140,6 @@ body {
 	border-radius: 100px;
 }
 
-/* 大云朵 */
 .cloud-1 {
 	width: 100px;
 	height: 40px;
@@ -114,7 +161,6 @@ body {
 	right: 10px;
 }
 
-/* 中云朵 */
 .cloud-2 {
 	width: 80px;
 	height: 35px;
@@ -137,7 +183,6 @@ body {
 	right: 15px;
 }
 
-/* 小云朵 */
 .cloud-3 {
 	width: 60px;
 	height: 25px;
@@ -167,14 +212,13 @@ body {
 
 /* ---------- 游戏区域 ---------- */
 #game-area {
-	flex: 0 0 40%;
+	flex: 0 0 35%;
 	background: var(--color-bg-game);
 	position: relative;
 	overflow: hidden;
 	border-bottom: 2px solid var(--color-border);
 }
 
-/* 游戏信息 - 确保在蓝色背景上清晰可见 */
 #game-info {
 	position: absolute;
 	top: 10px;
@@ -197,7 +241,6 @@ body {
 	will-change: transform;
 }
 
-/* 状态提示 */
 #status-text {
 	position: absolute;
 	top: 50%;
@@ -212,10 +255,7 @@ body {
 	transition: opacity 0.3s;
 }
 
-#status-text.show {
-	opacity: 1;
-}
-
+#status-text.show { opacity: 1; }
 #status-text.dead { color: var(--color-dead); }
 #status-text.win { color: var(--color-win); }
 
@@ -252,14 +292,12 @@ body {
 	bottom: 0;
 	background: var(--color-ground);
 	border-top: 4px solid var(--color-ground-border);
-	/* 高度由 JS 动态设置 */
 }
 
 .pit-zone {
 	position: absolute;
 	bottom: 0;
 	background: var(--color-pit);
-	/* 宽高由 JS 动态设置 */
 }
 
 .pit-zone::after {
@@ -276,7 +314,6 @@ body {
 /* ---------- 终点 ---------- */
 .goal {
 	position: absolute;
-	/* 尺寸和位置由 JS 动态设置 */
 }
 
 @keyframes wave {
@@ -285,13 +322,10 @@ body {
 }
 
 /* ---------- 玩家 ---------- */
-/* 玩家基础样式，狐狸详细样式在 style-fox.css */
 #player {
 	position: absolute;
 	z-index: 100;
 }
-
-/* 死亡动画在 style-fox.css 中定义 (.fox-container.state-dead)
 
 /* ---------- 神经元区域 ---------- */
 #neuron-area {
@@ -302,7 +336,7 @@ body {
 	align-items: center;
 	justify-content: center;
 	border-bottom: 2px solid var(--color-border);
-	position: relative;  /* 为绝对定位子元素提供上下文 */
+	position: relative;
 }
 
 #neuron-placeholder {
@@ -327,22 +361,21 @@ body {
 
 /* ---------- 控制区域 ---------- */
 #control-area {
-	flex: 0 0 auto;
-	min-height: 120px;
+	flex: 0 0 20%;
 	background: var(--sky-dark);
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	gap: 50px;
-	padding: 15px 20px calc(15px + env(safe-area-inset-bottom, 0px));
+	gap: 30px;
+	padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px));
 }
 
 .btn {
-	width: 100px;
-	height: 100px;
+	width: 50px;
+	height: 50px;
 	border: none;
 	border-radius: 50%;
-	font-size: 36px;
+	font-size: 18px;
 	cursor: pointer;
 	user-select: none;
 	-webkit-tap-highlight-color: transparent;
@@ -350,50 +383,42 @@ body {
 	transition: transform 0.05s;
 }
 
-.btn:active {
-	transform: scale(0.92);
-}
-
-.btn:disabled {
-	opacity: 0.5;
-	cursor: not-allowed;
-}
+.btn:active { transform: scale(0.92); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .btn-label {
 	position: absolute;
-	bottom: -28px;
+	bottom: -20px;
 	left: 50%;
 	transform: translateX(-50%);
-	font-size: 12px;
+	font-size: 10px;
 	color: #888;
 	white-space: nowrap;
 }
 
-/* 右移按钮 */
 #btn-right {
 	background: var(--color-btn-right);
-	box-shadow: 0 8px 0 var(--color-btn-right-shadow), 0 10px 30px rgba(39, 174, 96, 0.4);
+	box-shadow: 0 4px 0 var(--color-btn-right-shadow), 0 5px 15px rgba(39, 174, 96, 0.4);
 	color: white;
 }
 
 #btn-right:active:not(:disabled) {
-	box-shadow: 0 4px 0 var(--color-btn-right-shadow), 0 5px 15px rgba(39, 174, 96, 0.4);
-	transform: translateY(4px) scale(0.92);
+	box-shadow: 0 2px 0 var(--color-btn-right-shadow), 0 3px 8px rgba(39, 174, 96, 0.4);
+	transform: translateY(2px) scale(0.92);
 }
 
-/* 跳跃按钮 */
 #btn-jump {
 	background: var(--color-btn-jump);
-	box-shadow: 0 8px 0 var(--color-btn-jump-shadow), 0 10px 30px rgba(243, 156, 18, 0.4);
+	box-shadow: 0 4px 0 var(--color-btn-jump-shadow), 0 5px 15px rgba(243, 156, 18, 0.4);
 	color: white;
 }
 
 #btn-jump:active:not(:disabled) {
-	box-shadow: 0 4px 0 var(--color-btn-jump-shadow), 0 5px 15px rgba(243, 156, 18, 0.4);
-	transform: translateY(4px) scale(0.92);
+	box-shadow: 0 2px 0 var(--color-btn-jump-shadow), 0 3px 8px rgba(243, 156, 18, 0.4);
+	transform: translateY(2px) scale(0.92);
 }
 
-/* ---------- 开始游戏遮罩 ---------- */
+/* ---------- 遮罩 ---------- */
 .game-overlay {
 	position: absolute;
 	inset: 0;
@@ -419,7 +444,7 @@ body {
 .overlay-content h2 {
 	font-size: 18px;
 	margin-bottom: 24px;
-	text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+	text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
 }
 
 .start-button {
@@ -440,9 +465,7 @@ body {
 	box-shadow: 0 6px 20px rgba(39, 174, 96, 0.5);
 }
 
-.start-button:active {
-	transform: translateY(0);
-}
+.start-button:active { transform: translateY(0); }
 
 .overlay-hint {
 	margin-top: 16px;
@@ -450,12 +473,14 @@ body {
 	color: rgba(255, 255, 255, 0.6);
 }
 
-/* 确保全屏引导在最上层 */
 #fs-guide-overlay {
 	cursor: pointer;
 	user-select: none;
+	z-index: 9999;
+	background: rgba(0, 0, 0, 0.85);
+	backdrop-filter: blur(4px);
 }
 
 #fs-guide-overlay .start-button {
-	pointer-events: none; /* 让点击穿透到遮罩本身，方便用户点哪里都能进入 */
+	pointer-events: none;
 }

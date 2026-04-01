@@ -1,713 +1,81 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="mobile-web-app-capable" content="yes">
-    <title>AI 神经元训练沙盘</title>
-    <style>
-        /* ========== 基础重置 ========== */
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        html, body { 
-            width: 100%; height: 100%; 
-            background: #000; overflow: hidden; 
-            font-family: 'Courier New', monospace;
-        }
-
-        /* ========== EPS 核心：恒竖布局 ========== */
-        .ever-portrait { 
-            position: absolute; 
-            top: 50%; left: 50%; 
-            width: var(--ep-avail-width, 100vw); 
-            height: var(--ep-avail-height, 100vh);
-            transform: translate(-50%, -50%); 
-            overflow: hidden; 
-            background: #1a1a2e;
-            /* 虚线框：可视化EPS边界 */
-            border: 1.5px dashed #0f0;
-        }
-
-        @media (orientation: landscape) { 
-            .ever-portrait.active { 
-                width: var(--ep-avail-height, 100vh); 
-                height: var(--ep-avail-width, 100vw);
-                transform: translate(-50%, -50%) rotate(-90deg); 
-            } 
-        }
-
-        /* ========== CSS 变量 ========== */
-        :root {
-            --sky-dark: #2c3e50;
-            --sky-mid: #34495e;
-            --sky-light: #4a6278;
-            --color-bg: var(--sky-dark);
-            --color-bg-game: linear-gradient(180deg, #4a6278 0%, #5a7a94 50%, #6a8aa8 100%);
-            --color-bg-neuron: var(--sky-mid);
-            --color-border: #5a7a94;
-            --color-ground: linear-gradient(180deg, #4a8c2a 0%, #3d7a24 50%, #2d5a1a 100%);
-            --color-ground-border: #5a9e3a;
-            --color-pit: #1a2430;
-            --color-player: linear-gradient(135deg, #4a90d9 0%, #2d5aa0 100%);
-            --color-player-border: #6ab0f9;
-            --color-text: #ffffff;
-            --color-text-muted: rgba(255, 255, 255, 0.85);
-            --color-win: #27ae60;
-            --color-dead: #e74c3c;
-            --grid-line: rgba(255, 255, 255, 0.08);
-            --grid-label: rgba(255, 255, 255, 0.25);
-            --color-btn-right: linear-gradient(135deg, #27ae60 0%, #1e8449 100%);
-            --color-btn-right-shadow: #166534;
-            --color-btn-jump: linear-gradient(135deg, #f39c12 0%, #d68910 100%);
-            --color-btn-jump-shadow: #9c5710;
-        }
-
-        /* ========== 布局 ========== */
-        #app {
-            width: 100%; height: 100%;
-            display: flex; flex-direction: column;
-            position: relative;
-        }
-
-        /* 游戏主容器：扣除菜单栏后的剩余空间 */
-        #game-container {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            position: relative;
-            overflow: hidden;
-        }
-
-        /* 控制栏 */
-        .control-bar { 
-            height: 36px; 
-            background: #0f0f23; 
-            border-bottom: 1px solid #0f0; 
-            display: flex; align-items: center; 
-            padding: 0 8px; gap: 8px; 
-            flex-shrink: 0;
-            z-index: 3000;
-        }
-
-        .ctrl-btn { 
-            padding: 4px 10px; 
-            background: #222; 
-            border: 1px solid #0f0; 
-            color: #0f0; 
-            font-size: 11px; 
-            cursor: pointer; 
-            border-radius: 4px;
-            font-family: monospace;
-        }
-
-        .ctrl-btn:active {
-            background: #0f0;
-            color: #000;
-        }
-
-        .eps-status { 
-            flex: 1; 
-            text-align: right; 
-            font-size: 10px; 
-            color: #0f0; 
-            font-family: monospace;
-        }
-
-        /* ========== 游戏区域 ========== */
-        #game-area {
-            flex: 0 0 45%;
-            background: var(--color-bg-game);
-            position: relative;
-            overflow: hidden;
-            border-bottom: 2px solid var(--color-border);
-        }
-
-        #game-info {
-            position: absolute;
-            top: 10px; left: 10px;
-            font-size: 10px;
-            font-weight: bold;
-            color: rgba(255, 255, 255, 0.95);
-            z-index: 1000;
-            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
-            background: rgba(0, 0, 0, 0.2);
-            padding: 4px 8px;
-            border-radius: 4px;
-        }
-
-        #game-world {
-            position: absolute;
-            height: 100%;
-            transform-origin: left center;
-            will-change: transform;
-        }
-
-        #status-text {
-            position: absolute;
-            top: 50%; left: 50%;
-            transform: translate(-50%, -50%);
-            font-size: 48px;
-            font-weight: bold;
-            text-shadow: 0 0 30px currentColor;
-            opacity: 0;
-            pointer-events: none;
-            z-index: 2000;
-            transition: opacity 0.3s;
-        }
-
-        #status-text.show { opacity: 1; }
-        #status-text.dead { color: var(--color-dead); }
-        #status-text.win { color: var(--color-win); }
-
-        /* 世界网格 */
-        .world-grid {
-            position: absolute;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
-            pointer-events: none;
-            z-index: 5;
-        }
-
-        .grid-vline {
-            position: absolute;
-            top: 0; bottom: 0;
-            width: 1px;
-            background: var(--grid-line);
-        }
-
-        .grid-label {
-            position: absolute;
-            font-size: 10px;
-            color: var(--grid-label);
-            transform: translateX(-50%);
-            font-family: monospace;
-        }
-
-        /* 地形 */
-        .ground {
-            position: absolute;
-            bottom: 0;
-            background: var(--color-ground);
-            border-top: 4px solid var(--color-ground-border);
-        }
-
-        .pit-zone {
-            position: absolute;
-            bottom: 0;
-            background: var(--color-pit);
-        }
-
-        .pit-zone::after {
-            content: '▼▼▼';
-            position: absolute;
-            bottom: 5px; left: 50%;
-            transform: translateX(-50%);
-            font-size: 8px;
-            color: #222;
-            letter-spacing: 2px;
-        }
-
-        /* 终点 */
-        .goal {
-            position: absolute;
-        }
-
-        /* 玩家 */
-        #player {
-            position: absolute;
-            z-index: 100;
-        }
-
-        /* ========== 神经元区域 ========== */
-        #neuron-area {
-            flex: 1;
-            background: var(--color-bg-neuron);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            border-bottom: 2px solid var(--color-border);
-            position: relative;
-        }
-
-        #neuron-placeholder {
-            width: 90%; height: 85%;
-            background: rgba(44, 62, 80, 0.5);
-            border: 2px dashed rgba(90, 122, 148, 0.5);
-            border-radius: 12px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            color: rgba(255, 255, 255, 0.6);
-            font-size: 14px;
-        }
-
-        .neuron-icon {
-            font-size: 48px;
-            margin-bottom: 12px;
-            opacity: 0.5;
-        }
-
-        /* ========== 控制区域 ========== */
-        #control-area {
-            flex: 0 0 auto;
-            min-height: 80px;
-            background: var(--sky-dark);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 30px;
-            padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px));
-        }
-
-        .btn {
-            width: 50px; height: 50px;
-            border: none;
-            border-radius: 50%;
-            font-size: 18px;
-            cursor: pointer;
-            user-select: none;
-            -webkit-tap-highlight-color: transparent;
-            position: relative;
-            transition: transform 0.05s;
-        }
-
-        .btn:active { transform: scale(0.92); }
-        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-
-        .btn-label {
-            position: absolute;
-            bottom: -20px; left: 50%;
-            transform: translateX(-50%);
-            font-size: 10px;
-            color: #888;
-            white-space: nowrap;
-        }
-
-        #btn-right {
-            background: var(--color-btn-right);
-            box-shadow: 0 4px 0 var(--color-btn-right-shadow), 0 5px 15px rgba(39, 174, 96, 0.4);
-            color: white;
-        }
-
-        #btn-right:active:not(:disabled) {
-            box-shadow: 0 2px 0 var(--color-btn-right-shadow), 0 3px 8px rgba(39, 174, 96, 0.4);
-            transform: translateY(2px) scale(0.92);
-        }
-
-        #btn-jump {
-            background: var(--color-btn-jump);
-            box-shadow: 0 4px 0 var(--color-btn-jump-shadow), 0 5px 15px rgba(243, 156, 18, 0.4);
-            color: white;
-        }
-
-        #btn-jump:active:not(:disabled) {
-            box-shadow: 0 2px 0 var(--color-btn-jump-shadow), 0 3px 8px rgba(243, 156, 18, 0.4);
-            transform: translateY(2px) scale(0.92);
-        }
-
-        /* ========== 遮罩 ========== */
-        .game-overlay {
-            position: absolute;
-            inset: 0;
-            background: rgba(0, 0, 0, 0.25);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 1500;
-            opacity: 1;
-            transition: opacity 0.4s ease;
-        }
-
-        .game-overlay.hidden {
-            opacity: 0;
-            pointer-events: none;
-        }
-
-        .overlay-content {
-            text-align: center;
-            color: white;
-        }
-
-        .overlay-content h2 {
-            font-size: 18px;
-            margin-bottom: 24px;
-            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
-        }
-
-        .start-button {
-            padding: 16px 48px;
-            font-size: 18px;
-            font-weight: bold;
-            color: white;
-            background: linear-gradient(135deg, #27ae60 0%, #1e8449 100%);
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            box-shadow: 0 4px 15px rgba(39, 174, 96, 0.4);
-            transition: transform 0.1s, box-shadow 0.1s;
-        }
-
-        .start-button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(39, 174, 96, 0.5);
-        }
-
-        .start-button:active { transform: translateY(0); }
-
-        .overlay-hint {
-            margin-top: 16px;
-            font-size: 12px;
-            color: rgba(255, 255, 255, 0.6);
-        }
-
-        #fs-guide-overlay {
-            cursor: pointer;
-            user-select: none;
-            z-index: 9999;
-            background: rgba(0,0,0,0.85);
-            backdrop-filter: blur(4px);
-        }
-
-        #fs-guide-overlay .start-button {
-            pointer-events: none;
-        }
-    </style>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+	<meta name="apple-mobile-web-app-capable" content="yes">
+	<meta name="mobile-web-app-capable" content="yes">
+	<title>AI 神经元训练沙盘</title>
 </head>
 <body>
-    <div class="ever-portrait active" id="ep-container">
-        <div id="app">
-            <!-- 控制栏 -->
-            <div class="control-bar">
-                <button class="ctrl-btn" id="btn-toggle">↻ 恒竖</button>
-                <button class="ctrl-btn" id="btn-fullscreen">⛶ 全屏</button>
-                <div class="eps-status" id="eps-st">-</div>
-            </div>
+	<div class="ever-portrait active" id="ep-container">
+		<div id="app">
+			<!-- 控制栏 -->
+			<div class="control-bar">
+				<button class="ctrl-btn" id="btn-toggle">↻ 恒竖</button>
+				<button class="ctrl-btn" id="btn-fullscreen">⛶ 全屏</button>
+				<div class="eps-status" id="eps-st">-</div>
+			</div>
 
-            <!-- 游戏主容器：三区域在此容器内分配比例 -->
-            <div id="game-container">
+			<!-- 游戏主容器：三区域在此容器内分配比例 -->
+			<div id="game-container">
 
-                <!-- 全屏引导遮罩 -->
-            <div id="fs-guide-overlay" class="game-overlay hidden">
-                <div class="overlay-content">
-                    <div style="font-size: 40px; margin-bottom: 20px;">📱</div>
-                    <h2 style="margin-bottom: 10px;">全屏模式已就绪</h2>
-                    <p style="color: rgba(255,255,255,0.6); margin-bottom: 30px; font-size: 14px;">点击屏幕进入最佳体验环境</p>
-                    <button class="start-button" style="background: linear-gradient(135deg, #3498db 0%, #2980b9 100%); box-shadow: 0 4px 15px rgba(52, 152, 219, 0.4);">
-                        进入全屏
-                    </button>
-                </div>
-            </div>
+				<!-- 全屏引导遮罩 -->
+				<div id="fs-guide-overlay" class="game-overlay hidden">
+					<div class="overlay-content">
+						<div style="font-size: 40px; margin-bottom: 20px;">📱</div>
+						<h2 style="margin-bottom: 10px;">全屏模式已就绪</h2>
+						<p style="color: rgba(255,255,255,0.6); margin-bottom: 30px; font-size: 14px;">点击屏幕进入最佳体验环境</p>
+						<button class="start-button" style="background: linear-gradient(135deg, #3498db 0%, #2980b9 100%); box-shadow: 0 4px 15px rgba(52, 152, 219, 0.4);">
+							进入全屏
+						</button>
+					</div>
+				</div>
 
-            <!-- 游戏区域 -->
-            <div id="game-area">
-                <div id="game-info">
-                    POS: <span id="pos-display">0</span> | 
-                    GEN: <span id="gen-display">1</span>
-                </div>
-                <div id="status-text"></div>
-                <div id="game-world"></div>
+				<!-- 游戏区域 -->
+				<div id="game-area">
+					<div id="game-info">
+						POS: <span id="pos-display">0</span> | 
+						GEN: <span id="gen-display">1</span>
+					</div>
+					<div id="status-text"></div>
+					<div id="game-world"></div>
 
-                <!-- 开始游戏遮罩 -->
-                <div id="start-overlay" class="game-overlay">
-                    <div class="overlay-content">
-                        <h2>AI 神经元训练沙盘</h2>
-                        <button id="start-btn" class="start-button">开始游戏</button>
-                        <p class="overlay-hint">点击按钮开始挑战</p>
-                    </div>
-                </div>
-            </div>
+					<!-- 开始游戏遮罩 -->
+					<div id="start-overlay" class="game-overlay">
+						<div class="overlay-content">
+							<h2>AI 神经元训练沙盘</h2>
+							<button id="start-btn" class="start-button">开始游戏</button>
+							<p class="overlay-hint">点击按钮开始挑战</p>
+						</div>
+					</div>
+				</div>
 
-            <!-- 神经元区域 -->
-            <div id="neuron-area">
-                <div id="neuron-placeholder">
-                    <div class="neuron-icon">🧠</div>
-                    <div>[ 神经元网络区域 ]</div>
-                    <div style="font-size: 12px; margin-top: 10px; opacity: 0.5;">等待 AI 接入控制...</div>
-                </div>
-            </div>
+				<!-- 神经元区域 -->
+				<div id="neuron-area">
+					<div id="neuron-placeholder">
+						<div class="neuron-icon">🧠</div>
+						<div>[ 神经元网络区域 ]</div>
+						<div style="font-size: 12px; margin-top: 10px; opacity: 0.5;">等待 AI 接入控制...</div>
+					</div>
+				</div>
 
-                <!-- 控制区域 -->
-                <div id="control-area">
-                    <button class="btn" id="btn-right">
-                        ▶
-                        <span class="btn-label">移动 (x+1)</span>
-                    </button>
-                    <button class="btn" id="btn-jump">
-                        ⬆
-                        <span class="btn-label">跳跃 (x+2)</span>
-                    </button>
-                </div>
+				<!-- 控制区域 -->
+				<div id="control-area">
+					<button class="btn" id="btn-right">
+						▶
+						<span class="btn-label">移动 (x+1)</span>
+					</button>
+					<button class="btn" id="btn-jump">
+						⬆
+						<span class="btn-label">跳跃 (x+2)</span>
+					</button>
+				</div>
 
-            </div><!-- /#game-container -->
-        </div>
-    </div>
+			</div><!-- /#game-container -->
+		</div>
+	</div>
 
-    <script>
-        // ============================================================
-        // EPS 核心：恒竖布局系统
-        // ============================================================
-        const EPS = {
-            _active: true,
-
-            isActive() { return this._active; },
-            isLandscape() { return window.innerWidth > window.innerHeight; },
-
-            // 获取硬件安全区域
-            getHardwareInsets() {
-                const el = document.createElement('div');
-                el.style.cssText = 'position:fixed;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom);padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right);visibility:hidden;';
-                document.body.appendChild(el);
-                const s = getComputedStyle(el);
-                const res = {
-                    top: parseFloat(s.paddingTop)||0,
-                    bottom: parseFloat(s.paddingBottom)||0,
-                    left: parseFloat(s.paddingLeft)||0,
-                    right: parseFloat(s.paddingRight)||0
-                };
-                document.body.removeChild(el);
-                return res;
-            },
-
-            // 获取软件UI区域
-            getSoftwareInsets() {
-                const vv = window.visualViewport;
-                if (!vv) return { top:0, bottom:0, left:0, right:0 };
-                return {
-                    top: vv.offsetTop,
-                    bottom: window.innerHeight - (vv.offsetTop + vv.height),
-                    left: vv.offsetLeft,
-                    right: window.innerWidth - (vv.offsetLeft + vv.width)
-                };
-            },
-
-            // 获取完整保护区域
-            getVisualInsets() {
-                const hw = this.getHardwareInsets();
-                const sw = this.getSoftwareInsets();
-                return {
-                    top: Math.max(hw.top, hw.bottom, sw.top, sw.bottom),
-                    bottom: Math.max(hw.top, hw.bottom, sw.top, sw.bottom),
-                    left: Math.max(hw.left, hw.right, sw.left, sw.right),
-                    right: Math.max(hw.left, hw.right, sw.left, sw.right)
-                };
-            },
-
-            // 更新 CSS 变量
-            updateViewport() {
-                const insets = this.getVisualInsets();
-                const vv = window.visualViewport || { width: window.innerWidth, height: window.innerHeight };
-                const availWidth = vv.width - insets.left - insets.right;
-                const availHeight = vv.height - insets.top - insets.bottom;
-
-                const container = document.getElementById('ep-container');
-                if (container) {
-                    container.style.setProperty('--ep-avail-width', `${availWidth}px`);
-                    container.style.setProperty('--ep-avail-height', `${availHeight}px`);
-                }
-
-                const isLandscape = this.isLandscape();
-                const canvas = this._active && isLandscape 
-                    ? { width: availHeight, height: availWidth, insets }
-                    : { width: availWidth, height: availHeight, insets };
-
-                return canvas;
-            },
-
-            // 坐标转换
-            transform: {
-                _getMode() {
-                    const canvas = EPS.updateViewport();
-                    const isLandscape = EPS.isLandscape();
-                    return {
-                        isLandscape,
-                        isActive: EPS._active,
-                        logicW: canvas.width,
-                        logicH: canvas.height,
-                        insets: canvas.insets
-                    };
-                },
-
-                _screenToStage(x, y) {
-                    const ins = EPS.getVisualInsets();
-                    const vvH = window.visualViewport?.height || window.innerHeight;
-                    return {
-                        x: x - ins.left,
-                        y: vvH - y - ins.top
-                    };
-                },
-
-                _stageToLogical(x, y) {
-                    const m = this._getMode();
-                    if (!m.isActive || !m.isLandscape) return { x, y };
-                    return { x: y, y: m.logicW - x };
-                },
-
-                screenToLogical(x, y) {
-                    const s = this._screenToStage(x, y);
-                    return this._stageToLogical(s.x, s.y);
-                },
-
-                deltaScreenToLogical(dx, dy) {
-                    const m = this._getMode();
-                    const sdx = dx, sdy = -dy;
-                    if (!m.isActive || !m.isLandscape) return { dx: sdx, dy: sdy };
-                    return { dx: sdy, dy: -sdx };
-                }
-            },
-
-            // 事件监听（带坐标转换）
-            on(el, type, handler, opts={}) {
-                if (!el) return;
-                el.addEventListener(type, (e) => {
-                    const wrapped = this._wrap(e);
-                    handler(wrapped);
-                }, opts);
-            },
-
-            _wrap(e) {
-                const getT = () => {
-                    if (e.touches?.length) {
-                        return Array.from(e.touches).map(t => {
-                            const l = this.transform.screenToLogical(t.clientX, t.clientY);
-                            return { id: t.identifier, screenX: t.clientX, screenY: t.clientY, logicalX: l.x, logicalY: l.y };
-                        });
-                    }
-                    if (e.changedTouches?.length) {
-                        return Array.from(e.changedTouches).map(t => {
-                            const l = this.transform.screenToLogical(t.clientX, t.clientY);
-                            return { id: t.identifier, screenX: t.clientX, screenY: t.clientY, logicalX: l.x, logicalY: l.y };
-                        });
-                    }
-                    const l = this.transform.screenToLogical(e.clientX, e.clientY);
-                    return [{ id: 0, screenX: e.clientX, screenY: e.clientY, logicalX: l.x, logicalY: l.y }];
-                };
-                const touches = getT();
-                const p = touches[0];
-                return {
-                    native: e, x: p.logicalX, y: p.logicalY,
-                    screenX: p.screenX, screenY: p.screenY,
-                    touches: touches, touchCount: touches.length,
-                    preventDefault: () => e.preventDefault(),
-                    stopPropagation: () => e.stopPropagation(),
-                    button: e.button, type: e.type
-                };
-            },
-
-            // DOM 操作
-            dom: {
-                setPosition(el, s) {
-                    if (!el || !s) return;
-                    if ('x' in s) el.style.left = s.x + 'px';
-                    if ('y' in s) el.style.bottom = s.y + 'px';
-                    if ('left' in s) el.style.left = s.left + 'px';
-                    if ('bottom' in s) el.style.bottom = s.bottom + 'px';
-                },
-
-                getPosition(el) {
-                    if (!el) return null;
-                    const c = getComputedStyle(el);
-                    const left = c.left === 'auto' ? 0 : parseFloat(c.left);
-                    const bottom = c.bottom === 'auto' ? 0 : parseFloat(c.bottom);
-                    return { left, bottom, width: el.offsetWidth, height: el.offsetHeight };
-                }
-            },
-
-            toggle() {
-                this._active = !this._active;
-                const c = document.getElementById('ep-container');
-                if (c) c.classList.toggle('active', this._active);
-            },
-
-            async fullscreen() {
-                try {
-                    if (!document.fullscreenElement) {
-                        await document.documentElement.requestFullscreen();
-                        if (screen.orientation?.lock) await screen.orientation.lock('landscape').catch(()=>{});
-                    } else {
-                        if (screen.orientation?.unlock) await screen.orientation.unlock();
-                        await document.exitFullscreen();
-                    }
-                } catch(e) {
-                    console.error('全屏错误:', e.message);
-                }
-            },
-
-            init() {
-                // 监听各种视口变化
-                window.addEventListener('resize', () => this.updateStatus());
-                if (window.visualViewport) {
-                    window.visualViewport.addEventListener('resize', () => this.updateStatus());
-                }
-                let st;
-                window.addEventListener('scroll', () => {
-                    clearTimeout(st);
-                    st = setTimeout(() => this.updateStatus(), 100);
-                }, {passive:true});
-                this.updateStatus();
-            },
-
-            updateStatus() {
-                const cvs = this.updateViewport();
-                const ins = this.getVisualInsets();
-                const mode = this.isLandscape() ? '横' : '竖';
-                const st = document.getElementById('eps-st');
-                if (st) st.textContent = `${mode} | ${cvs.width.toFixed(0)}×${cvs.height.toFixed(0)} | EPS:${this._active?'ON':'OFF'} | ↕${ins.top.toFixed(0)}`;
-            }
-        };
-
-        // ============================================================
-        // 游戏初始化
-        // ============================================================
-        document.addEventListener('DOMContentLoaded', () => {
-            EPS.init();
-            console.log('🎮 EPS 恒竖布局系统初始化完成');
-            
-            // 控制栏按钮
-            const btnToggle = document.getElementById('btn-toggle');
-            const btnFullscreen = document.getElementById('btn-fullscreen');
-            
-            if (btnToggle) {
-                btnToggle.addEventListener('click', () => {
-                    EPS.toggle();
-                    console.log('EPS:', EPS._active ? 'ON' : 'OFF');
-                });
-            }
-            
-            if (btnFullscreen) {
-                btnFullscreen.addEventListener('click', () => {
-                    EPS.fullscreen();
-                });
-            }
-            
-            // 简单的按钮事件绑定（后续整合完整游戏逻辑）
-            const startBtn = document.getElementById('start-btn');
-            const startOverlay = document.getElementById('start-overlay');
-            
-            if (startBtn && startOverlay) {
-                startBtn.addEventListener('click', () => {
-                    startOverlay.classList.add('hidden');
-                    console.log('游戏开始');
-                });
-            }
-
-            // 全屏引导遮罩
-            const fsOverlay = document.getElementById('fs-guide-overlay');
-            const isFullscreenRequested = new URLSearchParams(window.location.search).get('fullscreen') === 'true';
-            
-            if (isFullscreenRequested && fsOverlay) {
-                fsOverlay.classList.remove('hidden');
-                fsOverlay.addEventListener('click', async () => {
-                    try {
-                        await EPS.fullscreen();
-                    } catch (e) {
-                        console.error('进入全屏失败:', e);
-                    }
-                    fsOverlay.classList.add('hidden');
-                });
-            }
-        });
-    </script>
+	<script type="module" src="/src/main.js"></script>
 </body>
 </html>
