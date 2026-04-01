@@ -43,11 +43,15 @@ const AI_CONFIG = {
 		NORMAL: 200,          // 中速：200ms/步
 		FAST: 50,             // 快速：50ms/步
 		MAX: 0                // 极速：无延迟
-	}
+	},
+	DEFAULT_SPEED: 'step',    // 默认训练速度
+	DEFAULT_MODE: 'player'    // 默认游戏模式
 }
 
-let aiSpeed = AI_CONFIG.SPEEDS.NORMAL  // 默认中速
-let isStepMode = false                 // 单步模式标志
+// 根据默认速度初始化
+const isStepModeByDefault = AI_CONFIG.DEFAULT_SPEED === 'step'
+let aiSpeed = isStepModeByDefault ? AI_CONFIG.SPEEDS.NORMAL : AI_CONFIG.SPEEDS[AI_CONFIG.DEFAULT_SPEED.toUpperCase()]
+let isStepMode = isStepModeByDefault
 
 /**
  * 转换游戏状态为神经网络输入
@@ -79,6 +83,7 @@ function init() {
 		weightClip: 5
 	})
 	window.network = network
+	window.AI_CONFIG = AI_CONFIG  // 暴露配置给视图使用
 	
 	playerBestStore = new PlayerBestStore()
 	viewManager = new NeuronAreaManager('neuron-area')

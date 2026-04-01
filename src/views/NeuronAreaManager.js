@@ -9,8 +9,9 @@ export class NeuronAreaManager {
 	constructor(containerId) {
 		this.container = document.getElementById(containerId)
 		this.currentView = null
-		this.currentMode = 'player'  // 默认玩家模式
-		this.currentSpeed = 'normal' // 默认中速
+		// 从全局配置读取默认值
+		this.currentMode = window.AI_CONFIG?.DEFAULT_MODE || 'player'
+		this.currentSpeed = window.AI_CONFIG?.DEFAULT_SPEED || 'step'
 		this.modeItems = []          // 模式按钮引用
 		this.speedItems = []         // 速度按钮引用
 		this.init()
