@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>恒竖布局+Visual Viewport - 修复版</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body { 
+            width: 100%; height: 100%; 
+            background: #000; overflow: hidden; font-family: monospace; 
+        }
+
+        /* 
+         * 【核心修复】
+         * JS 只更新 --ep-avail-width 和 --ep-avail-height 这两个 CSS 变量
+         * 不直接设置 style.width/height，避免覆盖 media query
+         * 横屏时 media query 会自动交换 width/height 的变量引用
+         */
+        .ever-portrait { 
+            position: absolute; 
+            top: 50%; left: 50%; 
+            /* 竖屏默认：宽=水平可用空间，高=垂直可用空间 */
+            width: var(--ep-avail-width, 100vw); 
+            height: var(--ep-avail-height, 100vh);
+            transform: translate(-50%, -50%); 
+            overflow: hidden; 
+            background: #111; 
+            /* 加粗 + 稀疏虚线 */
+            border: 1.5px dashed #0f0;
+        }
+
+        /* 
+         * 【横屏恒竖关键逻辑】
+         * 当横屏且 EPS 激活时，交换宽高：
+         * - width 取 avail-height（让物理宽度等于逻辑高度）
+         * - height 取 avail-width（让物理高度等于逻辑宽度）
+         * 这样旋转 -90deg 后视觉填满屏幕，内部保持竖屏比例
+         */
+        @media (orientation: landscape) { 
+            .ever-portrait.active { 
+                width: var(--ep-avail-height, 100vh); 
+                height: var(--ep-avail-width, 100vw);
+                transform: translate(-50%, -50%) rotate(-90deg); 
+            } 
+        }
+
+        .stage { 
+            width: 100%; height: 100%; 
+            display: flex; flex-direction: column; 
+            background: #1a1a2e; color: #0f0; 
+            position: relative;
+        }
+
+        .control-bar { 
+            height: 44px; 
+            background: #0f0f23; 
+            border-bottom: 1px solid #0f0; 
+            display: flex; align-items: center; 
+            padding: 0 12px; gap: 10px; 
+            flex-shrink: 0;
+        }
+
+        .ctrl-btn { 
+            padding: 6px 12px; 
+            background: #222; 
+            border: 1px solid #0f0; 
+            color: #0f0; 
+            font-size: 12px; 
+            cursor: pointer; 
+            border-radius: 4px;
+        }
+
+        .status { flex: 1; text-align: right; font-size: 11px; color: #0f0; }
+
+        .content { 
+            flex: 1; 
+            display: flex; 
+            position: relative;
+            overflow: hidden;
+        }
+
+        .sidebar { 
+            width: 56px; 
+            background: rgba(0,255,0,0.05); 
+            border-right: 1px solid #0f03; 
+            display: flex; flex-direction: column; 
+            align-items: center; padding: 12px 0; 
+            gap: 12px;
+        }
+
+        .btn-icon { 
+            width: 44px; height: 44px; 
+            background: rgba(0,255,0,0.1); 
+            border: 1px solid #0f03; 
+            border-radius: 8px; 
+            display: flex; align-items: center; justify-content: center; 
+            font-size: 24px; cursor: pointer;
+        }
+
+        .main { 
+            flex: 1; 
+            position: relative; 
+            padding: 12px;
+            overflow: hidden;
+        }
+
+        .box { 
+            position: absolute; 
+            width: 60px; height: 60px; 
+            background: rgba(255,0,0,0.8); 
+            border: 2px solid #f00; 
+            border-radius: 6px; 
+            cursor: move; 
+            user-select: none; 
+            touch-action: none;
+            display: flex; align-items: center; justify-content: center; 
+            color: #fff; font-size: 10px; 
+            left: 20px; 
+            bottom: 150px; 
+            z-index: 10; 
+            will-change: left, bottom;
+        }
+
+        .box.dragging { 
+            opacity: 0.7; 
+            box-shadow: 0 0 20px rgba(255,0,0,0.5);
+        }
+
+        .info { 
+            position: absolute; 
+            top: 12px; right: 12px; 
+            background: rgba(0,0,0,0.9); 
+            border: 1px solid #0f0; 
+            border-radius: 6px; 
+            padding: 12px; 
+            font-size: 11px; 
+            min-width: 200px; 
+            z-index: 20;
+        }
+
+        .row { display: flex; justify-content: space-between; margin: 4px 0; }
+        .label { color: #666; }
+        .val { color: #0f0; font-size: 10px;}
+
+        .log { 
+            position: absolute; 
+            bottom: 12px; left: 68px; right: 12px; 
+            height: 100px; 
+            background: rgba(0,0,0,0.95); 
+            border: 1px solid #0f0; 
+            border-radius: 6px; 
+            padding: 10px; 
+            font-size: 10px; 
+            overflow-y: auto; 
+            z-index: 20;
+        }
+
+        .log-item { margin: 3px 0; }
+        .t { color: #555; }
+        .d { color: #fa0; }
+        .v { color: #0f0; }
+        .e { color: #f55; }
+
+        #dl { display: none; }
+
+        .card-container {
+            position: absolute;
+            left: 50%; bottom: 50%;
+            transform: translate(-50%, 50%);
+            width: 260px; height: 160px;
+            background: #0f0f23;
+            border: 2px solid #0f0;
+            border-radius: 12px;
+            overflow: hidden;
+            z-index: 15;
+        }
+
+        .card-track {
+            display: flex;
+            width: 300%; height: 100%;
+            transition: transform 0.35s ease;
+        }
+
+        .card-page {
+            width: 33.333%; height: 100%;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            padding: 16px;
+        }
+
+        .page-title { font-size: 22px; font-weight: bold; }
+        .card-page:nth-child(1) .page-title { color: #4ade80; }
+        .card-page:nth-child(2) .page-title { color: #60a5fa; }
+        .card-page:nth-child(3) .page-title { color: #c084fc; }
+        .page-desc { font-size: 11px; color: #aaa; text-align: center; }
+        .page-icon { font-size: 40px; margin-bottom: 8px; }
+
+        .card-indicators {
+            position: absolute;
+            bottom: 10px; left: 50%;
+            transform: translateX(-50%);
+            display: flex; gap: 10px;
+            z-index: 10;
+        }
+
+        .indicator {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            background: rgba(0,255,0,0.3);
+            border: 1px solid #0f0;
+            cursor: pointer;
+        }
+
+        .indicator.active {
+            background: #0f0;
+            box-shadow: 0 0 10px #0f0;
+            transform: scale(1.3);
+        }
+    </style>
+</head>
+<body>
+    <a id="dl"></a>
+    <div class="ever-portrait active" id="ep-container">
+        <div class="stage">
+            <div class="control-bar">
+                <button class="ctrl-btn" id="btn-toggle">↻ 恒竖</button>
+                <button class="ctrl-btn" id="btn-fullscreen">⛶ 全屏</button>
+                <button class="ctrl-btn" id="btn-export">导出</button>
+                <div class="status" id="st">-</div>
+            </div>
+            <div class="content">
+                <div class="sidebar">
+                    <div class="btn-icon">🏠</div>
+                    <div class="btn-icon">🔍</div>
+                    <div class="btn-icon">🔄</div>
+                </div>
+                <div class="main" id="main-area">
+                    <div class="info">
+                        <div class="row"><span class="label">逻辑坐标:</span><span class="val" id="lc">-</span></div>
+                        <div class="row"><span class="label">物理坐标:</span><span class="val" id="pc">-</span></div>
+                        <div class="row"><span class="label">画布尺寸:</span><span class="val" id="cv">-</span></div>
+                        <div class="row"><span class="label">保护区域:</span><span class="val" id="sa">-</span></div>
+                    </div>
+
+                    <div class="card-container" id="card">
+                        <div class="card-track" id="track">
+                            <div class="card-page">
+                                <div class="page-icon">📊</div>
+                                <div class="page-title">数据概览</div>
+                                <div class="page-desc">硬件+软件双层保护<br/>双指右滑下一页</div>
+                            </div>
+                            <div class="card-page">
+                                <div class="page-icon">⚡</div>
+                                <div class="page-title">性能分析</div>
+                                <div class="page-desc">横屏宽高交换正常<br/>当前第2页</div>
+                            </div>
+                            <div class="card-page">
+                                <div class="page-icon">🔮</div>
+                                <div class="page-title">预测模型</div>
+                                <div class="page-desc">Visual Viewport支持<br/>双指左滑返回</div>
+                            </div>
+                        </div>
+                        <div class="card-indicators">
+                            <div class="indicator active" data-index="0"></div>
+                            <div class="indicator" data-index="1"></div>
+                            <div class="indicator" data-index="2"></div>
+                        </div>
+                    </div>
+
+                    <div class="box" id="box">拖拽我</div>
+                    <div class="log" id="log"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ============================================================
+        // EPS + Visual Viewport 修复版
+        // 关键修复：JS 只更新 CSS 变量，不覆盖 style.width/height
+        // 让 Media Query 的横屏宽高交换逻辑正常工作
+        // ============================================================
+        const EPS = {
+            _active: true,
+            logs: [],
+
+            isActive() { return this._active; },
+            isLandscape() { return window.innerWidth > window.innerHeight; },
+
+            // 获取硬件安全区域
+            getHardwareInsets() {
+                const el = document.createElement('div');
+                el.style.cssText = 'position:fixed;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom);padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right);visibility:hidden;';
+                document.body.appendChild(el);
+                const s = getComputedStyle(el);
+                const res = {
+                    top: parseFloat(s.paddingTop)||0,
+                    bottom: parseFloat(s.paddingBottom)||0,
+                    left: parseFloat(s.paddingLeft)||0,
+                    right: parseFloat(s.paddingRight)||0
+                };
+                document.body.removeChild(el);
+                return res;
+            },
+
+            // 获取软件UI区域（地址栏/工具栏）
+            getSoftwareInsets() {
+                const vv = window.visualViewport;
+                if (!vv) return { top:0, bottom:0, left:0, right:0 };
+                return {
+                    top: vv.offsetTop,
+                    bottom: window.innerHeight - (vv.offsetTop + vv.height),
+                    left: vv.offsetLeft,
+                    right: window.innerWidth - (vv.offsetLeft + vv.width)
+                };
+            },
+
+            // 获取完整保护区域
+            getVisualInsets() {
+                const hw = this.getHardwareInsets();
+                const sw = this.getSoftwareInsets();
+                // 四角对称：取对向最大值
+                return {
+                    top: Math.max(hw.top, hw.bottom, sw.top, sw.bottom),
+                    bottom: Math.max(hw.top, hw.bottom, sw.top, sw.bottom),
+                    left: Math.max(hw.left, hw.right, sw.left, sw.right),
+                    right: Math.max(hw.left, hw.right, sw.left, sw.right)
+                };
+            },
+
+            // 【关键修复】更新 CSS 变量，不直接设置 style.width/height
+            updateViewport() {
+                const insets = this.getVisualInsets();
+                const vv = window.visualViewport || { width: window.innerWidth, height: window.innerHeight };
+
+                // 计算视觉视口内的可用空间（扣除硬件+软件保护区域）
+                const availWidth = vv.width - insets.left - insets.right;
+                const availHeight = vv.height - insets.top - insets.bottom;
+
+                // 只更新 CSS 变量！不直接设置 container.style.width/height
+                // 让 CSS Media Query 自行决定 width/height 使用哪个变量
+                const container = document.getElementById('ep-container');
+                if (container) {
+                    container.style.setProperty('--ep-avail-width', `${availWidth}px`);
+                    container.style.setProperty('--ep-avail-height', `${availHeight}px`);
+                }
+
+                // 返回逻辑画布尺寸给调用者使用
+                const isLandscape = this.isLandscape();
+                const canvas = this._active && isLandscape 
+                    ? { width: availHeight, height: availWidth, insets }
+                    : { width: availWidth, height: availHeight, insets };
+
+                return canvas;
+            },
+
+            transform: {
+                _getMode() {
+                    const canvas = EPS.updateViewport();
+                    const isLandscape = EPS.isLandscape();
+                    return {
+                        isLandscape,
+                        isActive: EPS._active,
+                        logicW: canvas.width,
+                        logicH: canvas.height,
+                        insets: canvas.insets
+                    };
+                },
+
+                _screenToStage(x, y) {
+                    const ins = EPS.getVisualInsets();
+                    const vvH = window.visualViewport?.height || window.innerHeight;
+                    return {
+                        x: x - ins.left,
+                        y: vvH - y - ins.top
+                    };
+                },
+
+                _stageToLogical(x, y) {
+                    const m = this._getMode();
+                    if (!m.isActive || !m.isLandscape) return { x, y };
+                    return { x: y, y: m.logicW - x };
+                },
+
+                screenToLogical(x, y) {
+                    const s = this._screenToStage(x, y);
+                    return this._stageToLogical(s.x, s.y);
+                },
+
+                deltaScreenToLogical(dx, dy) {
+                    const m = this._getMode();
+                    const sdx = dx, sdy = -dy;
+                    if (!m.isActive || !m.isLandscape) return { dx: sdx, dy: sdy };
+                    return { dx: sdy, dy: -sdx };
+                }
+            },
+
+            on(el, type, handler, opts={}) {
+                if (!el) return;
+                el.addEventListener(type, (e) => {
+                    const wrapped = this._wrap(e);
+                    handler(wrapped);
+                }, opts);
+            },
+
+            _wrap(e) {
+                const getT = () => {
+                    if (e.touches?.length) {
+                        return Array.from(e.touches).map(t => {
+                            const l = this.transform.screenToLogical(t.clientX, t.clientY);
+                            return { id: t.identifier, screenX: t.clientX, screenY: t.clientY, logicalX: l.x, logicalY: l.y };
+                        });
+                    }
+                    if (e.changedTouches?.length) {
+                        return Array.from(e.changedTouches).map(t => {
+                            const l = this.transform.screenToLogical(t.clientX, t.clientY);
+                            return { id: t.identifier, screenX: t.clientX, screenY: t.clientY, logicalX: l.x, logicalY: l.y };
+                        });
+                    }
+                    const l = this.transform.screenToLogical(e.clientX, e.clientY);
+                    return [{ id: 0, screenX: e.clientX, screenY: e.clientY, logicalX: l.x, logicalY: l.y }];
+                };
+                const touches = getT();
+                const p = touches[0];
+                return {
+                    native: e, x: p.logicalX, y: p.logicalY,
+                    screenX: p.screenX, screenY: p.screenY,
+                    touches: touches, touchCount: touches.length,
+                    preventDefault: () => e.preventDefault(),
+                    stopPropagation: () => e.stopPropagation(),
+                    button: e.button, type: e.type
+                };
+            },
+
+            dom: {
+                setPosition(el, s) {
+                    if (!el || !s) return;
+                    if ('x' in s) el.style.left = s.x + 'px';
+                    if ('y' in s) el.style.bottom = s.y + 'px';
+                    if ('left' in s) el.style.left = s.left + 'px';
+                    if ('bottom' in s) el.style.bottom = s.bottom + 'px';
+                },
+
+                // 恢复原始实现：直接读取CSS属性
+                getPosition(el) {
+                    if (!el) return null;
+                    const c = getComputedStyle(el);
+                    const left = c.left === 'auto' ? 0 : parseFloat(c.left);
+                    const bottom = c.bottom === 'auto' ? 0 : parseFloat(c.bottom);
+                    return { left, bottom, width: el.offsetWidth, height: el.offsetHeight };
+                }
+            },
+
+            log(msg, type='v') {
+                const d = new Date();
+                const t = d.toLocaleTimeString('zh-CN', {hour12:false});
+                const logEl = document.getElementById('log');
+                if (!logEl) return;
+                const item = document.createElement('div');
+                item.className = 'log-item';
+                item.innerHTML = `<span class="t">${t}</span> <span class="${type}">${msg}</span>`;
+                logEl.appendChild(item);
+                logEl.scrollTop = logEl.scrollHeight;
+                this.logs.push(`${t} ${msg}`);
+                if (this.logs.length > 50) this.logs.shift();
+            },
+
+            updateStatus() {
+                const cvs = this.updateViewport();
+                const ins = this.getVisualInsets();
+                const mode = this.isLandscape() ? '横' : '竖';
+
+                const st = document.getElementById('st');
+                if (st) st.textContent = `${mode} | ${cvs.width.toFixed(0)}×${cvs.height.toFixed(0)} | EPS:${this._active?'ON':'OFF'}`;
+
+                const cv = document.getElementById('cv');
+                if (cv) cv.textContent = `${cvs.width.toFixed(0)}×${cvs.height.toFixed(0)}`;
+
+                const sa = document.getElementById('sa');
+                if (sa) sa.textContent = `↕${ins.top.toFixed(0)} ↔${ins.left.toFixed(0)}`;
+            },
+
+            toggle() {
+                this._active = !this._active;
+                const c = document.getElementById('ep-container');
+                if (c) c.classList.toggle('active', this._active);
+                this.updateStatus();
+                this.log(`EPS ${this._active?'开启':'关闭'}`, 'd');
+            },
+
+            async fullscreen() {
+                try {
+                    if (!document.fullscreenElement) {
+                        await document.documentElement.requestFullscreen();
+                        if (screen.orientation?.lock) await screen.orientation.lock('landscape').catch(()=>{});
+                    } else {
+                        if (screen.orientation?.unlock) await screen.orientation.unlock();
+                        await document.exitFullscreen();
+                    }
+                } catch(e) {
+                    this.log(`全屏错误: ${e.message}`, 'e');
+                }
+                this.updateStatus();
+            },
+
+            init() {
+                window.addEventListener('resize', () => this.updateStatus());
+                if (window.visualViewport) {
+                    window.visualViewport.addEventListener('resize', () => this.updateStatus());
+                }
+                let st;
+                window.addEventListener('scroll', () => {
+                    clearTimeout(st);
+                    st = setTimeout(() => this.updateStatus(), 100);
+                }, {passive:true});
+
+                this.updateStatus();
+                this.log('EPS+VisualViewport 初始化完成', 'd');
+                this.log('横屏恒竖布局修复: 宽高交换正常', 'v');
+            }
+        };
+
+        // ================== 应用层 ==================
+        const box = document.getElementById('box');
+        const boxState = { dragging: false, startX: 0, startY: 0, elemLeft: 0, elemBottom: 0 };
+
+        EPS.on(box, 'mousedown', (e) => {
+            if (e.button !== 0) return;
+            e.preventDefault();
+            boxState.dragging = true;
+            boxState.startX = e.x;
+            boxState.startY = e.y;
+            const pos = EPS.dom.getPosition(box);
+            boxState.elemLeft = pos.left;
+            boxState.elemBottom = pos.bottom;
+            box.classList.add('dragging');
+        });
+
+        EPS.on(box, 'touchstart', (e) => {
+            if (e.touchCount !== 1) return;
+            e.preventDefault();
+            boxState.dragging = true;
+            boxState.startX = e.x;
+            boxState.startY = e.y;
+            const pos = EPS.dom.getPosition(box);
+            boxState.elemLeft = pos.left;
+            boxState.elemBottom = pos.bottom;
+            box.classList.add('dragging');
+        }, {passive:false});
+
+        EPS.on(document, 'mousemove', (e) => {
+            if (!boxState.dragging) return;
+            const dx = e.x - boxState.startX;
+            const dy = e.y - boxState.startY;
+            EPS.dom.setPosition(box, {
+                left: boxState.elemLeft + dx,
+                bottom: boxState.elemBottom + dy
+            });
+            document.getElementById('lc').textContent = `(${e.x.toFixed(0)}, ${e.y.toFixed(0)})`;
+            document.getElementById('pc').textContent = `(${e.screenX.toFixed(0)}, ${e.screenY.toFixed(0)})`;
+        });
+
+        EPS.on(document, 'touchmove', (e) => {
+            if (!boxState.dragging || e.touchCount !== 1) return;
+            e.preventDefault();
+            const dx = e.x - boxState.startX;
+            const dy = e.y - boxState.startY;
+            EPS.dom.setPosition(box, {
+                left: boxState.elemLeft + dx,
+                bottom: boxState.elemBottom + dy
+            });
+            document.getElementById('lc').textContent = `(${e.x.toFixed(0)}, ${e.y.toFixed(0)})`;
+            document.getElementById('pc').textContent = `(${e.screenX.toFixed(0)}, ${e.screenY.toFixed(0)})`;
+        }, {passive:false});
+
+        EPS.on(document, 'mouseup', () => {
+            if (boxState.dragging) {
+                boxState.dragging = false;
+                box.classList.remove('dragging');
+            }
+        });
+
+        EPS.on(document, 'touchend', () => {
+            if (boxState.dragging) {
+                boxState.dragging = false;
+                box.classList.remove('dragging');
+            }
+        });
+
+        // 卡片组件
+        const card = document.getElementById('card');
+        const cardState = { currentPage: 0, totalPages: 3, startX: 0, isGesture: false };
+
+        function updateCardPage(idx) {
+            const i = Math.max(0, Math.min(idx, 2));
+            cardState.currentPage = i;
+            document.getElementById('track').style.transform = `translateX(-${i * 33.333}%)`;
+            document.querySelectorAll('.indicator').forEach((ind, k) => {
+                ind.classList.toggle('active', k === i);
+            });
+        }
+
+        document.querySelectorAll('.indicator').forEach((ind, i) => {
+            EPS.on(ind, 'click', () => updateCardPage(i));
+        });
+
+        EPS.on(card, 'touchstart', (e) => {
+            if (e.touchCount === 2) {
+                cardState.startX = (e.touches[0].logicalX + e.touches[1].logicalX) / 2;
+                cardState.isGesture = true;
+            }
+        }, {passive:false});
+
+        EPS.on(card, 'touchmove', (e) => {
+            if (e.touchCount !== 2 || !cardState.isGesture) return;
+            e.preventDefault();
+            const cx = (e.touches[0].logicalX + e.touches[1].logicalX) / 2;
+            const dx = cx - cardState.startX;
+            if (Math.abs(dx) > 40) {
+                if (dx > 0 && cardState.currentPage > 0) {
+                    updateCardPage(cardState.currentPage - 1);
+                    cardState.isGesture = false;
+                } else if (dx < 0 && cardState.currentPage < 2) {
+                    updateCardPage(cardState.currentPage + 1);
+                    cardState.isGesture = false;
+                }
+            }
+        }, {passive:false});
+
+        EPS.on(card, 'touchend', () => { cardState.isGesture = false; });
+
+        // 控制按钮
+        EPS.on(document.getElementById('btn-toggle'), 'click', () => EPS.toggle());
+        EPS.on(document.getElementById('btn-fullscreen'), 'click', () => EPS.fullscreen());
+        EPS.on(document.getElementById('btn-export'), 'click', () => {
+            if (EPS.logs.length === 0) return;
+            const blob = new Blob([EPS.logs.join('\n')], {type:'text/plain'});
+            const url = URL.createObjectURL(blob);
+            const a = document.getElementById('dl');
+            a.href = url; a.download = `eps-${Date.now()}.txt`; a.click();
+            URL.revokeObjectURL(url);
+        });
+
+        // 双击缩放防护
+        let lastT = 0;
+        document.addEventListener('touchend', (e) => {
+            const n = Date.now();
+            if (n - lastT <= 300) e.preventDefault();
+            lastT = n;
+        }, false);
+
+        EPS.init();
+    </script>
+</body>
+</html>

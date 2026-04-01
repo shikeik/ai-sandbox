@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>SafeArea 库测试</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+            background: #000;
+            overflow: hidden;
+        }
+
+        /* 测试容器 */
+        #test-container {
+            border: 2px dashed #ff0000;
+            background: rgba(255, 0, 0, 0.05);
+        }
+
+        .center-area {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+        }
+
+        .center-text {
+            color: #ff0000;
+            font-family: monospace;
+            font-size: 14px;
+            opacity: 0.8;
+            margin-bottom: 20px;
+        }
+
+        .fullscreen-btn {
+            background: transparent;
+            border: 1px solid #ff0000;
+            color: #ff0000;
+            padding: 10px 20px;
+            font-family: monospace;
+            font-size: 14px;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div id="test-container">
+        <div class="center-area">
+            <div class="center-text">SafeArea 库测试<br><span id="debug-info">初始化中...</span></div>
+            <button class="fullscreen-btn" onclick="toggleFullscreen()">切换全屏</button>
+        </div>
+    </div>
+
+    <script>
+        /**
+         * SafeArea 库 v1.0
+         * 统一处理刘海屏/圆角/动态导航栏的安全区域适配
+         * 
+         * 使用方式：
+         *   SafeArea.applyTo(element, options)  // 自动应用安全区域
+         *   SafeArea.getInsets()                // 获取当前安全区域值
+         *   SafeArea.onChange(callback)         // 监听变化
+         */
+        const SafeArea = (function() {
+            'use strict';
+
+            // ==================== 私有变量 ====================
+            let _insets = { top: 0, bottom: 0, left: 0, right: 0 };
+            let _callbacks = [];
+            let _isWatching = false;
+            let _resizeObserver = null;
+            let _lastInsetsStr = '';
+
+            // ==================== 私有方法 ====================
+
+            /**
+             * 计算当前安全区域值
+             * 使用 max() 对称保护策略：取两侧最大值应用到两边
+             */
+            function _calculateInsets() {
+                const root = document.documentElement;
+                const computed = getComputedStyle(root);
+
+                // 读取 CSS env() 原始值
+                const raw = {
+                    top: parseInt(computed.getPropertyValue('--safe-top')) || 0,
+                    bottom: parseInt(computed.getPropertyValue('--safe-bottom')) || 0,
+                    left: parseInt(computed.getPropertyValue('--safe-left')) || 0,
+                    right: parseInt(computed.getPropertyValue('--safe-right')) || 0
+                };
+
+                // 如果 CSS 变量未设置，尝试直接从 env() 计算（备用方案）
+                if (raw.top === 0 && raw.bottom === 0 && raw.left === 0 && raw.right === 0) {
+                    const testDiv = document.createElement('div');
+                    testDiv.style.cssText = 'position:fixed;top:env(safe-area-inset-top);bottom:env(safe-area-inset-bottom);left:env(safe-area-inset-left);right:env(safe-area-inset-right);';
+                    document.body.appendChild(testDiv);
+                    const style = getComputedStyle(testDiv);
+                    raw.top = parseInt(style.top) || 0;
+                    raw.bottom = parseInt(style.bottom) || 0;
+                    raw.left = parseInt(style.left) || 0;
+                    raw.right = parseInt(style.right) || 0;
+                    document.body.removeChild(testDiv);
+                }
+
+                // 对称保护：取两侧最大值
+                return {
+                    top: Math.max(raw.top, raw.bottom),
+                    bottom: Math.max(raw.top, raw.bottom),
+                    left: Math.max(raw.left, raw.right),
+                    right: Math.max(raw.left, raw.right)
+                };
+            }
+
+            /**
+             * 检查并通知变化
+             */
+            function _checkAndNotify() {
+                const newInsets = _calculateInsets();
+                const newStr = JSON.stringify(newInsets);
+
+                if (newStr !== _lastInsetsStr) {
+                    _insets = newInsets;
+                    _lastInsetsStr = newStr;
+                    _notifyCallbacks();
+                }
+            }
+
+            /**
+             * 通知所有回调
+             */
+            function _notifyCallbacks() {
+                _callbacks.forEach(cb => {
+                    try {
+                        cb({ ..._insets });
+                    } catch (e) {
+                        console.error('[SafeArea] 回调执行错误:', e);
+                    }
+                });
+            }
+
+            /**
+             * 启动监听
+             */
+            function _startWatching() {
+                if (_isWatching) return;
+                _isWatching = true;
+
+                // 1. ResizeObserver 监听根元素
+                if (typeof ResizeObserver !== 'undefined') {
+                    _resizeObserver = new ResizeObserver(() => {
+                        setTimeout(_checkAndNotify, 0);
+                    });
+                    _resizeObserver.observe(document.documentElement);
+                }
+
+                // 2. VisualViewport 监听
+                if (window.visualViewport) {
+                    window.visualViewport.addEventListener('resize', () => setTimeout(_checkAndNotify, 50));
+                    window.visualViewport.addEventListener('scroll', () => setTimeout(_checkAndNotify, 50));
+                }
+
+                // 3. Window resize
+                window.addEventListener('resize', () => setTimeout(_checkAndNotify, 0));
+
+                // 4. 屏幕方向变化
+                window.addEventListener('orientationchange', () => setTimeout(_checkAndNotify, 100));
+
+                // 5. 轮询保险（VIA浏览器动态导航栏）
+                setInterval(_checkAndNotify, 300);
+
+                // 初始计算
+                _checkAndNotify();
+            }
+
+            /**
+             * 应用安全区域到元素
+             */
+            function _applyTo(element, options = {}) {
+                if (!element || !element.style) {
+                    console.error('[SafeArea] 无效的元素');
+                    return;
+                }
+
+                const { 
+                    position = 'fixed',  // 默认 fixed，可选 absolute
+                    top = true,          // 是否应用 top
+                    bottom = true,       // 是否应用 bottom
+                    left = true,         // 是否应用 left
+                    right = true         // 是否应用 right
+                } = options;
+
+                // 设置定位
+                element.style.position = position;
+                element.style.boxSizing = 'border-box';
+
+                // 应用安全区域
+                if (top) element.style.top = _insets.top + 'px';
+                if (bottom) element.style.bottom = _insets.bottom + 'px';
+                if (left) element.style.left = _insets.left + 'px';
+                if (right) element.style.right = _insets.right + 'px';
+
+                // 注册变化监听，自动更新
+                const callback = (insets) => {
+                    if (top) element.style.top = insets.top + 'px';
+                    if (bottom) element.style.bottom = insets.bottom + 'px';
+                    if (left) element.style.left = insets.left + 'px';
+                    if (right) element.style.right = insets.right + 'px';
+                };
+
+                _callbacks.push(callback);
+
+                // 返回取消函数
+                return function unbind() {
+                    const idx = _callbacks.indexOf(callback);
+                    if (idx > -1) _callbacks.splice(idx, 1);
+                };
+            }
+
+            // ==================== 初始化 CSS 变量 ====================
+            function _initCSSVars() {
+                const style = document.createElement('style');
+                style.textContent = `
+                    :root {
+                        --safe-top: env(safe-area-inset-top);
+                        --safe-bottom: env(safe-area-inset-bottom);
+                        --safe-left: env(safe-area-inset-left);
+                        --safe-right: env(safe-area-inset-right);
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+
+            // ==================== 初始化 ====================
+            _initCSSVars();
+
+            // DOM ready 后启动监听
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', _startWatching);
+            } else {
+                _startWatching();
+            }
+
+            // ==================== 公开 API ====================
+            return {
+                /**
+                 * 获取当前安全区域值
+                 * @returns {Object} {top, bottom, left, right}
+                 */
+                getInsets() {
+                    return { ..._insets };
+                },
+
+                /**
+                 * 应用安全区域到指定元素
+                 * @param {HTMLElement} element - 目标元素
+                 * @param {Object} options - 配置项
+                 * @returns {Function} 取消绑定函数
+                 */
+                applyTo(element, options = {}) {
+                    return _applyTo(element, options);
+                },
+
+                /**
+                 * 监听安全区域变化
+                 * @param {Function} callback - 回调函数，接收 {top, bottom, left, right}
+                 */
+                onChange(callback) {
+                    if (typeof callback !== 'function') return;
+                    _callbacks.push(callback);
+                    // 立即触发一次当前值
+                    callback({ ..._insets });
+                },
+
+                /**
+                 * 手动刷新（调试用）
+                 */
+                refresh() {
+                    _checkAndNotify();
+                }
+            };
+        })();
+
+        // ==================== 测试代码 ====================
+
+        // 1. 应用到测试容器
+        const container = document.getElementById('test-container');
+        SafeArea.applyTo(container);
+
+        // 2. 监听变化，更新显示
+        SafeArea.onChange((insets) => {
+            const debug = document.getElementById('debug-info');
+            debug.textContent = `T:${insets.top} B:${insets.bottom} L:${insets.left} R:${insets.right}`;
+        });
+
+        // 全屏切换
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                const docElm = document.documentElement;
+                if (docElm.requestFullscreen) docElm.requestFullscreen();
+                else if (docElm.webkitRequestFullscreen) docElm.webkitRequestFullscreen();
+            } else {
+                if (document.exitFullscreen) document.exitFullscreen();
+                else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+            }
+        }
+    </script>
+</body>
+</html>
