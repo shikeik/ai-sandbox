@@ -78,7 +78,15 @@ html, body {
 	position: relative;
 }
 
-/* 游戏主容器：扣除菜单栏后的剩余空间 */
+/* 顶部区域：控制栏 + 控制台 */
+.top-section {
+	flex-shrink: 0;
+	display: flex;
+	flex-direction: column;
+	z-index: 3000;
+}
+
+/* 游戏主容器：扣除顶部区域后的剩余空间 */
 #game-container {
 	flex: 1;
 	display: flex;
@@ -97,7 +105,6 @@ html, body {
 	padding: 0 8px;
 	gap: 8px;
 	flex-shrink: 0;
-	z-index: 3000;
 }
 
 .ctrl-btn {
@@ -109,6 +116,23 @@ html, body {
 	cursor: pointer;
 	border-radius: 4px;
 	font-family: monospace;
+}
+
+.ctrl-btn.icon-only {
+	width: 28px;
+	height: 24px;
+	padding: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 13px;
+	transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), background 0.15s;
+}
+
+.ctrl-btn.icon-only.active {
+	background: #0f0;
+	color: #000;
+	transform: rotate(15deg);
 }
 
 .ctrl-btn:active {
@@ -128,6 +152,52 @@ html, body {
 	position: relative;
 	margin-left: 8px;
 }
+
+/* ---------- 控制台面板 ---------- */
+.console-panel {
+	height: 0;
+	background: rgba(15, 15, 35, 0.98);
+	border-bottom: 1px solid transparent;
+	overflow: hidden;
+	transition: height 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+	            border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.console-panel.open {
+	height: 160px;
+	border-bottom-color: #0f0;
+}
+
+.console-content {
+	width: 100%;
+	height: 100%;
+	padding: 8px 10px;
+	overflow-y: auto;
+	font-family: 'Courier New', monospace;
+	font-size: 10px;
+	line-height: 1.5;
+	color: rgba(255, 255, 255, 0.85);
+	white-space: pre-wrap;
+	word-break: break-word;
+}
+
+.console-content::-webkit-scrollbar {
+	width: 4px;
+}
+
+.console-content::-webkit-scrollbar-thumb {
+	background: rgba(0, 255, 0, 0.3);
+	border-radius: 2px;
+}
+
+.console-line {
+	margin-bottom: 2px;
+}
+
+.console-line.log  { color: rgba(255, 255, 255, 0.85); }
+.console-line.warn { color: #f39c12; }
+.console-line.error { color: #e74c3c; }
+.console-line.info { color: #4ecdc4; }
 
 /* ---------- 云朵装饰 ---------- */
 .cloud {
@@ -217,7 +287,7 @@ html, body {
 
 /* ---------- 游戏区域 ---------- */
 #game-area {
-	flex: 0 0 35%;
+	flex: 0 0 40%;
 	background: var(--color-bg-game);
 	position: relative;
 	overflow: hidden;

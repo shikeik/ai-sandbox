@@ -165,6 +165,7 @@ function init() {
 	// --- 控制栏按钮 ---
 	const btnToggle = document.getElementById('btn-toggle')
 	const btnFullscreen = document.getElementById('btn-fullscreen')
+	const btnConsole = document.getElementById('btn-console')
 	if (btnToggle) {
 		btnToggle.addEventListener('click', () => {
 			EPS.toggle()
@@ -176,6 +177,15 @@ function init() {
 			EPS.fullscreen()
 		})
 	}
+	if (btnConsole) {
+		btnConsole.addEventListener('click', () => {
+			toggleConsolePanel()
+		})
+	}
+	// ------------------
+
+	// --- 控制台面板 ---
+	initConsolePanel()
 	// ------------------
 }
 
@@ -564,6 +574,62 @@ if (import.meta.hot) {
 			game = null
 		}
 	})
+}
+
+// ========== 控制台面板 ==========
+let isConsoleOpen = false
+
+function toggleConsolePanel() {
+	isConsoleOpen = !isConsoleOpen
+	const panel = document.getElementById('console-panel')
+	const btn = document.getElementById('btn-console')
+	if (panel) panel.classList.toggle('open', isConsoleOpen)
+	if (btn) btn.classList.toggle('active', isConsoleOpen)
+}
+
+function initConsolePanel() {
+	const logsContainer = document.getElementById('console-logs')
+	if (!logsContainer) return
+
+	const originalLog = console.log
+	const originalWarn = console.warn
+	const originalError = console.error
+	const originalInfo = console.info
+
+	function appendLine(level, args) {
+		const line = document.createElement('div')
+		line.className = `console-line ${level}`
+		line.textContent = args.map(a => {
+			if (typeof a === 'object') {
+				try { return JSON.stringify(a) } catch { return String(a) }
+			}
+			return String(a)
+		}).join(' ')
+		logsContainer.appendChild(line)
+		logsContainer.scrollTop = logsContainer.scrollHeight
+
+		// 限制行数，防止内存膨胀
+		while (logsContainer.children.length > 300) {
+			logsContainer.removeChild(logsContainer.firstChild)
+		}
+	}
+
+	console.log = function (...args) {
+		originalLog.apply(console, args)
+		appendLine('log', args)
+	}
+	console.warn = function (...args) {
+		originalWarn.apply(console, args)
+		appendLine('warn', args)
+	}
+	console.error = function (...args) {
+		originalError.apply(console, args)
+		appendLine('error', args)
+	}
+	console.info = function (...args) {
+		originalInfo.apply(console, args)
+		appendLine('info', args)
+	}
 }
 
 // ========== 调试接口 ==========

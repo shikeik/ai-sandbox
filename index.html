@@ -10,12 +10,20 @@
 <body>
 	<div class="ever-portrait active" id="ep-container">
 		<div id="app">
-			<!-- 控制栏 -->
-			<div class="control-bar">
-				<button class="ctrl-btn" id="btn-toggle">↻ 恒竖</button>
-				<button class="ctrl-btn" id="btn-fullscreen">⛶ 全屏</button>
-				<div class="eps-status" id="eps-st">-</div>
-				<div id="neuron-menu-container"></div>
+			<!-- 顶部区域：控制栏 + 控制台 -->
+			<div class="top-section">
+				<div class="control-bar">
+					<button class="ctrl-btn icon-only" id="btn-toggle" title="恒竖切换">↻</button>
+					<button class="ctrl-btn icon-only" id="btn-fullscreen" title="全屏">⛶</button>
+					<button class="ctrl-btn icon-only" id="btn-console" title="控制台">🖥️</button>
+					<div class="eps-status" id="eps-st">-</div>
+					<div id="neuron-menu-container"></div>
+				</div>
+
+				<!-- 控制台面板 -->
+				<div class="console-panel" id="console-panel">
+					<div class="console-content" id="console-logs"></div>
+				</div>
 			</div>
 
 			<!-- 游戏主容器：三区域在此容器内分配比例 -->
