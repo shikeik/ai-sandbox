@@ -38,6 +38,7 @@ export class NetworkView {
 			position: relative;
 			flex: 1;
 			min-height: 0;
+			width: 100%;
 			overflow: hidden;
 		`
 		this.container.style.display = 'flex'
@@ -69,9 +70,9 @@ export class NetworkView {
 		const canvasContainer = this.canvas.parentElement
 		const w = canvasContainer.offsetWidth
 		const h = canvasContainer.offsetHeight
-		console.log('NetworkView resize:', w, h)
 		if (w === 0 || h === 0) {
-			console.warn('NetworkView: container has 0 size')
+			// 过渡动画期间布局可能尚未完成，延迟一帧重试
+			requestAnimationFrame(() => this.resize())
 			return
 		}
 
