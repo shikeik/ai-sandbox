@@ -10,7 +10,11 @@
 
 - [x] 暂时封存好奇心，直接设为0，现在我们要可控观察ai成长
 
-- [ ] 神经元区域的菜单可以挪到顶部菜单栏右上
+- [x] 神经元区域的菜单可以挪到顶部菜单栏右上
+
+- [ ] 代码重构：NeuronAreaManager 高亮方法合并
+  - updateModeHighlight 和 updateSpeedHighlight 几乎相同，可合并为通用方法
+  - 考虑提取通用的菜单项创建函数
 
 
 

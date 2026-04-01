@@ -70,6 +70,16 @@ export class NeuronAreaManager {
 			font-size: 11px;
 		`
 
+		// 通用 hover 处理
+		const attachHover = (el, isActiveCheck) => {
+			el.addEventListener('mouseenter', () => {
+				if (!isActiveCheck()) el.style.background = 'rgba(255,255,255,0.1)'
+			})
+			el.addEventListener('mouseleave', () => {
+				if (!isActiveCheck()) el.style.background = 'rgba(255,255,255,0.05)'
+			})
+		}
+
 		// 模式选择 - 1行3列
 		const modeRow = document.createElement('div')
 		modeRow.style.cssText = `
@@ -104,18 +114,9 @@ export class NeuronAreaManager {
 				this.currentMode = item.id
 				this.updateModeHighlight()
 				if (this.onModeChange) this.onModeChange(item.id)
-				menu.style.display = 'none'
+				// 注：菜单不关闭，仅通过按钮切换
 			})
-			el.addEventListener('mouseenter', () => {
-				if (item.id !== this.currentMode) {
-					el.style.background = 'rgba(255,255,255,0.1)'
-				}
-			})
-			el.addEventListener('mouseleave', () => {
-				if (item.id !== this.currentMode) {
-					el.style.background = 'rgba(255,255,255,0.05)'
-				}
-			})
+			attachHover(el, () => item.id === this.currentMode)
 			this.modeItems.push(el)
 			modeRow.appendChild(el)
 		})
@@ -169,18 +170,9 @@ export class NeuronAreaManager {
 				this.currentSpeed = item.id
 				this.updateSpeedHighlight()
 				if (this.onSpeedChange) this.onSpeedChange(item.id)
-				menu.style.display = 'none'
+				// 注：菜单不关闭，仅通过按钮切换
 			})
-			el.addEventListener('mouseenter', () => {
-				if (item.id !== this.currentSpeed) {
-					el.style.background = 'rgba(255,255,255,0.1)'
-				}
-			})
-			el.addEventListener('mouseleave', () => {
-				if (item.id !== this.currentSpeed) {
-					el.style.background = 'rgba(255,255,255,0.05)'
-				}
-			})
+			attachHover(el, () => item.id === this.currentSpeed)
 			this.speedItems.push(el)
 			speedGrid.appendChild(el)
 		})
@@ -189,8 +181,6 @@ export class NeuronAreaManager {
 		btn.addEventListener('click', () => {
 			menu.style.display = menu.style.display === 'none' ? 'block' : 'none'
 		})
-
-		// 注：菜单显隐仅通过按钮切换，不响应外部点击
 
 		menuContainer.appendChild(btn)
 		menuContainer.appendChild(menu)
