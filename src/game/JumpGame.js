@@ -266,15 +266,16 @@ export class JumpGame {
 		// 更新相机
 		this._updateCamera()
 	
-		// 通知动作开始（提供补间所需信息）
-		if (this.onActionStart) {
-			this.onActionStart(action, { x: fromX, y: fromY }, { x: targetX, y: CONFIG.toPx(CONFIG.GROUND_HEIGHT) }, isJump)
-		}
-	
 		this._notifyStateChange()
 	
 		// 立即检测结果
 		this._checkResult(targetX)
+	
+		// 通知动作开始（提供补间所需信息 + 即时结果判定）
+		if (this.onActionStart) {
+			const result = this._pendingDeath ? 'death' : (this._pendingWin ? 'win' : 'alive')
+			this.onActionStart(action, { x: fromX, y: fromY }, { x: targetX, y: CONFIG.toPx(CONFIG.GROUND_HEIGHT) }, isJump, result)
+		}
 	
 		return { action, fromX, fromY, targetX, isJump }
 	}

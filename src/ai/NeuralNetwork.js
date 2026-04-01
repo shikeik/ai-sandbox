@@ -11,8 +11,8 @@ export class NeuralNetwork {
 		this.weightClip = config.weightClip || 5
 	
 		// --- 探索率相关属性 ---
-		this.epsilon = 0.3       // 初始探索率 (30%)
-		this.autoAdjustEpsilon = true   // 是否自动调节开关，默认开启
+		this.epsilon = 0         // 初始探索率 0（封存好奇心，纯利用模式）
+		this.autoAdjustEpsilon = false  // 自动调节关闭，手动可控观察
 		this.isExploring = false  // 记录当前动作是否为“探索”产生的
 	
 		// 初始化权重和偏置

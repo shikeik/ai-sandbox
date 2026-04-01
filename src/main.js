@@ -282,7 +282,7 @@ function bindGameEvents() {
 		if (posDisplay) posDisplay.textContent = player.grid
 	}
 	
-	game.onActionStart = (action, from, to, isJump) => {
+	game.onActionStart = (action, from, to, isJump, result) => {
 		let duration = isJump ? CONFIG.JUMP_DURATION : CONFIG.MOVE_DURATION
 	
 		// 动态调整动画速度
@@ -294,10 +294,19 @@ function bindGameEvents() {
 	
 		renderer.startActionTween(from, to, isJump, duration)
 	
-		// 仅在 AI 训练模式下记录并训练
+		// AI 训练模式：根据即时结果立即训练
 		if (isAITrainMode && network) {
 			const actionIdx = isJump ? 1 : 0
-			network.train(AI_CONFIG.STEP_REWARD, actionIdx)
+			network.lastAction = actionIdx
+		
+			// 即时判定结果并训练
+			if (result === 'death') {
+				network.train(AI_CONFIG.DEATH_REWARD, actionIdx)
+			} else if (result === 'win') {
+				network.train(AI_CONFIG.WIN_REWARD, actionIdx)
+			} else {
+				network.train(AI_CONFIG.STEP_REWARD, actionIdx)
+			}
 			renderCurrentAIView()
 		}
 	}
@@ -340,22 +349,15 @@ function bindGameEvents() {
 		renderer.showDeath()
 		recordResult('dead')
 		if (!isAIMode) stopTimerUpdate()
-	
-		if (isAITrainMode) {
-		// 惩罚直接导致死亡的上一次动作
-			network.train(AI_CONFIG.DEATH_REWARD, network.lastAction)
-			renderCurrentAIView()
-		}
+		// 注：训练已在 onActionStart 中根据即时结果完成
 	}
 	
 	game.onWin = () => {
 		renderer.showWin()
 		recordResult('win')
+		// 注：训练已在 onActionStart 中根据即时结果完成
 	
-		if (isAITrainMode) {
-			network.train(AI_CONFIG.WIN_REWARD, network.lastAction)
-			renderCurrentAIView()
-		} else if (!isAIMode) {
+		if (!isAITrainMode && !isAIMode) {
 			stopTimerUpdate()
 			const elapsed = game.getElapsedTime()
 			if (playerBestStore.tryUpdate(elapsed)) {
