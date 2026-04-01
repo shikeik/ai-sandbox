@@ -156,22 +156,6 @@ function init() {
 	
 	console.log('🎮 AI 训练沙盘已初始化，等待开始...')
 	console.log('🤖 AI模式:', isAIMode ? '开启' : '关闭')
-	
-	// --- 全屏引导逻辑 ---
-	const isFullscreenRequested = new URLSearchParams(window.location.search).get('fullscreen') === 'true'
-	const fsOverlay = document.getElementById('fs-guide-overlay')
-
-	if (isFullscreenRequested && fsOverlay) {
-		fsOverlay.classList.remove('hidden')
-		fsOverlay.addEventListener('click', async () => {
-			try {
-				await EPS.fullscreen()
-			} catch (e) {
-				console.error('进入全屏失败:', e)
-			}
-			fsOverlay.classList.add('hidden')
-		})
-	}
 
 	// --- 控制栏按钮 ---
 	const btnToggle = document.getElementById('btn-toggle')

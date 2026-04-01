@@ -477,15 +477,3 @@ html, body {
 	font-size: 12px;
 	color: rgba(255, 255, 255, 0.6);
 }
-
-#fs-guide-overlay {
-	cursor: pointer;
-	user-select: none;
-	z-index: 9999;
-	background: rgba(0, 0, 0, 0.85);
-	backdrop-filter: blur(4px);
-}
-
-#fs-guide-overlay .start-button {
-	pointer-events: none;
-}

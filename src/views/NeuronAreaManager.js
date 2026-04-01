@@ -31,8 +31,8 @@ export class NeuronAreaManager {
 		// 创建下拉菜单按钮
 		const btn = document.createElement('button')
 		btn.id = 'view-menu-btn'
-		btn.innerHTML = '🧠'
-		btn.title = 'AI 控制菜单'
+		btn.innerHTML = '☰'
+		btn.title = '菜单'
 		btn.style.cssText = `
 			width: 28px;
 			height: 28px;
