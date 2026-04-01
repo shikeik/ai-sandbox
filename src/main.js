@@ -474,7 +474,9 @@ function makeAIDecisionPreview() {
 	
 	pendingAIDecision = { action, actionType, inputs, scores }
 	
-	console.log('[AI]', `决策完成 | 动作=${actionType === ACTION.JUMP ? '跳跃' : '移动'} | 得分=[${scores.map(s => s.toFixed(2)).join(', ')}] | 探索=${network.isExploring ? '是' : '否'}`)
+	const scoreLog = `移动:${scores[0].toFixed(2)} 跳跃:${scores[1].toFixed(2)}`
+	const chosen = action === 1 ? '跳跃' : '移动'
+	console.log('[AI]', `决策完成 | ${scoreLog} | 选中=[${chosen}] | 探索=${network.isExploring ? '是' : '否'}`)
 	
 	// 更新 UI 为预览态（蓝色高亮）
 	renderCurrentAIView(inputs, action, true)
