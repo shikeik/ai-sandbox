@@ -639,11 +639,11 @@ function initConsolePanel() {
 
 	console.log = function (...args) {
 		originalLog.apply(console, args)
-		appendLine('debug', args)
+		appendLine('log', args)
 	}
 	console.warn = function (...args) {
 		originalWarn.apply(console, args)
-		appendLine('debug', args)
+		appendLine('warn', args)
 	}
 	console.error = function (...args) {
 		originalError.apply(console, args)
@@ -651,7 +651,7 @@ function initConsolePanel() {
 	}
 	console.info = function (...args) {
 		originalInfo.apply(console, args)
-		appendLine('debug', args)
+		appendLine('info', args)
 	}
 
 	// 绑定工具栏按钮
