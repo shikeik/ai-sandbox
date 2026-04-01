@@ -486,9 +486,13 @@
                 },
                 
                 getPosition(element) {
+                    const computed = window.getComputedStyle(element);
+                    const left = computed.left === 'auto' ? 0 : parseFloat(computed.left);
+                    const bottom = computed.bottom === 'auto' ? 0 : parseFloat(computed.bottom);
+                    
                     return {
-                        left: parseFloat(element.style.left) || 0,
-                        bottom: parseFloat(element.style.bottom) || 0,
+                        left: left,
+                        bottom: bottom,
                         width: element.offsetWidth,
                         height: element.offsetHeight
                     };
