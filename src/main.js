@@ -71,6 +71,9 @@ const gameArea = document.getElementById('game-area')
 
 // ========== 初始化 ==========
 function init() {
+	// 先初始化控制台面板，确保后续所有日志都能被捕获
+	initConsolePanel()
+
 	EPS.init()
 	game = new JumpGame()
 	renderer = new GameRenderer('game-world')
@@ -97,21 +100,21 @@ function init() {
 				isAITrainMode = false
 				stopAI()
 				updateControlsUI()
-				console.log('👤 切换到玩家模式')
+				console.log('[UI]', '切换到玩家模式')
 				break
 			case 'ai':
 				isAIMode = true
 				isAITrainMode = false
 				updateControlsUI()
 				startAI()
-				console.log('🤖 切换到AI模式')
+				console.log('[AI]', '切换到AI模式')
 				break
 			case 'train':
 				isAIMode = true
 				isAITrainMode = true
 				updateControlsUI()
 				startAI()
-				console.log('📊 切换到AI训练模式（自动循环并更新权重）')
+				console.log('[AI]', '切换到AI训练模式（自动循环并更新权重）')
 				break
 		}
 	}
@@ -159,8 +162,8 @@ function init() {
 	bindStartButton()
 	showStartOverlay()
 	
-	console.log('🎮 AI 训练沙盘已初始化，等待开始...')
-	console.log('🤖 AI模式:', isAIMode ? '开启' : '关闭')
+	console.log('[GAME]', 'AI 训练沙盘已初始化，等待开始...')
+	console.log('[GAME]', 'AI模式:', isAIMode ? '开启' : '关闭')
 
 	// --- 控制栏按钮 ---
 	const btnToggle = document.getElementById('btn-toggle')
@@ -171,7 +174,7 @@ function init() {
 		btnToggle.addEventListener('click', () => {
 			EPS.toggle()
 			btnToggle.classList.toggle('active', EPS.isActive())
-			console.log('EPS:', EPS.isActive() ? 'ON' : 'OFF')
+			console.log('[EPS]', 'EPS:', EPS.isActive() ? 'ON' : 'OFF')
 		})
 	}
 	if (btnFullscreen) {
@@ -191,9 +194,6 @@ function init() {
 	}
 	// ------------------
 
-	// --- 控制台面板 ---
-	initConsolePanel()
-	// ------------------
 }
 
 // ========== 动态 UI 控制面板 ==========
@@ -359,7 +359,7 @@ function bindGameEvents() {
 			stopTimerUpdate()
 			const elapsed = game.getElapsedTime()
 			if (playerBestStore.tryUpdate(elapsed)) {
-				console.log('🎉 新纪录！', playerBestStore.getFormatted())
+				console.log('[RECORD]', '新纪录！', playerBestStore.getFormatted())
 			}
 			updateGameInfo()
 		}
@@ -372,14 +372,14 @@ function setAISpeed(speed) {
 	if (speed === AI_CONFIG.SPEEDS.STEP) {
 		isStepMode = true
 		aiSpeed = AI_CONFIG.SPEEDS.NORMAL
-		console.log('🚶 切换到单步模式')
+		console.log('[AI]', '切换到单步模式')
 	} else {
 		isStepMode = false
 		aiSpeed = speed
 		const speedName = speed === AI_CONFIG.SPEEDS.SLOW ? '慢速' :
 			speed === AI_CONFIG.SPEEDS.NORMAL ? '中速' :
 				speed === AI_CONFIG.SPEEDS.FAST ? '快速' : '极速'
-		console.log(`⏱️ 切换到${speedName}`)
+		console.log('[AI]', `切换到${speedName}`)
 	}
 	
 	if (isAIMode && (aiInterval || fastLoopId || isStepMode)) {
@@ -486,7 +486,7 @@ function recordResult(finalStatus) {
 			}
 		}
 	
-		console.log(`📊 窗口平均:${currentAvg.toFixed(1)} | 本局:${steps} | 新好奇心(ε):${network.epsilon.toFixed(2)}`)
+		console.log('[AI]', `窗口平均:${currentAvg.toFixed(1)} | 本局:${steps} | 新好奇心(ε):${network.epsilon.toFixed(2)}`)
 	}
 }
 
@@ -569,7 +569,7 @@ document.addEventListener('DOMContentLoaded', init)
 if (import.meta.hot) {
 	import.meta.hot.accept()
 	import.meta.hot.dispose(() => {
-		console.log('🔄 热更新：清理实例')
+		console.log('[HMR]', '热更新：清理实例')
 		stopAI()
 		stopTimerUpdate()
 		if (transitionManager) {

@@ -192,7 +192,7 @@ const EPS = {
 				await document.exitFullscreen()
 			}
 		} catch (e) {
-			console.error('全屏错误:', e.message)
+			console.error('[EPS]', '全屏错误:', e.message)
 		}
 	},
 

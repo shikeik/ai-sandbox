@@ -28,7 +28,7 @@ export class PlayerBestStore {
 		try {
 			localStorage.setItem(PLAYER_BEST_KEY, time.toString())
 		} catch (e) {
-			console.warn('Failed to save player best:', e)
+			console.warn('[STORAGE]', 'Failed to save player best:', e)
 		}
 	}
 	
