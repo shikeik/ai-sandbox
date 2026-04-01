@@ -83,13 +83,13 @@ export class NetworkView {
 		this.height = h
 
 		if (this.lastData && this.lastData.network) {
-			this.render(this.lastData.network, this.lastData.inputs, this.lastData.action, true)
+			this.render(this.lastData.network, this.lastData.inputs, this.lastData.action, this.lastData.isPreview, true, this.lastData.weightChanges)
 		}
 	}
 	
-	render(network, inputs = null, action = null, isPreview = false, isResize = false) {
+	render(network, inputs = null, action = null, isPreview = false, isResize = false, weightChanges = null) {
 		if (!isResize) {
-			this.lastData = { network, inputs, action, isPreview }
+			this.lastData = { network, inputs, action, isPreview, weightChanges }
 		}
 
 		// 更新信息栏
@@ -106,7 +106,7 @@ export class NetworkView {
 		const weights = network.weights
 	
 		const nodePositions = this.calculatePositions(layers, w, h)
-		this.drawConnections(ctx, nodePositions, weights, inputs)
+		this.drawConnections(ctx, nodePositions, weights, inputs, weightChanges)
 		this.drawNodes(ctx, nodePositions, inputs, action, isPreview)
 	}
 	
@@ -145,34 +145,48 @@ export class NetworkView {
 		return positions
 	}
 	
-	drawConnections(ctx, positions, weights, inputs) {
+	drawConnections(ctx, positions, weights, inputs, weightChanges = null) {
 		for (let l = 0; l < weights.length; l++) {
 			const fromLayer = positions[l]
 			const toLayer = positions[l + 1]
 			const layerWeights = weights[l]
+			const layerChanges = weightChanges && weightChanges[l] ? weightChanges[l] : null
 		
 			for (let i = 0; i < fromLayer.length; i++) {
 				for (let j = 0; j < toLayer.length; j++) {
 					const weight = layerWeights[j][i]
 					const from = fromLayer[i]
 					const to = toLayer[j]
-			
+					const delta = layerChanges ? layerChanges[j][i] : 0
+				
 					const thickness = Math.min(4, Math.abs(weight) * 2 + 0.5)
 					const alpha = Math.min(1, Math.abs(weight) * 0.3 + 0.2)
 					const color = weight > 0 ? `rgba(46, 204, 113, ${alpha})` : `rgba(231, 76, 60, ${alpha})`
-			
+				
 					ctx.beginPath()
 					ctx.moveTo(from.x, from.y)
 					ctx.lineTo(to.x, to.y)
 					ctx.strokeStyle = color
 					ctx.lineWidth = thickness
 					ctx.stroke()
-			
+				
+					// 高亮发生变化的连线（权重更新后最粗提示）
+					if (delta !== 0) {
+						ctx.beginPath()
+						ctx.moveTo(from.x, from.y)
+						ctx.lineTo(to.x, to.y)
+						ctx.strokeStyle = delta > 0 
+							? `rgba(0, 255, 136, 0.95)` // 加分：亮绿色
+							: `rgba(255, 85, 85, 0.95)`  // 减分：亮红色
+						ctx.lineWidth = 8
+						ctx.stroke()
+					}
+				
 					// 将文字移到靠近右侧的位置并阶梯状错开，防遮挡
 					const ratio = 0.65 + (i * 0.1) 
 					const textX = from.x + (to.x - from.x) * ratio
 					const textY = from.y + (to.y - from.y) * ratio
-			
+				
 					ctx.fillStyle = 'rgba(255,255,255,0.9)'
 					ctx.font = '10px monospace'
 					ctx.textAlign = 'center'
@@ -181,7 +195,6 @@ export class NetworkView {
 			}
 		}
 	}
-	
 	drawNodes(ctx, positions, inputs, action) {
 		const actionNames = ['移动', '跳跃']
 	

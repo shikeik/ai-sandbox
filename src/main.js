@@ -237,9 +237,9 @@ function updateControlsUI() {
 	// AI 模式
 	else {
 		if (isStepMode) {
-		const actionLabel = pendingAIDecision ? (pendingAIDecision.actionType === ACTION.JUMP ?  '跳跃' : '移动') : ''
-		const btnText = (pendingAIDecision ? `行动-${actionLabel}`  : '决策') + '(Space)'
-		// 单步模式：显示下一步按钮
+			const actionLabel = pendingAIDecision ? (pendingAIDecision.actionType === ACTION.JUMP ?  '跳跃' : '移动') : ''
+			const btnText = (pendingAIDecision ? `行动-${actionLabel}`  : '决策') + '(Space)'
+			// 单步模式：显示下一步按钮
 			controlArea.innerHTML = `
 		<button class="btn" id="btn-step" style="background: var(--color-btn-right); box-shadow: 0 8px 0 var(--color-btn-right-shadow); color: white;">
 			⏭️
@@ -316,7 +316,7 @@ function bindGameEvents() {
 			} else {
 				network.train(AI_CONFIG.STEP_REWARD, actionIdx)
 			}
-			renderCurrentAIView()
+			renderCurrentAIView(network.lastState, actionIdx, false, network.lastWeightChanges)
 		}
 	}
 	
@@ -501,8 +501,24 @@ function executePendingAIDecision() {
 	
 	pendingAIDecision = null
 	// 执行后恢复普通渲染（橙色高亮已在 onActionStart 里由 game.execute 触发）
-	renderCurrentAIView(inputs, action, false)
+	renderCurrentAIView(inputs, action, false, network ? network.lastWeightChanges : null)
 	updateControlsUI()
+}
+
+/**
+ * AI 自动决策并立即执行（用于非单步模式）
+ */
+function makeAIDecision() {
+	if (!isAIMode || !network) return
+	if (!canMakeDecision()) return
+
+	const state = game.getStateForAI()
+	const inputs = convertToInputs(state.terrainAhead)
+
+	const action = network.decide(inputs)
+	const actionType = action === 1 ? ACTION.JUMP : ACTION.RIGHT
+
+	game.execute(actionType)
 }
 
 // ========== 记录结果 ==========
@@ -540,9 +556,9 @@ function recordResult(finalStatus) {
 }
 
 // ========== 视图渲染 ==========
-function renderCurrentAIView(inputs = null, action = null, isPreview = false) {
+function renderCurrentAIView(inputs = null, action = null, isPreview = false, weightChanges = null) {
 	if (network) {
-		viewManager.render(network, inputs, action, isPreview)
+		viewManager.render(network, inputs, action, isPreview, weightChanges)
 	}
 }
 
@@ -764,6 +780,20 @@ function initConsolePanel() {
 		error: (tag, ...args) => console.error(`[${tag}]`, ...args),
 		info: (tag, ...args) => console.info(`[${tag}]`, ...args)
 	}
+
+	// ========== 全局异常捕获 ==========
+	window.addEventListener('error', (e) => {
+		console.error('[EXCEPTION]', `未捕获的错误: ${e.message}`, '\n源文件:', e.filename, '\n行号:', e.lineno, '\n列号:', e.colno, '\n', e.error || '')
+	})
+
+	window.addEventListener('unhandledrejection', (e) => {
+		const reason = e.reason
+		if (reason instanceof Error) {
+			console.error('[UNHANDLED]', `未处理的 Promise 拒绝: ${reason.message}`, reason)
+		} else {
+			console.error('[UNHANDLED]', '未处理的 Promise 拒绝:', reason)
+		}
+	})
 
 	// 绑定工具栏按钮
 	const btnClear = document.getElementById('btn-clear-console')

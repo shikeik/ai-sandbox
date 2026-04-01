@@ -176,9 +176,9 @@ export class NeuronAreaManager {
 		menuContainer.appendChild(menu)
 	}
 
-	render(network, inputs = null, action = null, isPreview = false) {
+	render(network, inputs = null, action = null, isPreview = false, weightChanges = null) {
 		if (this.currentView && this.currentView.render) {
-			this.currentView.render(network, inputs, action, isPreview)
+			this.currentView.render(network, inputs, action, isPreview, false, weightChanges)
 		}
 	}
 

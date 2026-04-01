@@ -38,6 +38,7 @@ export class NeuralNetwork {
 		this.lastState = null
 		this.lastAction = null
 		this.lastScores = null
+		this.lastWeightChanges = null
 	}
 	
 	/**
@@ -111,6 +112,9 @@ export class NeuralNetwork {
 		const layerIdx = this.weights.length - 1 // 输出层索引
 		const weights = this.weights[layerIdx]
 	
+		// 记录训练前的权重
+		const oldWeights = weights.map(row => [...row])
+	
 		if (reward > 0) {
 		// 正确：增强选中的动作，必须乘以输入值 (this.lastState[i])
 			for (let i = 0; i < this.lastState.length; i++) {
@@ -138,6 +142,17 @@ export class NeuralNetwork {
 				row[i] = Math.max(-this.weightClip, Math.min(this.weightClip, row[i]))
 			}
 		}
+	
+		// 计算并记录权重变化量（保持与 weights 相同的三维结构：[layer][output][input]）
+		const layerChanges = []
+		for (let j = 0; j < weights.length; j++) {
+			const row = []
+			for (let i = 0; i < weights[j].length; i++) {
+				row.push(weights[j][i] - oldWeights[j][i])
+			}
+			layerChanges.push(row)
+		}
+		this.lastWeightChanges = [layerChanges]
 	}
 	
 	/**
