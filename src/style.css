@@ -182,33 +182,6 @@ html, body {
 	border-bottom: 1px solid rgba(0, 255, 0, 0.15);
 }
 
-.console-toolbar-btn {
-	width: 22px;
-	height: 20px;
-	padding: 0;
-	background: #222;
-	border: 1px solid #0f0;
-	border-radius: 3px;
-	font-size: 11px;
-	cursor: pointer;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	opacity: 0.85;
-	transition: opacity 0.15s, background 0.15s;
-}
-
-.console-toolbar-btn:hover {
-	opacity: 1;
-	background: #0f0;
-}
-
-.console-toolbar-btn.active {
-	opacity: 1;
-	background: #0f0;
-	color: #000;
-}
-
 .console-content {
 	flex: 1;
 	width: 100%;
