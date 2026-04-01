@@ -237,11 +237,13 @@ function updateControlsUI() {
 	// AI 模式
 	else {
 		if (isStepMode) {
+		const actionLabel = pendingAIDecision ? (pendingAIDecision.actionType === ACTION.JUMP ?  '跳跃' : '移动') : ''
+		const btnText = (pendingAIDecision ? `行动-${actionLabel}`  : '决策') + '(Space)'
 		// 单步模式：显示下一步按钮
 			controlArea.innerHTML = `
 		<button class="btn" id="btn-step" style="background: var(--color-btn-right); box-shadow: 0 8px 0 var(--color-btn-right-shadow); color: white;">
 			⏭️
-			<span class="btn-label">下一步 (Space)</span>
+			<span class="btn-label">${btnText}</span>
 		</button>
 		`
 			const btnStep = document.getElementById('btn-step')
