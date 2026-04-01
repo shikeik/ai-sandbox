@@ -23,8 +23,16 @@
 				<!-- 控制台面板 -->
 				<div class="console-panel" id="console-panel">
 					<div class="console-toolbar">
+						<button class="console-toolbar-btn" id="btn-filter-console" title="筛选">🔍</button>
 						<button class="console-toolbar-btn" id="btn-clear-console" title="清空">🗑️</button>
 						<button class="console-toolbar-btn" id="btn-download-console" title="下载日志">💾</button>
+						<div class="console-filter-menu" id="console-filter-menu">
+							<div class="console-filter-header">
+								<button class="console-filter-header-btn" id="btn-filter-all">全选</button>
+								<button class="console-filter-header-btn" id="btn-filter-none">全不选</button>
+							</div>
+							<div class="console-filter-list" id="console-filter-list"></div>
+						</div>
 					</div>
 					<div class="console-content" id="console-logs"></div>
 				</div>

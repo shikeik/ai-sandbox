@@ -243,6 +243,84 @@ html, body {
 	border-left: 2px solid rgba(231, 76, 60, 0.4);
 }
 
+/* ---------- 日志筛选菜单 ---------- */
+.console-filter-menu {
+	position: absolute;
+	top: 24px;
+	right: 4px;
+	width: 160px;
+	max-height: 240px;
+	background: #0f0f23;
+	border: 1px solid #0f0;
+	border-radius: 4px;
+	z-index: 3100;
+	display: none;
+	flex-direction: column;
+	overflow: hidden;
+	box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+}
+
+.console-filter-menu.open {
+	display: flex;
+}
+
+.console-filter-header {
+	display: flex;
+	gap: 6px;
+	padding: 6px 8px;
+	border-bottom: 1px solid rgba(0, 255, 0, 0.2);
+	flex-shrink: 0;
+}
+
+.console-filter-header-btn {
+	flex: 1;
+	padding: 3px 0;
+	background: #222;
+	border: 1px solid #0f0;
+	color: #0f0;
+	font-size: 10px;
+	cursor: pointer;
+	border-radius: 3px;
+	font-family: monospace;
+}
+
+.console-filter-header-btn:hover {
+	background: #0f0;
+	color: #000;
+}
+
+.console-filter-list {
+	flex: 1;
+	overflow-y: auto;
+	padding: 4px 0;
+}
+
+.console-filter-item {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 4px 8px;
+	cursor: pointer;
+	font-size: 10px;
+	color: rgba(255, 255, 255, 0.85);
+	transition: background 0.1s;
+}
+
+.console-filter-item:hover {
+	background: rgba(0, 255, 0, 0.1);
+}
+
+.console-filter-item input[type="checkbox"] {
+	accent-color: #0f0;
+	width: 12px;
+	height: 12px;
+	cursor: pointer;
+}
+
+.console-filter-tag {
+	font-family: 'Courier New', monospace;
+}
+
 /* ---------- 云朵装饰 ---------- */
 .cloud {
 	position: absolute;

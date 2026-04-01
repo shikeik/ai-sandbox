@@ -603,6 +603,9 @@ function initConsolePanel() {
 	const originalError = console.error
 	const originalInfo = console.info
 
+	const tagRegistry = new Set()
+	const tagVisible = new Map()
+
 	function formatArg(a) {
 		if (a instanceof Error) {
 			return a.stack || a.message || String(a)
@@ -613,17 +616,70 @@ function initConsolePanel() {
 		return String(a)
 	}
 
+	function extractTag(args) {
+		if (args.length > 0 && typeof args[0] === 'string') {
+			const match = args[0].match(/^\[([^\]]+)\]$/)
+			if (match) {
+				const tag = match[1]
+				return { tag, rest: args.slice(1) }
+			}
+		}
+		return { tag: 'app', rest: args }
+	}
+
+	function registerTag(tag) {
+		if (!tagRegistry.has(tag)) {
+			tagRegistry.add(tag)
+			tagVisible.set(tag, true)
+			renderFilterMenu()
+		}
+	}
+
+	function applyTagFilters() {
+		const lines = logsContainer.querySelectorAll('.console-line')
+		lines.forEach(line => {
+			const tag = line.dataset.tag || 'app'
+			line.style.display = tagVisible.get(tag) ? '' : 'none'
+		})
+	}
+
+	function renderFilterMenu() {
+		const list = document.getElementById('console-filter-list')
+		if (!list) return
+		list.innerHTML = ''
+		const tags = Array.from(tagRegistry).sort((a, b) => a.localeCompare(b))
+		tags.forEach(tag => {
+			const row = document.createElement('label')
+			row.className = 'console-filter-item'
+			const checked = tagVisible.get(tag) ? 'checked' : ''
+			row.innerHTML = `
+				<input type="checkbox" ${checked}>
+				<span class="console-filter-tag">${tag}</span>
+			`
+			row.querySelector('input').addEventListener('change', (e) => {
+				tagVisible.set(tag, e.target.checked)
+				applyTagFilters()
+			})
+			list.appendChild(row)
+		})
+	}
+
 	function appendLine(level, args) {
+		const { tag, rest } = extractTag(args)
+		registerTag(tag)
+
 		const time = new Date().toLocaleTimeString('zh-CN', { hour12: false })
 		const entry = document.createElement('div')
 		entry.className = `console-line ${level}`
+		entry.dataset.tag = tag
+		entry.style.display = tagVisible.get(tag) ? '' : 'none'
 
-		const textParts = args.map(formatArg)
+		const textParts = rest.map(formatArg)
 		const header = document.createElement('div')
-		header.textContent = `[${time}] ${textParts.join(' ')}`
+		header.textContent = `[${time}] [${tag}] ${textParts.join(' ')}`
 		entry.appendChild(header)
 
-		args.forEach(a => {
+		rest.forEach(a => {
 			if (a instanceof Error && a.stack) {
 				const stackDiv = document.createElement('div')
 				stackDiv.className = 'console-stack'
@@ -637,30 +693,37 @@ function initConsolePanel() {
 		logsContainer.scrollTop = logsContainer.scrollHeight
 	}
 
-	console.log = function (...args) {
-		originalLog.apply(console, args)
-		appendLine('log', args)
+	function makeTaggedLogger(orig, level) {
+		return function (...args) {
+			orig.apply(console, args)
+			appendLine(level, args)
+		}
 	}
-	console.warn = function (...args) {
-		originalWarn.apply(console, args)
-		appendLine('warn', args)
-	}
-	console.error = function (...args) {
-		originalError.apply(console, args)
-		appendLine('error', args)
-	}
-	console.info = function (...args) {
-		originalInfo.apply(console, args)
-		appendLine('info', args)
+
+	console.log = makeTaggedLogger(originalLog, 'log')
+	console.warn = makeTaggedLogger(originalWarn, 'warn')
+	console.error = makeTaggedLogger(originalError, 'error')
+	console.info = makeTaggedLogger(originalInfo, 'info')
+
+	window.gameLog = {
+		log: (tag, ...args) => console.log(`[${tag}]`, ...args),
+		warn: (tag, ...args) => console.warn(`[${tag}]`, ...args),
+		error: (tag, ...args) => console.error(`[${tag}]`, ...args),
+		info: (tag, ...args) => console.info(`[${tag}]`, ...args)
 	}
 
 	// 绑定工具栏按钮
 	const btnClear = document.getElementById('btn-clear-console')
 	const btnDownload = document.getElementById('btn-download-console')
+	const btnFilter = document.getElementById('btn-filter-console')
+	const filterMenu = document.getElementById('console-filter-menu')
 
 	if (btnClear) {
 		btnClear.addEventListener('click', () => {
 			logsContainer.innerHTML = ''
+			tagRegistry.clear()
+			tagVisible.clear()
+			renderFilterMenu()
 		})
 	}
 
@@ -677,6 +740,39 @@ function initConsolePanel() {
 			document.body.removeChild(a)
 			URL.revokeObjectURL(url)
 		})
+	}
+
+	if (btnFilter && filterMenu) {
+		btnFilter.addEventListener('click', (e) => {
+			e.stopPropagation()
+			const isOpen = filterMenu.classList.toggle('open')
+			btnFilter.classList.toggle('active', isOpen)
+		})
+
+		document.addEventListener('click', (e) => {
+			if (!filterMenu.contains(e.target) && e.target !== btnFilter) {
+				filterMenu.classList.remove('open')
+				btnFilter.classList.remove('active')
+			}
+		})
+
+		const btnAll = document.getElementById('btn-filter-all')
+		const btnNone = document.getElementById('btn-filter-none')
+
+		if (btnAll) {
+			btnAll.addEventListener('click', () => {
+				tagRegistry.forEach(tag => tagVisible.set(tag, true))
+				renderFilterMenu()
+				applyTagFilters()
+			})
+		}
+		if (btnNone) {
+			btnNone.addEventListener('click', () => {
+				tagRegistry.forEach(tag => tagVisible.set(tag, false))
+				renderFilterMenu()
+				applyTagFilters()
+			})
+		}
 	}
 }
 
