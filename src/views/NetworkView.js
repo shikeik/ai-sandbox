@@ -1,6 +1,6 @@
 /**
  * 网络拓扑视图
- * 动态渲染神经网络结构，支持任意层数
+ * 上下布局：顶部信息栏 + 底部网络图
  */
 
 export class NetworkView {
@@ -8,28 +8,55 @@ export class NetworkView {
 		this.container = document.getElementById(containerId)
 		this.canvas = null
 		this.ctx = null
+		this.infoBar = null
 		this.lastData = null
 		this.init()
 	}
 	
 	init() {
-		const oldCanvas = this.container.querySelector('canvas')
-		if (oldCanvas) oldCanvas.remove()
-	
-		const placeholder = this.container.querySelector('#neuron-placeholder')
-		if (placeholder) placeholder.remove()
-	
+		// 清理旧元素
+		this.container.innerHTML = ''
+		
+		// 创建顶部信息栏
+		this.infoBar = document.createElement('div')
+		this.infoBar.style.cssText = `
+			height: 24px;
+			display: flex;
+			align-items: center;
+			padding: 0 8px;
+			background: rgba(0,0,0,0.2);
+			border-bottom: 1px solid rgba(0,255,0,0.2);
+			font-size: 11px;
+			color: rgba(255,255,255,0.8);
+			gap: 12px;
+		`
+		this.container.appendChild(this.infoBar)
+		
+		// 创建 canvas 容器
+		const canvasContainer = document.createElement('div')
+		canvasContainer.style.cssText = `
+			position: relative;
+			flex: 1;
+			overflow: hidden;
+		`
+		this.container.style.display = 'flex'
+		this.container.style.flexDirection = 'column'
+		this.container.appendChild(canvasContainer)
+		
+		// 创建 canvas
 		this.canvas = document.createElement('canvas')
-		// 【修复无限拉伸】：绝对定位脱离文档流，不撑开父盒子
-		this.canvas.style.position = 'absolute'
-		this.canvas.style.top = '0'
-		this.canvas.style.left = '0'
-		this.canvas.style.width = '100%'
-		this.canvas.style.height = '100%'
-		this.canvas.style.display = 'block'
-		this.container.appendChild(this.canvas)
+		this.canvas.style.cssText = `
+			position: absolute;
+			top: 0;
+			left: 0;
+			width: 100%;
+			height: 100%;
+			display: block;
+		`
+		canvasContainer.appendChild(this.canvas)
 		this.ctx = this.canvas.getContext('2d')
-	
+		
+		// 监听容器尺寸变化
 		this.resizeObserver = new ResizeObserver(() => {
 			this.resize()
 		})
@@ -37,9 +64,8 @@ export class NetworkView {
 	}
 	
 	resize() {
-		// 使用 offsetWidth/offsetHeight 获取逻辑尺寸，不受 CSS 旋转变换影响
 		const w = this.container.offsetWidth
-		const h = this.container.offsetHeight
+		const h = this.container.offsetHeight - 24 // 减去信息栏高度
 		if (w === 0 || h === 0) return
 
 		this.canvas.width = w * window.devicePixelRatio
@@ -58,6 +84,9 @@ export class NetworkView {
 			this.lastData = { network, inputs, action }
 		}
 
+		// 更新信息栏
+		this.updateInfoBar(network)
+
 		const ctx = this.ctx
 		const w = this.width
 		const h = this.height
@@ -71,14 +100,25 @@ export class NetworkView {
 		const nodePositions = this.calculatePositions(layers, w, h)
 		this.drawConnections(ctx, nodePositions, weights, inputs)
 		this.drawNodes(ctx, nodePositions, inputs, action)
-		this.drawInfo(ctx, w, h, structure, network)
+	}
+	
+	updateInfoBar(network) {
+		const structure = network.getStructure()
+		const eps = (network.epsilon * 100).toFixed(0)
+		const exploring = network.isExploring ? ' <span style="color:#f39c12">🎲</span>' : ''
+		
+		this.infoBar.innerHTML = `
+			<span>结构:${structure.layerSizes.join('-')}</span>
+			<span>权重:${structure.totalWeights}</span>
+			<span style="color:rgba(255,255,255,0.6)">ε:${eps}%${exploring}</span>
+		`
 	}
 	
 	calculatePositions(layers, w, h) {
 		const positions =[]
 		const layerCount = layers.length
 		const marginX = w * 0.15
-		const marginY = h * 0.15
+		const marginY = h * 0.12
 	
 		for (let l = 0; l < layerCount; l++) {
 			const layerSize = layers[l]
@@ -178,30 +218,9 @@ export class NetworkView {
 		}
 	}
 	
-	drawInfo(ctx, w, h, structure, network) {
-		ctx.fillStyle = 'rgba(255,255,255,0.8)'
-		ctx.font = '12px monospace'
-		ctx.textAlign = 'left'
-		ctx.fillText(`结构: ${structure.layerSizes.join('-')}`, 10, 20)
-		ctx.fillText(`权重数: ${structure.totalWeights}`, 10, 38)
-	
-		// --- 显示实时探索率 ---
-		if (network) {
-			const eps = (network.epsilon * 100).toFixed(0)
-			ctx.fillStyle = 'rgba(255, 255, 255, 0.6)'
-			ctx.fillText(`好奇心(ε): ${eps}%`, 10, 56)
-		
-			// 如果当前正在“探索”，在旁边画个小骰子或变色文字提醒
-			if (network.isExploring) {
-				ctx.fillStyle = '#f39c12' // 橘黄色
-				ctx.fillText('🎲 正在探索随机路径', 10, 74)
-			}
-		}
-	}
-	
 	destroy() {
 		if (this.resizeObserver) this.resizeObserver.disconnect()
-		this.canvas?.remove()
+		this.container.innerHTML = ''
 	}
 }
 
