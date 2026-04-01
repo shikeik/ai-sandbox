@@ -37,6 +37,7 @@ export class NetworkView {
 		canvasContainer.style.cssText = `
 			position: relative;
 			flex: 1;
+			min-height: 0;
 			overflow: hidden;
 		`
 		this.container.style.display = 'flex'
@@ -64,9 +65,15 @@ export class NetworkView {
 	}
 	
 	resize() {
-		const w = this.container.offsetWidth
-		const h = this.container.offsetHeight - 24 // 减去信息栏高度
-		if (w === 0 || h === 0) return
+		// 使用 canvas 父容器的实际尺寸
+		const canvasContainer = this.canvas.parentElement
+		const w = canvasContainer.offsetWidth
+		const h = canvasContainer.offsetHeight
+		console.log('NetworkView resize:', w, h)
+		if (w === 0 || h === 0) {
+			console.warn('NetworkView: container has 0 size')
+			return
+		}
 
 		this.canvas.width = w * window.devicePixelRatio
 		this.canvas.height = h * window.devicePixelRatio
