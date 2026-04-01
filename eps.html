@@ -292,37 +292,91 @@
             },
             
             // ==========================================================
-            // 核心API 1: 坐标转换
+            // 核心API 1: 坐标转换 (分层：screen → stage → logicalStage)
             // ==========================================================
             transform: {
+                // 统一获取变换状态，避免重复判断
+                _getTransformMode() {
+                    const w = window.innerWidth, h = window.innerHeight;
+                    return {
+                        isLandscape: w > h,
+                        isActive: EPS._active,
+                        w, h,
+                        logicW: EPS._active && w > h ? h : w,
+                        logicH: EPS._active && w > h ? w : h
+                    };
+                },
+                
+                // 第一层：screen(左上) → stage(左下)
+                _screenToStage(screenX, screenY) {
+                    return {
+                        x: screenX,
+                        y: window.innerHeight - screenY
+                    };
+                },
+                
+                // 第一层反向：stage(左下) → screen(左上)
+                _stageToScreen(stageX, stageY) {
+                    return {
+                        x: stageX,
+                        y: window.innerHeight - stageY
+                    };
+                },
+                
+                // 第二层：stage(左下) → logicalStage(左下，旋转补偿)
+                _stageToLogicalStage(stageX, stageY) {
+                    const { isLandscape, isActive, logicW } = this._getTransformMode();
+                    if (!isActive || !isLandscape) {
+                        return { x: stageX, y: stageY };
+                    }
+                    // 横屏：交换坐标并翻转X
+                    return {
+                        x: stageY,
+                        y: logicW - stageX
+                    };
+                },
+                
+                // 第二层反向：logicalStage(左下) → stage(左下)
+                _logicalStageToStage(logicalX, logicalY) {
+                    const { isLandscape, isActive, logicW } = this._getTransformMode();
+                    if (!isActive || !isLandscape) {
+                        return { x: logicalX, y: logicalY };
+                    }
+                    return {
+                        x: logicW - logicalY,
+                        y: logicalX
+                    };
+                },
+                
+                // 对外API：screen → logicalStage
                 screenToLogical(screenX, screenY) {
-                    const eps = EPS;
-                    const w = window.innerWidth, h = window.innerHeight;
-                    if (!eps._active || w < h) {
-                        return { x: screenX, y: h - screenY };
-                    } else {
-                        return { x: screenY, y: w - screenX };
-                    }
+                    const stage = this._screenToStage(screenX, screenY);
+                    return this._stageToLogicalStage(stage.x, stage.y);
                 },
                 
+                // 对外API：logicalStage → screen
                 logicalToScreen(logicalX, logicalY) {
-                    const eps = EPS;
-                    const w = window.innerWidth, h = window.innerHeight;
-                    if (!eps._active || w < h) {
-                        return { x: logicalX, y: h - logicalY };
-                    } else {
-                        return { x: w - logicalY, y: logicalX };
-                    }
+                    const stage = this._logicalStageToStage(logicalX, logicalY);
+                    return this._stageToScreen(stage.x, stage.y);
                 },
                 
+                // 对外API：delta 转换
                 deltaScreenToLogical(screenDx, screenDy) {
-                    const eps = EPS;
-                    const w = window.innerWidth, h = window.innerHeight;
-                    if (!eps._active || w < h) {
-                        return { dx: screenDx, dy: -screenDy };
-                    } else {
-                        return { dx: -screenDy, dy: -screenDx };
+                    const { isLandscape, isActive } = this._getTransformMode();
+                    
+                    // screen delta → stage delta
+                    const stageDx = screenDx;
+                    const stageDy = -screenDy;
+                    
+                    if (!isActive || !isLandscape) {
+                        return { dx: stageDx, dy: stageDy };
                     }
+                    
+                    // stage delta → logicalStage delta (rotate -90°)
+                    return {
+                        dx: stageDy,
+                        dy: -stageDx
+                    };
                 }
             },
             
