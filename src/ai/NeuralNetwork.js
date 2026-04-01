@@ -85,6 +85,7 @@ export class NeuralNetwork {
 		this.lastScores = result.scores
 		
 		// ε-贪心策略逻辑
+		// 注：当前阶段 epsilon 固定为 0，需要可控观察，暂不启用探索机制，保持纯利用模式
 		if (Math.random() < this.epsilon) {
 		// 【探索】：不看分数，50% 几率随机选一个
 			this.isExploring = true

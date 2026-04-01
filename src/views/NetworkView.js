@@ -87,13 +87,13 @@ export class NetworkView {
 		}
 	}
 	
-	render(network, inputs = null, action = null, isResize = false) {
+	render(network, inputs = null, action = null, isPreview = false, isResize = false) {
 		if (!isResize) {
-			this.lastData = { network, inputs, action }
+			this.lastData = { network, inputs, action, isPreview }
 		}
 
 		// 更新信息栏
-		this.updateInfoBar(network)
+		this.updateInfoBar(network, isPreview)
 
 		const ctx = this.ctx
 		const w = this.width
@@ -107,18 +107,19 @@ export class NetworkView {
 	
 		const nodePositions = this.calculatePositions(layers, w, h)
 		this.drawConnections(ctx, nodePositions, weights, inputs)
-		this.drawNodes(ctx, nodePositions, inputs, action)
+		this.drawNodes(ctx, nodePositions, inputs, action, isPreview)
 	}
 	
-	updateInfoBar(network) {
+	updateInfoBar(network, isPreview = false) {
 		const structure = network.getStructure()
 		const eps = (network.epsilon * 100).toFixed(0)
 		const exploring = network.isExploring ? ' <span style="color:#f39c12">🎲</span>' : ''
+		const previewTag = isPreview ? ' <span style="color:#3498db">[预览]</span>' : ''
 		
 		this.infoBar.innerHTML = `
 			<span>结构:${structure.layerSizes.join('-')}</span>
 			<span>权重:${structure.totalWeights}</span>
-			<span style="color:rgba(255,255,255,0.6)">ε:${eps}%${exploring}</span>
+			<span style="color:rgba(255,255,255,0.6)">ε:${eps}%${exploring}${previewTag}</span>
 		`
 	}
 	

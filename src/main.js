@@ -23,6 +23,9 @@ let playerBestStore = null
 let viewManager = null
 let timerInterval = null
 
+// AI 单步模式缓存：决策与执行分离
+let pendingAIDecision = null // { action, actionType, inputs, scores }
+
 const performanceHistory = [] // 滑动窗口队列
 const WINDOW_SIZE = 5      // 窗口大小
 
@@ -161,6 +164,8 @@ function init() {
 	updateGameInfo()
 	bindStartButton()
 	showStartOverlay()
+	// 初始化时清空单步缓存
+	pendingAIDecision = null
 	
 	console.log('[GAME]', 'AI 训练沙盘已初始化，等待开始...')
 	console.log('[GAME]', 'AI模式:', isAIMode ? '开启' : '关闭')
@@ -375,6 +380,7 @@ function setAISpeed(speed) {
 	if (speed === AI_CONFIG.SPEEDS.STEP) {
 		isStepMode = true
 		aiSpeed = AI_CONFIG.SPEEDS.NORMAL
+		pendingAIDecision = null // 进入单步模式时丢弃缓存
 		console.log('[AI]', '切换到单步模式')
 	} else {
 		isStepMode = false
@@ -392,7 +398,13 @@ function setAISpeed(speed) {
 
 function stepAI() {
 	if (!isAIMode || !isStepMode) return
-	makeAIDecision()
+	
+	// 有缓存则执行，无缓存则决策
+	if (pendingAIDecision) {
+		executePendingAIDecision()
+	} else {
+		makeAIDecisionPreview()
+	}
 }
 
 function startAI() {
@@ -446,17 +458,47 @@ function canMakeDecision() {
 		 game.getState().player.action === PLAYER_ACTION.IDLE
 }
 
-function makeAIDecision() {
+function makeAIDecisionPreview() {
 	if (!isAIMode || !network) return
+	if (!canMakeDecision()) {
+		console.log('[AI]', '当前无法决策，玩家不在空闲状态')
+		return
+	}
 	
 	const state = game.getStateForAI()
 	const inputs = convertToInputs(state.terrainAhead)
 	
 	const action = network.decide(inputs)
 	const actionType = action === 1 ? ACTION.JUMP : ACTION.RIGHT
+	const scores = network.lastScores ? [...network.lastScores] : [0, 0]
 	
-	game.execute(actionType)
-	renderCurrentAIView(inputs, action)
+	pendingAIDecision = { action, actionType, inputs, scores }
+	
+	console.log('[AI]', `决策完成 | 动作=${actionType === ACTION.JUMP ? '跳跃' : '移动'} | 得分=[${scores.map(s => s.toFixed(2)).join(', ')}] | 探索=${network.isExploring ? '是' : '否'}`)
+	
+	// 更新 UI 为预览态（蓝色高亮）
+	renderCurrentAIView(inputs, action, true)
+	updateControlsUI()
+}
+
+function executePendingAIDecision() {
+	if (!pendingAIDecision) return
+	if (!canMakeDecision()) {
+		console.log('[AI]', '当前无法执行，玩家不在空闲状态')
+		return
+	}
+	
+	const { actionType, inputs, action } = pendingAIDecision
+	
+	const result = game.execute(actionType)
+	if (result) {
+		console.log('[AI]', `执行动作 | 动作=${actionType === ACTION.JUMP ? '跳跃' : '移动'}`)
+	}
+	
+	pendingAIDecision = null
+	// 执行后恢复普通渲染（橙色高亮已在 onActionStart 里由 game.execute 触发）
+	renderCurrentAIView(inputs, action, false)
+	updateControlsUI()
 }
 
 // ========== 记录结果 ==========
@@ -494,9 +536,9 @@ function recordResult(finalStatus) {
 }
 
 // ========== 视图渲染 ==========
-function renderCurrentAIView(inputs = null, action = null) {
+function renderCurrentAIView(inputs = null, action = null, isPreview = false) {
 	if (network) {
-		viewManager.render(network, inputs, action)
+		viewManager.render(network, inputs, action, isPreview)
 	}
 }
 
@@ -531,7 +573,7 @@ function updateGameInfo() {
 function handleKeyDown(e) {
 	if (e.repeat) return
 	
-	// AI单步模式：空格键执行下一步
+	// AI单步模式：空格键执行下一步（决策/执行两阶段）
 	if (isAIMode && isStepMode && e.key === ' ') {
 		e.preventDefault()
 		stepAI()
