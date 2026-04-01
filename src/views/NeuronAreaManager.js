@@ -61,49 +61,53 @@ export class NeuronAreaManager {
 	}
 	
 	createMenuButton() {
+		// 菜单按钮创建到顶部控制栏
+		const menuContainer = document.getElementById('neuron-menu-container')
+		if (!menuContainer) return
+		
 		const btn = document.createElement('button')
 		btn.id = 'view-menu-btn'
-		btn.innerHTML = '☰'
+		btn.innerHTML = '🧠'
+		btn.title = '神经元视图菜单'
 		btn.style.cssText = `
-		position: absolute;
-		top: 10px;
-		right: 10px;
-		width: 32px;
-		height: 32px;
+		width: 28px;
+		height: 28px;
 		border: none;
 		border-radius: 4px;
-		background: rgba(0,0,0,0.4);
-		backdrop-filter: blur(4px);
-		border: 1px solid rgba(255,255,255,0.3);
-		color: #fff;
-		font-size: 16px;
+		background: #222;
+		border: 1px solid #0f0;
+		color: #0f0;
+		font-size: 14px;
 		cursor: pointer;
-		z-index: 2000;
 		display: flex;
 		align-items: center;
 		justify-content: center;
 	`
 	
 		btn.addEventListener('click', () => this.toggleMenu())
-		this.container.appendChild(btn)
+		menuContainer.appendChild(btn)
 		this.menuBtn = btn
 	}
 	
 	createMenuDropdown() {
+		// 下拉菜单创建到顶部控制栏
+		const menuContainer = document.getElementById('neuron-menu-container')
+		if (!menuContainer) return
+		
 		const menu = document.createElement('div')
 		menu.id = 'view-menu-dropdown'
 		menu.style.cssText = `
 		position: absolute;
-		top: 48px;
-		right: 10px;
-		background: #2c3e50;
-		border: 1px solid #5a7a94;
+		top: 36px;
+		right: 0;
+		background: #1a1a2e;
+		border: 1px solid #0f0;
 		border-radius: 4px;
 		padding: 8px 0;
-		min-width: 140px;
-		z-index: 2001;
+		min-width: 150px;
+		z-index: 3001;
 		display: none;
-		box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+		box-shadow: 0 4px 12px rgba(0,0,0,0.5);
 	`
 	
 		const addDivider = () => {
@@ -201,7 +205,7 @@ export class NeuronAreaManager {
 			menu.appendChild(el)
 		})
 	
-		this.container.appendChild(menu)
+		menuContainer.appendChild(menu)
 		this.menuDropdown = menu
 	
 		addDivider()
