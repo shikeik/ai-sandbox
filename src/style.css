@@ -226,13 +226,20 @@ html, body {
 }
 
 .console-line {
-	margin-bottom: 2px;
+	margin-bottom: 4px;
 }
 
-.console-line.log  { color: rgba(255, 255, 255, 0.85); }
-.console-line.warn { color: #f39c12; }
+.console-line.debug { color: rgba(255, 255, 255, 0.85); }
 .console-line.error { color: #e74c3c; }
-.console-line.info { color: #4ecdc4; }
+
+.console-stack {
+	padding-left: 8px;
+	margin-top: 2px;
+	white-space: pre-wrap;
+	color: rgba(231, 76, 60, 0.8);
+	font-size: 9px;
+	border-left: 2px solid rgba(231, 76, 60, 0.4);
+}
 
 /* ---------- 云朵装饰 ---------- */
 .cloud {

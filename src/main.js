@@ -603,26 +603,47 @@ function initConsolePanel() {
 	const originalError = console.error
 	const originalInfo = console.info
 
+	function formatArg(a) {
+		if (a instanceof Error) {
+			return a.stack || a.message || String(a)
+		}
+		if (typeof a === 'object') {
+			try { return JSON.stringify(a) } catch { return String(a) }
+		}
+		return String(a)
+	}
+
 	function appendLine(level, args) {
-		const line = document.createElement('div')
-		line.className = `console-line ${level}`
-		line.textContent = args.map(a => {
-			if (typeof a === 'object') {
-				try { return JSON.stringify(a) } catch { return String(a) }
+		const time = new Date().toLocaleTimeString('zh-CN', { hour12: false })
+		const entry = document.createElement('div')
+		entry.className = `console-line ${level}`
+
+		const textParts = args.map(formatArg)
+		const header = document.createElement('div')
+		header.textContent = `[${time}] ${textParts.join(' ')}`
+		entry.appendChild(header)
+
+		args.forEach(a => {
+			if (a instanceof Error && a.stack) {
+				const stackDiv = document.createElement('div')
+				stackDiv.className = 'console-stack'
+				const stackLines = a.stack.split('\n').slice(1)
+				stackDiv.textContent = stackLines.join('\n')
+				entry.appendChild(stackDiv)
 			}
-			return String(a)
-		}).join(' ')
-		logsContainer.appendChild(line)
+		})
+
+		logsContainer.appendChild(entry)
 		logsContainer.scrollTop = logsContainer.scrollHeight
 	}
 
 	console.log = function (...args) {
 		originalLog.apply(console, args)
-		appendLine('log', args)
+		appendLine('debug', args)
 	}
 	console.warn = function (...args) {
 		originalWarn.apply(console, args)
-		appendLine('warn', args)
+		appendLine('debug', args)
 	}
 	console.error = function (...args) {
 		originalError.apply(console, args)
@@ -630,7 +651,7 @@ function initConsolePanel() {
 	}
 	console.info = function (...args) {
 		originalInfo.apply(console, args)
-		appendLine('info', args)
+		appendLine('debug', args)
 	}
 
 	// 绑定工具栏按钮
