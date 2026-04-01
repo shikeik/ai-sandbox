@@ -69,6 +69,15 @@
             position: relative;
         }
 
+        /* 游戏主容器：扣除菜单栏后的剩余空间 */
+        #game-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            overflow: hidden;
+        }
+
         /* 控制栏 */
         .control-bar { 
             height: 36px; 
@@ -106,7 +115,7 @@
 
         /* ========== 游戏区域 ========== */
         #game-area {
-            flex: 0 0 40%;
+            flex: 0 0 45%;
             background: var(--color-bg-game);
             position: relative;
             overflow: hidden;
@@ -376,7 +385,10 @@
                 <div class="eps-status" id="eps-st">-</div>
             </div>
 
-            <!-- 全屏引导遮罩 -->
+            <!-- 游戏主容器：三区域在此容器内分配比例 -->
+            <div id="game-container">
+
+                <!-- 全屏引导遮罩 -->
             <div id="fs-guide-overlay" class="game-overlay hidden">
                 <div class="overlay-content">
                     <div style="font-size: 40px; margin-bottom: 20px;">📱</div>
@@ -416,17 +428,19 @@
                 </div>
             </div>
 
-            <!-- 控制区域 -->
-            <div id="control-area">
-                <button class="btn" id="btn-right">
-                    ▶
-                    <span class="btn-label">移动 (x+1)</span>
-                </button>
-                <button class="btn" id="btn-jump">
-                    ⬆
-                    <span class="btn-label">跳跃 (x+2)</span>
-                </button>
-            </div>
+                <!-- 控制区域 -->
+                <div id="control-area">
+                    <button class="btn" id="btn-right">
+                        ▶
+                        <span class="btn-label">移动 (x+1)</span>
+                    </button>
+                    <button class="btn" id="btn-jump">
+                        ⬆
+                        <span class="btn-label">跳跃 (x+2)</span>
+                    </button>
+                </div>
+
+            </div><!-- /#game-container -->
         </div>
     </div>
 
