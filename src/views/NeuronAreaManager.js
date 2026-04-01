@@ -58,11 +58,12 @@ export class NeuronAreaManager {
 			background: #1a1a2e;
 			border: 1px solid #0f0;
 			border-radius: 4px;
-			padding: 8px 0;
-			min-width: 150px;
+			padding: 6px;
+			width: 220px;
 			z-index: 3001;
 			display: none;
 			box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+			font-size: 11px;
 		`
 
 		const addHoverEffect = (el) => {
@@ -70,21 +71,18 @@ export class NeuronAreaManager {
 			el.addEventListener('mouseleave', () => el.style.background = 'transparent')
 		}
 
-		const addDivider = () => {
-			const divider = document.createElement('div')
-			divider.style.cssText = `
-				height: 1px;
-				background: rgba(255,255,255,0.2);
-				margin: 4px 0;
-			`
-			menu.appendChild(divider)
-		}
+		// 模式选择 - 1行3列
+		const modeRow = document.createElement('div')
+		modeRow.style.cssText = `
+			display: flex;
+			gap: 4px;
+			margin-bottom: 6px;
+		`
 
-		// 模式选择
 		const modes = [
-			{ id: 'player', label: '👤 玩家游玩' },
-			{ id: 'ai', label: '🤖 AI控制' },
-			{ id: 'train', label: '📊 AI训练' }
+			{ id: 'player', label: '👤玩家' },
+			{ id: 'ai', label: '🤖AI' },
+			{ id: 'train', label: '📊训练' }
 		]
 
 		modes.forEach(item => {
@@ -92,52 +90,72 @@ export class NeuronAreaManager {
 			el.className = 'menu-item'
 			el.textContent = item.label
 			el.style.cssText = `
-				padding: 8px 16px;
+				flex: 1;
+				padding: 6px 4px;
 				cursor: pointer;
 				color: #fff;
-				font-size: 13px;
+				text-align: center;
+				border-radius: 3px;
+				background: rgba(255,255,255,0.05);
 			`
 			el.addEventListener('click', () => {
 				if (this.onModeChange) this.onModeChange(item.id)
 				menu.style.display = 'none'
 			})
 			addHoverEffect(el)
-			menu.appendChild(el)
+			modeRow.appendChild(el)
 		})
+		menu.appendChild(modeRow)
 
-		addDivider()
+		// 分隔线
+		const divider = document.createElement('div')
+		divider.style.cssText = `
+			height: 1px;
+			background: rgba(0,255,0,0.3);
+			margin: 4px 0 6px 0;
+		`
+		menu.appendChild(divider)
 
-		// 训练速度（仅训练模式时可用）
-		const speedTitle = document.createElement('div')
-		speedTitle.textContent = '⏱️ 训练速度'
-		speedTitle.style.cssText = 'padding: 4px 16px; color: rgba(255,255,255,0.5); font-size: 11px;'
-		menu.appendChild(speedTitle)
+		// 训练速度 - 2排网格
+		const speedGrid = document.createElement('div')
+		speedGrid.style.cssText = `
+			display: flex;
+			flex-wrap: wrap;
+			gap: 4px;
+		`
 
 		const speeds = [
-			{ id: 'step', label: '🚶 单步' },
-			{ id: 'slow', label: '🐢 慢速' },
-			{ id: 'normal', label: '🚶 中速' },
-			{ id: 'fast', label: '🏃 快速' },
-			{ id: 'max', label: '⚡ 极速' }
+			{ id: 'step', label: '单步' },
+			{ id: 'slow', label: '慢速' },
+			{ id: 'normal', label: '中速' },
+			{ id: 'fast', label: '快速' },
+			{ id: 'max', label: '极速' }
 		]
 
-		speeds.forEach(item => {
+		speeds.forEach((item, index) => {
 			const el = document.createElement('div')
 			el.className = 'menu-item'
 			el.textContent = item.label
+			// 前3个占1/3，后2个占1/2
+			const flexBasis = index < 3 ? 'calc(33.333% - 3px)' : 'calc(50% - 2px)'
 			el.style.cssText = `
-				padding: 8px 16px 8px 24px;
+				flex: 0 0 ${flexBasis};
+				padding: 5px 2px;
 				cursor: pointer;
-				color: #fff;
-				font-size: 12px;
+				color: rgba(255,255,255,0.8);
+				text-align: center;
+				border-radius: 3px;
+				background: rgba(255,255,255,0.05);
+				font-size: 11px;
 			`
 			el.addEventListener('click', () => {
 				if (this.onSpeedChange) this.onSpeedChange(item.id)
 				menu.style.display = 'none'
 			})
 			addHoverEffect(el)
-			menu.appendChild(el)
+			speedGrid.appendChild(el)
 		})
+		menu.appendChild(speedGrid)
 
 		btn.addEventListener('click', () => {
 			menu.style.display = menu.style.display === 'none' ? 'block' : 'none'
