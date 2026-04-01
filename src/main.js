@@ -167,12 +167,19 @@ function init() {
 	const btnFullscreen = document.getElementById('btn-fullscreen')
 	const btnConsole = document.getElementById('btn-console')
 	if (btnToggle) {
+		btnToggle.classList.toggle('active', EPS.isActive())
 		btnToggle.addEventListener('click', () => {
 			EPS.toggle()
+			btnToggle.classList.toggle('active', EPS.isActive())
 			console.log('EPS:', EPS.isActive() ? 'ON' : 'OFF')
 		})
 	}
 	if (btnFullscreen) {
+		const updateFullscreenBtn = () => {
+			btnFullscreen.classList.toggle('active', !!document.fullscreenElement)
+		}
+		document.addEventListener('fullscreenchange', updateFullscreenBtn)
+		document.addEventListener('webkitfullscreenchange', updateFullscreenBtn)
 		btnFullscreen.addEventListener('click', () => {
 			EPS.fullscreen()
 		})
@@ -607,11 +614,6 @@ function initConsolePanel() {
 		}).join(' ')
 		logsContainer.appendChild(line)
 		logsContainer.scrollTop = logsContainer.scrollHeight
-
-		// 限制行数，防止内存膨胀
-		while (logsContainer.children.length > 300) {
-			logsContainer.removeChild(logsContainer.firstChild)
-		}
 	}
 
 	console.log = function (...args) {

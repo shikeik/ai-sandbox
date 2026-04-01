@@ -36,22 +36,9 @@ export class NeuronAreaManager {
 		// 创建下拉菜单按钮
 		const btn = document.createElement('button')
 		btn.id = 'view-menu-btn'
+		btn.className = 'ctrl-btn icon-only'
 		btn.innerHTML = '☰'
 		btn.title = '菜单'
-		btn.style.cssText = `
-			width: 28px;
-			height: 28px;
-			border: none;
-			border-radius: 4px;
-			background: #222;
-			border: 1px solid #0f0;
-			color: #0f0;
-			font-size: 14px;
-			cursor: pointer;
-			display: flex;
-			align-items: center;
-			justify-content: center;
-		`
 
 		// 创建下拉菜单
 		const menu = document.createElement('div')
@@ -180,7 +167,9 @@ export class NeuronAreaManager {
 		menu.appendChild(speedGrid)
 
 		btn.addEventListener('click', () => {
-			menu.style.display = menu.style.display === 'none' ? 'block' : 'none'
+			const isOpen = menu.style.display === 'none'
+			menu.style.display = isOpen ? 'block' : 'none'
+			btn.classList.toggle('active', isOpen)
 		})
 
 		menuContainer.appendChild(btn)
