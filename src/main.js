@@ -8,7 +8,6 @@ import { formatTimeMs } from '@utils/timeUtils.js'
 import { GameRenderer } from '@render/GameRenderer.js'
 import { TransitionManager } from '@render/TransitionManager.js'
 import { NeuralNetwork } from '@ai/NeuralNetwork.js'
-import { HistoryStore } from '@ai/HistoryStore.js'
 import { PlayerBestStore } from '@ai/PlayerBestStore.js'
 import { NeuronAreaManager } from '@views/NeuronAreaManager.js'
 import './style.css'
@@ -20,7 +19,6 @@ let game = null
 let renderer = null
 let transitionManager = null
 let network = null
-let historyStore = null
 let playerBestStore = null
 let viewManager = null
 let timerInterval = null
@@ -82,7 +80,6 @@ function init() {
 	})
 	window.network = network
 	
-	historyStore = new HistoryStore()
 	playerBestStore = new PlayerBestStore()
 	viewManager = new NeuronAreaManager('neuron-area')
 	transitionManager = new TransitionManager('game-area')
@@ -116,13 +113,9 @@ function init() {
 
 	// 【修复 Bug 1】：监听视图切换，要求立即重绘画布
 	viewManager.onViewChange = (viewName) => {
-		if (viewName === 'history') {
-			renderHistoryView()
-		} else {
-			const state = game.getStateForAI()
-			const inputs = convertToInputs(state.terrainAhead)
-			renderCurrentAIView(inputs, network ? network.lastAction : null)
-		}
+		const state = game.getStateForAI()
+		const inputs = convertToInputs(state.terrainAhead)
+		renderCurrentAIView(inputs, network ? network.lastAction : null)
 	}
 
 	// 设置速度切换回调
@@ -320,7 +313,6 @@ function bindGameEvents() {
 		renderer.resetPlayer()
 	
 		renderCurrentAIView()
-		renderHistoryView()
 		updateGameInfo()
 	}
 	
@@ -463,13 +455,6 @@ function recordResult(finalStatus) {
 	const player = game.getState().player
 	const steps = player.grid
 	
-	// 记录到历史存储
-	historyStore.add({
-		generation: game.getState().generation,
-		steps: steps,
-		finalStatus: finalStatus,
-		weights: network.getWeightsSnapshot()
-	})
 
 	// --- 动态 ε 调节精密逻辑 ---
 	if (isAITrainMode && network) {
@@ -501,15 +486,8 @@ function recordResult(finalStatus) {
 
 // ========== 视图渲染 ==========
 function renderCurrentAIView(inputs = null, action = null) {
-	if ((viewManager.activeViewName === 'network' || viewManager.activeViewName === 'matrix') && network) {
-	// 确保这里传了 network 实例，否则 UI 看不到好奇心数值
-		viewManager.render(network, inputs, action) 
-	}
-}
-
-function renderHistoryView() {
-	if (viewManager.activeViewName === 'history') {
-		viewManager.render(historyStore.getAll())
+	if (network) {
+		viewManager.render(network, inputs, action)
 	}
 }
 
@@ -604,7 +582,6 @@ window.aiSandbox = {
 	get game() { return game },
 	get renderer() { return renderer },
 	get network() { return network },
-	get history() { return historyStore },
 	get viewManager() { return viewManager },
 	ACTION,
 	toggleAI: () => { 
