@@ -37,14 +37,16 @@ export class NetworkView {
 	}
 	
 	resize() {
-		const rect = this.container.getBoundingClientRect()
-		if (rect.width === 0 || rect.height === 0) return
+		// 使用 offsetWidth/offsetHeight 获取逻辑尺寸，不受 CSS 旋转变换影响
+		const w = this.container.offsetWidth
+		const h = this.container.offsetHeight
+		if (w === 0 || h === 0) return
 
-		this.canvas.width = rect.width * window.devicePixelRatio
-		this.canvas.height = rect.height * window.devicePixelRatio
+		this.canvas.width = w * window.devicePixelRatio
+		this.canvas.height = h * window.devicePixelRatio
 		this.ctx.scale(window.devicePixelRatio, window.devicePixelRatio)
-		this.width = rect.width
-		this.height = rect.height
+		this.width = w
+		this.height = h
 
 		if (this.lastData && this.lastData.network) {
 			this.render(this.lastData.network, this.lastData.inputs, this.lastData.action, true)
