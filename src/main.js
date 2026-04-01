@@ -630,6 +630,31 @@ function initConsolePanel() {
 		originalInfo.apply(console, args)
 		appendLine('info', args)
 	}
+
+	// 绑定工具栏按钮
+	const btnClear = document.getElementById('btn-clear-console')
+	const btnDownload = document.getElementById('btn-download-console')
+
+	if (btnClear) {
+		btnClear.addEventListener('click', () => {
+			logsContainer.innerHTML = ''
+		})
+	}
+
+	if (btnDownload) {
+		btnDownload.addEventListener('click', () => {
+			const lines = Array.from(logsContainer.children).map(el => el.textContent)
+			const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' })
+			const url = URL.createObjectURL(blob)
+			const a = document.createElement('a')
+			a.href = url
+			a.download = `console-log-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.txt`
+			document.body.appendChild(a)
+			a.click()
+			document.body.removeChild(a)
+			URL.revokeObjectURL(url)
+		})
+	}
 }
 
 // ========== 调试接口 ==========
