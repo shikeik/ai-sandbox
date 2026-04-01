@@ -197,6 +197,17 @@ function init() {
 }
 
 // ========== 动态 UI 控制面板 ==========
+
+function bindPlayerBtn(btn, action) {
+	if (!btn) return
+	const handler = (e) => {
+		e.preventDefault()
+		if (game.gameStatus === GAME_STATUS.RUNNING) game.execute(action)
+	}
+	// 同时绑定 touchstart 和 mousedown，确保移动设备多点触控和桌面点击都能即时响应
+	btn.addEventListener('touchstart', handler, { passive: false })
+	btn.addEventListener('mousedown', handler)
+}
 function updateControlsUI() {
 	const controlArea = document.getElementById('control-area')
 	if (!controlArea) return
@@ -215,16 +226,8 @@ function updateControlsUI() {
 	`
 		const btnRight = document.getElementById('btn-right')
 		const btnJump = document.getElementById('btn-jump')
-		if (btnRight) {
-			btnRight.addEventListener('click', () => {
-				if (game.gameStatus === GAME_STATUS.RUNNING) game.execute(ACTION.RIGHT)
-			})
-		}
-		if (btnJump) {
-			btnJump.addEventListener('click', () => {
-				if (game.gameStatus === GAME_STATUS.RUNNING) game.execute(ACTION.JUMP)
-			})
-		}
+		bindPlayerBtn(btnRight, ACTION.RIGHT)
+		bindPlayerBtn(btnJump, ACTION.JUMP)
 	} 
 	// AI 模式
 	else {
