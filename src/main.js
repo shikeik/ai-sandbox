@@ -212,6 +212,14 @@ function bindToolbarButtons() {
 	if (btnConsole) {
 		btnConsole.addEventListener('click', () => consolePanel.toggle())
 	}
+
+	const btnReload = document.getElementById('btn-reload')
+	if (btnReload) {
+		btnReload.addEventListener('click', () => {
+			console.log('[MAIN]', '刷新页面')
+			window.location.reload()
+		})
+	}
 }
 
 // ========== 启动 ==========
