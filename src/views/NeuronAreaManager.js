@@ -47,6 +47,12 @@ export class NeuronAreaManager {
 		this.currentMode = window.AI_CONFIG?.DEFAULT_MODE || 'player'
 		this.currentSpeed = window.AI_CONFIG?.DEFAULT_SPEED || 'step'
 		this.currentExploreMode = 'none'  // 探索模式：none/fixed/dynamic
+		// 种子控制状态
+		this.isSeedLocked = false
+		this.currentSeed = null
+		this.seedInputEl = null
+		this.lockBtnEl = null
+		
 		this.modeItems = []          // 模式按钮引用
 		this.speedItems = []         // 速度按钮引用
 		this.exploreItems = []       // 探索模式按钮引用
@@ -73,12 +79,16 @@ export class NeuronAreaManager {
 
 		const { btn, menu } = this._createMenuElements()
 
-		// 创建三组按钮
+		// 创建菜单组
 		menu.appendChild(this._createModeRow())
 		menu.appendChild(this._createDivider())
 		menu.appendChild(this._createSpeedGrid())
 		menu.appendChild(this._createDivider())
 		menu.appendChild(this._createExploreRow())
+		menu.appendChild(this._createDivider())
+		menu.appendChild(this._createSeedRow())
+		menu.appendChild(this._createDivider())
+		menu.appendChild(this._createWeightControls())
 
 		// 绑定切换事件
 		btn.addEventListener('click', () => this._toggleMenu(btn, menu))
@@ -192,6 +202,258 @@ export class NeuronAreaManager {
 		this.currentExploreMode = newMode
 		this.updateExploreHighlight()
 		if (this.onExploreModeChange) this.onExploreModeChange(newMode)
+	}
+
+	// ========== 种子控制行 ==========
+
+	_createSeedRow() {
+		const seedRow = document.createElement('div')
+		seedRow.className = 'neuron-menu-row'
+		seedRow.style.gap = '6px'
+
+		// 锁定按钮
+		this.lockBtnEl = document.createElement('button')
+		this.lockBtnEl.className = 'ctrl-btn icon-only'
+		this.lockBtnEl.style.width = '24px'
+		this.lockBtnEl.style.height = '24px'
+		this.lockBtnEl.style.fontSize = '12px'
+		this._updateLockBtn()
+		this.lockBtnEl.addEventListener('click', () => this._toggleSeedLock())
+		seedRow.appendChild(this.lockBtnEl)
+
+		// 种子输入框
+		this.seedInputEl = document.createElement('input')
+		this.seedInputEl.type = 'text'
+		this.seedInputEl.className = 'seed-input'
+		this.seedInputEl.placeholder = '随机种子'
+		this.seedInputEl.style.cssText = `
+			flex: 1;
+			height: 24px;
+			background: rgba(0,0,0,0.3);
+			border: 1px solid rgba(0,255,0,0.3);
+			border-radius: 3px;
+			color: #0f0;
+			font-size: 11px;
+			font-family: monospace;
+			padding: 0 6px;
+			outline: none;
+		`
+		this.seedInputEl.addEventListener('change', () => this._handleSeedInput())
+		this.seedInputEl.addEventListener('focus', () => {
+			this.seedInputEl.style.borderColor = '#0f0'
+		})
+		this.seedInputEl.addEventListener('blur', () => {
+			this.seedInputEl.style.borderColor = 'rgba(0,255,0,0.3)'
+		})
+		seedRow.appendChild(this.seedInputEl)
+
+		// 随机骰子按钮
+		const diceBtn = document.createElement('button')
+		diceBtn.className = 'ctrl-btn icon-only'
+		diceBtn.innerHTML = '🎲'
+		diceBtn.style.width = '24px'
+		diceBtn.style.height = '24px'
+		diceBtn.style.fontSize = '12px'
+		diceBtn.title = '随机种子'
+		diceBtn.addEventListener('click', () => this._randomizeSeed())
+		seedRow.appendChild(diceBtn)
+
+		console.log('[NEURON_UI]', '创建种子控制行')
+		return seedRow
+	}
+
+	_updateLockBtn() {
+		if (!this.lockBtnEl) return
+		this.lockBtnEl.innerHTML = this.isSeedLocked ? '🔒' : '🔓'
+		this.lockBtnEl.title = this.isSeedLocked ? '种子已锁定' : '种子未锁定（每局随机）'
+		this.lockBtnEl.style.opacity = this.isSeedLocked ? '1' : '0.5'
+	}
+
+	_toggleSeedLock() {
+		this.isSeedLocked = !this.isSeedLocked
+		this._updateLockBtn()
+		console.log('[NEURON_UI]', `种子锁定切换 | ${this.isSeedLocked ? '锁定' : '解锁'}`)
+		if (this.onSeedLockChange) this.onSeedLockChange(this.isSeedLocked)
+	}
+
+	_handleSeedInput() {
+		const value = this.seedInputEl.value.trim()
+		const seed = value ? parseInt(value, 10) : null
+		if (isNaN(seed)) {
+			console.warn('[NEURON_UI]', `无效种子输入 | "${value}"`)
+			return
+		}
+		this.currentSeed = seed
+		console.log('[NEURON_UI]', `手动设置种子 | ${seed}`)
+		if (this.onSeedChange) this.onSeedChange(seed)
+	}
+
+	_randomizeSeed() {
+		const newSeed = Date.now()
+		this.currentSeed = newSeed
+		if (this.seedInputEl) {
+			this.seedInputEl.value = newSeed
+		}
+		console.log('[NEURON_UI]', `随机生成种子 | ${newSeed}`)
+		if (this.onSeedChange) this.onSeedChange(newSeed)
+	}
+
+	/**
+	 * 外部更新种子显示（如游戏生成新地形后）
+	 */
+	updateSeedDisplay(seed) {
+		if (!this.isSeedLocked && this.seedInputEl) {
+			this.seedInputEl.value = seed || ''
+			this.currentSeed = seed
+		}
+	}
+
+	// ========== 元素权重控制 ==========
+
+	_createWeightControls() {
+		const container = document.createElement('div')
+		container.className = 'weight-controls'
+		container.style.cssText = `
+			padding: 6px;
+			background: rgba(0,0,0,0.2);
+			border-radius: 4px;
+		`
+
+		// 标题
+		const title = document.createElement('div')
+		title.textContent = '地形元素权重'
+		title.style.cssText = `
+			font-size: 10px;
+			color: rgba(255,255,255,0.6);
+			margin-bottom: 8px;
+			text-align: center;
+		`
+		container.appendChild(title)
+
+		// 三元素滑块
+		this.weightSliders = {}
+		this.weightToggles = {}
+
+		const elements = [
+			{ key: 'ground', label: '🟩平地', color: '#27ae60', defaultWeight: 50 },
+			{ key: 'singlePit', label: '⬛单坑', color: '#e74c3c', defaultWeight: 30 },
+			{ key: 'doublePit', label: '⬛⬛双坑', color: '#c0392b', defaultWeight: 20 }
+		]
+
+		elements.forEach(el => {
+			container.appendChild(this._createWeightRow(el))
+		})
+
+		console.log('[NEURON_UI]', '创建权重控制面板')
+		return container
+	}
+
+	_createWeightRow({ key, label, color, defaultWeight }) {
+		const row = document.createElement('div')
+		row.style.cssText = `
+			display: flex;
+			align-items: center;
+			gap: 6px;
+			margin-bottom: 6px;
+			font-size: 11px;
+		`
+
+		// 开关复选框
+		const toggle = document.createElement('input')
+		toggle.type = 'checkbox'
+		toggle.checked = true
+		toggle.style.cssText = `
+			width: 14px;
+			height: 14px;
+			accent-color: #0f0;
+			cursor: pointer;
+		`
+		toggle.addEventListener('change', () => {
+			this._handleWeightToggle(key, toggle.checked)
+		})
+		this.weightToggles[key] = toggle
+
+		// 标签
+		const labelEl = document.createElement('span')
+		labelEl.textContent = label
+		labelEl.style.cssText = `
+			width: 55px;
+			color: ${color};
+		`
+
+		// 滑块
+		const slider = document.createElement('input')
+		slider.type = 'range'
+		slider.min = '0'
+		slider.max = '100'
+		slider.value = defaultWeight
+		slider.style.cssText = `
+			flex: 1;
+			height: 4px;
+			accent-color: ${color};
+			cursor: pointer;
+		`
+		slider.addEventListener('input', () => {
+			this._handleWeightChange(key, parseInt(slider.value))
+		})
+		this.weightSliders[key] = slider
+
+		// 数值显示
+		const valueDisplay = document.createElement('span')
+		valueDisplay.textContent = defaultWeight
+		valueDisplay.style.cssText = `
+			width: 24px;
+			text-align: right;
+			color: ${color};
+			font-family: monospace;
+		`
+		slider.addEventListener('input', () => {
+			valueDisplay.textContent = slider.value
+		})
+
+		row.appendChild(toggle)
+		row.appendChild(labelEl)
+		row.appendChild(slider)
+		row.appendChild(valueDisplay)
+
+		return row
+	}
+
+	_handleWeightChange(key, value) {
+		console.log('[NEURON_UI]', `权重调整 | ${key}=${value}`)
+		if (this.onWeightChange) {
+			this.onWeightChange(key, value)
+		}
+	}
+
+	_handleWeightToggle(key, enabled) {
+		console.log('[NEURON_UI]', `元素开关 | ${key}=${enabled ? '开启' : '关闭'}`)
+		if (this.weightSliders[key]) {
+			this.weightSliders[key].disabled = !enabled
+			this.weightSliders[key].style.opacity = enabled ? '1' : '0.3'
+		}
+		if (this.onElementToggle) {
+			this.onElementToggle(key, enabled)
+		}
+	}
+
+	/**
+	 * 获取当前权重配置
+	 */
+	getWeightConfig() {
+		const weights = {}
+		const enabled = {}
+		
+		for (const key of ['ground', 'singlePit', 'doublePit']) {
+			weights[key] = this.weightSliders[key] 
+				? parseInt(this.weightSliders[key].value) 
+				: 50
+			enabled[key] = this.weightToggles[key] 
+				? this.weightToggles[key].checked 
+				: true
+		}
+		
+		return { weights, enabled }
 	}
 
 	// ========== 通用按钮创建 ==========
