@@ -127,6 +127,10 @@ export class NeuronAreaManager {
 
 		menuContainer.appendChild(btn)
 		menuContainer.appendChild(menu)
+
+		// 初始化菜单状态为隐藏
+		menu.style.display = 'none'
+		console.log('[NEURON_UI]', '菜单初始化完成 | 默认状态=隐藏')
 	}
 
 	render(network, inputs = null, action = null, isPreview = false, weightChanges = null) {
