@@ -432,7 +432,13 @@ function handleResize() {
 	// 如果是横屏且触发了 CSS 旋转，我们需要取相反的尺寸
 	const isLandscape = window.innerWidth > window.innerHeight
 	const realWidth = isLandscape ? window.innerHeight : window.innerWidth
-	
+
+	// 检查 game 实例是否存在（热更新时可能为 null）
+	if (!game) {
+		console.log('[RESIZE]', 'game 实例不存在，跳过窗口适配')
+		return
+	}
+
 	game.setViewportSize(realWidth)
 	const visualX = renderer.visual.x
 	game._updateCamera(visualX)
