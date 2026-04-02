@@ -15,12 +15,19 @@ const NODE_RADIUS = {
 }
 
 const LINE_STYLE = {
-	MAX_THICKNESS: 4,
+	MAX_THICKNESS: 4,           // 最大线宽（普通状态）
 	THICKNESS_MULTIPLIER: 2,
 	THICKNESS_BASE: 0.5,
 	MAX_ALPHA: 1,
 	ALPHA_MULTIPLIER: 0.3,
 	ALPHA_BASE: 0.2
+}
+
+// 决策预览高亮配置
+const PREVIEW_HIGHLIGHT = {
+	WIDTH_MULTIPLIER: 1.5,      // 高亮线宽 = MAX_THICKNESS * 1.5 = 6px
+	ALPHA: 1,                   // 高亮透明度（固定最大）
+	BRIGHTNESS_BOOST: 1.5       // 亮度提升倍数
 }
 
 const COLORS = {
@@ -235,15 +242,22 @@ export class NetworkView {
 					ctx.lineWidth = thickness
 					ctx.stroke()
 				
-					// 高亮发生变化的连线（权重更新后最粗提示）
+					// 决策预览高亮：显示权重变动预览
 					if (delta !== 0) {
+						// 高亮线宽：普通最大线宽 * 1.5 = 6px
+						const highlightWidth = LINE_STYLE.MAX_THICKNESS * PREVIEW_HIGHLIGHT.WIDTH_MULTIPLIER
+						
+						// 高亮颜色：基于原色提高亮度
+						const baseRgb = weight > 0 ? COLORS.WEIGHT_POSITIVE : COLORS.WEIGHT_NEGATIVE
+						const brightened = baseRgb.split(', ').map(c => 
+							Math.min(255, Math.floor(parseInt(c) * PREVIEW_HIGHLIGHT.BRIGHTNESS_BOOST))
+						).join(', ')
+						
 						ctx.beginPath()
 						ctx.moveTo(from.x, from.y)
 						ctx.lineTo(to.x, to.y)
-						ctx.strokeStyle = delta > 0
-							? `rgba(${COLORS.DELTA_POSITIVE}, ${HIGHLIGHT_STYLE.ALPHA})`
-							: `rgba(${COLORS.DELTA_NEGATIVE}, ${HIGHLIGHT_STYLE.ALPHA})`
-						ctx.lineWidth = HIGHLIGHT_STYLE.LINE_WIDTH
+						ctx.strokeStyle = `rgba(${brightened}, ${PREVIEW_HIGHLIGHT.ALPHA})`
+						ctx.lineWidth = highlightWidth
 						ctx.stroke()
 					}
 				

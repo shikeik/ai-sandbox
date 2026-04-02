@@ -209,8 +209,11 @@ export class AIController {
 		const chosen = actionNames[action] || '未知'
 		console.log('[AI]', `决策完成 | ${scoreLog} | 选中=[${chosen}] | 探索=${this.network.isExploring ? '是' : '否'}`)
 
+		// 预览权重变化（决策时显示高亮）
+		const { changes } = this.network.previewTrain(AI_CONFIG.STEP_REWARD, action, inputs)
+
 		if (this.onRenderView) {
-			this.onRenderView(inputs, action, true)
+			this.onRenderView(inputs, action, true, changes)
 		}
 	}
 
@@ -226,8 +229,9 @@ export class AIController {
 		}
 
 		this.pendingAIDecision = null
+		// 执行后不显示高亮（传 null），实际权重更新在 onActionStart 中处理
 		if (this.onRenderView) {
-			this.onRenderView(inputs, action, false, this.network ? this.network.lastWeightChanges : null)
+			this.onRenderView(inputs, action, false, null)
 		}
 	}
 

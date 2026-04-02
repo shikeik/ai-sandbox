@@ -110,59 +110,84 @@ export class NeuralNetwork {
 	}
 	
 	/**
-	* 训练更新（每步调用）
+	* 预览训练结果（不实际应用，仅计算变化量）
+	* @param {number} reward - 奖励
+	* @param {number} action - 动作索引
+	* @param {number[]} state - 输入状态（默认使用 lastState）
+	* @returns {Object} { changes, newWeights } - 变化量和预测的新权重
+	*/
+	previewTrain(reward, action, state = null) {
+		const inputState = state || this.lastState
+		if (!inputState) return { changes: null, newWeights: null }
+	
+		const layerIdx = this.weights.length - 1
+		const weights = this.weights[layerIdx]
+		
+		// 深拷贝当前权重用于计算
+		const oldWeights = weights.map(row => [...row])
+		const newWeights = weights.map(row => [...row])
+		
+		// 计算新权重（同 train 逻辑）
+		if (reward > 0) {
+			for (let i = 0; i < inputState.length; i++) {
+				newWeights[action][i] += this.learningRate * inputState[i]
+			}
+		} else if (reward < 0) {
+			for (let i = 0; i < inputState.length; i++) {
+				newWeights[action][i] -= this.learningRate * inputState[i]
+			}
+			const otherReward = this.learningRate / 2
+			for (let a = 0; a < newWeights.length; a++) {
+				if (a !== action) {
+					for (let i = 0; i < inputState.length; i++) {
+						newWeights[a][i] += otherReward * inputState[i]
+					}
+				}
+			}
+		}
+		
+		// 权重裁剪
+		for (const row of newWeights) {
+			for (let i = 0; i < row.length; i++) {
+				row[i] = Math.max(-this.weightClip, Math.min(this.weightClip, row[i]))
+			}
+		}
+		
+		// 计算变化量
+		const layerChanges = []
+		for (let j = 0; j < newWeights.length; j++) {
+			const row = []
+			for (let i = 0; i < newWeights[j].length; i++) {
+				row.push(newWeights[j][i] - oldWeights[j][i])
+			}
+			layerChanges.push(row)
+		}
+		
+		return { 
+			changes: [layerChanges], 
+			newWeights: newWeights 
+		}
+	}
+
+	/**
+	* 训练更新（每步调用）- 复用 previewTrain
 	* 标准做法：权重更新值 = 学习率 × 输入值
 	* @param {number} reward - 奖励（存活+0.02，死亡-1，胜利+1）
 	* @param {number} action - 实际执行的动作
 	*/
 	train(reward, action) {
 		if (!this.lastState || this.lastAction === null) return
-	
-		const layerIdx = this.weights.length - 1 // 输出层索引
-		const weights = this.weights[layerIdx]
-	
-		// 记录训练前的权重
-		const oldWeights = weights.map(row => [...row])
-	
-		if (reward > 0) {
-		// 正确：增强选中的动作，必须乘以输入值 (this.lastState[i])
-			for (let i = 0; i < this.lastState.length; i++) {
-				weights[action][i] += this.learningRate * this.lastState[i]
-			}
-		} else if (reward < 0) {
-		// 错误：惩罚选中的动作，必须乘以输入值
-			for (let i = 0; i < this.lastState.length; i++) {
-				weights[action][i] -= this.learningRate * this.lastState[i]
-			}
-			// 奖励其他动作（惩罚值的一半），同样乘以输入值
-			const otherReward = this.learningRate / 2
-			for (let a = 0; a < weights.length; a++) {
-				if (a !== action) {
-					for (let i = 0; i < this.lastState.length; i++) {
-						weights[a][i] += otherReward * this.lastState[i]
-					}
-				}
-			}
-		}
-	
-		// 权重裁剪限制范围
-		for (const row of weights) {
-			for (let i = 0; i < row.length; i++) {
-				row[i] = Math.max(-this.weightClip, Math.min(this.weightClip, row[i]))
-			}
-		}
-	
-		// 计算并记录权重变化量（保持与 weights 相同的三维结构：[layer][output][input]）
-		const layerChanges = []
-		for (let j = 0; j < weights.length; j++) {
-			const row = []
-			for (let i = 0; i < weights[j].length; i++) {
-				row.push(weights[j][i] - oldWeights[j][i])
-			}
-			layerChanges.push(row)
-		}
-		this.lastWeightChanges = [layerChanges]
 		
+		// 复用 previewTrain 计算变化
+		const { changes, newWeights } = this.previewTrain(reward, action)
+		if (!changes) return
+		
+		// 应用新权重（唯一修改点）
+		const layerIdx = this.weights.length - 1
+		this.weights[layerIdx] = newWeights
+		this.lastWeightChanges = changes
+		
+		const layerChanges = changes[0]
 		console.log('[AI]', `训练 | 奖励=${reward.toFixed(3)} 动作=${action} 权重变化=[${layerChanges.map(r => r.map(v => v.toFixed(2)).join(',')).join(' | ')}]`)
 	}
 	

@@ -27,7 +27,7 @@ export const CONFIG = {
 	WORLD_LENGTH: 32,       // 世界总格子数
 	
 	// 视野配置（单位）
-	VIEWPORT_GRID_W: 6,     // 视野宽度（单位）
+	VIEWPORT_GRID_W: 7,     // 视野宽度（单位）
 	VIEWPORT_GRID_H: 4,     // 视野高度（单位）
 	
 	// 运行时动态计算的像素值
