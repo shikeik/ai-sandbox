@@ -462,10 +462,6 @@ function canMakeDecision() {
 
 function makeAIDecisionPreview() {
 	if (!isAIMode || !network) return
-	if (!canMakeDecision()) {
-		console.log('[AI]', '当前无法决策，玩家不在空闲状态')
-		return
-	}
 	
 	const state = game.getStateForAI()
 	const inputs = convertToInputs(state.terrainAhead)
@@ -487,10 +483,6 @@ function makeAIDecisionPreview() {
 
 function executePendingAIDecision() {
 	if (!pendingAIDecision) return
-	if (!canMakeDecision()) {
-		console.log('[AI]', '当前无法执行，玩家不在空闲状态')
-		return
-	}
 	
 	const { actionType, inputs, action } = pendingAIDecision
 	
@@ -557,6 +549,7 @@ function recordResult(finalStatus) {
 
 // ========== 视图渲染 ==========
 function renderCurrentAIView(inputs = null, action = null, isPreview = false, weightChanges = null) {
+	console.log("[视图渲染]", "渲染inputs: "+inputs+", action: "+action+", isPreview: "+isPreview+", weightChanges: "+weightChanges)
 	if (network) {
 		viewManager.render(network, inputs, action, isPreview, weightChanges)
 	}
