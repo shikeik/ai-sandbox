@@ -43,20 +43,7 @@ export class NeuronAreaManager {
 		// 创建下拉菜单
 		const menu = document.createElement('div')
 		menu.id = 'view-menu-dropdown'
-		menu.style.cssText = `
-			position: absolute;
-			top: 36px;
-			right: 0;
-			background: #1a1a2e;
-			border: 1px solid #0f0;
-			border-radius: 4px;
-			padding: 6px;
-			width: 200px;
-			z-index: 3001;
-			display: none;
-			box-shadow: 0 4px 12px rgba(0,0,0,0.5);
-			font-size: 11px;
-		`
+		menu.className = 'neuron-menu-dropdown'
 
 		// 通用 hover 处理
 		const attachHover = (el, isActiveCheck) => {
@@ -70,11 +57,7 @@ export class NeuronAreaManager {
 
 		// 模式选择 - 1行3列
 		const modeRow = document.createElement('div')
-		modeRow.style.cssText = `
-			display: flex;
-			gap: 4px;
-			margin-bottom: 6px;
-		`
+		modeRow.className = 'neuron-menu-row'
 
 		const modes = [
 			{ id: 'player', label: '👤玩家' },
@@ -87,22 +70,11 @@ export class NeuronAreaManager {
 			el.dataset.mode = item.id
 			el.textContent = item.label
 			const isActive = item.id === this.currentMode
-			el.style.cssText = `
-				flex: 1;
-				padding: 6px 4px;
-				cursor: pointer;
-				color: ${isActive ? '#0f0' : '#fff'};
-				text-align: center;
-				border-radius: 3px;
-				background: ${isActive ? 'rgba(0,255,0,0.15)' : 'rgba(255,255,255,0.05)'};
-				border: ${isActive ? '1px solid #0f0' : '1px solid transparent'};
-				transition: all 0.2s;
-			`
+			el.className = `neuron-mode-btn ${isActive ? 'active' : 'inactive'}`
 			el.addEventListener('click', () => {
 				this.currentMode = item.id
 				this.updateModeHighlight()
 				if (this.onModeChange) this.onModeChange(item.id)
-				// 注：菜单不关闭，仅通过按钮切换
 			})
 			attachHover(el, () => item.id === this.currentMode)
 			this.modeItems.push(el)
@@ -112,20 +84,12 @@ export class NeuronAreaManager {
 
 		// 分隔线
 		const divider = document.createElement('div')
-		divider.style.cssText = `
-			height: 1px;
-			background: rgba(0,255,0,0.3);
-			margin: 4px 0 6px 0;
-		`
+		divider.className = 'neuron-menu-divider'
 		menu.appendChild(divider)
 
 		// 训练速度 - 2排网格
 		const speedGrid = document.createElement('div')
-		speedGrid.style.cssText = `
-			display: flex;
-			flex-wrap: wrap;
-			gap: 4px;
-		`
+		speedGrid.className = 'neuron-menu-grid'
 
 		const speeds = [
 			{ id: 'step', label: '单步' },
@@ -135,24 +99,11 @@ export class NeuronAreaManager {
 			{ id: 'max', label: '极速' }
 		]
 
-		speeds.forEach((item, index) => {
+		speeds.forEach((item) => {
 			const el = document.createElement('div')
 			el.dataset.speed = item.id
-			// 前3个占1/3，后2个占1/2
-			const flexBasis = index < 3 ? 'calc(33.333% - 3px)' : 'calc(50% - 2px)'
 			const isActive = item.id === this.currentSpeed
-			el.style.cssText = `
-				flex: 0 0 ${flexBasis};
-				padding: 5px 2px;
-				cursor: pointer;
-				color: ${isActive ? '#0f0' : 'rgba(255,255,255,0.8)'};
-				text-align: center;
-				border-radius: 3px;
-				background: ${isActive ? 'rgba(0,255,0,0.15)' : 'rgba(255,255,255,0.05)'};
-				border: ${isActive ? '1px solid #0f0' : '1px solid transparent'};
-				font-size: 11px;
-				transition: all 0.2s;
-			`
+			el.className = `neuron-speed-btn ${isActive ? 'active' : 'inactive'}`
 			el.textContent = item.label
 			el.addEventListener('click', () => {
 				this.currentSpeed = item.id

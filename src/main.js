@@ -171,48 +171,75 @@ function bindPlayerBtn(btn, action) {
 	btn.addEventListener('touchstart', handler, { passive: false })
 	btn.addEventListener('mousedown', handler)
 }
+
+/**
+ * 渲染玩家模式控制按钮（右移/跳跃）
+ * @param {HTMLElement} controlArea - 控制区域容器
+ */
+function renderPlayerControls(controlArea) {
+	controlArea.innerHTML = `
+		<button class="btn" id="btn-right">
+			▶
+			<span class="btn-label">移动 (x+1)</span>
+		</button>
+		<button class="btn" id="btn-jump">
+			⬆
+			<span class="btn-label">跳跃 (x+2)</span>
+		</button>
+	`
+	const btnRight = document.getElementById('btn-right')
+	const btnJump = document.getElementById('btn-jump')
+	bindPlayerBtn(btnRight, ACTION.RIGHT)
+	bindPlayerBtn(btnJump, ACTION.JUMP)
+}
+
+/**
+ * 渲染单步模式控制按钮（决策/执行）
+ * @param {HTMLElement} controlArea - 控制区域容器
+ */
+function renderStepControls(controlArea) {
+	const pending = aiController.pendingAIDecision
+	const actionLabel = pending ? (pending.actionType === ACTION.JUMP ? '跳跃' : '移动') : ''
+	const btnText = (pending ? `行动-${actionLabel}` : '决策') + '(Space)'
+
+	controlArea.innerHTML = `
+		<button class="btn" id="btn-step" style="background: var(--color-btn-right); box-shadow: 0 8px 0 var(--color-btn-right-shadow); color: white;">
+			⏭️
+			<span class="btn-label">${btnText}</span>
+		</button>
+	`
+	const btnStep = document.getElementById('btn-step')
+	if (btnStep) btnStep.addEventListener('click', () => aiController.step())
+}
+
+/**
+ * 渲染 AI 自动模式提示
+ * @param {HTMLElement} controlArea - 控制区域容器
+ */
+function renderAutoHint(controlArea) {
+	controlArea.innerHTML = `
+		<div style="color: #888; font-size: 14px; width: 100%; text-align: center;">🤖 AI自动运行中...</div>
+	`
+}
+
+/**
+ * 更新控制面板 UI（根据当前模式路由到具体渲染函数）
+ */
 function updateControlsUI() {
 	const controlArea = document.getElementById('control-area')
 	if (!controlArea) return
 
 	// 玩家模式：显示操作按钮
 	if (!aiController.isAIMode) {
-		controlArea.innerHTML = `
-		<button class="btn" id="btn-right">
-		▶
-		<span class="btn-label">移动 (x+1)</span>
-		</button>
-		<button class="btn" id="btn-jump">
-		⬆
-		<span class="btn-label">跳跃 (x+2)</span>
-		</button>
-	`
-		const btnRight = document.getElementById('btn-right')
-		const btnJump = document.getElementById('btn-jump')
-		bindPlayerBtn(btnRight, ACTION.RIGHT)
-		bindPlayerBtn(btnJump, ACTION.JUMP)
-	} 
+		renderPlayerControls(controlArea)
+	}
 	// AI 模式
+	else if (aiController.isStepMode) {
+		renderStepControls(controlArea)
+	}
+	// 自动运行模式
 	else {
-		if (aiController.isStepMode) {
-			const pending = aiController.pendingAIDecision
-			const actionLabel = pending ? (pending.actionType === ACTION.JUMP ?  '跳跃' : '移动') : ''
-			const btnText = (pending ? `行动-${actionLabel}`  : '决策') + '(Space)'
-			// 单步模式：显示下一步按钮
-			controlArea.innerHTML = `
-		<button class="btn" id="btn-step" style="background: var(--color-btn-right); box-shadow: 0 8px 0 var(--color-btn-right-shadow); color: white;">
-			⏭️
-			<span class="btn-label">${btnText}</span>
-		</button>
-		`
-			const btnStep = document.getElementById('btn-step')
-			if (btnStep) btnStep.addEventListener('click', () => aiController.step())
-		} else {
-		// 自动运行模式：隐藏按钮，显示提示文本
-			controlArea.innerHTML = `
-		<div style="color: #888; font-size: 14px; width: 100%; text-align: center;">🤖 AI自动运行中...</div>
-		`
-		}
+		renderAutoHint(controlArea)
 	}
 }
 

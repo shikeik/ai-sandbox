@@ -3,6 +3,51 @@
  * 上下布局：顶部信息栏 + 底部网络图
  */
 
+// ========== 绘图配置常量 ==========
+const CANVAS_MARGIN = {
+	X: 0.15,
+	Y: 0.12
+}
+
+const NODE_RADIUS = {
+	DEFAULT: 18,
+	OUTPUT: 22
+}
+
+const LINE_STYLE = {
+	MAX_THICKNESS: 4,
+	THICKNESS_MULTIPLIER: 2,
+	THICKNESS_BASE: 0.5,
+	MAX_ALPHA: 1,
+	ALPHA_MULTIPLIER: 0.3,
+	ALPHA_BASE: 0.2
+}
+
+const COLORS = {
+	WEIGHT_POSITIVE: '46, 204, 113',
+	WEIGHT_NEGATIVE: '231, 76, 60',
+	DELTA_POSITIVE: '0, 255, 136',
+	DELTA_NEGATIVE: '255, 85, 85',
+	NODE_ACTIVE: '#e74c3c',
+	NODE_INPUT_DEFAULT: '#95a5a6',
+	NODE_SELECTED: '#f39c12',
+	NODE_DEFAULT: '#34495e',
+	NODE_STROKE: '#ecf0f1',
+	TEXT_DEFAULT: '#fff'
+}
+
+const WEIGHT_TEXT_STYLE = {
+	COLOR: 'rgba(255,255,255,0.9)',
+	FONT: '10px monospace',
+	POSITION_RATIO: 0.65,
+	POSITION_STEP: 0.1
+}
+
+const HIGHLIGHT_STYLE = {
+	LINE_WIDTH: 8,
+	ALPHA: 0.95
+}
+
 export class NetworkView {
 	constructor(containerId) {
 		this.container = document.getElementById(containerId)
@@ -126,8 +171,8 @@ export class NetworkView {
 	calculatePositions(layers, w, h) {
 		const positions =[]
 		const layerCount = layers.length
-		const marginX = w * 0.15
-		const marginY = h * 0.12
+		const marginX = w * CANVAS_MARGIN.X
+		const marginY = h * CANVAS_MARGIN.Y
 	
 		for (let l = 0; l < layerCount; l++) {
 			const layerSize = layers[l]
@@ -159,9 +204,17 @@ export class NetworkView {
 					const to = toLayer[j]
 					const delta = layerChanges ? layerChanges[j][i] : 0
 				
-					const thickness = Math.min(4, Math.abs(weight) * 2 + 0.5)
-					const alpha = Math.min(1, Math.abs(weight) * 0.3 + 0.2)
-					const color = weight > 0 ? `rgba(46, 204, 113, ${alpha})` : `rgba(231, 76, 60, ${alpha})`
+					const thickness = Math.min(
+						LINE_STYLE.MAX_THICKNESS,
+						Math.abs(weight) * LINE_STYLE.THICKNESS_MULTIPLIER + LINE_STYLE.THICKNESS_BASE
+					)
+					const alpha = Math.min(
+						LINE_STYLE.MAX_ALPHA,
+						Math.abs(weight) * LINE_STYLE.ALPHA_MULTIPLIER + LINE_STYLE.ALPHA_BASE
+					)
+					const color = weight > 0
+						? `rgba(${COLORS.WEIGHT_POSITIVE}, ${alpha})`
+						: `rgba(${COLORS.WEIGHT_NEGATIVE}, ${alpha})`
 				
 					ctx.beginPath()
 					ctx.moveTo(from.x, from.y)
@@ -175,20 +228,20 @@ export class NetworkView {
 						ctx.beginPath()
 						ctx.moveTo(from.x, from.y)
 						ctx.lineTo(to.x, to.y)
-						ctx.strokeStyle = delta > 0 
-							? `rgba(0, 255, 136, 0.95)` // 加分：亮绿色
-							: `rgba(255, 85, 85, 0.95)`  // 减分：亮红色
-						ctx.lineWidth = 8
+						ctx.strokeStyle = delta > 0
+							? `rgba(${COLORS.DELTA_POSITIVE}, ${HIGHLIGHT_STYLE.ALPHA})`
+							: `rgba(${COLORS.DELTA_NEGATIVE}, ${HIGHLIGHT_STYLE.ALPHA})`
+						ctx.lineWidth = HIGHLIGHT_STYLE.LINE_WIDTH
 						ctx.stroke()
 					}
 				
 					// 将文字移到靠近右侧的位置并阶梯状错开，防遮挡
-					const ratio = 0.65 + (i * 0.1) 
+					const ratio = WEIGHT_TEXT_STYLE.POSITION_RATIO + (i * WEIGHT_TEXT_STYLE.POSITION_STEP)
 					const textX = from.x + (to.x - from.x) * ratio
 					const textY = from.y + (to.y - from.y) * ratio
 				
-					ctx.fillStyle = 'rgba(255,255,255,0.9)'
-					ctx.font = '10px monospace'
+					ctx.fillStyle = WEIGHT_TEXT_STYLE.COLOR
+					ctx.font = WEIGHT_TEXT_STYLE.FONT
 					ctx.textAlign = 'center'
 					ctx.fillText(weight.toFixed(1), textX, textY)
 				}
@@ -206,18 +259,18 @@ export class NetworkView {
 				const isInput = l === 0
 				const isOutput = l === positions.length - 1
 		
-				const radius = isOutput ? 22 : 18
+				const radius = isOutput ? NODE_RADIUS.OUTPUT : NODE_RADIUS.DEFAULT
 		
 				ctx.beginPath()
 				ctx.arc(pos.x, pos.y, radius, 0, Math.PI * 2)
 		
 				if (isInput && inputs) {
 					const val = inputs[n]
-					ctx.fillStyle = val > 0.5 ? '#e74c3c' : '#95a5a6'
+					ctx.fillStyle = val > 0.5 ? COLORS.NODE_ACTIVE : COLORS.NODE_INPUT_DEFAULT
 				} else if (isOutput && action === n) {
-					ctx.fillStyle = '#f39c12'
+					ctx.fillStyle = COLORS.NODE_SELECTED
 				} else {
-					ctx.fillStyle = '#34495e'
+					ctx.fillStyle = COLORS.NODE_DEFAULT
 				}
 		
 				ctx.fill()
