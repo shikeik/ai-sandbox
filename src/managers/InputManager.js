@@ -52,6 +52,11 @@ export class InputManager {
 			console.log('[INPUT]', '键盘跳跃')
 			this.game.execute(ACTION.JUMP)
 		}
+		if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S' || e.key === 'e' || e.key === 'E') {
+			e.preventDefault()
+			console.log('[INPUT]', '键盘远跳')
+			this.game.execute(ACTION.LONG_JUMP)
+		}
 	}
 
 	handleResize() {

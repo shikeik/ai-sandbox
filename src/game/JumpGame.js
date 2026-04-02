@@ -19,6 +19,7 @@
  */
 
 import { formatTime as formatTimeUtil } from '@utils/timeUtils.js'
+import { TerrainGenerator } from './TerrainGenerator.js'
 
 // ========== 游戏常量 ==========
 // 所有尺寸使用"单位"(unit)，1 unit = 1格 = GRID_SIZE 像素
@@ -59,7 +60,8 @@ export const CONFIG = {
 // 动作类型
 export const ACTION = {
 	RIGHT: 'right',
-	JUMP: 'jump'
+	JUMP: 'jump',
+	LONG_JUMP: 'longJump'
 }
 
 // ========== 状态分离定义 ==========
@@ -245,7 +247,8 @@ export class JumpGame {
 	
 		const fromX = this.player.x
 		const fromY = this.player.y
-		const isJump = action === ACTION.JUMP
+		const isJump = action === ACTION.JUMP || action === ACTION.LONG_JUMP
+		console.log('[GAME]', `execute debug | action=${action} isJump=${isJump}`)
 	
 		// 计算目标位置（像素）
 		let targetX
@@ -253,9 +256,13 @@ export class JumpGame {
 			targetX = fromX + CONFIG.toPx(1)  // 移动 1 unit
 		} else if (action === ACTION.JUMP) {
 			targetX = fromX + CONFIG.toPx(2)  // 跳跃 2 unit
+		} else if (action === ACTION.LONG_JUMP) {
+			targetX = fromX + CONFIG.toPx(3)  // 远跳 3 unit
 		} else {
+			console.log('[GAME]', `execute rejected | unknown action=${action}`)
 			return null
 		}
+		console.log('[GAME]', `execute target | targetX=${targetX} fromX=${fromX}`)
 	
 		// 立即执行逻辑
 		this.player.x = targetX
@@ -264,7 +271,7 @@ export class JumpGame {
 		// 设置人物动作状态（不再影响 gameStatus）
 		this.player.action = isJump ? PLAYER_ACTION.JUMPING : PLAYER_ACTION.MOVING
 		this.player.isJump = isJump
-		this.player.direction = action === ACTION.RIGHT ? 1 : 2  // 移动方向
+		this.player.direction = action === ACTION.RIGHT ? 1 : (action === ACTION.JUMP ? 2 : 3)  // 移动方向
 	
 		// 更新相机
 		this._updateCamera()
@@ -425,52 +432,7 @@ export class JumpGame {
 	// ========== 地形生成 ==========
 	
 	_generateTerrain() {
-		this.terrain = []
-		let currentGrid = 0
-		let lastWasPit = false
-	
-		this._addGround(0, 2)
-		currentGrid = 2
-	
-		while (currentGrid < CONFIG.WORLD_LENGTH - 2) {
-			if (lastWasPit) {
-				const len = 1 + Math.floor(Math.random() * 2)
-				this._addGround(currentGrid, len)
-				currentGrid += len
-				lastWasPit = false
-			} else {
-				if (Math.random() < CONFIG.PIT_PROBABILITY) {
-					const len = 1 + Math.floor(Math.random() * 2)
-					this._addGround(currentGrid, len)
-					currentGrid += len
-					lastWasPit = false
-				} else {
-					this._addPit(currentGrid)
-					currentGrid += 1
-					lastWasPit = true
-				}
-			}
-		}
-	
-		// 终点后再延伸5格地面，防止玩家跳过终点后落到空气上
-		const finalLength = CONFIG.WORLD_LENGTH + 5 - currentGrid
-		this._addGround(currentGrid, Math.max(finalLength, 1))
-	}
-	
-	_addGround(startGrid, length) {
-		this.terrain.push({
-			type: TERRAIN.GROUND,
-			start: CONFIG.toPx(startGrid),
-			end: CONFIG.toPx(startGrid + length)
-		})
-	}
-	
-	_addPit(grid) {
-		this.terrain.push({
-			type: TERRAIN.PIT,
-			start: CONFIG.toPx(grid),
-			end: CONFIG.toPx(grid + 1)
-		})
+		this.terrain = TerrainGenerator.generate()
 	}
 
 	// ========== 碰撞检测 ==========

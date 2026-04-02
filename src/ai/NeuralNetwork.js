@@ -5,8 +5,8 @@
 
 export class NeuralNetwork {
 	constructor(config = {}) {
-	// 默认：3输入 → 2输出（单层）
-		this.layerSizes = config.layerSizes || [3, 2]
+	// 默认：4输入 → 3输出（单层）
+		this.layerSizes = config.layerSizes || [4, 3]
 		this.learningRate = config.learningRate || 0.2
 		this.weightClip = config.weightClip || 5
 	
@@ -67,7 +67,11 @@ export class NeuralNetwork {
 		const scores = current
 	
 		// 纯贪心决策：不使用概率或Softmax，直接比较得分选高的
-		const action = scores[1] > scores[0] ? 1 : 0
+		let maxIdx = 0
+			for (let i = 1; i < scores.length; i++) {
+				if (scores[i] > scores[maxIdx]) maxIdx = i
+			}
+			const action = maxIdx
 	
 		return { scores, action }
 	}
@@ -75,7 +79,7 @@ export class NeuralNetwork {
 	/**
 	* 决策（对外接口）
 	* @param {number[]} inputs - 输入数组
-	* @returns {number} 动作索引 (0=移动, 1=跳跃)
+	* @returns {number} 动作索引 (0=移动, 1=跳跃, 2=远跳)
 	*/
 	decide(inputs) {
 		const result = this.forward(inputs)
@@ -88,9 +92,9 @@ export class NeuralNetwork {
 		// ε-贪心策略逻辑
 		// 注：当前阶段 epsilon 固定为 0，需要可控观察，暂不启用探索机制，保持纯利用模式
 		if (Math.random() < this.epsilon) {
-		// 【探索】：不看分数，50% 几率随机选一个
+		// 【探索】：不看分数，随机选一个
 			this.isExploring = true
-			this.lastAction = Math.random() < 0.5 ? 0 : 1
+			this.lastAction = Math.floor(Math.random() * this.layerSizes[this.layerSizes.length - 1])
 		} else {
 		// 【利用】：看分数，选最高分
 			this.isExploring = false

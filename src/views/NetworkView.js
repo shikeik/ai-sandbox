@@ -261,7 +261,8 @@ export class NetworkView {
 		}
 	}
 	drawNodes(ctx, positions, inputs, action) {
-		const actionNames = ['移动', '跳跃']
+		const actionNames = ['移动', '跳跃', '远跳']
+		console.log('[NETWORK_VIEW]', `绘制节点 | inputs=[${inputs?.join(',')}] action=${action} layers=${positions.length}`)
 	
 		for (let l = 0; l < positions.length; l++) {
 			const layer = positions[l]
@@ -296,7 +297,7 @@ export class NetworkView {
 				ctx.textBaseline = 'middle'
 		
 				if (isInput) {
-					const labels =['前一格', '前两格', '前三格']
+					const labels =['前一格', '前两格', '前三格', '前四格']
 					ctx.fillText(labels[n] || `i${n}`, pos.x, pos.y)
 				} else if (isOutput) {
 					ctx.fillText(actionNames[n], pos.x, pos.y)

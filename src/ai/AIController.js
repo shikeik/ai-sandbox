@@ -141,7 +141,8 @@ export class AIController {
 		return [
 			terrainAhead[0] === 'pit' ? 1 : 0,
 			terrainAhead[1] === 'pit' ? 1 : 0,
-			terrainAhead[2] === 'pit' ? 1 : 0
+			terrainAhead[2] === 'pit' ? 1 : 0,
+			terrainAhead[3] === 'pit' ? 1 : 0
 		]
 	}
 
@@ -198,13 +199,14 @@ export class AIController {
 		const inputs = this._convertToInputs(state.terrainAhead)
 
 		const action = this.network.decide(inputs)
-		const actionType = action === 1 ? ACTION.JUMP : ACTION.RIGHT
-		const scores = this.network.lastScores ? [...this.network.lastScores] : [0, 0]
+		const actionType = this._actionIndexToType(action)
+		const scores = this.network.lastScores ? [...this.network.lastScores] : [0, 0, 0]
 
 		this.pendingAIDecision = { action, actionType, inputs, scores }
 
-		const scoreLog = `移动:${scores[0].toFixed(2)} 跳跃:${scores[1].toFixed(2)}`
-		const chosen = action === 1 ? '跳跃' : '移动'
+		const actionNames = ['移动', '跳跃', '远跳']
+		const scoreLog = `移动:${scores[0].toFixed(2)} 跳跃:${scores[1].toFixed(2)} 远跳:${scores[2].toFixed(2)}`
+		const chosen = actionNames[action] || '未知'
 		console.log('[AI]', `决策完成 | ${scoreLog} | 选中=[${chosen}] | 探索=${this.network.isExploring ? '是' : '否'}`)
 
 		if (this.onRenderView) {
@@ -219,7 +221,8 @@ export class AIController {
 
 		const result = this.game.execute(actionType)
 		if (result) {
-			console.log('[AI]', `执行动作 | 动作=${actionType === ACTION.JUMP ? '跳跃' : '移动'}`)
+			const actionNames = ['移动', '跳跃', '远跳']
+			console.log('[AI]', `执行动作 | 动作=${actionNames[action] || actionType}`)
 		}
 
 		this.pendingAIDecision = null
@@ -236,10 +239,19 @@ export class AIController {
 		const inputs = this._convertToInputs(state.terrainAhead)
 
 		const action = this.network.decide(inputs)
-		const actionType = action === 1 ? ACTION.JUMP : ACTION.RIGHT
+		const actionType = this._actionIndexToType(action)
 
 		console.log('[AI]', `自动执行 | 动作=${actionType} | 输入=[${inputs.join(',')}]`)
 		this.game.execute(actionType)
+	}
+
+	_actionIndexToType(action) {
+		switch (action) {
+			case 0: return ACTION.RIGHT
+			case 1: return ACTION.JUMP
+			case 2: return ACTION.LONG_JUMP
+			default: return ACTION.RIGHT
+		}
 	}
 }
 

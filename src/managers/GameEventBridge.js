@@ -4,7 +4,7 @@
  */
 
 import { AI_CONFIG } from '@ai/AIController.js'
-import { CONFIG } from '@game/JumpGame.js'
+import { CONFIG, ACTION } from '@game/JumpGame.js'
 
 export class GameEventBridge {
 	constructor({
@@ -36,6 +36,8 @@ export class GameEventBridge {
 		}
 
 		this.game.onActionStart = (action, from, to, isJump, result) => {
+			console.log('[EVENT_BRIDGE]', `onActionStart | action=${action} isJump=${isJump} result=${result}`)
+			console.log('[EVENT_BRIDGE]', `ACTION常量 | RIGHT=${ACTION.RIGHT} JUMP=${ACTION.JUMP} LONG_JUMP=${ACTION.LONG_JUMP}`)
 			let duration = isJump ? CONFIG.JUMP_DURATION : CONFIG.MOVE_DURATION
 
 			// 动态调整动画速度
@@ -49,7 +51,9 @@ export class GameEventBridge {
 
 			// AI 训练模式：根据即时结果立即训练
 			if (this.aiController.isAITrainMode && this.network) {
-				const actionIdx = isJump ? 1 : 0
+				let actionIdx = 0
+				if (action === ACTION.JUMP) actionIdx = 1
+				else if (action === ACTION.LONG_JUMP) actionIdx = 2
 				this.network.lastAction = actionIdx
 
 				if (result === 'death') {

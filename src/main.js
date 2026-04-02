@@ -48,7 +48,7 @@ function init() {
 
 	// 创建神经网络
 	network = new NeuralNetwork({
-		layerSizes: [3, 2],
+		layerSizes: [4, 3],
 		learningRate: 0.2,
 		weightClip: 5
 	})
@@ -91,7 +91,8 @@ function init() {
 		const inputs = [
 			state.terrainAhead[0] === 'pit' ? 1 : 0,
 			state.terrainAhead[1] === 'pit' ? 1 : 0,
-			state.terrainAhead[2] === 'pit' ? 1 : 0
+			state.terrainAhead[2] === 'pit' ? 1 : 0,
+			state.terrainAhead[3] === 'pit' ? 1 : 0
 		]
 		uiManager.renderCurrentAIView(inputs, network ? network.lastAction : null)
 	}
