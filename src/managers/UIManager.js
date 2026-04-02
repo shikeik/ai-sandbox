@@ -43,15 +43,15 @@ export class UIManager {
 	renderPlayerControls(controlArea) {
 		console.log('[CONTROLS]', '渲染玩家模式按钮 | 右移+跳跃+远跳')
 		controlArea.innerHTML = `
-			<button class="btn" id="btn-right">
+			<button class="btn" id="btn-right" ontouchstart="">
 				▶
 				<span class="btn-label">移动 (x+1)</span>
 			</button>
-			<button class="btn" id="btn-jump">
+			<button class="btn" id="btn-jump" ontouchstart="">
 				⬆
 				<span class="btn-label">跳跃 (x+2)</span>
 			</button>
-			<button class="btn" id="btn-long-jump">
+			<button class="btn" id="btn-long-jump" ontouchstart="">
 				⤴
 				<span class="btn-label">远跳 (x+3)</span>
 			</button>
