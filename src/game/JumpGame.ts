@@ -311,7 +311,8 @@ export class JumpGame {
 			terrainAhead: [
 				this._getTerrainAt(grid + 1),
 				this._getTerrainAt(grid + 2),
-				this._getTerrainAt(grid + 3)
+				this._getTerrainAt(grid + 3),
+				this._getTerrainAt(grid + 4)
 			]
 		}
 	}
