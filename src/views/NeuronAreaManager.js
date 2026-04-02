@@ -182,22 +182,28 @@ export class NeuronAreaManager {
 		}
 	}
 
-	updateModeHighlight() {
-		this.modeItems.forEach(el => {
-			const isActive = el.dataset.mode === this.currentMode
-			el.style.color = isActive ? '#0f0' : '#fff'
+	/**
+	 * 统一高亮更新方法
+	 * @param {HTMLElement[]} items - 按钮元素数组
+	 * @param {string} currentValue - 当前选中的值
+	 * @param {string} datasetKey - dataset 属性名（mode / speed）
+	 * @param {string} inactiveColor - 非激活状态的文字颜色
+	 */
+	_updateHighlight(items, currentValue, datasetKey, inactiveColor = '#fff') {
+		items.forEach(el => {
+			const isActive = el.dataset[datasetKey] === currentValue
+			el.style.color = isActive ? '#0f0' : inactiveColor
 			el.style.background = isActive ? 'rgba(0,255,0,0.15)' : 'rgba(255,255,255,0.05)'
 			el.style.border = isActive ? '1px solid #0f0' : '1px solid transparent'
 		})
 	}
 
+	updateModeHighlight() {
+		this._updateHighlight(this.modeItems, this.currentMode, 'mode', '#fff')
+	}
+
 	updateSpeedHighlight() {
-		this.speedItems.forEach(el => {
-			const isActive = el.dataset.speed === this.currentSpeed
-			el.style.color = isActive ? '#0f0' : 'rgba(255,255,255,0.8)'
-			el.style.background = isActive ? 'rgba(0,255,0,0.15)' : 'rgba(255,255,255,0.05)'
-			el.style.border = isActive ? '1px solid #0f0' : '1px solid transparent'
-		})
+		this._updateHighlight(this.speedItems, this.currentSpeed, 'speed', 'rgba(255,255,255,0.8)')
 	}
 }
 

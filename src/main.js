@@ -10,6 +10,7 @@ import { TransitionManager } from '@render/TransitionManager.js'
 import { NeuralNetwork } from '@ai/NeuralNetwork.js'
 import { PlayerBestStore } from '@ai/PlayerBestStore.js'
 import { NeuronAreaManager } from '@views/NeuronAreaManager.js'
+import { ConsolePanel } from '@views/ConsolePanel.js'
 import './style.css'
 import './style-fox.css'
 import EPS from './eps.js'
@@ -21,6 +22,7 @@ let transitionManager = null
 let network = null
 let playerBestStore = null
 let viewManager = null
+let consolePanel = null
 let timerInterval = null
 
 // AI 单步模式缓存：决策与执行分离
@@ -75,7 +77,8 @@ const gameArea = document.getElementById('game-area')
 // ========== 初始化 ==========
 function init() {
 	// 先初始化控制台面板，确保后续所有日志都能被捕获
-	initConsolePanel()
+	consolePanel = new ConsolePanel()
+	consolePanel.init()
 
 	EPS.init()
 	game = new JumpGame()
@@ -194,7 +197,7 @@ function init() {
 	}
 	if (btnConsole) {
 		btnConsole.addEventListener('click', () => {
-			toggleConsolePanel()
+			consolePanel.toggle()
 		})
 	}
 	// ------------------
@@ -641,224 +644,6 @@ if (import.meta.hot) {
 	})
 }
 
-// ========== 控制台面板 ==========
-let isConsoleOpen = false
-
-function toggleConsolePanel() {
-	isConsoleOpen = !isConsoleOpen
-	const panel = document.getElementById('console-panel')
-	const btn = document.getElementById('btn-console')
-	if (panel) panel.classList.toggle('open', isConsoleOpen)
-	if (btn) btn.classList.toggle('active', isConsoleOpen)
-}
-
-function initConsolePanel() {
-	const logsContainer = document.getElementById('console-logs')
-	if (!logsContainer) return
-
-	const originalLog = console.log
-	const originalWarn = console.warn
-	const originalError = console.error
-	const originalInfo = console.info
-
-	const tagRegistry = new Set()
-	const tagVisible = new Map()
-
-	function formatArg(a) {
-		if (a instanceof Error) {
-			return a.stack || a.message || String(a)
-		}
-		if (typeof a === 'object') {
-			try { return JSON.stringify(a) } catch { return String(a) }
-		}
-		return String(a)
-	}
-
-	function extractTag(args) {
-		if (args.length > 0 && typeof args[0] === 'string') {
-			const match = args[0].match(/^\[([^\]]+)\]$/)
-			if (match) {
-				const tag = match[1]
-				return { tag, rest: args.slice(1) }
-			}
-		}
-		return { tag: 'app', rest: args }
-	}
-
-	function registerTag(tag) {
-		if (!tagRegistry.has(tag)) {
-			tagRegistry.add(tag)
-			tagVisible.set(tag, true)
-			renderFilterMenu()
-		}
-	}
-
-	function applyTagFilters() {
-		const lines = logsContainer.querySelectorAll('.console-line')
-		lines.forEach(line => {
-			const tag = line.dataset.tag || 'app'
-			line.style.display = tagVisible.get(tag) ? '' : 'none'
-		})
-	}
-
-	function renderFilterMenu() {
-		const list = document.getElementById('console-filter-list')
-		if (!list) return
-		list.innerHTML = ''
-		const tags = Array.from(tagRegistry).sort((a, b) => a.localeCompare(b))
-		tags.forEach(tag => {
-			const row = document.createElement('label')
-			row.className = 'console-filter-item'
-			const checked = tagVisible.get(tag) ? 'checked' : ''
-			row.innerHTML = `
-				<input type="checkbox" ${checked}>
-				<span class="console-filter-tag">${tag}</span>
-			`
-			row.querySelector('input').addEventListener('change', (e) => {
-				tagVisible.set(tag, e.target.checked)
-				applyTagFilters()
-			})
-			list.appendChild(row)
-		})
-	}
-
-	let autoScroll = true
-
-	function appendLine(level, args) {
-		const { tag, rest } = extractTag(args)
-		registerTag(tag)
-
-		const time = new Date().toLocaleTimeString('zh-CN', { hour12: false })
-		const entry = document.createElement('div')
-		entry.className = `console-line ${level}`
-		entry.dataset.tag = tag
-		entry.style.display = tagVisible.get(tag) ? '' : 'none'
-
-		const textParts = rest.map(formatArg)
-		const header = document.createElement('div')
-		header.textContent = `[${time}] [${tag}] ${textParts.join(' ')}`
-		entry.appendChild(header)
-
-		rest.forEach(a => {
-			if (a instanceof Error && a.stack) {
-				const stackDiv = document.createElement('div')
-				stackDiv.className = 'console-stack'
-				const stackLines = a.stack.split('\n').slice(1)
-				stackDiv.textContent = stackLines.join('\n')
-				entry.appendChild(stackDiv)
-			}
-		})
-
-		logsContainer.appendChild(entry)
-		if (autoScroll) {
-			logsContainer.scrollTop = logsContainer.scrollHeight
-		}
-	}
-
-	function makeTaggedLogger(orig, level) {
-		return function (...args) {
-			orig.apply(console, args)
-			appendLine(level, args)
-		}
-	}
-
-	console.log = makeTaggedLogger(originalLog, 'log')
-	console.warn = makeTaggedLogger(originalWarn, 'warn')
-	console.error = makeTaggedLogger(originalError, 'error')
-	console.info = makeTaggedLogger(originalInfo, 'info')
-
-	window.gameLog = {
-		log: (tag, ...args) => console.log(`[${tag}]`, ...args),
-		warn: (tag, ...args) => console.warn(`[${tag}]`, ...args),
-		error: (tag, ...args) => console.error(`[${tag}]`, ...args),
-		info: (tag, ...args) => console.info(`[${tag}]`, ...args)
-	}
-
-	// ========== 全局异常捕获 ==========
-	window.addEventListener('error', (e) => {
-		console.error('[EXCEPTION]', `未捕获的错误: ${e.message}`, '\n源文件:', e.filename, '\n行号:', e.lineno, '\n列号:', e.colno, '\n', e.error || '')
-	})
-
-	window.addEventListener('unhandledrejection', (e) => {
-		const reason = e.reason
-		if (reason instanceof Error) {
-			console.error('[UNHANDLED]', `未处理的 Promise 拒绝: ${reason.message}`, reason)
-		} else {
-			console.error('[UNHANDLED]', '未处理的 Promise 拒绝:', reason)
-		}
-	})
-
-	// 绑定工具栏按钮
-	const btnClear = document.getElementById('btn-clear-console')
-	const btnDownload = document.getElementById('btn-download-console')
-	const btnFilter = document.getElementById('btn-filter-console')
-	const btnAutoscroll = document.getElementById('btn-autoscroll')
-	const filterMenu = document.getElementById('console-filter-menu')
-
-	if (btnClear) {
-		btnClear.addEventListener('click', () => {
-			logsContainer.innerHTML = ''
-			tagRegistry.clear()
-			tagVisible.clear()
-			renderFilterMenu()
-		})
-	}
-
-	if (btnDownload) {
-		btnDownload.addEventListener('click', () => {
-			const lines = Array.from(logsContainer.children).map(el => el.textContent)
-			const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' })
-			const url = URL.createObjectURL(blob)
-			const a = document.createElement('a')
-			a.href = url
-			a.download = `console-log-${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.txt`
-			document.body.appendChild(a)
-			a.click()
-			document.body.removeChild(a)
-			URL.revokeObjectURL(url)
-		})
-	}
-
-	if (btnAutoscroll) {
-		btnAutoscroll.addEventListener('click', () => {
-			autoScroll = !autoScroll
-			btnAutoscroll.classList.toggle('active', autoScroll)
-		})
-	}
-
-	if (btnFilter && filterMenu) {
-		btnFilter.addEventListener('click', (e) => {
-			e.stopPropagation()
-			const isOpen = filterMenu.classList.toggle('open')
-			btnFilter.classList.toggle('active', isOpen)
-		})
-
-		document.addEventListener('click', (e) => {
-			if (!filterMenu.contains(e.target) && e.target !== btnFilter) {
-				filterMenu.classList.remove('open')
-				btnFilter.classList.remove('active')
-			}
-		})
-
-		const btnAll = document.getElementById('btn-filter-all')
-		const btnNone = document.getElementById('btn-filter-none')
-
-		if (btnAll) {
-			btnAll.addEventListener('click', () => {
-				tagRegistry.forEach(tag => tagVisible.set(tag, true))
-				renderFilterMenu()
-				applyTagFilters()
-			})
-		}
-		if (btnNone) {
-			btnNone.addEventListener('click', () => {
-				tagRegistry.forEach(tag => tagVisible.set(tag, false))
-				renderFilterMenu()
-				applyTagFilters()
-			})
-		}
-	}
-}
 
 // ========== 调试接口 ==========
 window.aiSandbox = {
