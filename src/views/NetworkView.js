@@ -56,6 +56,7 @@ export class NetworkView {
 		this.infoBar = null
 		this.lastData = null
 		this.init()
+		console.log('[NETWORK_VIEW]', '网络视图初始化完成，常量配置已加载')
 	}
 	
 	init() {
@@ -108,6 +109,7 @@ export class NetworkView {
 			this.resize()
 		})
 		this.resizeObserver.observe(this.container)
+		console.log('[NetworkView]', `初始化完成 | 画布尺寸=${this.width}x${this.height} 边距配置=${JSON.stringify(CANVAS_MARGIN)}`)
 	}
 	
 	resize() {
@@ -136,6 +138,8 @@ export class NetworkView {
 		if (!isResize) {
 			this.lastData = { network, inputs, action, isPreview, weightChanges }
 		}
+
+		console.log('[NETWORK_VIEW]', `渲染 | 输入=[${inputs ? inputs.join(',') : 'null'}] 动作=${action !== null ? action : 'null'} 预览=${isPreview} | 常量配置已应用`)
 
 		// 更新信息栏
 		this.updateInfoBar(network, isPreview)

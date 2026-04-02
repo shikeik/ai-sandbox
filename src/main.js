@@ -177,6 +177,7 @@ function bindPlayerBtn(btn, action) {
  * @param {HTMLElement} controlArea - 控制区域容器
  */
 function renderPlayerControls(controlArea) {
+	console.log('[CONTROLS]', '渲染玩家模式按钮 | 右移+跳跃')
 	controlArea.innerHTML = `
 		<button class="btn" id="btn-right">
 			▶
@@ -198,6 +199,7 @@ function renderPlayerControls(controlArea) {
  * @param {HTMLElement} controlArea - 控制区域容器
  */
 function renderStepControls(controlArea) {
+	console.log('[CONTROLS]', '渲染单步模式按钮 | 决策/执行')
 	const pending = aiController.pendingAIDecision
 	const actionLabel = pending ? (pending.actionType === ACTION.JUMP ? '跳跃' : '移动') : ''
 	const btnText = (pending ? `行动-${actionLabel}` : '决策') + '(Space)'
@@ -217,6 +219,7 @@ function renderStepControls(controlArea) {
  * @param {HTMLElement} controlArea - 控制区域容器
  */
 function renderAutoHint(controlArea) {
+	console.log('[CONTROLS]', '渲染自动模式提示 | AI运行中')
 	controlArea.innerHTML = `
 		<div style="color: #888; font-size: 14px; width: 100%; text-align: center;">🤖 AI自动运行中...</div>
 	`
@@ -231,14 +234,17 @@ function updateControlsUI() {
 
 	// 玩家模式：显示操作按钮
 	if (!aiController.isAIMode) {
+		console.log('[CONTROLS]', 'UI路由 | 玩家模式 → renderPlayerControls')
 		renderPlayerControls(controlArea)
 	}
 	// AI 模式
 	else if (aiController.isStepMode) {
+		console.log('[CONTROLS]', 'UI路由 | 单步模式 → renderStepControls')
 		renderStepControls(controlArea)
 	}
 	// 自动运行模式
 	else {
+		console.log('[CONTROLS]', 'UI路由 | 自动模式 → renderAutoHint')
 		renderAutoHint(controlArea)
 	}
 }

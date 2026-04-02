@@ -72,6 +72,7 @@ export class NeuronAreaManager {
 			const isActive = item.id === this.currentMode
 			el.className = `neuron-mode-btn ${isActive ? 'active' : 'inactive'}`
 			el.addEventListener('click', () => {
+				console.log('[NEURON_UI]', `高亮更新 | 类型=${datasetKey} 当前值=${currentValue}`)
 				this.currentMode = item.id
 				this.updateModeHighlight()
 				if (this.onModeChange) this.onModeChange(item.id)
@@ -80,6 +81,7 @@ export class NeuronAreaManager {
 			this.modeItems.push(el)
 			modeRow.appendChild(el)
 		})
+		console.log('[NEURON_UI]', `高亮更新 | 类型=${datasetKey} 当前值=${currentValue}`)
 		menu.appendChild(modeRow)
 
 		// 分隔线
@@ -106,7 +108,7 @@ export class NeuronAreaManager {
 			el.className = `neuron-speed-btn ${isActive ? 'active' : 'inactive'}`
 			el.textContent = item.label
 			el.addEventListener('click', () => {
-				this.currentSpeed = item.id
+				console.log("[NEURON_UI]", `速度切换 | ${this.currentSpeed} → ${item.id} | CSS类更新完成`); this.currentSpeed = item.id
 				this.updateSpeedHighlight()
 				if (this.onSpeedChange) this.onSpeedChange(item.id)
 				// 注：菜单不关闭，仅通过按钮切换
@@ -143,10 +145,16 @@ export class NeuronAreaManager {
 	_updateHighlight(items, currentValue, datasetKey, inactiveColor = '#fff') {
 		items.forEach(el => {
 			const isActive = el.dataset[datasetKey] === currentValue
+			const newClass = isActive ? 'active' : 'inactive'
+			const oldClass = isActive ? 'inactive' : 'active'
+			el.classList.remove(`${datasetKey === 'mode' ? 'neuron-mode-btn' : 'neuron-speed-btn'}-${oldClass}`)
+			el.classList.add(`${datasetKey === 'mode' ? 'neuron-mode-btn' : 'neuron-speed-btn'}-${newClass}`)
+			el.className = `${datasetKey === 'mode' ? 'neuron-mode-btn' : 'neuron-speed-btn'} ${newClass}`
 			el.style.color = isActive ? '#0f0' : inactiveColor
 			el.style.background = isActive ? 'rgba(0,255,0,0.15)' : 'rgba(255,255,255,0.05)'
 			el.style.border = isActive ? '1px solid #0f0' : '1px solid transparent'
 		})
+		console.log('[NEURON_UI]', `高亮更新 | 类型=${datasetKey} 当前值=${currentValue}`)
 	}
 
 	updateModeHighlight() {
