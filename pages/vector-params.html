@@ -1,71 +1,560 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-	<meta charset="UTF-8">
-	<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-	<title>向量化参数演示</title>
-	<style>
-		* { margin: 0; padding: 0; box-sizing: border-box; }
-		body {
-			font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "PingFang SC", "Microsoft YaHei", sans-serif;
-			background: #0b0c0f;
-			color: #e8eaed;
-			display: flex;
-			flex-direction: column;
-			align-items: center;
-			justify-content: center;
-			min-height: 100vh;
-			padding: 24px;
-		}
-		.back {
-			position: absolute;
-			top: 20px;
-			left: 20px;
-			text-decoration: none;
-			color: #9aa0a6;
-			font-size: 14px;
-			padding: 8px 14px;
-			border-radius: 8px;
-			border: 1px solid #2c2f36;
-			background: #16181d;
-			transition: color .2s, border-color .2s;
-		}
-		.back:hover {
-			color: #e8eaed;
-			border-color: #5f6368;
-		}
-		.icon {
-			font-size: 56px;
-			margin-bottom: 18px;
-			opacity: .9;
-		}
-		h1 {
-			font-size: 22px;
-			font-weight: 500;
-			margin-bottom: 10px;
-		}
-		.desc {
-			color: #9aa0a6;
-			font-size: 14px;
-			max-width: 320px;
-			text-align: center;
-			line-height: 1.6;
-		}
-		.status {
-			margin-top: 24px;
-			font-size: 12px;
-			padding: 6px 14px;
-			border-radius: 999px;
-			background: #3e2c14;
-			color: #f9ab00;
-		}
-	</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>向量化参数演示</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Microsoft YaHei', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: #0b0c0f;
+            color: #e8eaed;
+            min-height: 100vh;
+            padding: 16px;
+        }
+        .back-nav {
+            position: fixed;
+            top: 12px;
+            left: 12px;
+            z-index: 1000;
+        }
+        .back-nav a {
+            text-decoration: none;
+            color: #9aa0a6;
+            font-size: 13px;
+            padding: 6px 12px;
+            border-radius: 8px;
+            border: 1px solid #2c2f36;
+            background: #16181d;
+        }
+        h1 {
+            text-align: center;
+            font-size: 20px;
+            margin: 28px 0 6px;
+            color: #8ab4f8;
+        }
+        .subtitle {
+            text-align: center;
+            color: #9aa0a6;
+            font-size: 12px;
+            margin-bottom: 18px;
+        }
+
+        /* 跑道条 */
+        .track-bar {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 18px;
+            flex-wrap: wrap;
+        }
+        .track-label {
+            width: 100%;
+            text-align: center;
+            font-size: 12px;
+            color: #9aa0a6;
+            margin-bottom: 6px;
+        }
+        .track-cell {
+            width: 64px;
+            height: 64px;
+            border-radius: 12px;
+            border: 2px solid #2c2f36;
+            background: #16181d;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: border-color .2s, transform .1s;
+            user-select: none;
+        }
+        .track-cell:hover { border-color: #5f6368; }
+        .track-cell:active { transform: scale(0.96); }
+        .track-cell .emoji { font-size: 26px; }
+        .track-cell .name { font-size: 10px; color: #bdc1c6; margin-top: 2px; }
+
+        /* 主区域 */
+        .main-stage {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            max-width: 960px;
+            margin: 0 auto 16px;
+        }
+        @media (max-width: 720px) {
+            .main-stage { grid-template-columns: 1fr; }
+        }
+
+        .panel {
+            background: #16181d;
+            border: 1px solid #2c2f36;
+            border-radius: 12px;
+            padding: 12px;
+        }
+        .panel-title {
+            font-size: 13px;
+            color: #8ab4f8;
+            margin-bottom: 8px;
+            text-align: center;
+        }
+
+        /* Embedding 空间 */
+        #embedding-canvas {
+            width: 100%;
+            aspect-ratio: 1 / 1;
+            background: #0b0c0f;
+            border-radius: 8px;
+            display: block;
+        }
+        .legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            justify-content: center;
+            margin-top: 8px;
+        }
+        .legend-item {
+            font-size: 11px;
+            color: #bdc1c6;
+            background: #0b0c0f;
+            padding: 3px 8px;
+            border-radius: 6px;
+            border: 1px solid #2c2f36;
+        }
+
+        /* MLP 图 */
+        #mlp-canvas {
+            width: 100%;
+            height: 220px;
+            background: #0b0c0f;
+            border-radius: 8px;
+            display: block;
+        }
+
+        /* 控制区 */
+        .control-area {
+            max-width: 960px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+        @media (max-width: 720px) {
+            .control-area { grid-template-columns: 1fr; }
+        }
+        .btn-row {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin-top: 8px;
+        }
+        button {
+            border: none;
+            border-radius: 8px;
+            padding: 10px 16px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: opacity .2s;
+        }
+        button:disabled { opacity: .4; cursor: not-allowed; }
+        .btn-primary { background: #8ab4f8; color: #0b0c0f; }
+        .btn-secondary { background: #5f6368; color: #fff; }
+        .btn-accent { background: #f9ab00; color: #0b0c0f; }
+        .action-btn { background: #2c2f36; color: #e8eaed; border: 1px solid #3c4043; }
+        .action-btn.active { background: #8ab4f8; color: #0b0c0f; border-color: #8ab4f8; }
+
+        .log-panel {
+            max-width: 960px;
+            margin: 16px auto 0;
+            background: #16181d;
+            border: 1px solid #2c2f36;
+            border-radius: 12px;
+            padding: 12px;
+            font-size: 12px;
+            line-height: 1.7;
+            max-height: 220px;
+            overflow-y: auto;
+        }
+        .log-entry { margin-bottom: 6px; color: #bdc1c6; }
+        .log-math { color: #8ab4f8; font-family: monospace; }
+        .log-highlight { color: #f9ab00; }
+    </style>
 </head>
 <body>
-	<a class="back" href="../index.html">← 返回导航</a>
-	<div class="icon">🚧</div>
-	<h1>向量化参数演示</h1>
-	<p class="desc">这里将展示向量空间与参数映射的可视化交互。内容尚未完工，敬请期待。</p>
-	<span class="status">施工中</span>
+    <div class="back-nav"><a href="../index.html">← 返回导航</a></div>
+
+    <h1>🧮 向量化参数演示</h1>
+    <p class="subtitle">把离散元素变成向量，让 MLP 突破 0/1 二元限制</p>
+
+    <!-- 跑道状态条 -->
+    <div class="track-bar" id="track-bar">
+        <div class="track-label">点击格子切换前方 3 格地形元素</div>
+        <div class="track-cell" data-idx="0" onclick="cycleElement(0)">
+            <div class="emoji" id="emoji-0">🟩</div>
+            <div class="name" id="name-0">平地</div>
+        </div>
+        <div class="track-cell" data-idx="1" onclick="cycleElement(1)">
+            <div class="emoji" id="emoji-1">🕳️</div>
+            <div class="name" id="name-1">坑</div>
+        </div>
+        <div class="track-cell" data-idx="2" onclick="cycleElement(2)">
+            <div class="emoji" id="emoji-2">🌵</div>
+            <div class="name" id="name-2">刺</div>
+        </div>
+    </div>
+
+    <!-- 主舞台 -->
+    <div class="main-stage">
+        <div class="panel">
+            <div class="panel-title">Embedding 向量空间（2D）</div>
+            <canvas id="embedding-canvas"></canvas>
+            <div class="legend" id="legend"></div>
+        </div>
+        <div class="panel">
+            <div class="panel-title">微型 MLP（6 输入 → 4 隐藏 → 3 输出）</div>
+            <canvas id="mlp-canvas"></canvas>
+        </div>
+    </div>
+
+    <!-- 控制区 -->
+    <div class="control-area">
+        <div class="panel">
+            <div class="panel-title">操作</div>
+            <div class="btn-row">
+                <button class="btn-primary" onclick="forward()">▶ 前向传播</button>
+                <button class="btn-accent" onclick="trainStep()" id="btn-train" disabled>↺ 训练一步</button>
+                <button class="btn-secondary" onclick="resetAll()">⟲ 重置</button>
+            </div>
+        </div>
+        <div class="panel">
+            <div class="panel-title">选择正确动作（用于训练）</div>
+            <div class="btn-row">
+                <button class="action-btn" id="act-0" onclick="setTarget(0)">移动</button>
+                <button class="action-btn" id="act-1" onclick="setTarget(1)">跳跃</button>
+                <button class="action-btn" id="act-2" onclick="setTarget(2)">远跳</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 日志 -->
+    <div class="log-panel" id="logPanel">
+        <div class="log-entry">
+            <span class="log-highlight">💡 使用说明：</span><br>
+            1. 点击上方 3 个格子切换元素组合<br>
+            2. 点击【前向传播】查看 MLP 对当前组合的预测动作<br>
+            3. 选择正确动作，点击【训练一步】，同时更新 MLP 权重和 Embedding 向量
+        </div>
+    </div>
+
+    <script>
+        // ========== 元素定义 ==========
+        const ELEMENTS = [
+            { id: 0, name: '平地', emoji: '🟩', danger: 0, magic: 0 },
+            { id: 1, name: '坑',   emoji: '🕳️', danger: 1, magic: 0 },
+            { id: 2, name: '刺',   emoji: '🌵', danger: 1, magic: 0 },
+            { id: 3, name: '史莱姆', emoji: '💧', danger: 0.5, magic: 0.2 },
+            { id: 4, name: '血包', emoji: '❤️', danger: -0.3, magic: 0.1 },
+            { id: 5, name: '金币', emoji: '🪙', danger: 0, magic: 0 },
+            { id: 6, name: '恶魔', emoji: '👿', danger: 0.8, magic: 0.9 }
+        ];
+
+        // ========== 网络超参数 ==========
+        const INPUT_DIM = 6;   // 3格 * 2D
+        const HIDDEN_DIM = 4;
+        const OUTPUT_DIM = 3;  // 移动/跳跃/远跳
+        const LEARNING_RATE = 0.15;
+
+        // ========== 状态 ==========
+        let track = [1, 2, 6]; // 当前3格元素的id
+        let targetAction = -1; // 用于训练的目标动作
+        let lastOutput = null; // 上次前向传播结果
+
+        // Embedding: 7个元素，每个2D向量，初始带一点先验（危险/魔法倾向）
+        let embeddings = ELEMENTS.map(e => [
+            (Math.random() - 0.5) * 0.4 + e.danger * 0.6,  // x轴≈危险度
+            (Math.random() - 0.5) * 0.4 + e.magic * 0.6   // y轴≈魔法度
+        ]);
+
+        // 权重和偏置
+        function randWeight() { return (Math.random() - 0.5) * 0.6; }
+        let W1 = Array.from({length: HIDDEN_DIM}, () => Array.from({length: INPUT_DIM}, randWeight));
+        let b1 = Array(HIDDEN_DIM).fill(0).map(() => 0.1);
+        let W2 = Array.from({length: OUTPUT_DIM}, () => Array.from({length: HIDDEN_DIM}, randWeight));
+        let b2 = Array(OUTPUT_DIM).fill(0).map(() => 0.1);
+
+        // ========== 激活函数 ==========
+        function relu(x) { return Math.max(0, x); }
+        function sigmoid(x) { return 1 / (1 + Math.exp(-x)); }
+        function softmax(arr) {
+            const max = Math.max(...arr);
+            const exps = arr.map(v => Math.exp(v - max));
+            const sum = exps.reduce((a, b) => a + b, 0);
+            return exps.map(v => v / sum);
+        }
+
+        // ========== 构造输入 ==========
+        function getInput() {
+            const vec = [];
+            for (let i = 0; i < 3; i++) {
+                const emb = embeddings[track[i]];
+                vec.push(emb[0], emb[1]);
+            }
+            return vec;
+        }
+
+        // ========== 前向传播 ==========
+        function forwardPass(input) {
+            const z1 = W1.map((row, i) => row.reduce((s, w, j) => s + w * input[j], 0) + b1[i]);
+            const h = z1.map(relu);
+            const z2 = W2.map((row, i) => row.reduce((s, w, j) => s + w * h[j], 0) + b2[i]);
+            const o = softmax(z2);
+            return { z1, h, z2, o, input };
+        }
+
+        // ========== 反向传播 ==========
+        function backwardPass(targetIdx, fp) {
+            const { o, h, input } = fp;
+            // 输出层梯度 (交叉熵 + softmax)
+            const dz2 = o.map((v, i) => v - (i === targetIdx ? 1 : 0));
+            // dW2, db2
+            const dW2 = dz2.map((dz, i) => h.map(v => dz * v));
+            const db2 = dz2.slice();
+            // 隐藏层梯度
+            const dh = Array(HIDDEN_DIM).fill(0);
+            for (let j = 0; j < HIDDEN_DIM; j++) {
+                for (let i = 0; i < OUTPUT_DIM; i++) {
+                    dh[j] += dz2[i] * W2[i][j];
+                }
+            }
+            const dz1 = dh.map((v, i) => (fp.z1[i] > 0 ? v : 0));
+            // dW1, db1
+            const dW1 = dz1.map((dz, i) => input.map(v => dz * v));
+            const db1 = dz1.slice();
+            // dEmbedding（关键：输入对emb的梯度）
+            const dEmb = Array(7).fill(null).map(() => [0, 0]);
+            for (let g = 0; g < 3; g++) {
+                for (let i = 0; i < HIDDEN_DIM; i++) {
+                    dEmb[track[g]][0] += dz1[i] * W1[i][g * 2];
+                    dEmb[track[g]][1] += dz1[i] * W1[i][g * 2 + 1];
+                }
+            }
+            return { dW1, db1, dW2, db2, dEmb };
+        }
+
+        // ========== 应用梯度 ==========
+        function applyGrad(grad) {
+            for (let i = 0; i < HIDDEN_DIM; i++) {
+                for (let j = 0; j < INPUT_DIM; j++) W1[i][j] -= LEARNING_RATE * grad.dW1[i][j];
+                b1[i] -= LEARNING_RATE * grad.db1[i];
+            }
+            for (let i = 0; i < OUTPUT_DIM; i++) {
+                for (let j = 0; j < HIDDEN_DIM; j++) W2[i][j] -= LEARNING_RATE * grad.dW2[i][j];
+                b2[i] -= LEARNING_RATE * grad.db2[i];
+            }
+            for (let e = 0; e < 7; e++) {
+                embeddings[e][0] -= LEARNING_RATE * grad.dEmb[e][0];
+                embeddings[e][1] -= LEARNING_RATE * grad.dEmb[e][1];
+            }
+        }
+
+        // ========== UI 交互 ==========
+        function cycleElement(idx) {
+            track[idx] = (track[idx] + 1) % ELEMENTS.length;
+            updateTrackUI();
+            log(`切换格子 ${idx + 1} → ${ELEMENTS[track[idx]].name}`);
+            drawMLP(null);
+        }
+        function updateTrackUI() {
+            for (let i = 0; i < 3; i++) {
+                const el = ELEMENTS[track[i]];
+                document.getElementById('emoji-' + i).textContent = el.emoji;
+                document.getElementById('name-' + i).textContent = el.name;
+            }
+        }
+
+        function setTarget(idx) {
+            targetAction = idx;
+            for (let i = 0; i < 3; i++) {
+                document.getElementById('act-' + i).classList.toggle('active', i === idx);
+            }
+            document.getElementById('btn-train').disabled = !lastOutput || targetAction === -1;
+        }
+
+        function forward() {
+            const input = getInput();
+            lastOutput = forwardPass(input);
+            const actionNames = ['移动', '跳跃', '远跳'];
+            const maxIdx = lastOutput.o.indexOf(Math.max(...lastOutput.o));
+            log(`前向传播 | 输入=[${input.map(v => v.toFixed(2)).join(', ')}] | 输出=[${lastOutput.o.map(v => (v * 100).toFixed(1) + '%').join(', ')}] | 预测动作=<span class="log-highlight">${actionNames[maxIdx]}</span>`);
+            drawMLP(lastOutput);
+            document.getElementById('btn-train').disabled = targetAction === -1;
+        }
+
+        function trainStep() {
+            if (!lastOutput || targetAction === -1) return;
+            const grad = backwardPass(targetAction, lastOutput);
+            applyGrad(grad);
+            const loss = -Math.log(Math.max(lastOutput.o[targetAction], 1e-7));
+            log(`训练一步 | 目标=${['移动','跳跃','远跳'][targetAction]} | 损失=<span class="log-math">${loss.toFixed(4)}</span> | Embedding 和权重已更新`);
+            drawEmbedding();
+            forward(); // 重新前向传播看效果
+        }
+
+        function resetAll() {
+            embeddings = ELEMENTS.map(e => [
+                (Math.random() - 0.5) * 0.4 + e.danger * 0.6,
+                (Math.random() - 0.5) * 0.4 + e.magic * 0.6
+            ]);
+            W1 = Array.from({length: HIDDEN_DIM}, () => Array.from({length: INPUT_DIM}, randWeight));
+            b1 = Array(HIDDEN_DIM).fill(0).map(() => 0.1);
+            W2 = Array.from({length: OUTPUT_DIM}, () => Array.from({length: HIDDEN_DIM}, randWeight));
+            b2 = Array(OUTPUT_DIM).fill(0).map(() => 0.1);
+            lastOutput = null;
+            targetAction = -1;
+            for (let i = 0; i < 3; i++) document.getElementById('act-' + i).classList.remove('active');
+            document.getElementById('btn-train').disabled = true;
+            log('已重置所有参数（Embedding + MLP 权重）');
+            drawEmbedding();
+            drawMLP(null);
+        }
+
+        function log(html) {
+            const panel = document.getElementById('logPanel');
+            const div = document.createElement('div');
+            div.className = 'log-entry';
+            div.innerHTML = html;
+            panel.appendChild(div);
+            panel.scrollTop = panel.scrollHeight;
+        }
+
+        // ========== Canvas 绘图 ==========
+        const embCanvas = document.getElementById('embedding-canvas');
+        const mlpCanvas = document.getElementById('mlp-canvas');
+        function setupCanvas(canvas) {
+            const rect = canvas.getBoundingClientRect();
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width = Math.floor(rect.width * dpr);
+            canvas.height = Math.floor(rect.height * dpr);
+            const ctx = canvas.getContext('2d');
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            return { ctx, width: rect.width, height: rect.height };
+        }
+
+        function drawEmbedding() {
+            const { ctx, width, height } = setupCanvas(embCanvas);
+            ctx.clearRect(0, 0, width, height);
+            const cx = width / 2, cy = height / 2;
+            const scale = Math.min(width, height) / 2.6;
+
+            // 网格和轴
+            ctx.strokeStyle = '#2c2f36';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(cx, 0); ctx.lineTo(cx, height);
+            ctx.moveTo(0, cy); ctx.lineTo(width, cy);
+            ctx.stroke();
+            ctx.strokeRect(cx - scale, cy - scale, scale * 2, scale * 2);
+
+            // 轴标签
+            ctx.fillStyle = '#5f6368';
+            ctx.font = '11px sans-serif';
+            ctx.fillText('危险 →', width - 38, cy - 4);
+            ctx.fillText('魔法 ↑', cx + 4, 14);
+
+            // 点
+            ELEMENTS.forEach((el, i) => {
+                const x = cx + embeddings[i][0] * scale;
+                const y = cy - embeddings[i][1] * scale;
+                ctx.beginPath();
+                ctx.arc(x, y, 6, 0, Math.PI * 2);
+                ctx.fillStyle = i === track[0] || i === track[1] || i === track[2] ? '#8ab4f8' : '#5f6368';
+                ctx.fill();
+                ctx.fillStyle = '#e8eaed';
+                ctx.font = '12px sans-serif';
+                ctx.fillText(el.emoji, x + 10, y + 4);
+                ctx.fillStyle = '#9aa0a6';
+                ctx.font = '10px sans-serif';
+                ctx.fillText(el.name, x + 10, y + 16);
+            });
+        }
+
+        function drawMLP(fp) {
+            const { ctx, width, height } = setupCanvas(mlpCanvas);
+            ctx.clearRect(0, 0, width, height);
+            const layers = [6, 4, 3];
+            const layerX = [60, width / 2, width - 60];
+            const nodeY = layers.map(n => {
+                const gap = height / (n + 1);
+                return Array.from({length: n}, (_, i) => gap * (i + 1));
+            });
+
+            // 连接线
+            ctx.lineWidth = 1;
+            for (let L = 0; L < 2; L++) {
+                for (let i = 0; i < layers[L]; i++) {
+                    for (let j = 0; j < layers[L + 1]; j++) {
+                        let w = 0;
+                        if (L === 0) w = W1[j][i];
+                        else w = W2[j][i];
+                        const alpha = Math.min(Math.abs(w) * 1.5, 1);
+                        ctx.strokeStyle = w > 0 ? `rgba(138,180,248,${alpha})` : `rgba(249,171,0,${alpha})`;
+                        ctx.beginPath();
+                        ctx.moveTo(layerX[L], nodeY[L][i]);
+                        ctx.lineTo(layerX[L + 1], nodeY[L + 1][j]);
+                        ctx.stroke();
+                    }
+                }
+            }
+
+            // 节点
+            const nodeValues = fp ? [fp.input, fp.h, fp.o] : [null, null, null];
+            const labels = [
+                ['e0.x', 'e0.y', 'e1.x', 'e1.y', 'e2.x', 'e2.y'],
+                ['h1', 'h2', 'h3', 'h4'],
+                ['移动', '跳跃', '远跳']
+            ];
+            for (let L = 0; L < 3; L++) {
+                for (let i = 0; i < layers[L]; i++) {
+                    const x = layerX[L], y = nodeY[L][i];
+                    ctx.beginPath();
+                    ctx.arc(x, y, 10, 0, Math.PI * 2);
+                    ctx.fillStyle = '#16181d';
+                    ctx.fill();
+                    ctx.strokeStyle = '#8ab4f8';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+
+                    if (nodeValues[L]) {
+                        const v = nodeValues[L][i];
+                        ctx.fillStyle = '#e8eaed';
+                        ctx.font = '10px monospace';
+                        ctx.textAlign = 'center';
+                        ctx.fillText(typeof v === 'number' ? v.toFixed(2) : v, x, y + 3);
+                    }
+                    ctx.fillStyle = '#9aa0a6';
+                    ctx.font = '9px sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(labels[L][i], x, y + 22);
+                }
+            }
+        }
+
+        // 初始化图例
+        const legendEl = document.getElementById('legend');
+        ELEMENTS.forEach(e => {
+            const span = document.createElement('span');
+            span.className = 'legend-item';
+            span.textContent = `${e.emoji} ${e.name}`;
+            legendEl.appendChild(span);
+        });
+
+        window.addEventListener('resize', () => { drawEmbedding(); drawMLP(lastOutput); });
+        updateTrackUI();
+        drawEmbedding();
+        drawMLP(null);
+    </script>
 </body>
 </html>
