@@ -24,8 +24,8 @@ export class TransitionManager {
 	}
 
 	private init(): void {
-		this.overlay = document.createElement('div')
-		this.overlay.className = 'transition-overlay'
+		this.overlay = document.createElement("div")
+		this.overlay.className = "transition-overlay"
 		this.overlay.style.cssText = `
 			position: absolute;
 			inset: 0;
@@ -49,7 +49,7 @@ export class TransitionManager {
 
 		await this._delay(TIMING.SHOW_RESULT)
 
-		this.overlay.style.opacity = '1'
+		this.overlay.style.opacity = "1"
 		await this._delay(TIMING.FADE_DURATION)
 
 		if (onMidPoint) {
@@ -58,7 +58,7 @@ export class TransitionManager {
 
 		await this._delay(TIMING.PAUSE)
 
-		this.overlay.style.opacity = '0'
+		this.overlay.style.opacity = "0"
 		await this._delay(TIMING.FADE_DURATION)
 
 		this.isTransitioning = false

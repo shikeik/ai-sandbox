@@ -106,6 +106,9 @@ export default [
 			// 强制不使用分号
 			'semi': ['error', 'never'],
 
+			// 强制使用双引号
+			'quotes': ['error', 'double'],
+
 			// 禁止使用 var
 			'no-var': 'error',
 

@@ -3,9 +3,9 @@
  * 只记录玩家模式的最快通关时间
  */
 
-import { formatTimeMs } from '@utils/timeUtils.js'
+import { formatTimeMs } from "@utils/timeUtils.js"
 
-const PLAYER_BEST_KEY = 'ai-sandbox-player-best-ms'
+const PLAYER_BEST_KEY = "ai-sandbox-player-best-ms"
 
 export class PlayerBestStore {
 	private bestTime: number
@@ -29,7 +29,7 @@ export class PlayerBestStore {
 		try {
 			localStorage.setItem(PLAYER_BEST_KEY, time.toString())
 		} catch (_err) {
-			console.warn('[STORAGE]', 'Failed to save player best:', _err)
+			console.warn("[STORAGE]", "Failed to save player best:", _err)
 		}
 	}
 	
@@ -53,7 +53,7 @@ export class PlayerBestStore {
 	 * @returns mm:ss.mmm 格式，无记录返回 '--:--.---'
 	 */
 	getFormatted(): string {
-		if (this.bestTime === Infinity || this.bestTime <= 0) return '--:--.---'
+		if (this.bestTime === Infinity || this.bestTime <= 0) return "--:--.---"
 		return formatTimeMs(this.bestTime)
 	}
 	

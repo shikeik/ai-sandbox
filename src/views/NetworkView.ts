@@ -3,7 +3,7 @@
  * 上下布局：顶部信息栏 + 底部网络图
  */
 
-import { NeuralNetwork } from '@ai/NeuralNetwork.js'
+import { NeuralNetwork } from "@ai/NeuralNetwork.js"
 
 // ========== 绘图配置常量 ==========
 const CANVAS_MARGIN = {
@@ -32,21 +32,21 @@ const PREVIEW_HIGHLIGHT = {
 }
 
 const COLORS = {
-	WEIGHT_POSITIVE: '46, 204, 113',
-	WEIGHT_NEGATIVE: '231, 76, 60',
-	DELTA_POSITIVE: '0, 255, 136',
-	DELTA_NEGATIVE: '255, 85, 85',
-	NODE_ACTIVE: '#e74c3c',
-	NODE_INPUT_DEFAULT: '#95a5a6',
-	NODE_SELECTED: '#f39c12',
-	NODE_DEFAULT: '#34495e',
-	NODE_STROKE: '#ecf0f1',
-	TEXT_DEFAULT: '#fff'
+	WEIGHT_POSITIVE: "46, 204, 113",
+	WEIGHT_NEGATIVE: "231, 76, 60",
+	DELTA_POSITIVE: "0, 255, 136",
+	DELTA_NEGATIVE: "255, 85, 85",
+	NODE_ACTIVE: "#e74c3c",
+	NODE_INPUT_DEFAULT: "#95a5a6",
+	NODE_SELECTED: "#f39c12",
+	NODE_DEFAULT: "#34495e",
+	NODE_STROKE: "#ecf0f1",
+	TEXT_DEFAULT: "#fff"
 }
 
 const WEIGHT_TEXT_STYLE = {
-	COLOR: 'rgba(255,255,255,0.9)',
-	FONT: '10px monospace',
+	COLOR: "rgba(255,255,255,0.9)",
+	FONT: "10px monospace",
 	POSITION_RATIO: 0.65,
 	POSITION_STEP: 0.1
 }
@@ -81,13 +81,13 @@ export class NetworkView {
 		}
 		this.container = el
 		this.init()
-		console.log('[NETWORK_VIEW]', '网络视图初始化完成，常量配置已加载')
+		console.log("[NETWORK_VIEW]", "网络视图初始化完成，常量配置已加载")
 	}
 	
 	init(): void {
-		this.container.innerHTML = ''
+		this.container.innerHTML = ""
 		
-		this.infoBar = document.createElement('div')
+		this.infoBar = document.createElement("div")
 		this.infoBar.style.cssText = `
 			height: 24px;
 			display: flex;
@@ -101,7 +101,7 @@ export class NetworkView {
 		`
 		this.container.appendChild(this.infoBar)
 		
-		const canvasContainer = document.createElement('div')
+		const canvasContainer = document.createElement("div")
 		canvasContainer.style.cssText = `
 			position: relative;
 			flex: 1;
@@ -109,11 +109,11 @@ export class NetworkView {
 			width: 100%;
 			overflow: hidden;
 		`
-		this.container.style.display = 'flex'
-		this.container.style.flexDirection = 'column'
+		this.container.style.display = "flex"
+		this.container.style.flexDirection = "column"
 		this.container.appendChild(canvasContainer)
 		
-		this.canvas = document.createElement('canvas')
+		this.canvas = document.createElement("canvas")
 		this.canvas.style.cssText = `
 			position: absolute;
 			top: 0;
@@ -123,13 +123,13 @@ export class NetworkView {
 			display: block;
 		`
 		canvasContainer.appendChild(this.canvas)
-		this.ctx = this.canvas.getContext('2d')
+		this.ctx = this.canvas.getContext("2d")
 		
 		this.resizeObserver = new ResizeObserver(() => {
 			this.resize()
 		})
 		this.resizeObserver.observe(this.container)
-		console.log('[NETWORK_VIEW]', '画布元素创建完成，等待尺寸计算...')
+		console.log("[NETWORK_VIEW]", "画布元素创建完成，等待尺寸计算...")
 	}
 
 	resize(): void {
@@ -145,7 +145,7 @@ export class NetworkView {
 		}
 
 		if (!this.width || !this.height) {
-			console.log('[NETWORK_VIEW]', `初始化完成 | 画布尺寸=${w}x${h}`)
+			console.log("[NETWORK_VIEW]", `初始化完成 | 画布尺寸=${w}x${h}`)
 		}
 
 		this.canvas.width = w * window.devicePixelRatio
@@ -172,7 +172,7 @@ export class NetworkView {
 		}
 
 		if (inputs && inputs.some(v => v !== null)) {
-			console.log('[NETWORK_VIEW]', `渲染 | 输入=[${inputs.join(',')}] 动作=${action !== null ? action : 'null'} 预览=${isPreview} weightChanges=${weightChanges ? '有' : '无'}`)
+			console.log("[NETWORK_VIEW]", `渲染 | 输入=[${inputs.join(",")}] 动作=${action !== null ? action : "null"} 预览=${isPreview} weightChanges=${weightChanges ? "有" : "无"}`)
 		}
 
 		this.updateInfoBar(network, isPreview)
@@ -197,14 +197,14 @@ export class NetworkView {
 		const structure = network.getStructure()
 		const epsilon = network.getEpsilon()
 		const eps = (epsilon * 100).toFixed(0)
-		const exploring = network.isExploring ? ' <span style="color:#f39c12">🎲</span>' : ''
-		const previewTag = isPreview ? ' <span style="color:#3498db">[预览]</span>' : ''
+		const exploring = network.isExploring ? " <span style=\"color:#f39c12\">🎲</span>" : ""
+		const previewTag = isPreview ? " <span style=\"color:#3498db\">[预览]</span>" : ""
 		
-		const modeIcon = network.exploreMode === 'none' ? '⊘' : 
-			                  network.exploreMode === 'fixed' ? '🔒' : '⚡'
+		const modeIcon = network.exploreMode === "none" ? "⊘" : 
+			                  network.exploreMode === "fixed" ? "🔒" : "⚡"
 		
 		this.infoBar.innerHTML = `
-			<span>结构:${structure.layerSizes.join('-')}</span>
+			<span>结构:${structure.layerSizes.join("-")}</span>
 			<span>权重:${structure.totalWeights}</span>
 			<span style="color:rgba(255,255,255,0.6)">ε:${eps}%${exploring}${previewTag}</span>
 			<span style="color:#0f0" title="探索模式:${network.exploreMode}">${modeIcon}</span>
@@ -240,7 +240,7 @@ export class NetworkView {
 		_inputs: number[] | null, 
 		weightChanges: number[][][] | null = null
 	): void {
-		console.log('[NETWORK_VIEW]', `drawConnections | weightChanges=${weightChanges ? '有' : '无'} layers=${weights.length}`)
+		console.log("[NETWORK_VIEW]", `drawConnections | weightChanges=${weightChanges ? "有" : "无"} layers=${weights.length}`)
 		this._logWeightChanges(weightChanges)
 		
 		for (let l = 0; l < weights.length; l++) {
@@ -268,7 +268,7 @@ export class NetworkView {
 		if (!weightChanges) return
 		const flatChanges = weightChanges.flat(2)
 		const nonZeroCount = flatChanges.filter(c => Math.abs(c) > 0.0001).length
-		console.log('[NETWORK_VIEW]', `weightChanges详情 | 总数量=${flatChanges.length} 非零数量=${nonZeroCount}`)
+		console.log("[NETWORK_VIEW]", `weightChanges详情 | 总数量=${flatChanges.length} 非零数量=${nonZeroCount}`)
 	}
 
 	private _drawConnectionLine(ctx: CanvasRenderingContext2D, from: Position, to: Position, weight: number): void {
@@ -302,9 +302,9 @@ export class NetworkView {
 		if (Math.abs(delta) <= 0.0001) return
 		
 		const highlightWidth = LINE_STYLE.MAX_THICKNESS * PREVIEW_HIGHLIGHT.WIDTH_MULTIPLIER
-		const highlightColor = delta > 0 ? '#ffd700' : '#ff3366'
+		const highlightColor = delta > 0 ? "#ffd700" : "#ff3366"
 		
-		console.log('[NETWORK_VIEW]', `绘制高亮 | weight=${weight.toFixed(2)} delta=${delta.toFixed(4)} width=${highlightWidth} color=${highlightColor}`)
+		console.log("[NETWORK_VIEW]", `绘制高亮 | weight=${weight.toFixed(2)} delta=${delta.toFixed(4)} width=${highlightWidth} color=${highlightColor}`)
 		
 		ctx.beginPath()
 		ctx.moveTo(from.x, from.y)
@@ -321,7 +321,7 @@ export class NetworkView {
 		
 		ctx.fillStyle = WEIGHT_TEXT_STYLE.COLOR
 		ctx.font = WEIGHT_TEXT_STYLE.FONT
-		ctx.textAlign = 'center'
+		ctx.textAlign = "center"
 		ctx.fillText(weight.toFixed(1), textX, textY)
 	}
 
@@ -332,8 +332,8 @@ export class NetworkView {
 		action: number | null,
 		_isPreview: boolean = false
 	): void {
-		const actionNames = ['移动', '跳跃', '远跳']
-		console.log('[NETWORK_VIEW]', `绘制节点 | inputs=[${inputs?.join(',')}] action=${action} layers=${positions.length}`)
+		const actionNames = ["移动", "跳跃", "远跳"]
+		console.log("[NETWORK_VIEW]", `绘制节点 | inputs=[${inputs?.join(",")}] action=${action} layers=${positions.length}`)
 	
 		for (let l = 0; l < positions.length; l++) {
 			const layer = positions[l]
@@ -358,17 +358,17 @@ export class NetworkView {
 				}
 			
 				ctx.fill()
-				ctx.strokeStyle = '#ecf0f1'
+				ctx.strokeStyle = "#ecf0f1"
 				ctx.lineWidth = 2
 				ctx.stroke()
 			
-				ctx.fillStyle = '#fff'
-				ctx.font = '11px sans-serif'
-				ctx.textAlign = 'center'
-				ctx.textBaseline = 'middle'
+				ctx.fillStyle = "#fff"
+				ctx.font = "11px sans-serif"
+				ctx.textAlign = "center"
+				ctx.textBaseline = "middle"
 			
 				if (isInput) {
-					const labels = ['前一格', '前两格', '前三格', '前四格']
+					const labels = ["前一格", "前两格", "前三格", "前四格"]
 					ctx.fillText(labels[n] || `i${n}`, pos.x, pos.y)
 				} else if (isOutput) {
 					ctx.fillText(actionNames[n], pos.x, pos.y)
@@ -379,7 +379,7 @@ export class NetworkView {
 	
 	destroy(): void {
 		if (this.resizeObserver) this.resizeObserver.disconnect()
-		this.container.innerHTML = ''
+		this.container.innerHTML = ""
 	}
 }
 

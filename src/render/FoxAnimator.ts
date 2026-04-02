@@ -3,9 +3,9 @@
  * 负责根据玩家物理状态切换 CSS 动画类与 WAAPI 尾巴动画
  */
 
-import { CONFIG } from '@game/JumpGame.js'
+import { CONFIG } from "@game/JumpGame.js"
 
-export type FoxState = 'idle' | 'run' | 'jump-up' | 'jump-down' | 'land' | 'dead'
+export type FoxState = "idle" | "run" | "jump-up" | "jump-down" | "land" | "dead"
 
 export interface PlayerInfo {
 	x: number
@@ -18,7 +18,7 @@ export class FoxAnimator {
 	private foxContainer: HTMLElement | null = null
 	private foxTail: HTMLElement | null = null
 	private _tailAnimation: Animation | null = null
-	private _foxState: FoxState = 'idle'
+	private _foxState: FoxState = "idle"
 	private _foxLastY: number = 0
 	private _foxVelocity: number = 0
 	private _foxOnGround: boolean = true
@@ -28,11 +28,11 @@ export class FoxAnimator {
 	}
 
 	init(): void {
-		this.foxContainer = this.playerEl.querySelector('.fox-container')
-		this.foxTail = this.playerEl.querySelector('.fox-tail')
-		console.log('[RENDER]', 'FoxAnimator 初始化完成')
+		this.foxContainer = this.playerEl.querySelector(".fox-container")
+		this.foxTail = this.playerEl.querySelector(".fox-tail")
+		console.log("[RENDER]", "FoxAnimator 初始化完成")
 		requestAnimationFrame(() => {
-			this.startTailAnimation('idle')
+			this.startTailAnimation("idle")
 		})
 	}
 
@@ -53,37 +53,37 @@ export class FoxAnimator {
 		const groundY = CONFIG.toPx(CONFIG.GROUND_HEIGHT)
 		const onGround = Math.abs(currentY - groundY) < 5
 
-		let newState: FoxState = 'idle'
+		let newState: FoxState = "idle"
 
-		if (player.action === 'dead') {
-			newState = 'dead'
+		if (player.action === "dead") {
+			newState = "dead"
 		} else if (!onGround) {
 			if (this._foxVelocity > 0.5) {
-				newState = 'jump-down'
+				newState = "jump-down"
 			} else if (this._foxVelocity < -0.5) {
-				newState = 'jump-up'
+				newState = "jump-up"
 			} else {
-				newState = 'jump-up'
+				newState = "jump-up"
 			}
 		} else if (isMoving) {
-			newState = 'run'
+			newState = "run"
 		} else {
-			newState = 'idle'
+			newState = "idle"
 		}
 
-		if (!this._foxOnGround && onGround && this._foxState !== 'idle') {
-			newState = 'land'
+		if (!this._foxOnGround && onGround && this._foxState !== "idle") {
+			newState = "land"
 			setTimeout(() => {
 				if (this.foxContainer) {
-					this.foxContainer.classList.remove('state-land')
-					this.foxContainer.classList.add('state-idle')
-					this.startTailAnimation('idle')
+					this.foxContainer.classList.remove("state-land")
+					this.foxContainer.classList.add("state-idle")
+					this.startTailAnimation("idle")
 				}
 			}, 200)
 		}
 
 		if (newState !== this._foxState) {
-			console.log('[RENDER]', `狐狸动画切换 | ${this._foxState} → ${newState} | 速度=${this._foxVelocity.toFixed(2)} | 地面=${onGround}`)
+			console.log("[RENDER]", `狐狸动画切换 | ${this._foxState} → ${newState} | 速度=${this._foxVelocity.toFixed(2)} | 地面=${onGround}`)
 			this.foxContainer.classList.remove(`state-${this._foxState}`)
 			this.foxContainer.classList.add(`state-${newState}`)
 			this._foxState = newState
@@ -109,45 +109,45 @@ export class FoxAnimator {
 		let options: KeyframeAnimationOptions
 
 		switch(state) {
-			case 'run':
+			case "run":
 				keyframes = [
-					{ transform: 'rotate(-10deg)' },
-					{ transform: 'rotate(15deg)' },
-					{ transform: 'rotate(-10deg)' }
+					{ transform: "rotate(-10deg)" },
+					{ transform: "rotate(15deg)" },
+					{ transform: "rotate(-10deg)" }
 				]
 				options = { duration: 300, iterations: Infinity }
 				break
-			case 'jump-up':
+			case "jump-up":
 				keyframes = [
-					{ transform: 'rotate(-30deg) scaleX(0.9)' }
+					{ transform: "rotate(-30deg) scaleX(0.9)" }
 				]
-				options = { duration: 1000, fill: 'both' }
+				options = { duration: 1000, fill: "both" }
 				break
-			case 'jump-down':
+			case "jump-down":
 				keyframes = [
-					{ transform: 'rotate(20deg)' }
+					{ transform: "rotate(20deg)" }
 				]
-				options = { duration: 1000, fill: 'both' }
+				options = { duration: 1000, fill: "both" }
 				break
-			case 'land':
+			case "land":
 				keyframes = [
-					{ transform: 'rotate(-10deg)' }
+					{ transform: "rotate(-10deg)" }
 				]
-				options = { duration: 200, fill: 'forwards' }
+				options = { duration: 200, fill: "forwards" }
 				break
-			case 'dead':
+			case "dead":
 				return
-			case 'idle':
+			case "idle":
 			default:
 				keyframes = [
-					{ transform: 'rotate(-10deg)' },
-					{ transform: 'rotate(5deg)' },
-					{ transform: 'rotate(-10deg)' }
+					{ transform: "rotate(-10deg)" },
+					{ transform: "rotate(5deg)" },
+					{ transform: "rotate(-10deg)" }
 				]
 				options = { duration: 3000, iterations: Infinity }
 		}
 
-		console.log('[RENDER]', `尾巴动画启动 | state=${state}`)
+		console.log("[RENDER]", `尾巴动画启动 | state=${state}`)
 		this._tailAnimation = this.foxTail.animate(keyframes, options)
 	}
 
@@ -157,8 +157,8 @@ export class FoxAnimator {
 	 */
 	setState(state: FoxState): void {
 		if (!this.foxContainer) return
-		console.log('[RENDER]', `狐狸强制设态 | → ${state}`)
-		this.foxContainer.classList.remove('state-run', 'state-jump-up', 'state-jump-down', 'state-land')
+		console.log("[RENDER]", `狐狸强制设态 | → ${state}`)
+		this.foxContainer.classList.remove("state-run", "state-jump-up", "state-jump-down", "state-land")
 		this.foxContainer.classList.add(`state-${state}`)
 		this._foxState = state
 		this.startTailAnimation(state)
@@ -169,11 +169,11 @@ export class FoxAnimator {
 	 */
 	showDeath(): void {
 		if (!this.foxContainer) return
-		console.log('[RENDER]', '狐狸死亡动画')
-		this.foxContainer.classList.remove('state-idle', 'state-run', 'state-jump-up', 'state-jump-down', 'state-land')
-		this.foxContainer.classList.add('state-dead')
-		this._foxState = 'dead'
-		this.startTailAnimation('dead')
+		console.log("[RENDER]", "狐狸死亡动画")
+		this.foxContainer.classList.remove("state-idle", "state-run", "state-jump-up", "state-jump-down", "state-land")
+		this.foxContainer.classList.add("state-dead")
+		this._foxState = "dead"
+		this.startTailAnimation("dead")
 	}
 
 	/**
@@ -181,13 +181,13 @@ export class FoxAnimator {
 	 */
 	reset(): void {
 		if (!this.foxContainer) return
-		console.log('[RENDER]', '狐狸动画重置')
-		this.foxContainer.className = 'fox-container state-idle'
-		this._foxState = 'idle'
+		console.log("[RENDER]", "狐狸动画重置")
+		this.foxContainer.className = "fox-container state-idle"
+		this._foxState = "idle"
 		this._foxLastY = 0
 		this._foxVelocity = 0
 		this._foxOnGround = true
-		this.startTailAnimation('idle')
+		this.startTailAnimation("idle")
 	}
 }
 

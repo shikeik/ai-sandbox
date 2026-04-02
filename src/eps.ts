@@ -61,8 +61,8 @@ const EPS = {
 	isLandscape(): boolean { return window.innerWidth > window.innerHeight },
 
 	getHardwareInsets(): Insets {
-		const el = document.createElement('div')
-		el.style.cssText = 'position:fixed;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom);padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right);visibility:hidden;'
+		const el = document.createElement("div")
+		el.style.cssText = "position:fixed;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom);padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right);visibility:hidden;"
 		document.body.appendChild(el)
 		const s = getComputedStyle(el)
 		const res: Insets = {
@@ -103,10 +103,10 @@ const EPS = {
 		const availWidth = vv.width - insets.left - insets.right
 		const availHeight = vv.height - insets.top - insets.bottom
 
-		const container = document.getElementById('ep-container')
+		const container = document.getElementById("ep-container")
 		if (container) {
-			container.style.setProperty('--ep-avail-width', `${availWidth}px`)
-			container.style.setProperty('--ep-avail-height', `${availHeight}px`)
+			container.style.setProperty("--ep-avail-width", `${availWidth}px`)
+			container.style.setProperty("--ep-avail-height", `${availHeight}px`)
 		}
 
 		const isLandscape = this.isLandscape()
@@ -207,48 +207,48 @@ const EPS = {
 	dom: {
 		setPosition(el: HTMLElement | null, s: Position): void {
 			if (!el || !s) return
-			if ('x' in s && s.x !== undefined) el.style.left = s.x + 'px'
-			if ('y' in s && s.y !== undefined) el.style.bottom = s.y + 'px'
-			if ('left' in s && s.left !== undefined) el.style.left = s.left + 'px'
-			if ('bottom' in s && s.bottom !== undefined) el.style.bottom = s.bottom + 'px'
+			if ("x" in s && s.x !== undefined) el.style.left = s.x + "px"
+			if ("y" in s && s.y !== undefined) el.style.bottom = s.y + "px"
+			if ("left" in s && s.left !== undefined) el.style.left = s.left + "px"
+			if ("bottom" in s && s.bottom !== undefined) el.style.bottom = s.bottom + "px"
 		},
 
 		getPosition(el: HTMLElement | null): { left: number, bottom: number, width: number, height: number } | null {
 			if (!el) return null
 			const c = getComputedStyle(el)
-			const left = c.left === 'auto' ? 0 : parseFloat(c.left)
-			const bottom = c.bottom === 'auto' ? 0 : parseFloat(c.bottom)
+			const left = c.left === "auto" ? 0 : parseFloat(c.left)
+			const bottom = c.bottom === "auto" ? 0 : parseFloat(c.bottom)
 			return { left, bottom, width: el.offsetWidth, height: el.offsetHeight }
 		}
 	},
 
 	toggle(): void {
 		this._active = !this._active
-		const c = document.getElementById('ep-container')
-		if (c) c.classList.toggle('active', this._active)
+		const c = document.getElementById("ep-container")
+		if (c) c.classList.toggle("active", this._active)
 	},
 
 	async fullscreen(): Promise<void> {
 		try {
 			if (!document.fullscreenElement) {
 				await document.documentElement.requestFullscreen()
-				if (screen.orientation?.lock) await screen.orientation.lock('landscape').catch(() => {})
+				if (screen.orientation?.lock) await screen.orientation.lock("landscape").catch(() => {})
 			} else {
 				if (screen.orientation?.unlock) await screen.orientation.unlock()
 				await document.exitFullscreen()
 			}
 		} catch (e) {
-			console.error('[EPS]', '全屏错误:', (e as Error).message)
+			console.error("[EPS]", "全屏错误:", (e as Error).message)
 		}
 	},
 
 	init(): void {
-		window.addEventListener('resize', () => this.updateStatus())
+		window.addEventListener("resize", () => this.updateStatus())
 		if (window.visualViewport) {
-			window.visualViewport.addEventListener('resize', () => this.updateStatus())
+			window.visualViewport.addEventListener("resize", () => this.updateStatus())
 		}
 		let st: ReturnType<typeof setTimeout>
-		window.addEventListener('scroll', () => {
+		window.addEventListener("scroll", () => {
 			clearTimeout(st)
 			st = setTimeout(() => this.updateStatus(), 100)
 		}, { passive: true })
@@ -258,9 +258,9 @@ const EPS = {
 	updateStatus(): void {
 		const cvs = this.updateViewport()
 		const ins = this.getVisualInsets()
-		const mode = this.isLandscape() ? '横' : '竖'
-		const st = document.getElementById('eps-st')
-		if (st) st.textContent = `${mode} | ${cvs.width.toFixed(0)}×${cvs.height.toFixed(0)} | EPS:${this._active ? 'ON' : 'OFF'} | ↕${ins.top.toFixed(0)}`
+		const mode = this.isLandscape() ? "横" : "竖"
+		const st = document.getElementById("eps-st")
+		if (st) st.textContent = `${mode} | ${cvs.width.toFixed(0)}×${cvs.height.toFixed(0)} | EPS:${this._active ? "ON" : "OFF"} | ↕${ins.top.toFixed(0)}`
 	}
 }
 

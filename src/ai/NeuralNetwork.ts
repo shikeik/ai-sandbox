@@ -3,7 +3,7 @@
  * 支持动态层结构，未来可扩展隐藏层
  */
 
-export type ExploreMode = 'none' | 'fixed' | 'dynamic'
+export type ExploreMode = "none" | "fixed" | "dynamic"
 
 export interface NeuralNetworkConfig {
 	layerSizes?: number[]
@@ -52,7 +52,7 @@ export class NeuralNetwork {
 		this.layerSizes = config.layerSizes || [4, 3]
 		this.learningRate = config.learningRate || 0.2
 		this.weightClip = config.weightClip || 5
-		this.exploreMode = config.exploreMode || 'none'
+		this.exploreMode = config.exploreMode || "none"
 		this.fixedEpsilon = config.fixedEpsilon || 0.5
 		this.epsilon = config.epsilon || 0.3
 
@@ -124,9 +124,9 @@ export class NeuralNetwork {
 		}
 	
 		if (this.isExploring && this.lastAction !== result.action) {
-			console.log('[AI]', `探索冲突修复 | 贪心=${result.action} → 随机=${this.lastAction} | 输入=[${inputs.join(',')}]`)
+			console.log("[AI]", `探索冲突修复 | 贪心=${result.action} → 随机=${this.lastAction} | 输入=[${inputs.join(",")}]`)
 		}
-		console.log('[AI]', `决策 | 输入=[${inputs.join(',')}] 得分=[${result.scores.map(s => s.toFixed(2)).join(',')}] 动作=${this.lastAction} 探索=${this.isExploring} 模式=${this.exploreMode} ε=${this.getEpsilon().toFixed(2)}`)
+		console.log("[AI]", `决策 | 输入=[${inputs.join(",")}] 得分=[${result.scores.map(s => s.toFixed(2)).join(",")}] 动作=${this.lastAction} 探索=${this.isExploring} 模式=${this.exploreMode} ε=${this.getEpsilon().toFixed(2)}`)
 		return this.lastAction
 	}
 
@@ -136,11 +136,11 @@ export class NeuralNetwork {
 	 */
 	getEpsilon(): number {
 		switch (this.exploreMode) {
-			case 'none':
+			case "none":
 				return 0
-			case 'fixed':
+			case "fixed":
 				return this.fixedEpsilon
-			case 'dynamic':
+			case "dynamic":
 				return this.epsilon
 			default:
 				return 0
@@ -156,9 +156,9 @@ export class NeuralNetwork {
 	 */
 	previewTrain(reward: number, action: number, state: number[] | null = null): PreviewTrainResult {
 		const inputState = state || this.lastState
-		console.log('[AI]', `previewTrain called | reward=${reward} action=${action} inputState=[${inputState?.join(',')}]`)
+		console.log("[AI]", `previewTrain called | reward=${reward} action=${action} inputState=[${inputState?.join(",")}]`)
 		if (!inputState) {
-			console.log('[AI]', 'previewTrain aborted | no input state')
+			console.log("[AI]", "previewTrain aborted | no input state")
 			return { changes: null, newWeights: null }
 		}
 
@@ -202,7 +202,7 @@ export class NeuralNetwork {
 		}
 		
 		const totalChange = layerChanges.flat().reduce((a, b) => a + Math.abs(b), 0)
-		console.log('[AI]', `previewTrain result | changes=[${layerChanges.map(r => r.map(v => v.toFixed(3)).join(',')).join(' | ')}] totalAbsChange=${totalChange.toFixed(4)}`)
+		console.log("[AI]", `previewTrain result | changes=[${layerChanges.map(r => r.map(v => v.toFixed(3)).join(",")).join(" | ")}] totalAbsChange=${totalChange.toFixed(4)}`)
 		
 		return { 
 			changes: [layerChanges], 
@@ -226,7 +226,7 @@ export class NeuralNetwork {
 		this.lastWeightChanges = changes
 		
 		const layerChanges = changes[0]
-		console.log('[AI]', `训练 | 奖励=${reward.toFixed(3)} 动作=${action} 权重变化=[${layerChanges.map(r => r.map(v => v.toFixed(2)).join(',')).join(' | ')}]`)
+		console.log("[AI]", `训练 | 奖励=${reward.toFixed(3)} 动作=${action} 权重变化=[${layerChanges.map(r => r.map(v => v.toFixed(2)).join(",")).join(" | ")}]`)
 	}
 	
 	/**

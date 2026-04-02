@@ -1,10 +1,10 @@
-import { CONFIG, TERRAIN } from './JumpGame.js'
-import { SeededRandom } from '@utils/SeededRandom.js'
+import { CONFIG, TERRAIN } from "./JumpGame.js"
+import { SeededRandom } from "@utils/SeededRandom.js"
 
 /**
  * 地形元素类型
  */
-export type TerrainElement = 'ground' | 'singlePit' | 'doublePit'
+export type TerrainElement = "ground" | "singlePit" | "doublePit"
 
 /**
  * 地形权重配置
@@ -84,9 +84,9 @@ export class TerrainGenerator {
 
 	// 元素ID常量
 	static readonly ELEMENTS = {
-		GROUND: 'ground',
-		SINGLE_PIT: 'singlePit',
-		DOUBLE_PIT: 'doublePit'
+		GROUND: "ground",
+		SINGLE_PIT: "singlePit",
+		DOUBLE_PIT: "doublePit"
 	} as const
 
 	/**
@@ -107,11 +107,11 @@ export class TerrainGenerator {
 		const totalWeight = Object.values(effectiveWeights).reduce((a, b) => a + b, 0)
 		
 		if (totalWeight === 0) {
-			console.warn('[TERRAIN]', '所有元素权重为0，使用默认配置')
+			console.warn("[TERRAIN]", "所有元素权重为0，使用默认配置")
 			effectiveWeights.ground = 1
 		}
 
-		console.log('[TERRAIN]', `开始生成地形 | 种子=${seed} 权重=`, effectiveWeights)
+		console.log("[TERRAIN]", `开始生成地形 | 种子=${seed} 权重=`, effectiveWeights)
 
 		const terrain: { type: string, startGrid: number, length: number }[] = []
 		let currentGrid = 0
@@ -167,7 +167,7 @@ export class TerrainGenerator {
 		const finalLen = Math.max(CONFIG.WORLD_LENGTH + 5 - currentGrid, 1)
 		terrain.push({ type: TERRAIN.GROUND, startGrid: currentGrid, length: finalLen })
 
-		console.log('[TERRAIN]', `地形生成完成 | 种子=${seed} 统计=`, stats)
+		console.log("[TERRAIN]", `地形生成完成 | 种子=${seed} 统计=`, stats)
 
 		return {
 			terrain: this._toPxFormat(terrain),

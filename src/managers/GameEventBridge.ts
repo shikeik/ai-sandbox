@@ -3,12 +3,12 @@
  * 桥接游戏核心事件与 UI/AI/渲染器的回调
  */
 
-import { AI_CONFIG, AIController } from '@ai/AIController.js'
-import { CONFIG, ACTION, JumpGame, PlayerState, CameraState, ActionType } from '@game/JumpGame.js'
-import { GameRenderer } from '@render/GameRenderer.js'
-import { TransitionManager } from '@render/TransitionManager.js'
-import { UIManager } from './UIManager.js'
-import { NeuralNetwork } from '@ai/NeuralNetwork.js'
+import { AI_CONFIG, AIController } from "@ai/AIController.js"
+import { CONFIG, ACTION, JumpGame, PlayerState, CameraState, ActionType } from "@game/JumpGame.js"
+import { GameRenderer } from "@render/GameRenderer.js"
+import { TransitionManager } from "@render/TransitionManager.js"
+import { UIManager } from "./UIManager.js"
+import { NeuralNetwork } from "@ai/NeuralNetwork.js"
 
 interface Position {
 	x: number
@@ -57,16 +57,16 @@ export class GameEventBridge {
 	}
 
 	bind(): void {
-		console.log('[EVENT_BRIDGE]', '开始绑定游戏事件桥接...')
+		console.log("[EVENT_BRIDGE]", "开始绑定游戏事件桥接...")
 
 		this.game.onStateChange = (player: PlayerState, _camera: CameraState) => {
-			const posDisplay = document.getElementById('pos-display')
+			const posDisplay = document.getElementById("pos-display")
 			if (posDisplay) posDisplay.textContent = String(player.grid)
 		}
 
 		this.game.onActionStart = (action: ActionType, from: Position, to: Position, isJump: boolean, result: string) => {
-			console.log('[EVENT_BRIDGE]', `onActionStart | action=${action} isJump=${isJump} result=${result}`)
-			console.log('[EVENT_BRIDGE]', `ACTION常量 | RIGHT=${ACTION.RIGHT} JUMP=${ACTION.JUMP} LONG_JUMP=${ACTION.LONG_JUMP}`)
+			console.log("[EVENT_BRIDGE]", `onActionStart | action=${action} isJump=${isJump} result=${result}`)
+			console.log("[EVENT_BRIDGE]", `ACTION常量 | RIGHT=${ACTION.RIGHT} JUMP=${ACTION.JUMP} LONG_JUMP=${ACTION.LONG_JUMP}`)
 			let duration = isJump ? CONFIG.JUMP_DURATION : CONFIG.MOVE_DURATION
 
 			if (this.aiController.isAIMode && this.aiController.aiSpeed === AI_CONFIG.SPEEDS.MAX) {
@@ -83,9 +83,9 @@ export class GameEventBridge {
 				else if (action === ACTION.LONG_JUMP) actionIdx = 2
 				this.network.lastAction = actionIdx
 
-				if (result === 'death') {
+				if (result === "death") {
 					this.network.train(AI_CONFIG.DEATH_REWARD, actionIdx)
-				} else if (result === 'win') {
+				} else if (result === "win") {
 					this.network.train(AI_CONFIG.WIN_REWARD, actionIdx)
 				} else {
 					this.network.train(AI_CONFIG.STEP_REWARD, actionIdx)
@@ -132,25 +132,25 @@ export class GameEventBridge {
 
 		this.game.onDeath = () => {
 			this.renderer.showDeath()
-			this.aiController.recordResult('death')
+			this.aiController.recordResult("death")
 			if (!this.aiController.isAIMode) this.stopTimerUpdate()
 		}
 
 		this.game.onWin = () => {
 			this.renderer.showWin()
-			this.aiController.recordResult('win')
+			this.aiController.recordResult("win")
 
 			if (!this.aiController.isAITrainMode && !this.aiController.isAIMode) {
 				this.stopTimerUpdate()
 				const elapsed = this.game.getElapsedTime()
 				// Note: playerBestStore is accessed through uiManager in the original
 				// We need to check if this works correctly
-				console.log('[RECORD]', '游戏胜利', elapsed)
+				console.log("[RECORD]", "游戏胜利", elapsed)
 				this.uiManager.updateGameInfo()
 			}
 		}
 
-		console.log('[EVENT_BRIDGE]', '游戏事件桥接完成 | 绑定6个回调')
+		console.log("[EVENT_BRIDGE]", "游戏事件桥接完成 | 绑定6个回调")
 	}
 }
 

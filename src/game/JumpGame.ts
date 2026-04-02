@@ -18,8 +18,8 @@
  * game.getStateForAI() -> { playerGrid, terrainAhead[], isMoving }
  */
 
-import { formatTime as formatTimeUtil } from '@utils/timeUtils.js'
-import { TerrainGenerator, TerrainWeights, TerrainEnabled } from './TerrainGenerator.js'
+import { formatTime as formatTimeUtil } from "@utils/timeUtils.js"
+import { TerrainGenerator, TerrainWeights, TerrainEnabled } from "./TerrainGenerator.js"
 
 // ========== 游戏常量 ==========
 export const CONFIG = {
@@ -42,28 +42,28 @@ export const CONFIG = {
 
 // 动作类型
 export const ACTION = {
-	RIGHT: 'right',
-	JUMP: 'jump',
-	LONG_JUMP: 'longJump'
+	RIGHT: "right",
+	JUMP: "jump",
+	LONG_JUMP: "longJump"
 } as const
 
 export type ActionType = typeof ACTION[keyof typeof ACTION]
 
 // 游戏生命周期状态
 export const GAME_STATUS = {
-	READY: 'ready',
-	RUNNING: 'running',
-	TRANSITIONING: 'transitioning',
-	FINISHED: 'finished'
+	READY: "ready",
+	RUNNING: "running",
+	TRANSITIONING: "transitioning",
+	FINISHED: "finished"
 } as const
 
 export type GameStatusType = typeof GAME_STATUS[keyof typeof GAME_STATUS]
 
 // 人物动作状态
 export const PLAYER_ACTION = {
-	IDLE: 'idle',
-	MOVING: 'moving',
-	JUMPING: 'jumping'
+	IDLE: "idle",
+	MOVING: "moving",
+	JUMPING: "jumping"
 } as const
 
 export type PlayerActionType = typeof PLAYER_ACTION[keyof typeof PLAYER_ACTION]
@@ -75,14 +75,14 @@ export const STATUS = {
 	TRANSITIONING: GAME_STATUS.TRANSITIONING,
 	IDLE: PLAYER_ACTION.IDLE,
 	MOVING: PLAYER_ACTION.MOVING,
-	DEAD: 'dead',
-	WON: 'won'
+	DEAD: "dead",
+	WON: "won"
 } as const
 
 // 地形类型
 export const TERRAIN = {
-	GROUND: 'ground',
-	PIT: 'pit'
+	GROUND: "ground",
+	PIT: "pit"
 } as const
 
 export type TerrainType = typeof TERRAIN[keyof typeof TERRAIN]
@@ -248,7 +248,7 @@ export class JumpGame {
 		const fromX = this.player.x
 		const fromY = this.player.y
 		const isJump = action === ACTION.JUMP || action === ACTION.LONG_JUMP
-		console.log('[GAME]', `execute debug | action=${action} isJump=${isJump}`)
+		console.log("[GAME]", `execute debug | action=${action} isJump=${isJump}`)
 
 		let targetX: number
 		if (action === ACTION.RIGHT) {
@@ -258,10 +258,10 @@ export class JumpGame {
 		} else if (action === ACTION.LONG_JUMP) {
 			targetX = fromX + CONFIG.toPx(3)
 		} else {
-			console.log('[GAME]', `execute rejected | unknown action=${action}`)
+			console.log("[GAME]", `execute rejected | unknown action=${action}`)
 			return null
 		}
-		console.log('[GAME]', `execute target | targetX=${targetX} fromX=${fromX}`)
+		console.log("[GAME]", `execute target | targetX=${targetX} fromX=${fromX}`)
 
 		this.player.x = targetX
 		this.player.y = CONFIG.toPx(CONFIG.GROUND_HEIGHT)
@@ -275,7 +275,7 @@ export class JumpGame {
 		this._checkResult(targetX)
 
 		if (this.onActionStart) {
-			const result = this._pendingDeath ? 'death' : (this._pendingWin ? 'win' : 'alive')
+			const result = this._pendingDeath ? "death" : (this._pendingWin ? "win" : "alive")
 			this.onActionStart(action, { x: fromX, y: fromY }, { x: targetX, y: CONFIG.toPx(CONFIG.GROUND_HEIGHT) }, isJump, result)
 		}
 
@@ -342,11 +342,11 @@ export class JumpGame {
 		}
 	}
 	
-	private _triggerFinish(type: 'death' | 'win', onEvent: (() => void) | null): void {
-		const pendingKey = type === 'death' ? '_pendingDeath' : '_pendingWin'
+	private _triggerFinish(type: "death" | "win", onEvent: (() => void) | null): void {
+		const pendingKey = type === "death" ? "_pendingDeath" : "_pendingWin"
 		const self = this as unknown as Record<string, boolean>
 		if (!self[pendingKey]) return
-		console.log('[GAME]', `触发结束 | type=${type} | 格子=${this.player.grid}`)
+		console.log("[GAME]", `触发结束 | type=${type} | 格子=${this.player.grid}`)
 		self[pendingKey] = false
 
 		this.gameStatus = GAME_STATUS.FINISHED
@@ -366,16 +366,16 @@ export class JumpGame {
 	}
 
 	triggerDeath(): void {
-		this._triggerFinish('death', this.onDeath)
+		this._triggerFinish("death", this.onDeath)
 	}
 
 	triggerWin(): void {
-		this._triggerFinish('win', this.onWin)
+		this._triggerFinish("win", this.onWin)
 	}
 
 	private _executeRespawn(): void {
 		this.generation++
-		console.log('[GAME]', `转场中点: 重生 | 新世代=${this.generation}`)
+		console.log("[GAME]", `转场中点: 重生 | 新世代=${this.generation}`)
 		this.init()
 		this.gameStatus = GAME_STATUS.TRANSITIONING
 
@@ -385,7 +385,7 @@ export class JumpGame {
 	}
 
 	private _onRespawnComplete(): void {
-		console.log('[GAME]', '转场结束: 开始新一局')
+		console.log("[GAME]", "转场结束: 开始新一局")
 		if (this.onTransitionEnd) {
 			this.onTransitionEnd()
 		}
@@ -422,12 +422,12 @@ export class JumpGame {
 
 	setTerrainConfig(config: Partial<TerrainConfig>): void {
 		Object.assign(this.terrainConfig, config)
-		console.log('[GAME]', `地形配置更新 | 锁定=${this.terrainConfig.isSeedLocked} 种子=${this.terrainConfig.seed}`)
+		console.log("[GAME]", `地形配置更新 | 锁定=${this.terrainConfig.isSeedLocked} 种子=${this.terrainConfig.seed}`)
 	}
 
 	randomizeSeed(): void {
 		this.terrainConfig.seed = Date.now()
-		console.log('[GAME]', `随机生成种子 | ${this.terrainConfig.seed}`)
+		console.log("[GAME]", `随机生成种子 | ${this.terrainConfig.seed}`)
 	}
 
 	// ========== 碰撞检测 ==========

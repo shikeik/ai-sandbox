@@ -3,8 +3,8 @@
  * 负责将游戏状态渲染到 DOM，处理补间动画
  */
 
-import { CONFIG, TERRAIN, PlayerState, CameraState, TerrainSegment } from '@game/JumpGame.js'
-import { FoxAnimator } from './FoxAnimator.js'
+import { CONFIG, TERRAIN, PlayerState, CameraState, TerrainSegment } from "@game/JumpGame.js"
+import { FoxAnimator } from "./FoxAnimator.js"
 
 export interface TweenOptions {
 	fromX: number
@@ -126,9 +126,9 @@ export class GameRenderer {
 			throw new Error(`GameRenderer: 找不到元素 #${containerId}`)
 		}
 		this.container = el
-		this.posDisplay = document.getElementById('pos-display')
-		this.genDisplay = document.getElementById('gen-display')
-		this.statusText = document.getElementById('status-text')
+		this.posDisplay = document.getElementById("pos-display")
+		this.genDisplay = document.getElementById("gen-display")
+		this.statusText = document.getElementById("status-text")
 	}
 	
 	setGame(game: GameLike): void {
@@ -139,10 +139,10 @@ export class GameRenderer {
 	 * 初始化世界渲染
 	 */
 	initWorld(terrain: TerrainSegment[]): void {
-		this.container.innerHTML = ''
+		this.container.innerHTML = ""
 	
-		this.worldEl = document.createElement('div')
-		this.worldEl.className = 'world-content'
+		this.worldEl = document.createElement("div")
+		this.worldEl.className = "world-content"
 	
 		this._renderGridLines()
 	
@@ -172,13 +172,13 @@ export class GameRenderer {
 	 */
 	private _createClouds(): void {
 		const cloudPositions = [
-			{ className: 'cloud cloud-1', delay: '0s' },
-			{ className: 'cloud cloud-2', delay: '-8s' },
-			{ className: 'cloud cloud-3', delay: '-15s' }
+			{ className: "cloud cloud-1", delay: "0s" },
+			{ className: "cloud cloud-2", delay: "-8s" },
+			{ className: "cloud cloud-3", delay: "-15s" }
 		]
 	
 		cloudPositions.forEach((cloud, index) => {
-			const el = document.createElement('div')
+			const el = document.createElement("div")
 			el.className = cloud.className
 			el.style.left = `${-100 - index * 50}px`
 			this.container.appendChild(el)
@@ -207,7 +207,7 @@ export class GameRenderer {
 				this.visual.x = x
 				this.visual.y = y
 				this._updatePlayerVisual(x, y)
-				this.foxAnimator.update({ x, y, action: 'moving' }, !isJump, isJump)
+				this.foxAnimator.update({ x, y, action: "moving" }, !isJump, isJump)
 				if (this.game) {
 					this.game.updateCamera(x)
 					this.updateCamera(this.game.camera)
@@ -215,8 +215,8 @@ export class GameRenderer {
 			},
 			onComplete: () => {
 				this.currentTween = null
-				console.log('[RENDER]', 'Tween完成: 狐狸恢复待机')
-				this.foxAnimator.setState('idle')
+				console.log("[RENDER]", "Tween完成: 狐狸恢复待机")
+				this.foxAnimator.setState("idle")
 				if (this.game) {
 					this.game.notifyVisualComplete()
 				}
@@ -269,14 +269,14 @@ export class GameRenderer {
 	 */
 	showDeath(): void {
 		this.foxAnimator.showDeath()
-		this._showStatus('💀', 'dead')
+		this._showStatus("💀", "dead")
 	}
 	
 	/**
 	 * 显示胜利动画
 	 */
 	showWin(): void {
-		this._showStatus('🏆', 'win')
+		this._showStatus("🏆", "win")
 	}
 	
 	/**
@@ -303,20 +303,20 @@ export class GameRenderer {
 	
 	private _renderGridLines(): void {
 		if (!this.worldEl) return
-		const gridOverlay = document.createElement('div')
-		gridOverlay.className = 'world-grid'
+		const gridOverlay = document.createElement("div")
+		gridOverlay.className = "world-grid"
 	
 		for (let i = 0; i <= CONFIG.WORLD_LENGTH; i++) {
 			const x = CONFIG.toPx(i)
 		
-			const line = document.createElement('div')
-			line.className = 'grid-vline'
+			const line = document.createElement("div")
+			line.className = "grid-vline"
 			line.style.left = `${x}px`
 			gridOverlay.appendChild(line)
 		
 			if (i % 5 === 0) {
-				const label = document.createElement('div')
-				label.className = 'grid-label'
+				const label = document.createElement("div")
+				label.className = "grid-label"
 				label.style.left = `${x}px`
 				label.style.bottom = `${CONFIG.toPx(CONFIG.GROUND_HEIGHT + 1)}px`
 				label.textContent = String(i)
@@ -329,8 +329,8 @@ export class GameRenderer {
 	
 	private _createGround(startX: number, width: number): void {
 		if (!this.worldEl) return
-		const el = document.createElement('div')
-		el.className = 'ground'
+		const el = document.createElement("div")
+		el.className = "ground"
 		el.style.left = `${startX}px`
 		el.style.width = `${width}px`
 		el.style.height = `${CONFIG.toPx(CONFIG.GROUND_HEIGHT)}px`
@@ -339,8 +339,8 @@ export class GameRenderer {
 	
 	private _createPit(startX: number): void {
 		if (!this.worldEl) return
-		const el = document.createElement('div')
-		el.className = 'pit-zone'
+		const el = document.createElement("div")
+		el.className = "pit-zone"
 		el.style.left = `${startX}px`
 		el.style.width = `${CONFIG.GRID_SIZE}px`
 		el.style.height = `${CONFIG.toPx(0.2)}px`
@@ -349,8 +349,8 @@ export class GameRenderer {
 	
 	private _createGoal(): void {
 		if (!this.worldEl) return
-		const el = document.createElement('div')
-		el.className = 'goal'
+		const el = document.createElement("div")
+		el.className = "goal"
 		el.style.left = `${CONFIG.toPx(CONFIG.WORLD_LENGTH - 1)}px`
 		el.style.bottom = `${CONFIG.toPx(CONFIG.GROUND_HEIGHT)}px`
 		const goalWidth = CONFIG.toPx(CONFIG.GOAL_SIZE)
@@ -390,8 +390,8 @@ export class GameRenderer {
 	
 	private _createPlayer(): void {
 		if (!this.worldEl) return
-		this.playerEl = document.createElement('div')
-		this.playerEl.id = 'player'
+		this.playerEl = document.createElement("div")
+		this.playerEl.id = "player"
 		const playerSize = CONFIG.toPx(CONFIG.PLAYER_SIZE)
 		this.playerEl.style.width = `${playerSize}px`
 		this.playerEl.style.height = `${playerSize}px`
@@ -416,7 +416,7 @@ export class GameRenderer {
 	
 		this.foxAnimator = new FoxAnimator(this.playerEl)
 		this.foxAnimator.init()
-		console.log('[RENDER]', 'GameRenderer: 世界与玩家初始化完成')
+		console.log("[RENDER]", "GameRenderer: 世界与玩家初始化完成")
 	}
 	
 	private _showStatus(emoji: string, type: string): void {
@@ -428,7 +428,7 @@ export class GameRenderer {
 	
 	private _hideStatus(): void {
 		if (this.statusText) {
-			this.statusText.className = ''
+			this.statusText.className = ""
 		}
 	}
 }
