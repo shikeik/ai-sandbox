@@ -59,7 +59,7 @@ export class GameEventBridge {
 	bind(): void {
 		console.log('[EVENT_BRIDGE]', '开始绑定游戏事件桥接...')
 
-		this.game.onStateChange = (player: PlayerState, camera: CameraState) => {
+		this.game.onStateChange = (player: PlayerState, _camera: CameraState) => {
 			const posDisplay = document.getElementById('pos-display')
 			if (posDisplay) posDisplay.textContent = String(player.grid)
 		}

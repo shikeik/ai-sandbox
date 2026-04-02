@@ -20,7 +20,7 @@ export class PlayerBestStore {
 			if (!stored) return Infinity
 			const value = parseInt(stored, 10)
 			return value > 0 ? value : Infinity
-		} catch (e) {
+		} catch (_err) {
 			return Infinity
 		}
 	}
@@ -28,8 +28,8 @@ export class PlayerBestStore {
 	private save(time: number): void {
 		try {
 			localStorage.setItem(PLAYER_BEST_KEY, time.toString())
-		} catch (e) {
-			console.warn('[STORAGE]', 'Failed to save player best:', e)
+		} catch (_err) {
+			console.warn('[STORAGE]', 'Failed to save player best:', _err)
 		}
 	}
 	

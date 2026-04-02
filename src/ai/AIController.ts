@@ -152,7 +152,7 @@ export class AIController {
 		}
 	}
 
-	recordResult(finalStatus: 'death' | 'win'): void {
+	recordResult(_finalStatus: 'death' | 'win'): void {
 		const player = this.game.getState().player
 		const steps = player.grid
 

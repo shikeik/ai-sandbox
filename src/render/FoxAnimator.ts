@@ -42,7 +42,7 @@ export class FoxAnimator {
 	 * @param isMoving - 是否正在地面移动
 	 * @param isJump - 是否正在跳跃
 	 */
-	update(player: PlayerInfo, isMoving: boolean, isJump: boolean): void {
+	update(player: PlayerInfo, isMoving: boolean, _isJump: boolean): void {
 		if (!this.foxContainer) return
 
 		const currentY = player.y
