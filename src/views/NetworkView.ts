@@ -184,7 +184,6 @@ export class NetworkView {
 	
 		ctx.clearRect(0, 0, w, h)
 	
-		const structure = network.getStructure()
 		const layers = network.layerSizes
 		const weights = network.weights
 	
@@ -195,7 +194,6 @@ export class NetworkView {
 	
 	updateInfoBar(network: NeuralNetwork, isPreview: boolean = false): void {
 		if (!this.infoBar) return
-		
 		const structure = network.getStructure()
 		const epsilon = network.getEpsilon()
 		const eps = (epsilon * 100).toFixed(0)
@@ -239,7 +237,7 @@ export class NetworkView {
 		ctx: CanvasRenderingContext2D, 
 		positions: Position[][], 
 		weights: number[][][], 
-		inputs: number[] | null, 
+		_inputs: number[] | null, 
 		weightChanges: number[][][] | null = null
 	): void {
 		console.log('[NETWORK_VIEW]', `drawConnections | weightChanges=${weightChanges ? '有' : '无'} layers=${weights.length}`)
@@ -332,7 +330,7 @@ export class NetworkView {
 		positions: Position[][], 
 		inputs: number[] | null, 
 		action: number | null,
-		isPreview: boolean = false
+		_isPreview: boolean = false
 	): void {
 		const actionNames = ['移动', '跳跃', '远跳']
 		console.log('[NETWORK_VIEW]', `绘制节点 | inputs=[${inputs?.join(',')}] action=${action} layers=${positions.length}`)

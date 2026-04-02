@@ -17,7 +17,7 @@ export class InputManager {
 	private game: JumpGame
 	private aiController: AIController
 	private EPS: { updateViewport: () => void }
-	private onRenderView: (inputs: number[], action: number | null) => void
+	onRenderView: (inputs: number[], action: number | null) => void
 
 	constructor({ game, aiController, EPS, onRenderView }: InputManagerOptions) {
 		this.game = game

@@ -103,7 +103,7 @@ class Tween {
 }
 
 interface GameLike {
-	_updateCamera(x: number): void
+	updateCamera(x: number): void
 	camera: CameraState
 	notifyVisualComplete(): void
 }
@@ -209,7 +209,7 @@ export class GameRenderer {
 				this._updatePlayerVisual(x, y)
 				this.foxAnimator.update({ x, y, action: 'moving' }, !isJump, isJump)
 				if (this.game) {
-					this.game._updateCamera(x)
+					this.game.updateCamera(x)
 					this.updateCamera(this.game.camera)
 				}
 			},

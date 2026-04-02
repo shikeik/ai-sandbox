@@ -3,8 +3,8 @@
  * 封装所有 AI 决策、训练循环、速度控制与结果记录逻辑
  */
 
-import { ACTION, GAME_STATUS, PLAYER_ACTION, JumpGame, GameStatusType, PlayerActionType, ActionType } from '@game/JumpGame.js'
-import { NeuralNetwork, ExploreMode } from './NeuralNetwork.js'
+import { ACTION, GAME_STATUS, PLAYER_ACTION, JumpGame, ActionType } from '@game/JumpGame.js'
+import { NeuralNetwork } from './NeuralNetwork.js'
 
 export type SpeedType = 'step' | number
 

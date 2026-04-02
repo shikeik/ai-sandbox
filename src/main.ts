@@ -3,7 +3,7 @@
  * 连接游戏逻辑、渲染、AI控制和视图
  */
 
-import { JumpGame, ACTION, GAME_STATUS, CONFIG } from '@game/JumpGame.js'
+import { JumpGame, ACTION } from '@game/JumpGame.js'
 import { GameRenderer } from '@render/GameRenderer.js'
 import { TransitionManager } from '@render/TransitionManager.js'
 import { NeuralNetwork } from '@ai/NeuralNetwork.js'
@@ -82,11 +82,11 @@ function init(): void {
 
 	// 设置模式切换回调
 	viewManager.onModeChange = (mode) => {
-		aiController!.setMode(mode)
+		aiController!.setMode(mode as 'player' | 'ai' | 'train')
 		uiManager!.updateControlsUI()
 	}
 
-	viewManager.onViewChange = (viewName) => {
+	viewManager.onViewChange = (_viewName: string) => {
 		const state = game!.getStateForAI()
 		const inputs = [
 			state.terrainAhead[0] === 'pit' ? 1 : 0,
@@ -110,7 +110,7 @@ function init(): void {
 
 	// 设置探索模式切换回调
 	viewManager.onExploreModeChange = (mode) => {
-		network!.exploreMode = mode
+		network!.exploreMode = mode as 'none' | 'fixed' | 'dynamic'
 		const epsilon = network!.getEpsilon()
 		console.log('[MAIN]', `探索模式切换 | 新模式=${mode} | ε=${epsilon.toFixed(2)}`)
 	}
@@ -264,9 +264,15 @@ function bindToolbarButtons(): void {
 document.addEventListener('DOMContentLoaded', init)
 
 // ========== Vite 热更新 ==========
-if (import.meta.hot) {
-	import.meta.hot.accept()
-	import.meta.hot.dispose(() => {
+interface HotModule {
+	accept: () => void
+	dispose: (cb: () => void) => void
+}
+
+const hotModule = (import.meta as unknown as { hot?: HotModule }).hot
+if (hotModule) {
+	hotModule.accept()
+	hotModule.dispose(() => {
 		console.log('[HMR]', '热更新：清理实例')
 		if (aiController) aiController.stop()
 		stopTimerUpdate()

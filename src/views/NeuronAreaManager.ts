@@ -78,13 +78,14 @@ export class NeuronAreaManager {
 	private weightSliders: Record<string, HTMLInputElement> = {}
 	private weightToggles: Record<string, HTMLInputElement> = {}
 
-	onModeChange?: (mode: string) => void
+	onModeChange?: (mode: 'player' | 'ai' | 'train') => void
 	onSpeedChange?: (speed: string) => void
-	onExploreModeChange?: (mode: string) => void
+	onExploreModeChange?: (mode: 'none' | 'fixed' | 'dynamic') => void
 	onSeedLockChange?: (isLocked: boolean) => void
 	onSeedChange?: (seed: number) => void
 	onWeightChange?: (key: string, value: number) => void
 	onElementToggle?: (key: string, enabled: boolean) => void
+	onViewChange?: (viewName: string) => void
 
 	constructor(containerId: string) {
 		const el = document.getElementById(containerId)
@@ -174,7 +175,7 @@ export class NeuronAreaManager {
 		console.log('[NEURON_UI]', `模式切换 | 旧=${this.currentMode} → 新=${newMode}`)
 		this.currentMode = newMode
 		this.updateModeHighlight()
-		if (this.onModeChange) this.onModeChange(newMode)
+		if (this.onModeChange) this.onModeChange(newMode as 'player' | 'ai' | 'train')
 	}
 
 	private _createSpeedGrid(): HTMLDivElement {
@@ -225,7 +226,7 @@ export class NeuronAreaManager {
 		console.log('[NEURON_UI]', `探索模式切换 | 旧=${this.currentExploreMode} → 新=${newMode}`)
 		this.currentExploreMode = newMode
 		this.updateExploreHighlight()
-		if (this.onExploreModeChange) this.onExploreModeChange(newMode)
+		if (this.onExploreModeChange) this.onExploreModeChange(newMode as 'none' | 'fixed' | 'dynamic')
 	}
 
 	private _createSeedRow(): HTMLDivElement {

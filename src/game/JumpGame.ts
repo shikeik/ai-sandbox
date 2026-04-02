@@ -236,7 +236,7 @@ export class JumpGame {
 		CONFIG.GRID_SIZE = Math.floor(width / CONFIG.VIEWPORT_GRID_W)
 		this.viewportWidth = width
 		this.viewportHeight = CONFIG.toPx(CONFIG.VIEWPORT_GRID_H)
-		this._updateCamera()
+		this.updateCamera()
 	}
 
 	// ========== 核心操作 ==========
@@ -270,7 +270,7 @@ export class JumpGame {
 		this.player.isJump = isJump
 		this.player.direction = action === ACTION.RIGHT ? 1 : (action === ACTION.JUMP ? 2 : 3)
 
-		this._updateCamera()
+		this.updateCamera()
 		this._notifyStateChange()
 		this._checkResult(targetX)
 
@@ -344,9 +344,10 @@ export class JumpGame {
 	
 	private _triggerFinish(type: 'death' | 'win', onEvent: (() => void) | null): void {
 		const pendingKey = type === 'death' ? '_pendingDeath' : '_pendingWin'
-		if (!(this as Record<string, boolean>)[pendingKey]) return
+		const self = this as unknown as Record<string, boolean>
+		if (!self[pendingKey]) return
 		console.log('[GAME]', `触发结束 | type=${type} | 格子=${this.player.grid}`)
-		;(this as Record<string, boolean>)[pendingKey] = false
+		self[pendingKey] = false
 
 		this.gameStatus = GAME_STATUS.FINISHED
 		this._inputLocked = true
@@ -452,10 +453,10 @@ export class JumpGame {
 		this.player.action = PLAYER_ACTION.IDLE
 		this.player.isJump = false
 		this.player.direction = 0
-		this._updateCamera()
+		this.updateCamera()
 	}
 	
-	private _updateCamera(playerX: number = this.player.x): void {
+	updateCamera(playerX: number = this.player.x): void {
 		if (this.viewportWidth <= 0) return
 		const targetX = playerX - this.viewportWidth * CONFIG.CAMERA_OFFSET_RATIO
 		const maxX = CONFIG.toPx(CONFIG.WORLD_LENGTH) - this.viewportWidth
