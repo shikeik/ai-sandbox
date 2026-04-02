@@ -211,31 +211,11 @@ export class AIController {
 
 		this.pendingAIDecision = { action, actionType, inputs, scores }
 
-		const actionNames = ['移动', '跳跃', '远跳']
-		const scoreLog = `移动:${scores[0].toFixed(2)} 跳跃:${scores[1].toFixed(2)} 远跳:${scores[2].toFixed(2)}`
-		const chosen = actionNames[action] || '未知'
-		console.log('[AI]', `决策完成 | ${scoreLog} | 选中=[${chosen}] | 探索=${this.network.isExploring ? '是' : '否'}`)
+		this._logDecision(action, scores)
 
-		// 预览权重变化（决策时显示高亮）
-		// 预测执行结果：检查是否会死亡
-		let previewReward = AI_CONFIG.STEP_REWARD
-		const terrainAhead = state.terrainAhead
-		let willDie = false
-		
-		if (action === 0 && terrainAhead[0] === 'pit') {
-			willDie = true  // 移动，前一格是坑
-		} else if (action === 1 && terrainAhead[1] === 'pit') {
-			willDie = true  // 跳跃，前两格是坑
-		} else if (action === 2 && terrainAhead[2] === 'pit') {
-			willDie = true  // 远跳，前三格是坑
-		}
-		
-		if (willDie) {
-			previewReward = AI_CONFIG.DEATH_REWARD  // -1，预览显示粉红（减分）
-			console.log('[AI]', `决策预览预测 | 动作=${action} 预测结果=死亡 使用DEATH_REWARD`)
-		} else {
-			console.log('[AI]', `决策预览预测 | 动作=${action} 预测结果=存活 使用STEP_REWARD`)
-		}
+		// 预测执行结果并计算奖励
+		const { previewReward, willDie } = this._predictResult(action, state.terrainAhead)
+		this._logPrediction(action, willDie)
 		
 		const { changes } = this.network.previewTrain(previewReward, action, inputs)
 		console.log('[AI]', `决策预览 | reward=${previewReward} changes=${changes ? '有' : '无'} 变化量总数=${changes ? changes[0].flat().length : 0}`)
@@ -243,6 +223,38 @@ export class AIController {
 		if (this.onRenderView) {
 			console.log('[AI]', `调用 onRenderView | isPreview=true changes=${changes ? '有' : '无'}`)
 			this.onRenderView(inputs, action, true, changes)
+		}
+	}
+
+	/**
+	 * 预测动作执行结果
+	 * @param {number} action - 动作索引 (0=移动, 1=跳跃, 2=远跳)
+	 * @param {string[]} terrainAhead - 前方地形数组
+	 * @returns {Object} { previewReward, willDie }
+	 */
+	_predictResult(action, terrainAhead) {
+		// 动作与跳跃格数映射
+		const actionJumpGrids = [0, 1, 2]  // 移动=0格, 跳跃=1格(落点前2格), 远跳=2格(落点前3格)
+		const landingGrid = actionJumpGrids[action]
+		
+		const willDie = terrainAhead[landingGrid] === 'pit'
+		const previewReward = willDie ? AI_CONFIG.DEATH_REWARD : AI_CONFIG.STEP_REWARD
+		
+		return { previewReward, willDie }
+	}
+
+	_logDecision(action, scores) {
+		const actionNames = ['移动', '跳跃', '远跳']
+		const scoreLog = `移动:${scores[0].toFixed(2)} 跳跃:${scores[1].toFixed(2)} 远跳:${scores[2].toFixed(2)}`
+		const chosen = actionNames[action] || '未知'
+		console.log('[AI]', `决策完成 | ${scoreLog} | 选中=[${chosen}] | 探索=${this.network.isExploring ? '是' : '否'}`)
+	}
+
+	_logPrediction(action, willDie) {
+		if (willDie) {
+			console.log('[AI]', `决策预览预测 | 动作=${action} 预测结果=死亡 使用DEATH_REWARD`)
+		} else {
+			console.log('[AI]', `决策预览预测 | 动作=${action} 预测结果=存活 使用STEP_REWARD`)
 		}
 	}
 

@@ -218,75 +218,90 @@ export class NetworkView {
 	
 	drawConnections(ctx, positions, weights, inputs, weightChanges = null) {
 		console.log('[NETWORK_VIEW]', `drawConnections | weightChanges=${weightChanges ? '有' : '无'} layers=${weights.length}`)
-		if (weightChanges) {
-			const flatChanges = weightChanges.flat(2)
-			const nonZeroCount = flatChanges.filter(c => Math.abs(c) > 0.0001).length
-			console.log('[NETWORK_VIEW]', `weightChanges详情 | 总数量=${flatChanges.length} 非零数量=${nonZeroCount}`)
-		}
+		this._logWeightChanges(weightChanges)
+		
 		for (let l = 0; l < weights.length; l++) {
 			const fromLayer = positions[l]
 			const toLayer = positions[l + 1]
 			const layerWeights = weights[l]
-			const layerChanges = weightChanges && weightChanges[l] ? weightChanges[l] : null
+			const layerChanges = weightChanges?.[l] ?? null
 		
 			for (let i = 0; i < fromLayer.length; i++) {
 				for (let j = 0; j < toLayer.length; j++) {
 					const weight = layerWeights[j][i]
 					const from = fromLayer[i]
 					const to = toLayer[j]
-					const delta = layerChanges ? layerChanges[j][i] : 0
-				
-					const thickness = Math.min(
-						LINE_STYLE.MAX_THICKNESS,
-						Math.abs(weight) * LINE_STYLE.THICKNESS_MULTIPLIER + LINE_STYLE.THICKNESS_BASE
-					)
-					const alpha = Math.min(
-						LINE_STYLE.MAX_ALPHA,
-						Math.abs(weight) * LINE_STYLE.ALPHA_MULTIPLIER + LINE_STYLE.ALPHA_BASE
-					)
-					const color = weight > 0
-						? `rgba(${COLORS.WEIGHT_POSITIVE}, ${alpha})`
-						: `rgba(${COLORS.WEIGHT_NEGATIVE}, ${alpha})`
-				
-					ctx.beginPath()
-					ctx.moveTo(from.x, from.y)
-					ctx.lineTo(to.x, to.y)
-					ctx.strokeStyle = color
-					ctx.lineWidth = thickness
-					ctx.stroke()
-				
-					// 决策预览高亮：显示权重变动预览
-					if (Math.abs(delta) > 0.0001) {
-						// 高亮线宽：普通最大线宽 * 1.5 = 6px
-						const highlightWidth = LINE_STYLE.MAX_THICKNESS * PREVIEW_HIGHLIGHT.WIDTH_MULTIPLIER
-						
-						// 高亮颜色：基于变化方向（delta正负），与原始权重脱钩
-						// delta > 0: 金色（加分/奖励）
-						// delta < 0: 亮粉红（减分/惩罚）
-						const highlightColor = delta > 0 ? '#ffd700' : '#ff3366'
-						
-						console.log('[NETWORK_VIEW]', `绘制高亮 | weight=${weight.toFixed(2)} delta=${delta.toFixed(4)} width=${highlightWidth} color=${highlightColor}`)
-						
-						ctx.beginPath()
-						ctx.moveTo(from.x, from.y)
-						ctx.lineTo(to.x, to.y)
-						ctx.strokeStyle = highlightColor
-						ctx.lineWidth = highlightWidth
-						ctx.stroke()
-					}
-				
-					// 将文字移到靠近右侧的位置并阶梯状错开，防遮挡
-					const ratio = WEIGHT_TEXT_STYLE.POSITION_RATIO + (i * WEIGHT_TEXT_STYLE.POSITION_STEP)
-					const textX = from.x + (to.x - from.x) * ratio
-					const textY = from.y + (to.y - from.y) * ratio
-				
-					ctx.fillStyle = WEIGHT_TEXT_STYLE.COLOR
-					ctx.font = WEIGHT_TEXT_STYLE.FONT
-					ctx.textAlign = 'center'
-					ctx.fillText(weight.toFixed(1), textX, textY)
+					const delta = layerChanges?.[j]?.[i] ?? 0
+					
+					this._drawConnectionLine(ctx, from, to, weight)
+					this._drawHighlight(ctx, from, to, delta, weight)
+					this._drawWeightText(ctx, from, to, weight, i)
 				}
 			}
 		}
+	}
+
+	_logWeightChanges(weightChanges) {
+		if (!weightChanges) return
+		const flatChanges = weightChanges.flat(2)
+		const nonZeroCount = flatChanges.filter(c => Math.abs(c) > 0.0001).length
+		console.log('[NETWORK_VIEW]', `weightChanges详情 | 总数量=${flatChanges.length} 非零数量=${nonZeroCount}`)
+	}
+
+	_drawConnectionLine(ctx, from, to, weight) {
+		const { thickness, color } = this._calculateLineStyle(weight)
+		
+		ctx.beginPath()
+		ctx.moveTo(from.x, from.y)
+		ctx.lineTo(to.x, to.y)
+		ctx.strokeStyle = color
+		ctx.lineWidth = thickness
+		ctx.stroke()
+	}
+
+	_calculateLineStyle(weight) {
+		const thickness = Math.min(
+			LINE_STYLE.MAX_THICKNESS,
+			Math.abs(weight) * LINE_STYLE.THICKNESS_MULTIPLIER + LINE_STYLE.THICKNESS_BASE
+		)
+		const alpha = Math.min(
+			LINE_STYLE.MAX_ALPHA,
+			Math.abs(weight) * LINE_STYLE.ALPHA_MULTIPLIER + LINE_STYLE.ALPHA_BASE
+		)
+		const color = weight > 0
+			? `rgba(${COLORS.WEIGHT_POSITIVE}, ${alpha})`
+			: `rgba(${COLORS.WEIGHT_NEGATIVE}, ${alpha})`
+		
+		return { thickness, color }
+	}
+
+	_drawHighlight(ctx, from, to, delta, weight) {
+		if (Math.abs(delta) <= 0.0001) return
+		
+		const highlightWidth = LINE_STYLE.MAX_THICKNESS * PREVIEW_HIGHLIGHT.WIDTH_MULTIPLIER
+		// delta > 0: 金色（加分/奖励）, delta < 0: 亮粉红（减分/惩罚）
+		const highlightColor = delta > 0 ? '#ffd700' : '#ff3366'
+		
+		console.log('[NETWORK_VIEW]', `绘制高亮 | weight=${weight.toFixed(2)} delta=${delta.toFixed(4)} width=${highlightWidth} color=${highlightColor}`)
+		
+		ctx.beginPath()
+		ctx.moveTo(from.x, from.y)
+		ctx.lineTo(to.x, to.y)
+		ctx.strokeStyle = highlightColor
+		ctx.lineWidth = highlightWidth
+		ctx.stroke()
+	}
+
+	_drawWeightText(ctx, from, to, weight, fromIndex) {
+		// 将文字移到靠近右侧的位置并阶梯状错开，防遮挡
+		const ratio = WEIGHT_TEXT_STYLE.POSITION_RATIO + (fromIndex * WEIGHT_TEXT_STYLE.POSITION_STEP)
+		const textX = from.x + (to.x - from.x) * ratio
+		const textY = from.y + (to.y - from.y) * ratio
+		
+		ctx.fillStyle = WEIGHT_TEXT_STYLE.COLOR
+		ctx.font = WEIGHT_TEXT_STYLE.FONT
+		ctx.textAlign = 'center'
+		ctx.fillText(weight.toFixed(1), textX, textY)
 	}
 	drawNodes(ctx, positions, inputs, action) {
 		const actionNames = ['移动', '跳跃', '远跳']
