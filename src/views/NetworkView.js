@@ -253,18 +253,17 @@ export class NetworkView {
 						// 高亮线宽：普通最大线宽 * 1.5 = 6px
 						const highlightWidth = LINE_STYLE.MAX_THICKNESS * PREVIEW_HIGHLIGHT.WIDTH_MULTIPLIER
 						
-						// 高亮颜色：基于原色提高亮度
-						const baseRgb = weight > 0 ? COLORS.WEIGHT_POSITIVE : COLORS.WEIGHT_NEGATIVE
-						const brightened = baseRgb.split(', ').map(c => 
-							Math.min(255, Math.floor(parseInt(c) * PREVIEW_HIGHLIGHT.BRIGHTNESS_BOOST))
-						).join(', ')
+						// 高亮颜色：基于变化方向（delta正负），与原始权重脱钩
+						// delta > 0: 金色（加分/奖励）
+						// delta < 0: 亮粉红（减分/惩罚）
+						const highlightColor = delta > 0 ? '#ffd700' : '#ff3366'
 						
-						console.log('[NETWORK_VIEW]', `绘制高亮 | weight=${weight.toFixed(2)} delta=${delta.toFixed(4)} width=${highlightWidth} color=${brightened}`)
+						console.log('[NETWORK_VIEW]', `绘制高亮 | weight=${weight.toFixed(2)} delta=${delta.toFixed(4)} width=${highlightWidth} color=${highlightColor}`)
 						
 						ctx.beginPath()
 						ctx.moveTo(from.x, from.y)
 						ctx.lineTo(to.x, to.y)
-						ctx.strokeStyle = `rgba(${brightened}, ${PREVIEW_HIGHLIGHT.ALPHA})`
+						ctx.strokeStyle = highlightColor
 						ctx.lineWidth = highlightWidth
 						ctx.stroke()
 					}

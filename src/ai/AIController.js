@@ -210,8 +210,28 @@ export class AIController {
 		console.log('[AI]', `决策完成 | ${scoreLog} | 选中=[${chosen}] | 探索=${this.network.isExploring ? '是' : '否'}`)
 
 		// 预览权重变化（决策时显示高亮）
-		const { changes } = this.network.previewTrain(AI_CONFIG.STEP_REWARD, action, inputs)
-		console.log('[AI]', `决策预览 | changes=${changes ? '有' : '无'} 变化量总数=${changes ? changes[0].flat().length : 0}`)
+		// 预测执行结果：检查是否会死亡
+		let previewReward = AI_CONFIG.STEP_REWARD
+		const terrainAhead = state.terrainAhead
+		let willDie = false
+		
+		if (action === 0 && terrainAhead[0] === 'pit') {
+			willDie = true  // 移动，前一格是坑
+		} else if (action === 1 && terrainAhead[1] === 'pit') {
+			willDie = true  // 跳跃，前两格是坑
+		} else if (action === 2 && terrainAhead[2] === 'pit') {
+			willDie = true  // 远跳，前三格是坑
+		}
+		
+		if (willDie) {
+			previewReward = AI_CONFIG.DEATH_REWARD  // -1，预览显示粉红（减分）
+			console.log('[AI]', `决策预览预测 | 动作=${action} 预测结果=死亡 使用DEATH_REWARD`)
+		} else {
+			console.log('[AI]', `决策预览预测 | 动作=${action} 预测结果=存活 使用STEP_REWARD`)
+		}
+		
+		const { changes } = this.network.previewTrain(previewReward, action, inputs)
+		console.log('[AI]', `决策预览 | reward=${previewReward} changes=${changes ? '有' : '无'} 变化量总数=${changes ? changes[0].flat().length : 0}`)
 
 		if (this.onRenderView) {
 			console.log('[AI]', `调用 onRenderView | isPreview=true changes=${changes ? '有' : '无'}`)
