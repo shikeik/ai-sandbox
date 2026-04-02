@@ -139,7 +139,10 @@ export class NetworkView {
 			this.lastData = { network, inputs, action, isPreview, weightChanges }
 		}
 
-		console.log('[NETWORK_VIEW]', `渲染 | 输入=[${inputs ? inputs.join(',') : 'null'}] 动作=${action !== null ? action : 'null'} 预览=${isPreview} | 常量配置已应用`)
+		// 只在有实际输入变化时输出日志，避免resize刷屏
+		if (inputs && inputs.some(v => v !== null)) {
+			console.log('[NETWORK_VIEW]', `渲染 | 输入=[${inputs.join(',')}] 动作=${action !== null ? action : 'null'} 预览=${isPreview}`)
+		}
 
 		// 更新信息栏
 		this.updateInfoBar(network, isPreview)
