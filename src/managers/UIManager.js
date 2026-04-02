@@ -13,6 +13,7 @@ export class UIManager {
 		this.playerBestStore = playerBestStore
 		this.viewManager = viewManager
 		this.network = network
+		console.log('[UI_MANAGER]', 'UI管理器初始化完成')
 	}
 
 	// ========== 控制面板渲染 ==========
@@ -107,7 +108,10 @@ export class UIManager {
 
 	bindStartButton(onStart) {
 		const startBtn = document.getElementById('start-btn')
-		if (startBtn) startBtn.addEventListener('click', onStart)
+		if (startBtn) {
+			startBtn.addEventListener('click', onStart)
+			console.log('[UI_MANAGER]', '开始按钮绑定完成')
+		}
 	}
 
 	// ========== 游戏信息更新 ==========
@@ -121,6 +125,7 @@ export class UIManager {
 		const bestTime = this.playerBestStore.getFormatted()
 
 		gameInfo.innerHTML = `POS: <span id="pos-display">${player.grid}</span> | GEN: <span id="gen-display">${this.game.getState().generation}</span>${this.aiController.isAIMode ? '' : ` | TIME: ${currentTime} | BEST: ${bestTime}`}`
+		console.log('[UI_MANAGER]', `游戏信息更新 | 位置=${player.grid} 世代=${this.game.getState().generation}`)
 	}
 
 	// ========== AI 视图渲染 ==========

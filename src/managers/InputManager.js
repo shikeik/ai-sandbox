@@ -34,6 +34,7 @@ export class InputManager {
 		// AI单步模式：空格键执行下一步
 		if (this.aiController.isAIMode && this.aiController.isStepMode && e.key === ' ') {
 			e.preventDefault()
+			console.log('[INPUT]', '空格键触发单步执行')
 			this.aiController.step()
 			return
 		}
@@ -43,10 +44,12 @@ export class InputManager {
 
 		if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') {
 			e.preventDefault()
+			console.log('[INPUT]', '键盘右移')
 			this.game.execute(ACTION.RIGHT)
 		}
 		if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W' || e.key === ' ') {
 			e.preventDefault()
+			console.log('[INPUT]', '键盘跳跃')
 			this.game.execute(ACTION.JUMP)
 		}
 	}
@@ -61,6 +64,7 @@ export class InputManager {
 			return
 		}
 
+		console.log('[INPUT]', `窗口大小调整 | 宽度=${realWidth}px 横屏=${isLandscape}`)
 		this.game.setViewportSize(realWidth)
 		// 注：renderer 更新由调用方处理
 	}

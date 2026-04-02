@@ -28,6 +28,8 @@ export class GameEventBridge {
 	}
 
 	bind() {
+		console.log('[EVENT_BRIDGE]', '开始绑定游戏事件桥接...')
+
 		this.game.onStateChange = (player, camera) => {
 			const posDisplay = document.getElementById('pos-display')
 			if (posDisplay) posDisplay.textContent = player.grid
@@ -118,7 +120,7 @@ export class GameEventBridge {
 			}
 		}
 
-		console.log('[EVENT_BRIDGE]', '游戏事件桥接完成')
+		console.log('[EVENT_BRIDGE]', '游戏事件桥接完成 | 绑定6个回调')
 	}
 }
 

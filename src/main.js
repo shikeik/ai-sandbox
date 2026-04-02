@@ -154,12 +154,14 @@ function init() {
 
 	console.log('[GAME]', 'AI 训练沙盘已初始化，等待开始...')
 	console.log('[GAME]', 'AI模式:', aiController.isAIMode ? '开启' : '关闭')
+	console.log('[MAIN]', '重构后主入口初始化完成 | UIManager + InputManager + GameEventBridge 已加载')
 
 	// 工具栏按钮
 	bindToolbarButtons()
 }
 
 function onGameStart() {
+	console.log('[MAIN]', '游戏开始')
 	game.startGame()
 	uiManager.hideStartOverlay()
 	if (!aiController.isAIMode) {
@@ -167,6 +169,7 @@ function onGameStart() {
 	} else {
 		aiController.start()
 	}
+	console.log('[MAIN]', '游戏状态切换完成')
 }
 
 function startTimerUpdate() {
