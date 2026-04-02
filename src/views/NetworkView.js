@@ -109,7 +109,7 @@ export class NetworkView {
 			this.resize()
 		})
 		this.resizeObserver.observe(this.container)
-		console.log('[NetworkView]', `初始化完成 | 画布尺寸=${this.width}x${this.height} 边距配置=${JSON.stringify(CANVAS_MARGIN)}`)
+		console.log('[NETWORK_VIEW]', `初始化完成 | 画布尺寸=${this.width}x${this.height} 边距配置=${JSON.stringify(CANVAS_MARGIN)}`)
 	}
 	
 	resize() {
