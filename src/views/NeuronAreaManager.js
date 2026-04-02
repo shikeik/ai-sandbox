@@ -72,7 +72,7 @@ export class NeuronAreaManager {
 			const isActive = item.id === this.currentMode
 			el.className = `neuron-mode-btn ${isActive ? 'active' : 'inactive'}`
 			el.addEventListener('click', () => {
-				console.log('[NEURON_UI]', `高亮更新 | 类型=${datasetKey} 当前值=${currentValue}`)
+				console.log('[NEURON_UI]', `模式切换 | 旧=${this.currentMode} → 新=${item.id}`)
 				this.currentMode = item.id
 				this.updateModeHighlight()
 				if (this.onModeChange) this.onModeChange(item.id)
@@ -81,7 +81,7 @@ export class NeuronAreaManager {
 			this.modeItems.push(el)
 			modeRow.appendChild(el)
 		})
-		console.log('[NEURON_UI]', `高亮更新 | 类型=${datasetKey} 当前值=${currentValue}`)
+		console.log('[NEURON_UI]', `创建模式按钮 | 数量=${modes.length} 默认=${this.currentMode}`)
 		menu.appendChild(modeRow)
 
 		// 分隔线
