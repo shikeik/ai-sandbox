@@ -359,6 +359,7 @@ export class JumpGame {
 	_triggerFinish(type, onEvent) {
 		const pendingKey = type === 'death' ? '_pendingDeath' : '_pendingWin'
 		if (!this[pendingKey]) return
+		console.log('[GAME]', `触发结束 | type=${type} | 格子=${this.player.grid}`)
 		this[pendingKey] = false
 	
 		this.gameStatus = GAME_STATUS.FINISHED
@@ -394,6 +395,7 @@ export class JumpGame {
 	// 执行重生（在暗屏时调用）
 	_executeRespawn() {
 		this.generation++
+		console.log('[GAME]', `转场中点: 重生 | 新世代=${this.generation}`)
 		this.init()
 		// init() 会将 gameStatus 设为 READY，但我们需要 TRANSITIONING
 		this.gameStatus = GAME_STATUS.TRANSITIONING
@@ -406,8 +408,7 @@ export class JumpGame {
 
 	// 转场完成后的处理
 	_onRespawnComplete() {
-	// 玩家模式：直接开始新一局
-	// AI 模式：自动开始
+		console.log('[GAME]', '转场结束: 开始新一局')
 		if (this.onTransitionEnd) {
 			this.onTransitionEnd()
 		}

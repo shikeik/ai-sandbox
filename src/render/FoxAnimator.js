@@ -20,6 +20,7 @@ export class FoxAnimator {
 	init() {
 		this.foxContainer = this.playerEl.querySelector('.fox-container')
 		this.foxTail = this.playerEl.querySelector('.fox-tail')
+		console.log('[RENDER]', 'FoxAnimator 初始化完成')
 		requestAnimationFrame(() => {
 			this.startTailAnimation('idle')
 		})
@@ -81,6 +82,7 @@ export class FoxAnimator {
 
 		// 应用新状态
 		if (newState !== this._foxState) {
+			console.log('[RENDER]', `狐狸动画切换 | ${this._foxState} → ${newState} | 速度=${this._foxVelocity.toFixed(2)} | 地面=${onGround}`)
 			this.foxContainer.classList.remove(`state-${this._foxState}`)
 			this.foxContainer.classList.add(`state-${newState}`)
 			this._foxState = newState
@@ -149,6 +151,7 @@ export class FoxAnimator {
 		}
 
 		// 使用WAAPI启动动画
+		console.log('[RENDER]', `尾巴动画启动 | state=${state}`)
 		this._tailAnimation = this.foxTail.animate(keyframes, options)
 	}
 
@@ -158,6 +161,7 @@ export class FoxAnimator {
 	*/
 	setState(state) {
 		if (!this.foxContainer) return
+		console.log('[RENDER]', `狐狸强制设态 | → ${state}`)
 		this.foxContainer.classList.remove('state-run', 'state-jump-up', 'state-jump-down', 'state-land')
 		this.foxContainer.classList.add(`state-${state}`)
 		this._foxState = state
@@ -169,6 +173,7 @@ export class FoxAnimator {
 	*/
 	showDeath() {
 		if (!this.foxContainer) return
+		console.log('[RENDER]', '狐狸死亡动画')
 		this.foxContainer.classList.remove('state-idle', 'state-run', 'state-jump-up', 'state-jump-down', 'state-land')
 		this.foxContainer.classList.add('state-dead')
 		this._foxState = 'dead'
@@ -181,6 +186,7 @@ export class FoxAnimator {
 	*/
 	reset() {
 		if (!this.foxContainer) return
+		console.log('[RENDER]', '狐狸动画重置')
 		this.foxContainer.className = 'fox-container state-idle'
 		this._foxState = 'idle'
 		this._foxLastY = 0

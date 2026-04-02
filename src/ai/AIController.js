@@ -87,6 +87,7 @@ export class AIController {
 
 	start() {
 		if (!this.isAIMode) return
+		console.log('[AI]', `启动 | 模式=${this.isAITrainMode ? '训练' : '观察'} | 速度=${this.aiSpeed}ms | 单步=${this.isStepMode}`)
 		if (this.game.gameStatus === GAME_STATUS.READY) {
 			this.game.startGame()
 		}
@@ -94,14 +95,17 @@ export class AIController {
 	}
 
 	stop() {
+		console.log('[AI]', '停止')
 		this._stopInterval()
 	}
 
 	step() {
 		if (!this.isAIMode || !this.isStepMode) return
 		if (this.pendingAIDecision) {
+			console.log('[AI]', '单步: 执行缓存决策')
 			this._executePendingDecision()
 		} else {
+			console.log('[AI]', '单步: 生成新决策')
 			this._makeDecisionPreview()
 		}
 	}
@@ -148,10 +152,15 @@ export class AIController {
 
 	_startInterval() {
 		this._stopInterval()
-		if (this.isStepMode) return
+		if (this.isStepMode) {
+			console.log('[AI]', '区间: 单步模式，不启动自动循环')
+			return
+		}
 		if (this.aiSpeed === AI_CONFIG.SPEEDS.MAX) {
+			console.log('[AI]', '区间: 启动极速循环 (requestAnimationFrame)')
 			this._runFastLoop()
 		} else {
+			console.log('[AI]', `区间: 启动定时器 ${this.aiSpeed}ms`)
 			this.aiInterval = setInterval(() => {
 				if (this._canMakeDecision()) this._makeDecision()
 			}, this.aiSpeed)
@@ -160,17 +169,22 @@ export class AIController {
 
 	_stopInterval() {
 		if (this.aiInterval) {
+			console.log('[AI]', '区间: 清除定时器')
 			clearInterval(this.aiInterval)
 			this.aiInterval = null
 		}
 		if (this.fastLoopId) {
+			console.log('[AI]', '区间: 取消极速循环')
 			cancelAnimationFrame(this.fastLoopId)
 			this.fastLoopId = null
 		}
 	}
 
 	_runFastLoop() {
-		if (!this.isAIMode || this.isStepMode || this.aiSpeed !== AI_CONFIG.SPEEDS.MAX) return
+		if (!this.isAIMode || this.isStepMode || this.aiSpeed !== AI_CONFIG.SPEEDS.MAX) {
+			console.log('[AI]', '极速循环: 条件不满足，退出')
+			return
+		}
 		if (this._canMakeDecision()) {
 			this._makeDecision()
 		}
@@ -224,6 +238,7 @@ export class AIController {
 		const action = this.network.decide(inputs)
 		const actionType = action === 1 ? ACTION.JUMP : ACTION.RIGHT
 
+		console.log('[AI]', `自动执行 | 动作=${actionType} | 输入=[${inputs.join(',')}]`)
 		this.game.execute(actionType)
 	}
 }
