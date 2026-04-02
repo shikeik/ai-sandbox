@@ -133,6 +133,15 @@ export class JumpGame {
 		// 视口宽度（由外部设置）
 		this.viewportWidth = 0
 	
+		// 地形生成配置
+		this.terrainConfig = {
+			seed: null,
+			isSeedLocked: false,
+			pitProbability: 0.55,
+			doublePitProbability: 0.4
+		}
+		this.lastTerrainSeed = null
+	
 		// 事件回调
 		this.onStateChange = null    // (player, camera) => void
 		this.onActionStart = null    // (action, from, to, isJump) => void
@@ -432,7 +441,41 @@ export class JumpGame {
 	// ========== 地形生成 ==========
 	
 	_generateTerrain() {
-		this.terrain = TerrainGenerator.generate()
+		// 确定种子：锁定则用配置种子，否则随机
+		const seed = this.terrainConfig.isSeedLocked 
+			? this.terrainConfig.seed 
+			: (this.terrainConfig.seed ?? Date.now())
+		
+		const result = TerrainGenerator.generate({
+			seed,
+			pitProbability: this.terrainConfig.pitProbability,
+			doublePitProbability: this.terrainConfig.doublePitProbability
+		})
+		
+		this.terrain = result.terrain
+		this.lastTerrainSeed = result.seed
+		
+		// 通知种子变化（用于UI更新）
+		if (this.onTerrainSeedChange) {
+			this.onTerrainSeedChange(result.seed, result.stats)
+		}
+	}
+
+	/**
+	 * 设置地形配置
+	 * @param {Object} config 
+	 */
+	setTerrainConfig(config) {
+		Object.assign(this.terrainConfig, config)
+		console.log('[GAME]', `地形配置更新 | 锁定=${this.terrainConfig.isSeedLocked} 种子=${this.terrainConfig.seed}`)
+	}
+
+	/**
+	 * 随机生成新种子
+	 */
+	randomizeSeed() {
+		this.terrainConfig.seed = Date.now()
+		console.log('[GAME]', `随机生成种子 | ${this.terrainConfig.seed}`)
 	}
 
 	// ========== 碰撞检测 ==========

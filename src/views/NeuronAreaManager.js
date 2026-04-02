@@ -47,6 +47,12 @@ export class NeuronAreaManager {
 		this.currentMode = window.AI_CONFIG?.DEFAULT_MODE || 'player'
 		this.currentSpeed = window.AI_CONFIG?.DEFAULT_SPEED || 'step'
 		this.currentExploreMode = 'none'  // 探索模式：none/fixed/dynamic
+		// 种子控制状态
+		this.isSeedLocked = false
+		this.currentSeed = null
+		this.seedInputEl = null
+		this.lockBtnEl = null
+		
 		this.modeItems = []          // 模式按钮引用
 		this.speedItems = []         // 速度按钮引用
 		this.exploreItems = []       // 探索模式按钮引用
@@ -73,12 +79,14 @@ export class NeuronAreaManager {
 
 		const { btn, menu } = this._createMenuElements()
 
-		// 创建三组按钮
+		// 创建菜单组
 		menu.appendChild(this._createModeRow())
 		menu.appendChild(this._createDivider())
 		menu.appendChild(this._createSpeedGrid())
 		menu.appendChild(this._createDivider())
 		menu.appendChild(this._createExploreRow())
+		menu.appendChild(this._createDivider())
+		menu.appendChild(this._createSeedRow())
 
 		// 绑定切换事件
 		btn.addEventListener('click', () => this._toggleMenu(btn, menu))
@@ -192,6 +200,110 @@ export class NeuronAreaManager {
 		this.currentExploreMode = newMode
 		this.updateExploreHighlight()
 		if (this.onExploreModeChange) this.onExploreModeChange(newMode)
+	}
+
+	// ========== 种子控制行 ==========
+
+	_createSeedRow() {
+		const seedRow = document.createElement('div')
+		seedRow.className = 'neuron-menu-row'
+		seedRow.style.gap = '6px'
+
+		// 锁定按钮
+		this.lockBtnEl = document.createElement('button')
+		this.lockBtnEl.className = 'ctrl-btn icon-only'
+		this.lockBtnEl.style.width = '24px'
+		this.lockBtnEl.style.height = '24px'
+		this.lockBtnEl.style.fontSize = '12px'
+		this._updateLockBtn()
+		this.lockBtnEl.addEventListener('click', () => this._toggleSeedLock())
+		seedRow.appendChild(this.lockBtnEl)
+
+		// 种子输入框
+		this.seedInputEl = document.createElement('input')
+		this.seedInputEl.type = 'text'
+		this.seedInputEl.className = 'seed-input'
+		this.seedInputEl.placeholder = '随机种子'
+		this.seedInputEl.style.cssText = `
+			flex: 1;
+			height: 24px;
+			background: rgba(0,0,0,0.3);
+			border: 1px solid rgba(0,255,0,0.3);
+			border-radius: 3px;
+			color: #0f0;
+			font-size: 11px;
+			font-family: monospace;
+			padding: 0 6px;
+			outline: none;
+		`
+		this.seedInputEl.addEventListener('change', () => this._handleSeedInput())
+		this.seedInputEl.addEventListener('focus', () => {
+			this.seedInputEl.style.borderColor = '#0f0'
+		})
+		this.seedInputEl.addEventListener('blur', () => {
+			this.seedInputEl.style.borderColor = 'rgba(0,255,0,0.3)'
+		})
+		seedRow.appendChild(this.seedInputEl)
+
+		// 随机骰子按钮
+		const diceBtn = document.createElement('button')
+		diceBtn.className = 'ctrl-btn icon-only'
+		diceBtn.innerHTML = '🎲'
+		diceBtn.style.width = '24px'
+		diceBtn.style.height = '24px'
+		diceBtn.style.fontSize = '12px'
+		diceBtn.title = '随机种子'
+		diceBtn.addEventListener('click', () => this._randomizeSeed())
+		seedRow.appendChild(diceBtn)
+
+		console.log('[NEURON_UI]', '创建种子控制行')
+		return seedRow
+	}
+
+	_updateLockBtn() {
+		if (!this.lockBtnEl) return
+		this.lockBtnEl.innerHTML = this.isSeedLocked ? '🔒' : '🔓'
+		this.lockBtnEl.title = this.isSeedLocked ? '种子已锁定' : '种子未锁定（每局随机）'
+		this.lockBtnEl.style.opacity = this.isSeedLocked ? '1' : '0.5'
+	}
+
+	_toggleSeedLock() {
+		this.isSeedLocked = !this.isSeedLocked
+		this._updateLockBtn()
+		console.log('[NEURON_UI]', `种子锁定切换 | ${this.isSeedLocked ? '锁定' : '解锁'}`)
+		if (this.onSeedLockChange) this.onSeedLockChange(this.isSeedLocked)
+	}
+
+	_handleSeedInput() {
+		const value = this.seedInputEl.value.trim()
+		const seed = value ? parseInt(value, 10) : null
+		if (isNaN(seed)) {
+			console.warn('[NEURON_UI]', `无效种子输入 | "${value}"`)
+			return
+		}
+		this.currentSeed = seed
+		console.log('[NEURON_UI]', `手动设置种子 | ${seed}`)
+		if (this.onSeedChange) this.onSeedChange(seed)
+	}
+
+	_randomizeSeed() {
+		const newSeed = Date.now()
+		this.currentSeed = newSeed
+		if (this.seedInputEl) {
+			this.seedInputEl.value = newSeed
+		}
+		console.log('[NEURON_UI]', `随机生成种子 | ${newSeed}`)
+		if (this.onSeedChange) this.onSeedChange(newSeed)
+	}
+
+	/**
+	 * 外部更新种子显示（如游戏生成新地形后）
+	 */
+	updateSeedDisplay(seed) {
+		if (!this.isSeedLocked && this.seedInputEl) {
+			this.seedInputEl.value = seed || ''
+			this.currentSeed = seed
+		}
 	}
 
 	// ========== 通用按钮创建 ==========

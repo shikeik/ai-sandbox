@@ -115,6 +115,23 @@ function init() {
 		console.log('[MAIN]', `探索模式切换 | 新模式=${mode} | ε=${epsilon.toFixed(2)}`)
 	}
 
+	// 设置种子控制回调
+	viewManager.onSeedLockChange = (isLocked) => {
+		game.setTerrainConfig({ isSeedLocked: isLocked })
+		console.log('[MAIN]', `种子锁定切换 | ${isLocked ? '锁定' : '解锁'}`)
+	}
+
+	viewManager.onSeedChange = (seed) => {
+		game.setTerrainConfig({ seed })
+		console.log('[MAIN]', `种子变更 | ${seed}`)
+	}
+
+	// 游戏地形生成后更新UI显示
+	game.onTerrainSeedChange = (seed, stats) => {
+		viewManager.updateSeedDisplay(seed)
+		console.log('[MAIN]', `地形已生成 | 种子=${seed} 坑=${stats.pitCount} 双坑=${stats.doublePitCount}`)
+	}
+
 	// 初始化输入管理器
 	inputManager = new InputManager({
 		game,
