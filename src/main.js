@@ -48,7 +48,7 @@ function init() {
 
 	// 创建神经网络
 	network = new NeuralNetwork({
-		layerSizes: [3, 2],
+		layerSizes: [4, 3],
 		learningRate: 0.2,
 		weightClip: 5
 	})
@@ -91,7 +91,8 @@ function init() {
 		const inputs = [
 			state.terrainAhead[0] === 'pit' ? 1 : 0,
 			state.terrainAhead[1] === 'pit' ? 1 : 0,
-			state.terrainAhead[2] === 'pit' ? 1 : 0
+			state.terrainAhead[2] === 'pit' ? 1 : 0,
+			state.terrainAhead[3] === 'pit' ? 1 : 0
 		]
 		uiManager.renderCurrentAIView(inputs, network ? network.lastAction : null)
 	}
@@ -105,6 +106,13 @@ function init() {
 			case 'max': aiController.setSpeed(AI_CONFIG.SPEEDS.MAX); break
 		}
 		uiManager.updateControlsUI()
+	}
+
+	// 设置探索模式切换回调
+	viewManager.onExploreModeChange = (mode) => {
+		network.exploreMode = mode
+		const epsilon = network.getEpsilon ? network.getEpsilon() : 0
+		console.log('[MAIN]', `探索模式切换 | 新模式=${mode} | ε=${epsilon.toFixed(2)}`)
 	}
 
 	// 初始化输入管理器

@@ -123,7 +123,13 @@ export class AIController {
 				: steps
 			this.performanceHistory.push(steps)
 
-			if (this.network.autoAdjustEpsilon) {
+			/**
+			 * 动态探索率调整（仅在 dynamic 模式下生效）
+			 * 原理：表现好就多利用经验，表现差就多探索随机策略
+			 * - 步数 > 窗口平均（表现好）→ 降低探索率，相信已有经验
+			 * - 步数 < 窗口平均（表现差）→ 提高探索率，尝试新策略
+			 */
+			if (this.network.exploreMode === 'dynamic') {
 				if (steps > currentAvg) {
 					this.network.epsilon = Math.max(0.1, this.network.epsilon - 0.05)
 				} else if (steps < currentAvg) {
@@ -133,7 +139,8 @@ export class AIController {
 				}
 			}
 
-			console.log('[AI]', `窗口平均:${currentAvg.toFixed(1)} | 本局:${steps} | 新好奇心(ε):${this.network.epsilon.toFixed(2)}`)
+			const epsilon = this.network.getEpsilon()
+			console.log('[AI]', `窗口平均:${currentAvg.toFixed(1)} | 本局:${steps} | 探索率(ε):${epsilon.toFixed(2)} | 模式:${this.network.exploreMode}`)
 		}
 	}
 
@@ -141,7 +148,8 @@ export class AIController {
 		return [
 			terrainAhead[0] === 'pit' ? 1 : 0,
 			terrainAhead[1] === 'pit' ? 1 : 0,
-			terrainAhead[2] === 'pit' ? 1 : 0
+			terrainAhead[2] === 'pit' ? 1 : 0,
+			terrainAhead[3] === 'pit' ? 1 : 0
 		]
 	}
 
@@ -198,17 +206,43 @@ export class AIController {
 		const inputs = this._convertToInputs(state.terrainAhead)
 
 		const action = this.network.decide(inputs)
-		const actionType = action === 1 ? ACTION.JUMP : ACTION.RIGHT
-		const scores = this.network.lastScores ? [...this.network.lastScores] : [0, 0]
+		const actionType = this._actionIndexToType(action)
+		const scores = this.network.lastScores ? [...this.network.lastScores] : [0, 0, 0]
 
 		this.pendingAIDecision = { action, actionType, inputs, scores }
 
-		const scoreLog = `移动:${scores[0].toFixed(2)} 跳跃:${scores[1].toFixed(2)}`
-		const chosen = action === 1 ? '跳跃' : '移动'
+		const actionNames = ['移动', '跳跃', '远跳']
+		const scoreLog = `移动:${scores[0].toFixed(2)} 跳跃:${scores[1].toFixed(2)} 远跳:${scores[2].toFixed(2)}`
+		const chosen = actionNames[action] || '未知'
 		console.log('[AI]', `决策完成 | ${scoreLog} | 选中=[${chosen}] | 探索=${this.network.isExploring ? '是' : '否'}`)
 
+		// 预览权重变化（决策时显示高亮）
+		// 预测执行结果：检查是否会死亡
+		let previewReward = AI_CONFIG.STEP_REWARD
+		const terrainAhead = state.terrainAhead
+		let willDie = false
+		
+		if (action === 0 && terrainAhead[0] === 'pit') {
+			willDie = true  // 移动，前一格是坑
+		} else if (action === 1 && terrainAhead[1] === 'pit') {
+			willDie = true  // 跳跃，前两格是坑
+		} else if (action === 2 && terrainAhead[2] === 'pit') {
+			willDie = true  // 远跳，前三格是坑
+		}
+		
+		if (willDie) {
+			previewReward = AI_CONFIG.DEATH_REWARD  // -1，预览显示粉红（减分）
+			console.log('[AI]', `决策预览预测 | 动作=${action} 预测结果=死亡 使用DEATH_REWARD`)
+		} else {
+			console.log('[AI]', `决策预览预测 | 动作=${action} 预测结果=存活 使用STEP_REWARD`)
+		}
+		
+		const { changes } = this.network.previewTrain(previewReward, action, inputs)
+		console.log('[AI]', `决策预览 | reward=${previewReward} changes=${changes ? '有' : '无'} 变化量总数=${changes ? changes[0].flat().length : 0}`)
+
 		if (this.onRenderView) {
-			this.onRenderView(inputs, action, true)
+			console.log('[AI]', `调用 onRenderView | isPreview=true changes=${changes ? '有' : '无'}`)
+			this.onRenderView(inputs, action, true, changes)
 		}
 	}
 
@@ -219,12 +253,14 @@ export class AIController {
 
 		const result = this.game.execute(actionType)
 		if (result) {
-			console.log('[AI]', `执行动作 | 动作=${actionType === ACTION.JUMP ? '跳跃' : '移动'}`)
+			const actionNames = ['移动', '跳跃', '远跳']
+			console.log('[AI]', `执行动作 | 动作=${actionNames[action] || actionType}`)
 		}
 
 		this.pendingAIDecision = null
+		// 执行后不显示高亮（传 null），实际权重更新在 onActionStart 中处理
 		if (this.onRenderView) {
-			this.onRenderView(inputs, action, false, this.network ? this.network.lastWeightChanges : null)
+			this.onRenderView(inputs, action, false, null)
 		}
 	}
 
@@ -236,10 +272,19 @@ export class AIController {
 		const inputs = this._convertToInputs(state.terrainAhead)
 
 		const action = this.network.decide(inputs)
-		const actionType = action === 1 ? ACTION.JUMP : ACTION.RIGHT
+		const actionType = this._actionIndexToType(action)
 
 		console.log('[AI]', `自动执行 | 动作=${actionType} | 输入=[${inputs.join(',')}]`)
 		this.game.execute(actionType)
+	}
+
+	_actionIndexToType(action) {
+		switch (action) {
+			case 0: return ACTION.RIGHT
+			case 1: return ACTION.JUMP
+			case 2: return ACTION.LONG_JUMP
+			default: return ACTION.RIGHT
+		}
 	}
 }
 

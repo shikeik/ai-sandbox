@@ -15,12 +15,19 @@ const NODE_RADIUS = {
 }
 
 const LINE_STYLE = {
-	MAX_THICKNESS: 4,
+	MAX_THICKNESS: 4,           // 最大线宽（普通状态）
 	THICKNESS_MULTIPLIER: 2,
 	THICKNESS_BASE: 0.5,
 	MAX_ALPHA: 1,
 	ALPHA_MULTIPLIER: 0.3,
 	ALPHA_BASE: 0.2
+}
+
+// 决策预览高亮配置
+const PREVIEW_HIGHLIGHT = {
+	WIDTH_MULTIPLIER: 1.5,      // 高亮线宽 = MAX_THICKNESS * 1.5 = 6px
+	ALPHA: 1,                   // 高亮透明度（固定最大）
+	BRIGHTNESS_BOOST: 1.5       // 亮度提升倍数
 }
 
 const COLORS = {
@@ -146,7 +153,7 @@ export class NetworkView {
 
 		// 只在有实际输入变化时输出日志，避免resize刷屏
 		if (inputs && inputs.some(v => v !== null)) {
-			console.log('[NETWORK_VIEW]', `渲染 | 输入=[${inputs.join(',')}] 动作=${action !== null ? action : 'null'} 预览=${isPreview}`)
+			console.log('[NETWORK_VIEW]', `渲染 | 输入=[${inputs.join(',')}] 动作=${action !== null ? action : 'null'} 预览=${isPreview} weightChanges=${weightChanges ? '有' : '无'}`)
 		}
 
 		// 更新信息栏
@@ -169,14 +176,21 @@ export class NetworkView {
 	
 	updateInfoBar(network, isPreview = false) {
 		const structure = network.getStructure()
-		const eps = (network.epsilon * 100).toFixed(0)
+		// 使用 getEpsilon() 获取实际探索率（根据 exploreMode 返回对应值）
+		const epsilon = network.getEpsilon ? network.getEpsilon() : network.epsilon
+		const eps = (epsilon * 100).toFixed(0)
 		const exploring = network.isExploring ? ' <span style="color:#f39c12">🎲</span>' : ''
 		const previewTag = isPreview ? ' <span style="color:#3498db">[预览]</span>' : ''
+		
+		// 添加模式标识：无探索=⊘ 固定=🔒 动态=⚡
+		const modeIcon = network.exploreMode === 'none' ? '⊘' : 
+		                  network.exploreMode === 'fixed' ? '🔒' : '⚡'
 		
 		this.infoBar.innerHTML = `
 			<span>结构:${structure.layerSizes.join('-')}</span>
 			<span>权重:${structure.totalWeights}</span>
 			<span style="color:rgba(255,255,255,0.6)">ε:${eps}%${exploring}${previewTag}</span>
+			<span style="color:#0f0" title="探索模式:${network.exploreMode}">${modeIcon}</span>
 		`
 	}
 	
@@ -203,6 +217,12 @@ export class NetworkView {
 	}
 	
 	drawConnections(ctx, positions, weights, inputs, weightChanges = null) {
+		console.log('[NETWORK_VIEW]', `drawConnections | weightChanges=${weightChanges ? '有' : '无'} layers=${weights.length}`)
+		if (weightChanges) {
+			const flatChanges = weightChanges.flat(2)
+			const nonZeroCount = flatChanges.filter(c => Math.abs(c) > 0.0001).length
+			console.log('[NETWORK_VIEW]', `weightChanges详情 | 总数量=${flatChanges.length} 非零数量=${nonZeroCount}`)
+		}
 		for (let l = 0; l < weights.length; l++) {
 			const fromLayer = positions[l]
 			const toLayer = positions[l + 1]
@@ -235,15 +255,23 @@ export class NetworkView {
 					ctx.lineWidth = thickness
 					ctx.stroke()
 				
-					// 高亮发生变化的连线（权重更新后最粗提示）
-					if (delta !== 0) {
+					// 决策预览高亮：显示权重变动预览
+					if (Math.abs(delta) > 0.0001) {
+						// 高亮线宽：普通最大线宽 * 1.5 = 6px
+						const highlightWidth = LINE_STYLE.MAX_THICKNESS * PREVIEW_HIGHLIGHT.WIDTH_MULTIPLIER
+						
+						// 高亮颜色：基于变化方向（delta正负），与原始权重脱钩
+						// delta > 0: 金色（加分/奖励）
+						// delta < 0: 亮粉红（减分/惩罚）
+						const highlightColor = delta > 0 ? '#ffd700' : '#ff3366'
+						
+						console.log('[NETWORK_VIEW]', `绘制高亮 | weight=${weight.toFixed(2)} delta=${delta.toFixed(4)} width=${highlightWidth} color=${highlightColor}`)
+						
 						ctx.beginPath()
 						ctx.moveTo(from.x, from.y)
 						ctx.lineTo(to.x, to.y)
-						ctx.strokeStyle = delta > 0
-							? `rgba(${COLORS.DELTA_POSITIVE}, ${HIGHLIGHT_STYLE.ALPHA})`
-							: `rgba(${COLORS.DELTA_NEGATIVE}, ${HIGHLIGHT_STYLE.ALPHA})`
-						ctx.lineWidth = HIGHLIGHT_STYLE.LINE_WIDTH
+						ctx.strokeStyle = highlightColor
+						ctx.lineWidth = highlightWidth
 						ctx.stroke()
 					}
 				
@@ -261,7 +289,8 @@ export class NetworkView {
 		}
 	}
 	drawNodes(ctx, positions, inputs, action) {
-		const actionNames = ['移动', '跳跃']
+		const actionNames = ['移动', '跳跃', '远跳']
+		console.log('[NETWORK_VIEW]', `绘制节点 | inputs=[${inputs?.join(',')}] action=${action} layers=${positions.length}`)
 	
 		for (let l = 0; l < positions.length; l++) {
 			const layer = positions[l]
@@ -296,7 +325,7 @@ export class NetworkView {
 				ctx.textBaseline = 'middle'
 		
 				if (isInput) {
-					const labels =['前一格', '前两格', '前三格']
+					const labels =['前一格', '前两格', '前三格', '前四格']
 					ctx.fillText(labels[n] || `i${n}`, pos.x, pos.y)
 				} else if (isOutput) {
 					ctx.fillText(actionNames[n], pos.x, pos.y)

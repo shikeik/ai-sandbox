@@ -20,11 +20,32 @@ export class UIManager {
 	// ========== 控制面板渲染 ==========
 
 	bindPlayerBtn(btn, action) {
-		if (!btn) return
+		if (!btn) {
+			console.warn('[UI_MANAGER]', `绑定按钮失败: 按钮不存在, action=${action}`)
+			return
+		}
+		const actionNames = { [ACTION.RIGHT]: '移动', [ACTION.JUMP]: '跳跃', [ACTION.LONG_JUMP]: '远跳' }
+		console.log('[UI_MANAGER]', `绑定按钮 | action=${action}(${actionNames[action] || '未知'}) btn#${btn.id}`)
+		
+		// 按下效果处理（移动端 :active 不灵敏，手动添加 class）
+		const addActive = () => btn.classList.add('btn-pressed')
+		const removeActive = () => btn.classList.remove('btn-pressed')
+		
+		btn.addEventListener('touchstart', addActive, { passive: true })
+		btn.addEventListener('touchend', removeActive, { passive: true })
+		btn.addEventListener('touchcancel', removeActive, { passive: true })
+		btn.addEventListener('mousedown', addActive)
+		btn.addEventListener('mouseup', removeActive)
+		btn.addEventListener('mouseleave', removeActive)
+		
 		const handler = (e) => {
 			e.preventDefault()
+			console.log('[UI_MANAGER]', `按钮触发 | action=${action} gameStatus=${this.game.gameStatus}`)
 			if (this.game.gameStatus === GAME_STATUS.RUNNING) {
-				this.game.execute(action)
+				const result = this.game.execute(action)
+				console.log('[UI_MANAGER]', `执行结果 | success=${!!result}`)
+			} else {
+				console.log('[UI_MANAGER]', `执行忽略 | 游戏状态非RUNNING`)
 			}
 		}
 		btn.addEventListener('touchstart', handler, { passive: false })
@@ -32,28 +53,35 @@ export class UIManager {
 	}
 
 	renderPlayerControls(controlArea) {
-		console.log('[CONTROLS]', '渲染玩家模式按钮 | 右移+跳跃')
+		console.log('[CONTROLS]', '渲染玩家模式按钮 | 右移+跳跃+远跳')
 		controlArea.innerHTML = `
-			<button class="btn" id="btn-right">
+			<button class="btn" id="btn-right" ontouchstart="">
 				▶
 				<span class="btn-label">移动 (x+1)</span>
 			</button>
-			<button class="btn" id="btn-jump">
+			<button class="btn" id="btn-jump" ontouchstart="">
 				⬆
 				<span class="btn-label">跳跃 (x+2)</span>
+			</button>
+			<button class="btn" id="btn-long-jump" ontouchstart="">
+				⤴
+				<span class="btn-label">远跳 (x+3)</span>
 			</button>
 		`
 		const btnRight = document.getElementById('btn-right')
 		const btnJump = document.getElementById('btn-jump')
+		const btnLongJump = document.getElementById('btn-long-jump')
 		this.bindPlayerBtn(btnRight, ACTION.RIGHT)
 		this.bindPlayerBtn(btnJump, ACTION.JUMP)
+		this.bindPlayerBtn(btnLongJump, ACTION.LONG_JUMP)
 	}
 
 	renderStepControls(controlArea) {
 		console.log('[CONTROLS]', '渲染单步模式按钮 | 决策/执行')
 		const pending = this.aiController.pendingAIDecision
+		const actionNames = ['移动', '跳跃', '远跳']
 		const actionLabel = pending
-			? (pending.actionType === ACTION.JUMP ? '跳跃' : '移动')
+			? (actionNames[pending.action] || '行动')
 			: ''
 		const btnText = (pending ? `行动-${actionLabel}` : '决策') + '(Space)'
 
