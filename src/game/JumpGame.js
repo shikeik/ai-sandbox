@@ -137,8 +137,18 @@ export class JumpGame {
 		this.terrainConfig = {
 			seed: null,
 			isSeedLocked: false,
-			pitProbability: 0.55,
-			doublePitProbability: 0.4
+			// 元素权重配置
+			weights: {
+				ground: 50,
+				singlePit: 30,
+				doublePit: 20
+			},
+			// 元素开关
+			enabled: {
+				ground: true,
+				singlePit: true,
+				doublePit: true
+			}
 		}
 		this.lastTerrainSeed = null
 	
@@ -444,12 +454,12 @@ export class JumpGame {
 		// 确定种子：锁定则用配置种子，否则随机
 		const seed = this.terrainConfig.isSeedLocked 
 			? this.terrainConfig.seed 
-			: (this.terrainConfig.seed ?? Date.now())
+			: Date.now()
 		
 		const result = TerrainGenerator.generate({
 			seed,
-			pitProbability: this.terrainConfig.pitProbability,
-			doublePitProbability: this.terrainConfig.doublePitProbability
+			weights: this.terrainConfig.weights,
+			enabled: this.terrainConfig.enabled
 		})
 		
 		this.terrain = result.terrain

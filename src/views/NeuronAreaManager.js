@@ -87,6 +87,8 @@ export class NeuronAreaManager {
 		menu.appendChild(this._createExploreRow())
 		menu.appendChild(this._createDivider())
 		menu.appendChild(this._createSeedRow())
+		menu.appendChild(this._createDivider())
+		menu.appendChild(this._createWeightControls())
 
 		// 绑定切换事件
 		btn.addEventListener('click', () => this._toggleMenu(btn, menu))
@@ -304,6 +306,154 @@ export class NeuronAreaManager {
 			this.seedInputEl.value = seed || ''
 			this.currentSeed = seed
 		}
+	}
+
+	// ========== 元素权重控制 ==========
+
+	_createWeightControls() {
+		const container = document.createElement('div')
+		container.className = 'weight-controls'
+		container.style.cssText = `
+			padding: 6px;
+			background: rgba(0,0,0,0.2);
+			border-radius: 4px;
+		`
+
+		// 标题
+		const title = document.createElement('div')
+		title.textContent = '地形元素权重'
+		title.style.cssText = `
+			font-size: 10px;
+			color: rgba(255,255,255,0.6);
+			margin-bottom: 8px;
+			text-align: center;
+		`
+		container.appendChild(title)
+
+		// 三元素滑块
+		this.weightSliders = {}
+		this.weightToggles = {}
+
+		const elements = [
+			{ key: 'ground', label: '🟩平地', color: '#27ae60', defaultWeight: 50 },
+			{ key: 'singlePit', label: '⬛单坑', color: '#e74c3c', defaultWeight: 30 },
+			{ key: 'doublePit', label: '⬛⬛双坑', color: '#c0392b', defaultWeight: 20 }
+		]
+
+		elements.forEach(el => {
+			container.appendChild(this._createWeightRow(el))
+		})
+
+		console.log('[NEURON_UI]', '创建权重控制面板')
+		return container
+	}
+
+	_createWeightRow({ key, label, color, defaultWeight }) {
+		const row = document.createElement('div')
+		row.style.cssText = `
+			display: flex;
+			align-items: center;
+			gap: 6px;
+			margin-bottom: 6px;
+			font-size: 11px;
+		`
+
+		// 开关复选框
+		const toggle = document.createElement('input')
+		toggle.type = 'checkbox'
+		toggle.checked = true
+		toggle.style.cssText = `
+			width: 14px;
+			height: 14px;
+			accent-color: #0f0;
+			cursor: pointer;
+		`
+		toggle.addEventListener('change', () => {
+			this._handleWeightToggle(key, toggle.checked)
+		})
+		this.weightToggles[key] = toggle
+
+		// 标签
+		const labelEl = document.createElement('span')
+		labelEl.textContent = label
+		labelEl.style.cssText = `
+			width: 55px;
+			color: ${color};
+		`
+
+		// 滑块
+		const slider = document.createElement('input')
+		slider.type = 'range'
+		slider.min = '0'
+		slider.max = '100'
+		slider.value = defaultWeight
+		slider.style.cssText = `
+			flex: 1;
+			height: 4px;
+			accent-color: ${color};
+			cursor: pointer;
+		`
+		slider.addEventListener('input', () => {
+			this._handleWeightChange(key, parseInt(slider.value))
+		})
+		this.weightSliders[key] = slider
+
+		// 数值显示
+		const valueDisplay = document.createElement('span')
+		valueDisplay.textContent = defaultWeight
+		valueDisplay.style.cssText = `
+			width: 24px;
+			text-align: right;
+			color: ${color};
+			font-family: monospace;
+		`
+		slider.addEventListener('input', () => {
+			valueDisplay.textContent = slider.value
+		})
+
+		row.appendChild(toggle)
+		row.appendChild(labelEl)
+		row.appendChild(slider)
+		row.appendChild(valueDisplay)
+
+		return row
+	}
+
+	_handleWeightChange(key, value) {
+		console.log('[NEURON_UI]', `权重调整 | ${key}=${value}`)
+		if (this.onWeightChange) {
+			this.onWeightChange(key, value)
+		}
+	}
+
+	_handleWeightToggle(key, enabled) {
+		console.log('[NEURON_UI]', `元素开关 | ${key}=${enabled ? '开启' : '关闭'}`)
+		if (this.weightSliders[key]) {
+			this.weightSliders[key].disabled = !enabled
+			this.weightSliders[key].style.opacity = enabled ? '1' : '0.3'
+		}
+		if (this.onElementToggle) {
+			this.onElementToggle(key, enabled)
+		}
+	}
+
+	/**
+	 * 获取当前权重配置
+	 */
+	getWeightConfig() {
+		const weights = {}
+		const enabled = {}
+		
+		for (const key of ['ground', 'singlePit', 'doublePit']) {
+			weights[key] = this.weightSliders[key] 
+				? parseInt(this.weightSliders[key].value) 
+				: 50
+			enabled[key] = this.weightToggles[key] 
+				? this.weightToggles[key].checked 
+				: true
+		}
+		
+		return { weights, enabled }
 	}
 
 	// ========== 通用按钮创建 ==========
