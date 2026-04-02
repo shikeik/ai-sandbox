@@ -133,9 +133,10 @@ export class NeuronAreaManager {
 		console.log('[NEURON_UI]', '菜单初始化完成 | 默认状态=隐藏')
 	}
 
-	render(network, inputs = null, action = null, isPreview = false, weightChanges = null) {
+	render(network, inputs = null, action = null, isPreview = false, isResize = false, weightChanges = null) {
+		console.log('[NEURON_UI]', `render | isPreview=${isPreview} isResize=${isResize} weightChanges=${weightChanges ? '有' : '无'}`)
 		if (this.currentView && this.currentView.render) {
-			this.currentView.render(network, inputs, action, isPreview, false, weightChanges)
+			this.currentView.render(network, inputs, action, isPreview, isResize, weightChanges)
 		}
 	}
 

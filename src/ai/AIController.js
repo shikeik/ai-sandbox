@@ -211,8 +211,10 @@ export class AIController {
 
 		// 预览权重变化（决策时显示高亮）
 		const { changes } = this.network.previewTrain(AI_CONFIG.STEP_REWARD, action, inputs)
+		console.log('[AI]', `决策预览 | changes=${changes ? '有' : '无'} 变化量总数=${changes ? changes[0].flat().length : 0}`)
 
 		if (this.onRenderView) {
+			console.log('[AI]', `调用 onRenderView | isPreview=true changes=${changes ? '有' : '无'}`)
 			this.onRenderView(inputs, action, true, changes)
 		}
 	}

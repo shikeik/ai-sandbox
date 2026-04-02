@@ -118,7 +118,11 @@ export class NeuralNetwork {
 	*/
 	previewTrain(reward, action, state = null) {
 		const inputState = state || this.lastState
-		if (!inputState) return { changes: null, newWeights: null }
+		console.log('[AI]', `previewTrain called | reward=${reward} action=${action} inputState=[${inputState?.join(',')}]`)
+		if (!inputState) {
+			console.log('[AI]', 'previewTrain aborted | no input state')
+			return { changes: null, newWeights: null }
+		}
 	
 		const layerIdx = this.weights.length - 1
 		const weights = this.weights[layerIdx]
@@ -162,6 +166,9 @@ export class NeuralNetwork {
 			}
 			layerChanges.push(row)
 		}
+		
+		const totalChange = layerChanges.flat().reduce((a, b) => a + Math.abs(b), 0)
+		console.log('[AI]', `previewTrain result | changes=[${layerChanges.map(r => r.map(v => v.toFixed(3)).join(',')).join(' | ')}] totalAbsChange=${totalChange.toFixed(4)}`)
 		
 		return { 
 			changes: [layerChanges], 

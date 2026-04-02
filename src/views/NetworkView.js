@@ -153,7 +153,7 @@ export class NetworkView {
 
 		// 只在有实际输入变化时输出日志，避免resize刷屏
 		if (inputs && inputs.some(v => v !== null)) {
-			console.log('[NETWORK_VIEW]', `渲染 | 输入=[${inputs.join(',')}] 动作=${action !== null ? action : 'null'} 预览=${isPreview}`)
+			console.log('[NETWORK_VIEW]', `渲染 | 输入=[${inputs.join(',')}] 动作=${action !== null ? action : 'null'} 预览=${isPreview} weightChanges=${weightChanges ? '有' : '无'}`)
 		}
 
 		// 更新信息栏
@@ -210,6 +210,12 @@ export class NetworkView {
 	}
 	
 	drawConnections(ctx, positions, weights, inputs, weightChanges = null) {
+		console.log('[NETWORK_VIEW]', `drawConnections | weightChanges=${weightChanges ? '有' : '无'} layers=${weights.length}`)
+		if (weightChanges) {
+			const flatChanges = weightChanges.flat(2)
+			const nonZeroCount = flatChanges.filter(c => Math.abs(c) > 0.0001).length
+			console.log('[NETWORK_VIEW]', `weightChanges详情 | 总数量=${flatChanges.length} 非零数量=${nonZeroCount}`)
+		}
 		for (let l = 0; l < weights.length; l++) {
 			const fromLayer = positions[l]
 			const toLayer = positions[l + 1]
@@ -243,7 +249,7 @@ export class NetworkView {
 					ctx.stroke()
 				
 					// 决策预览高亮：显示权重变动预览
-					if (delta !== 0) {
+					if (Math.abs(delta) > 0.0001) {
 						// 高亮线宽：普通最大线宽 * 1.5 = 6px
 						const highlightWidth = LINE_STYLE.MAX_THICKNESS * PREVIEW_HIGHLIGHT.WIDTH_MULTIPLIER
 						
@@ -252,6 +258,8 @@ export class NetworkView {
 						const brightened = baseRgb.split(', ').map(c => 
 							Math.min(255, Math.floor(parseInt(c) * PREVIEW_HIGHLIGHT.BRIGHTNESS_BOOST))
 						).join(', ')
+						
+						console.log('[NETWORK_VIEW]', `绘制高亮 | weight=${weight.toFixed(2)} delta=${delta.toFixed(4)} width=${highlightWidth} color=${brightened}`)
 						
 						ctx.beginPath()
 						ctx.moveTo(from.x, from.y)
