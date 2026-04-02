@@ -7,7 +7,15 @@ export default {
 	},
 	build: {
 		outDir: 'dist',
-		assetsDir: 'assets'
+		assetsDir: 'assets',
+		rollupOptions: {
+			input: {
+				index: resolve(__dirname, 'index.html'),
+				'fox-jump': resolve(__dirname, 'pages/fox-jump.html'),
+				'vector-params': resolve(__dirname, 'pages/vector-params.html'),
+				'mlp-teaching': resolve(__dirname, 'pages/mlp-teaching.html')
+			}
+		}
 	},
 	resolve: {
 		alias: {

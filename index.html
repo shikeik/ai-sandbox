@@ -2,95 +2,114 @@
 <html lang="zh-CN">
 <head>
 	<meta charset="UTF-8">
-	<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-	<meta name="apple-mobile-web-app-capable" content="yes">
-	<meta name="mobile-web-app-capable" content="yes">
-	<title>AI 神经元训练沙盘</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+	<title>AI 沙盘导航</title>
+	<style>
+		* { margin: 0; padding: 0; box-sizing: border-box; }
+		body {
+			font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "PingFang SC", "Microsoft YaHei", sans-serif;
+			background: #0b0c0f;
+			color: #e8eaed;
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			justify-content: center;
+			min-height: 100vh;
+			padding: 24px;
+		}
+		h1 {
+			font-size: 28px;
+			font-weight: 600;
+			margin-bottom: 8px;
+			letter-spacing: 1px;
+		}
+		.subtitle {
+			color: #9aa0a6;
+			font-size: 14px;
+			margin-bottom: 40px;
+		}
+		.nav-grid {
+			display: grid;
+			grid-template-columns: 1fr;
+			gap: 20px;
+			width: 100%;
+			max-width: 400px;
+		}
+		@media (min-width: 640px) {
+			.nav-grid {
+				grid-template-columns: repeat(2, 1fr);
+				max-width: 720px;
+			}
+		}
+		.nav-card {
+			display: block;
+			text-decoration: none;
+			background: #16181d;
+			border: 1px solid #2c2f36;
+			border-radius: 16px;
+			padding: 28px;
+			transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease;
+		}
+		.nav-card:hover {
+			transform: translateY(-4px);
+			border-color: #5f6368;
+			box-shadow: 0 12px 32px rgba(0,0,0,.35);
+		}
+		.nav-card .icon {
+			font-size: 36px;
+			margin-bottom: 14px;
+		}
+		.nav-card .title {
+			font-size: 18px;
+			font-weight: 500;
+			color: #e8eaed;
+			margin-bottom: 6px;
+		}
+		.nav-card .desc {
+			font-size: 13px;
+			color: #9aa0a6;
+			line-height: 1.5;
+		}
+		.badge {
+			display: inline-block;
+			font-size: 11px;
+			padding: 2px 8px;
+			border-radius: 999px;
+			background: #30343b;
+			color: #bdc1c6;
+			margin-top: 12px;
+		}
+		.badge.wip {
+			background: #3e2c14;
+			color: #f9ab00;
+		}
+	</style>
 </head>
 <body>
-	<div class="ever-portrait active" id="ep-container">
-		<div id="app">
-			<!-- 顶部区域：控制栏 + 控制台 -->
-			<div class="top-section">
-				<div class="control-bar">
-					<button class="ctrl-btn icon-only" id="btn-toggle" title="恒竖切换">↻</button>
-					<button class="ctrl-btn icon-only" id="btn-fullscreen" title="全屏">⛶</button>
-					<button class="ctrl-btn icon-only" id="btn-console" title="控制台">🖥️</button>
-					<button class="ctrl-btn icon-only" id="btn-reload" title="刷新页面">🔄</button>
-					<div class="eps-status" id="eps-st">-</div>
-					<div id="neuron-menu-container"></div>
-				</div>
-			</div>
+	<h1>🧠 AI 神经元训练沙盘</h1>
+	<p class="subtitle">选择下方的演示模块进入对应页面</p>
 
-			<!-- 控制台面板 -->
-			<div class="console-panel" id="console-panel">
-				<div class="console-toolbar">
-					<button class="ctrl-btn icon-only active" id="btn-autoscroll" title="自动滚动">⬇️</button>
-					<button class="ctrl-btn icon-only" id="btn-filter-console" title="筛选">🔍</button>
-					<button class="ctrl-btn icon-only" id="btn-clear-console" title="清空">🗑️</button>
-					<button class="ctrl-btn icon-only" id="btn-download-console" title="下载日志">💾</button>
-					<div class="console-filter-menu" id="console-filter-menu">
-						<div class="console-filter-header">
-							<button class="console-filter-header-btn" id="btn-filter-all">全选</button>
-							<button class="console-filter-header-btn" id="btn-filter-none">全不选</button>
-						</div>
-						<div class="console-filter-list" id="console-filter-list"></div>
-					</div>
-				</div>
-				<div class="console-content" id="console-logs"></div>
-			</div>
+	<div class="nav-grid">
+		<a href="./pages/fox-jump.html" class="nav-card">
+			<div class="icon">🦊</div>
+			<div class="title">单层感知机演示</div>
+			<div class="desc">狐狸跳跃游戏 · 可视化训练过程 · 实时观察神经元权重变化</div>
+			<span class="badge">可玩</span>
+		</a>
 
-			<!-- 游戏主容器：三区域在此容器内分配比例 -->
-			<div id="game-container">
+		<a href="./pages/vector-params.html" class="nav-card">
+			<div class="icon">📐</div>
+			<div class="title">向量化参数演示</div>
+			<div class="desc">向量空间 · 参数映射 · 待补充内容</div>
+			<span class="badge wip">施工中</span>
+		</a>
 
-				<!-- 游戏区域 -->
-				<div id="game-area">
-					<div id="game-info">
-						POS: <span id="pos-display">0</span> | 
-						GEN: <span id="gen-display">1</span>
-					</div>
-					<div id="status-text"></div>
-					<div id="game-world"></div>
-
-					<!-- 开始游戏遮罩 -->
-					<div id="start-overlay" class="game-overlay">
-						<div class="overlay-content">
-							<h2>AI 神经元训练沙盘</h2>
-							<button id="start-btn" class="start-button">开始游戏</button>
-							<p class="overlay-hint">点击按钮开始挑战</p>
-						</div>
-					</div>
-				</div>
-
-				<!-- 神经元区域 -->
-				<div id="neuron-area">
-					<div id="neuron-placeholder">
-						<div class="neuron-icon">🧠</div>
-						<div>[ 神经元网络区域 ]</div>
-						<div style="font-size: 12px; margin-top: 10px; opacity: 0.5;">等待 AI 接入控制...</div>
-					</div>
-				</div>
-
-				<!-- 控制区域 -->
-				<div id="control-area">
-					<button class="btn" id="btn-right">
-						▶
-						<span class="btn-label">移动 (x+1)</span>
-					</button>
-					<button class="btn" id="btn-jump">
-						⬆
-						<span class="btn-label">跳跃 (x+2)</span>
-					</button>
-					<button class="btn" id="btn-long-jump">
-						⤴
-						<span class="btn-label">远跳 (x+3)</span>
-					</button>
-				</div>
-
-			</div><!-- /#game-container -->
-		</div>
+		<a href="./pages/mlp-teaching.html" class="nav-card">
+			<div class="icon">🧮</div>
+			<div class="title">MLP 神经网络教学</div>
+			<div class="desc">多层感知机 · 前向传播与反向传播 · 权重更新可视化</div>
+			<span class="badge">可玩</span>
+		</a>
 	</div>
-
-	<script type="module" src="/src/main.ts"></script>
 </body>
 </html>
