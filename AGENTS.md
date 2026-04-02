@@ -44,14 +44,21 @@
 │   ├── game/
 │   │   └── JumpGame.js        # 游戏核心逻辑（地形生成、碰撞检测、状态机）
 │   ├── render/
-│   │   ├── GameRenderer.js    # DOM 渲染器 + 补间动画(Tween) + 狐狸动画状态机
+│   │   ├── FoxAnimator.js     # 狐狸动画状态机（CSS class + WAAPI 尾巴动画）
+│   │   ├── GameRenderer.js    # DOM 渲染器 + 补间动画(Tween)
 │   │   └── TransitionManager.js # 死亡/胜利后的黑屏转场
 │   ├── ai/
+│   │   ├── AIController.js    # AI 控制器（模式切换、速度控制、训练循环）
 │   │   ├── NeuralNetwork.js   # 单层神经网络（3 输入 → 2 输出）+ ε-贪心 + 训练更新
 │   │   └── PlayerBestStore.js # 玩家最佳通关时间记录（localStorage）
 │   ├── views/
-│   │   ├── NeuronAreaManager.js # 神经元区域菜单（模式/速度切换）
-│   │   └── NetworkView.js     # Canvas 绘制网络拓扑图
+│   │   ├── ConsolePanel.js    # 控制台面板（日志拦截、筛选、下载）
+│   │   ├── NetworkView.js     # Canvas 绘制网络拓扑图
+│   │   └── NeuronAreaManager.js # 神经元区域菜单（模式/速度切换）
+│   ├── managers/
+│   │   ├── GameEventBridge.js # 游戏事件桥接器（连接核心与 UI/AI/渲染器）
+│   │   ├── InputManager.js    # 输入管理器（键盘、窗口大小调整）
+│   │   └── UIManager.js       # UI 管理器（控制面板渲染、游戏信息更新）
 │   ├── utils/
 │   │   └── timeUtils.js       # 时间格式化工具（mm:ss / mm:ss.mmm）
 │   ├── style.css              # 全局样式、布局、UI 控件
@@ -67,6 +74,7 @@
 '@ai'      -> src/ai
 '@views'   -> src/views
 '@utils'   -> src/utils
+'@managers'-> src/managers
 ```
 
 ---
@@ -110,7 +118,7 @@ npm run preview
 
 ### 6.1 游戏逻辑（JumpGame.js）
 
-**世界**：32 格横版地图，随机生成平地(`ground`)与坑(`pit`)。
+**世界**：32格横版地图，随机生成平地(`ground`)与坑(`pit`)。
 
 **动作**：
 - `RIGHT` (x+1)：向右移动一格
@@ -128,9 +136,9 @@ npm run preview
 - 狐狸动画状态通过 CSS class 切换（`state-idle` / `state-run` / `state-jump-up` / `state-jump-down` / `state-land` / `state-dead`）
 - 尾巴动画单独使用 **WAAPI** (`Element.animate`)，避免与 CSS transition 冲突
 
-### 6.3 AI 系统（NeuralNetwork.js）
+### 6.3 AI 系统（NeuralNetwork.js + AIController.js）
 
-**结构**：单层，3 个输入神经元（前方第 1/2/3 格是否为坑）→ 2 个输出神经元（移动 / 跳跃）。
+**网络结构**：单层，3 个输入神经元（前方第 1/2/3 格是否为坑）→ 2 个输出神经元（移动 / 跳跃）。
 
 **决策**：ε-贪心（`epsilon` 默认 0，当前为纯利用模式）。
 - 探索时随机二选一
@@ -144,11 +152,19 @@ npm run preview
 
 **动态 ε**：支持 `autoAdjustEpsilon`，根据最近 5 局的滑动平均分自动增减探索率（±0.05），范围锁定在 `[0.1, 0.4]`。当前默认关闭，便于可控观察。
 
+**速度档位**：
+- `STEP`：单步模式，需手动触发
+- `SLOW`：1000ms 间隔
+- `NORMAL`：200ms 间隔
+- `FAST`：50ms 间隔
+- `MAX`：极速（requestAnimationFrame，约 1 帧完成动画）
+
 ### 6.4 EPS 恒竖布局系统（eps.js）
 
 - 当设备物理横屏时，通过 CSS `rotate(-90deg)` 将游戏容器强制显示为竖屏
 - 计算硬件安全区域（`env(safe-area-inset-*)`）与软件 UI 内边距（`visualViewport`）
 - 动态更新 CSS 变量 `--ep-avail-width` / `--ep-avail-height`
+- 提供坐标转换方法（屏幕坐标 ↔ 逻辑坐标）
 - 与 `main.js` 中的 `handleResize` 存在联动，修改尺寸相关代码时需两边同时考虑
 
 ### 6.5 三种运行模式（main.js）
@@ -157,14 +173,22 @@ npm run preview
 |------|------|
 | `player` | 玩家手动操作，底部显示移动/跳跃按钮，计时并记录最佳时间 |
 | `ai` | AI 控制狐狸自动闯关，只观察不训练 |
-| `train` | AI 自动闯关并实时更新权重，支持 5 档速度（单步 / 慢速 / 中速 / 快速 / 极速） |
+| `train` | AI 自动闯关并实时更新权重，支持 5 档速度 |
 
-### 6.6 控制台面板
+### 6.6 控制台面板（ConsolePanel.js）
 
 - 位于顶部区域，可折叠展开
 - 拦截 `console.log/warn/error/info`，按标签分类显示
 - 支持标签筛选、自动滚动、清空、下载日志
 - 日志标签格式：`[TAG]` 开头，如 `[AI]`, `[GAME]`, `[UI]`
+- 全局错误监听（`error` / `unhandledrejection`）
+
+### 6.7 管理器架构
+
+项目采用多管理器分工架构：
+- `UIManager`：控制面板渲染、游戏信息更新、AI 视图渲染
+- `InputManager`：键盘输入、窗口大小调整
+- `GameEventBridge`：桥接游戏核心事件与 UI/AI/渲染器的回调
 
 ---
 

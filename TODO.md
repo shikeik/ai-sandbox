@@ -12,11 +12,11 @@
 
 
 
-- [ ] 规范项目日志输出：使用 game-log-*.txt 命名格式
+- [ ] 规范项目日志输出：统一日志命名并存放到 Download 目录
   - 当前问题：日志文件命名混乱（console-*.txt、debug-*.log.txt 等）
-  - 目标：统一使用 game-log-*.txt，与 view-media 技能匹配
+  - 目标：统一存放到 Download 目录，view-media 已支持 `Download/*.*` 自动查找
 
-- [ ] 清理重复 skill：删除所有子目录 .kimi/skills/ 通用技能
+- [x] 清理重复 skill：删除所有子目录 .kimi/skills/ 通用技能
   - 检查并列出重复项（如 view-media、commit-assistant 等）
   - 全部移到 html 根统一管理
   - 确保工作区内无重复 skill
