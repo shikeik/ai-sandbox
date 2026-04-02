@@ -5,10 +5,10 @@
 
 /**
  * 将毫秒格式化为 mm:ss 格式
- * @param {number} ms - 时间（毫秒）
- * @returns {string} 格式化后的时间字符串，如 "01:23"
+ * @param ms - 时间（毫秒）
+ * @returns 格式化后的时间字符串，如 "01:23"
  */
-export function formatTime(ms) {
+export function formatTime(ms: number): string {
 	const totalSeconds = Math.floor(ms / 1000)
 	const minutes = Math.floor(totalSeconds / 60)
 	const seconds = totalSeconds % 60
@@ -17,10 +17,10 @@ export function formatTime(ms) {
 
 /**
  * 将毫秒格式化为 mm:ss.mmm 格式（带毫秒精度）
- * @param {number} ms - 时间（毫秒）
- * @returns {string} 格式化后的时间字符串，如 "01:23.456"
+ * @param ms - 时间（毫秒）
+ * @returns 格式化后的时间字符串，如 "01:23.456"
  */
-export function formatTimeMs(ms) {
+export function formatTimeMs(ms: number): string {
 	const totalSeconds = Math.floor(ms / 1000)
 	const minutes = Math.floor(totalSeconds / 60)
 	const seconds = totalSeconds % 60

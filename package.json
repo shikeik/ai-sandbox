@@ -7,9 +7,11 @@
     "dev": "vite",
     "build": "vite build",
     "build:single": "node scripts/build-single-file.mjs",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "type-check": "tsc --noEmit"
   },
   "devDependencies": {
+    "typescript": "^6.0.2",
     "vite": "^5.0.0"
   }
 }

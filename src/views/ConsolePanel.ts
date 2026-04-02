@@ -3,20 +3,27 @@
  * 拦截 console 输出并按标签分类显示，支持筛选、自动滚动、下载
  */
 
+type LogLevel = 'log' | 'warn' | 'error' | 'info'
+
 export class ConsolePanel {
+	private isOpen: boolean = false
+	private logsContainer: HTMLElement | null = null
+	private originalLog: typeof console.log
+	private originalWarn: typeof console.warn
+	private originalError: typeof console.error
+	private originalInfo: typeof console.info
+	private tagRegistry: Set<string> = new Set()
+	private tagVisible: Map<string, boolean> = new Map()
+	private autoScroll: boolean = true
+
 	constructor() {
-		this.isOpen = false
-		this.logsContainer = null
 		this.originalLog = console.log
 		this.originalWarn = console.warn
 		this.originalError = console.error
 		this.originalInfo = console.info
-		this.tagRegistry = new Set()
-		this.tagVisible = new Map()
-		this.autoScroll = true
 	}
 
-	init() {
+	init(): void {
 		this.logsContainer = document.getElementById('console-logs')
 		if (!this.logsContainer) {
 			console.warn('[CONSOLE]', '未找到 console-logs 容器，控制台面板未初始化')
@@ -29,7 +36,7 @@ export class ConsolePanel {
 		console.log('[CONSOLE]', '控制台面板已初始化')
 	}
 
-	toggle() {
+	toggle(): void {
 		this.isOpen = !this.isOpen
 		const panel = document.getElementById('console-panel')
 		const btn = document.getElementById('btn-console')
@@ -38,7 +45,7 @@ export class ConsolePanel {
 		console.log('[CONSOLE]', `面板状态: ${this.isOpen ? '打开' : '关闭'}`)
 	}
 
-	_formatArg(a) {
+	private _formatArg(a: unknown): string {
 		if (a instanceof Error) {
 			return a.stack || a.message || String(a)
 		}
@@ -48,7 +55,7 @@ export class ConsolePanel {
 		return String(a)
 	}
 
-	_extractTag(args) {
+	private _extractTag(args: unknown[]): { tag: string, rest: unknown[] } {
 		if (args.length > 0 && typeof args[0] === 'string') {
 			const match = args[0].match(/^\[([^\]]+)\]$/)
 			if (match) {
@@ -58,7 +65,7 @@ export class ConsolePanel {
 		return { tag: 'app', rest: args }
 	}
 
-	_registerTag(tag) {
+	private _registerTag(tag: string): void {
 		if (!this.tagRegistry.has(tag)) {
 			this.tagRegistry.add(tag)
 			this.tagVisible.set(tag, true)
@@ -66,15 +73,16 @@ export class ConsolePanel {
 		}
 	}
 
-	_applyTagFilters() {
+	private _applyTagFilters(): void {
+		if (!this.logsContainer) return
 		const lines = this.logsContainer.querySelectorAll('.console-line')
 		lines.forEach(line => {
-			const tag = line.dataset.tag || 'app'
-			line.style.display = this.tagVisible.get(tag) ? '' : 'none'
+			const tag = (line as HTMLElement).dataset.tag || 'app'
+			;(line as HTMLElement).style.display = this.tagVisible.get(tag) ? '' : 'none'
 		})
 	}
 
-	_renderFilterMenu() {
+	private _renderFilterMenu(): void {
 		const list = document.getElementById('console-filter-list')
 		if (!list) return
 		list.innerHTML = ''
@@ -87,15 +95,20 @@ export class ConsolePanel {
 				<input type="checkbox" ${checked}>
 				<span class="console-filter-tag">${tag}</span>
 			`
-			row.querySelector('input').addEventListener('change', (e) => {
-				this.tagVisible.set(tag, e.target.checked)
-				this._applyTagFilters()
-			})
+			const input = row.querySelector('input')
+			if (input) {
+				input.addEventListener('change', (e) => {
+					this.tagVisible.set(tag, (e.target as HTMLInputElement).checked)
+					this._applyTagFilters()
+				})
+			}
 			list.appendChild(row)
 		})
 	}
 
-	_appendLine(level, args) {
+	private _appendLine(level: LogLevel, args: unknown[]): void {
+		if (!this.logsContainer) return
+		
 		const { tag, rest } = this._extractTag(args)
 		this._registerTag(tag)
 
@@ -126,29 +139,29 @@ export class ConsolePanel {
 		}
 	}
 
-	_makeTaggedLogger(orig, level) {
+	private _makeTaggedLogger(orig: Function, level: LogLevel): (...args: unknown[]) => void {
 		const self = this
-		return function (...args) {
+		return function (...args: unknown[]) {
 			orig.apply(console, args)
 			self._appendLine(level, args)
 		}
 	}
 
-	_bindLogIntercept() {
+	private _bindLogIntercept(): void {
 		console.log = this._makeTaggedLogger(this.originalLog, 'log')
 		console.warn = this._makeTaggedLogger(this.originalWarn, 'warn')
 		console.error = this._makeTaggedLogger(this.originalError, 'error')
 		console.info = this._makeTaggedLogger(this.originalInfo, 'info')
 
-		window.gameLog = {
-			log: (tag, ...args) => console.log(`[${tag}]`, ...args),
-			warn: (tag, ...args) => console.warn(`[${tag}]`, ...args),
-			error: (tag, ...args) => console.error(`[${tag}]`, ...args),
-			info: (tag, ...args) => console.info(`[${tag}]`, ...args)
+		;(window as unknown as Record<string, unknown>).gameLog = {
+			log: (tag: string, ...args: unknown[]) => console.log(`[${tag}]`, ...args),
+			warn: (tag: string, ...args: unknown[]) => console.warn(`[${tag}]`, ...args),
+			error: (tag: string, ...args: unknown[]) => console.error(`[${tag}]`, ...args),
+			info: (tag: string, ...args: unknown[]) => console.info(`[${tag}]`, ...args)
 		}
 	}
 
-	_bindGlobalErrors() {
+	private _bindGlobalErrors(): void {
 		window.addEventListener('error', (e) => {
 			console.error('[EXCEPTION]', `未捕获的错误: ${e.message}`, '\n源文件:', e.filename, '\n行号:', e.lineno, '\n列号:', e.colno, '\n', e.error || '')
 		})
@@ -163,7 +176,7 @@ export class ConsolePanel {
 		})
 	}
 
-	_bindToolbarButtons() {
+	private _bindToolbarButtons(): void {
 		const btnClear = document.getElementById('btn-clear-console')
 		const btnDownload = document.getElementById('btn-download-console')
 		const btnFilter = document.getElementById('btn-filter-console')
@@ -172,7 +185,7 @@ export class ConsolePanel {
 
 		if (btnClear) {
 			btnClear.addEventListener('click', () => {
-				this.logsContainer.innerHTML = ''
+				if (this.logsContainer) this.logsContainer.innerHTML = ''
 				this.tagRegistry.clear()
 				this.tagVisible.clear()
 				this._renderFilterMenu()
@@ -182,7 +195,8 @@ export class ConsolePanel {
 
 		if (btnDownload) {
 			btnDownload.addEventListener('click', () => {
-				const lines = Array.from(this.logsContainer.children).map(el => el.textContent)
+				if (!this.logsContainer) return
+				const lines = Array.from(this.logsContainer.children).map(el => el.textContent || '')
 				const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' })
 				const url = URL.createObjectURL(blob)
 				const a = document.createElement('a')
@@ -212,7 +226,7 @@ export class ConsolePanel {
 			})
 
 			document.addEventListener('click', (e) => {
-				if (!filterMenu.contains(e.target) && e.target !== btnFilter) {
+				if (!filterMenu.contains(e.target as Node) && e.target !== btnFilter) {
 					filterMenu.classList.remove('open')
 					btnFilter.classList.remove('active')
 				}

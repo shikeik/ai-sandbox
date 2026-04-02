@@ -19,24 +19,24 @@ import './style.css'
 import './style-fox.css'
 
 // ========== 全局实例 ==========
-let game = null
-let renderer = null
-let transitionManager = null
-let network = null
-let playerBestStore = null
-let viewManager = null
-let consolePanel = null
-let timerInterval = null
-let aiController = null
-let uiManager = null
-let inputManager = null
-let gameEventBridge = null
+let game: JumpGame | null = null
+let renderer: GameRenderer | null = null
+let transitionManager: TransitionManager | null = null
+let network: NeuralNetwork | null = null
+let playerBestStore: PlayerBestStore | null = null
+let viewManager: NeuronAreaManager | null = null
+let consolePanel: ConsolePanel | null = null
+let timerInterval: ReturnType<typeof setInterval> | null = null
+let aiController: AIController | null = null
+let uiManager: UIManager | null = null
+let inputManager: InputManager | null = null
+let gameEventBridge: GameEventBridge | null = null
 
 // ========== DOM 元素 ==========
-const gameArea = document.getElementById('game-area')
+const gameArea = document.getElementById('game-area')!
 
 // ========== 初始化 ==========
-function init() {
+function init(): void {
 	// 初始化控制台面板
 	consolePanel = new ConsolePanel()
 	consolePanel.init()
@@ -52,8 +52,8 @@ function init() {
 		learningRate: 0.2,
 		weightClip: 5
 	})
-	window.network = network
-	window.AI_CONFIG = AI_CONFIG
+	;(window as unknown as Record<string, unknown>).network = network
+	;(window as unknown as Record<string, unknown>).AI_CONFIG = AI_CONFIG
 
 	playerBestStore = new PlayerBestStore()
 	viewManager = new NeuronAreaManager('neuron-area')
@@ -62,7 +62,7 @@ function init() {
 	// 初始化 UI 管理器
 	uiManager = new UIManager({
 		game,
-		aiController: { isAIMode: false }, // 临时占位，后续更新
+		aiController: { isAIMode: false } as AIController,
 		playerBestStore,
 		viewManager,
 		network
@@ -73,7 +73,7 @@ function init() {
 		game,
 		network,
 		onRenderView: (inputs, action, isPreview, weightChanges) => {
-			uiManager.renderCurrentAIView(inputs, action, isPreview, weightChanges)
+			uiManager!.renderCurrentAIView(inputs, action, isPreview, weightChanges)
 		}
 	})
 
@@ -82,66 +82,66 @@ function init() {
 
 	// 设置模式切换回调
 	viewManager.onModeChange = (mode) => {
-		aiController.setMode(mode)
-		uiManager.updateControlsUI()
+		aiController!.setMode(mode)
+		uiManager!.updateControlsUI()
 	}
 
 	viewManager.onViewChange = (viewName) => {
-		const state = game.getStateForAI()
+		const state = game!.getStateForAI()
 		const inputs = [
 			state.terrainAhead[0] === 'pit' ? 1 : 0,
 			state.terrainAhead[1] === 'pit' ? 1 : 0,
 			state.terrainAhead[2] === 'pit' ? 1 : 0,
 			state.terrainAhead[3] === 'pit' ? 1 : 0
 		]
-		uiManager.renderCurrentAIView(inputs, network ? network.lastAction : null)
+		uiManager!.renderCurrentAIView(inputs, network ? network.lastAction : null)
 	}
 
 	viewManager.onSpeedChange = (speedId) => {
 		switch (speedId) {
-			case 'step': aiController.setSpeed(AI_CONFIG.SPEEDS.STEP); break
-			case 'slow': aiController.setSpeed(AI_CONFIG.SPEEDS.SLOW); break
-			case 'normal': aiController.setSpeed(AI_CONFIG.SPEEDS.NORMAL); break
-			case 'fast': aiController.setSpeed(AI_CONFIG.SPEEDS.FAST); break
-			case 'max': aiController.setSpeed(AI_CONFIG.SPEEDS.MAX); break
+			case 'step': aiController!.setSpeed(AI_CONFIG.SPEEDS.STEP); break
+			case 'slow': aiController!.setSpeed(AI_CONFIG.SPEEDS.SLOW); break
+			case 'normal': aiController!.setSpeed(AI_CONFIG.SPEEDS.NORMAL); break
+			case 'fast': aiController!.setSpeed(AI_CONFIG.SPEEDS.FAST); break
+			case 'max': aiController!.setSpeed(AI_CONFIG.SPEEDS.MAX); break
 		}
-		uiManager.updateControlsUI()
+		uiManager!.updateControlsUI()
 	}
 
 	// 设置探索模式切换回调
 	viewManager.onExploreModeChange = (mode) => {
-		network.exploreMode = mode
-		const epsilon = network.getEpsilon ? network.getEpsilon() : 0
+		network!.exploreMode = mode
+		const epsilon = network!.getEpsilon()
 		console.log('[MAIN]', `探索模式切换 | 新模式=${mode} | ε=${epsilon.toFixed(2)}`)
 	}
 
 	// 设置种子控制回调
 	viewManager.onSeedLockChange = (isLocked) => {
-		game.setTerrainConfig({ isSeedLocked: isLocked })
+		game!.setTerrainConfig({ isSeedLocked: isLocked })
 		console.log('[MAIN]', `种子锁定切换 | ${isLocked ? '锁定' : '解锁'}`)
 	}
 
 	viewManager.onSeedChange = (seed) => {
-		game.setTerrainConfig({ seed })
+		game!.setTerrainConfig({ seed })
 		console.log('[MAIN]', `种子变更 | ${seed}`)
 	}
 
 	// 设置权重控制回调
 	viewManager.onWeightChange = (key, value) => {
-		const config = game.terrainConfig
-		config.weights[key] = value
+		const config = game!.terrainConfig
+		config.weights[key as keyof typeof config.weights] = value
 		console.log('[MAIN]', `权重调整 | ${key}=${value} 当前权重=`, config.weights)
 	}
 
 	viewManager.onElementToggle = (key, enabled) => {
-		const config = game.terrainConfig
-		config.enabled[key] = enabled
+		const config = game!.terrainConfig
+		config.enabled[key as keyof typeof config.enabled] = enabled
 		console.log('[MAIN]', `元素开关 | ${key}=${enabled ? '开启' : '关闭'}`)
 	}
 
 	// 游戏地形生成后更新UI显示
 	game.onTerrainSeedChange = (seed, stats) => {
-		viewManager.updateSeedDisplay(seed)
+		viewManager!.updateSeedDisplay(seed)
 		console.log('[MAIN]', `地形已生成 | 种子=${seed} 平地=${stats.ground} 单坑=${stats.singlePit} 双坑=${stats.doublePit}`)
 	}
 
@@ -198,33 +198,33 @@ function init() {
 	bindToolbarButtons()
 }
 
-function onGameStart() {
+function onGameStart(): void {
 	console.log('[MAIN]', '游戏开始')
-	game.startGame()
-	uiManager.hideStartOverlay()
-	if (!aiController.isAIMode) {
+	game!.startGame()
+	uiManager!.hideStartOverlay()
+	if (!aiController!.isAIMode) {
 		startTimerUpdate()
 	} else {
-		aiController.start()
+		aiController!.start()
 	}
 	console.log('[MAIN]', '游戏状态切换完成')
 }
 
-function startTimerUpdate() {
+function startTimerUpdate(): void {
 	stopTimerUpdate()
 	timerInterval = setInterval(() => {
-		uiManager.updateGameInfo()
+		uiManager!.updateGameInfo()
 	}, AI_CONFIG.TIMER_INTERVAL)
 }
 
-function stopTimerUpdate() {
+function stopTimerUpdate(): void {
 	if (timerInterval) {
 		clearInterval(timerInterval)
 		timerInterval = null
 	}
 }
 
-function bindToolbarButtons() {
+function bindToolbarButtons(): void {
 	const btnToggle = document.getElementById('btn-toggle')
 	const btnFullscreen = document.getElementById('btn-fullscreen')
 	const btnConsole = document.getElementById('btn-console')
@@ -248,7 +248,7 @@ function bindToolbarButtons() {
 	}
 
 	if (btnConsole) {
-		btnConsole.addEventListener('click', () => consolePanel.toggle())
+		btnConsole.addEventListener('click', () => consolePanel!.toggle())
 	}
 
 	const btnReload = document.getElementById('btn-reload')
@@ -276,28 +276,28 @@ if (import.meta.hot) {
 			transitionManager = null
 		}
 		if (game) {
-			game.destroy?.()
+			;(game as unknown as { destroy?: () => void }).destroy?.()
 			game = null
 		}
 	})
 }
 
 // ========== 调试接口 ==========
-window.aiSandbox = {
+;(window as unknown as Record<string, unknown>).aiSandbox = {
 	get game() { return game },
 	get renderer() { return renderer },
 	get network() { return network },
 	get viewManager() { return viewManager },
 	ACTION,
 	toggleAI: () => {
-		aiController.isAIMode = !aiController.isAIMode
-		aiController.isAITrainMode = aiController.isAIMode
-		if (aiController.isAIMode) {
-			aiController.start()
+		aiController!.isAIMode = !aiController!.isAIMode
+		aiController!.isAITrainMode = aiController!.isAIMode
+		if (aiController!.isAIMode) {
+			aiController!.start()
 		} else {
-			aiController.stop()
+			aiController!.stop()
 		}
-		uiManager.updateControlsUI()
-		return aiController.isAIMode
+		uiManager!.updateControlsUI()
+		return aiController!.isAIMode
 	}
 }

@@ -2,6 +2,65 @@ import { CONFIG, TERRAIN } from './JumpGame.js'
 import { SeededRandom } from '@utils/SeededRandom.js'
 
 /**
+ * 地形元素类型
+ */
+export type TerrainElement = 'ground' | 'singlePit' | 'doublePit'
+
+/**
+ * 地形权重配置
+ */
+export interface TerrainWeights {
+	ground: number
+	singlePit: number
+	doublePit: number
+}
+
+/**
+ * 元素开关配置
+ */
+export interface TerrainEnabled {
+	ground: boolean
+	singlePit: boolean
+	doublePit: boolean
+}
+
+/**
+ * 地形配置选项
+ */
+export interface TerrainOptions {
+	seed?: number
+	weights?: TerrainWeights
+	enabled?: TerrainEnabled
+}
+
+/**
+ * 地形统计数据
+ */
+export interface TerrainStats {
+	ground: number
+	singlePit: number
+	doublePit: number
+}
+
+/**
+ * 地形段（像素格式）
+ */
+export interface TerrainSegment {
+	type: string
+	start: number
+	end: number
+}
+
+/**
+ * 地形生成结果
+ */
+export interface TerrainResult {
+	terrain: TerrainSegment[]
+	seed: number
+	stats: TerrainStats
+}
+
+/**
  * 地形生成器（种子化版本）
  * 支持可复现的随机地形生成 + 元素权重配置
  * 
@@ -17,27 +76,24 @@ import { SeededRandom } from '@utils/SeededRandom.js'
  */
 export class TerrainGenerator {
 	// 默认权重配置
-	static DEFAULT_WEIGHTS = {
-		ground: 50,      // 平地权重
-		singlePit: 30,   // 单坑权重
-		doublePit: 20    // 双坑权重
+	static readonly DEFAULT_WEIGHTS: TerrainWeights = {
+		ground: 50,
+		singlePit: 30,
+		doublePit: 20
 	}
 
 	// 元素ID常量
-	static ELEMENTS = {
+	static readonly ELEMENTS = {
 		GROUND: 'ground',
 		SINGLE_PIT: 'singlePit',
 		DOUBLE_PIT: 'doublePit'
-	}
+	} as const
 
 	/**
 	 * 生成地形
-	 * @param {Object} options 
-	 * @param {number} options.seed - 随机种子
-	 * @param {Object} options.weights - 元素权重 {ground, singlePit, doublePit}
-	 * @param {Object} options.enabled - 元素开关 {ground, singlePit, doublePit}
+	 * @param options - 配置选项
 	 */
-	static generate(options = {}) {
+	static generate(options: TerrainOptions = {}): TerrainResult {
 		const {
 			seed = Date.now(),
 			weights = this.DEFAULT_WEIGHTS,
@@ -57,10 +113,10 @@ export class TerrainGenerator {
 
 		console.log('[TERRAIN]', `开始生成地形 | 种子=${seed} 权重=`, effectiveWeights)
 
-		const terrain = []
+		const terrain: { type: string, startGrid: number, length: number }[] = []
 		let currentGrid = 0
 		let lastWasPit = false
-		let stats = { ground: 0, singlePit: 0, doublePit: 0 }
+		const stats: TerrainStats = { ground: 0, singlePit: 0, doublePit: 0 }
 
 		// 起点 2 格地面
 		terrain.push({ type: TERRAIN.GROUND, startGrid: 0, length: 2 })
@@ -69,7 +125,7 @@ export class TerrainGenerator {
 		while (currentGrid < CONFIG.WORLD_LENGTH - 2) {
 			if (lastWasPit) {
 				// 坑后必须接地面
-				const len = rng.randomInt(1, 4) // 1~3格
+				const len = rng.randomInt(1, 4)
 				terrain.push({ type: TERRAIN.GROUND, startGrid: currentGrid, length: len })
 				currentGrid += len
 				lastWasPit = false
@@ -80,9 +136,12 @@ export class TerrainGenerator {
 				
 				switch (element) {
 					case this.ELEMENTS.GROUND:
-						const groundLen = rng.randomInt(1, 4)
-						terrain.push({ type: TERRAIN.GROUND, startGrid: currentGrid, length: groundLen })
-						currentGrid += groundLen
+						terrain.push({ 
+							type: TERRAIN.GROUND, 
+							startGrid: currentGrid, 
+							length: rng.randomInt(1, 4) 
+						})
+						currentGrid += terrain[terrain.length - 1].length
 						lastWasPit = false
 						stats.ground++
 						break
@@ -120,7 +179,7 @@ export class TerrainGenerator {
 	/**
 	 * 计算有效权重（考虑开关状态）
 	 */
-	static _calculateEffectiveWeights(weights, enabled) {
+	private static _calculateEffectiveWeights(weights: TerrainWeights, enabled: TerrainEnabled): TerrainWeights {
 		return {
 			ground: enabled.ground ? (weights.ground ?? 50) : 0,
 			singlePit: enabled.singlePit ? (weights.singlePit ?? 30) : 0,
@@ -131,7 +190,7 @@ export class TerrainGenerator {
 	/**
 	 * 根据权重随机选择元素
 	 */
-	static _pickElement(rng, weights, totalWeight) {
+	private static _pickElement(rng: SeededRandom, weights: TerrainWeights, totalWeight: number): string {
 		const r = rng.random() * totalWeight
 		let cumulative = 0
 		
@@ -144,7 +203,10 @@ export class TerrainGenerator {
 		return this.ELEMENTS.DOUBLE_PIT
 	}
 
-	static _toPxFormat(terrain) {
+	/**
+	 * 转换为像素格式
+	 */
+	private static _toPxFormat(terrain: { type: string, startGrid: number, length: number }[]): TerrainSegment[] {
 		return terrain.map(t => ({
 			type: t.type,
 			start: CONFIG.toPx(t.startGrid),

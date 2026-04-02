@@ -18,5 +18,12 @@ export default {
 			'@utils': resolve(__dirname, 'src/utils'),
 			'@managers': resolve(__dirname, 'src/managers')
 		}
+	},
+	esbuild: {
+		loader: 'ts',
+		include: [
+			'src/**/*.ts',
+			'src/**/*.js'
+		]
 	}
 }

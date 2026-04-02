@@ -4,8 +4,20 @@
  */
 
 import { NetworkView } from './NetworkView.js'
+import { NeuralNetwork } from '@ai/NeuralNetwork.js'
 
-// ========== 菜单配置常量 ==========
+interface MenuItem {
+	id: string
+	label: string
+}
+
+interface WeightRowConfig {
+	key: 'ground' | 'singlePit' | 'doublePit'
+	label: string
+	color: string
+	defaultWeight: number
+}
+
 const MENU_CONFIG = {
 	modes: [
 		{ id: 'player', label: '👤玩家' },
@@ -39,47 +51,67 @@ const STYLE = {
 	}
 }
 
+interface AIConfigGlobal {
+	DEFAULT_MODE?: string
+	DEFAULT_SPEED?: string
+}
+
+declare global {
+	interface Window {
+		AI_CONFIG?: AIConfigGlobal
+	}
+}
+
 export class NeuronAreaManager {
-	constructor(containerId) {
-		this.container = document.getElementById(containerId)
-		this.currentView = null
-		// 从全局配置读取默认值
+	private container: HTMLElement
+	private currentView: NetworkView | null = null
+	private currentMode: string
+	private currentSpeed: string
+	private currentExploreMode: string
+	private isSeedLocked: boolean = false
+	private currentSeed: number | null = null
+	private seedInputEl: HTMLInputElement | null = null
+	private lockBtnEl: HTMLButtonElement | null = null
+	private modeItems: HTMLElement[] = []
+	private speedItems: HTMLElement[] = []
+	private exploreItems: HTMLElement[] = []
+	private weightSliders: Record<string, HTMLInputElement> = {}
+	private weightToggles: Record<string, HTMLInputElement> = {}
+
+	onModeChange?: (mode: string) => void
+	onSpeedChange?: (speed: string) => void
+	onExploreModeChange?: (mode: string) => void
+	onSeedLockChange?: (isLocked: boolean) => void
+	onSeedChange?: (seed: number) => void
+	onWeightChange?: (key: string, value: number) => void
+	onElementToggle?: (key: string, enabled: boolean) => void
+
+	constructor(containerId: string) {
+		const el = document.getElementById(containerId)
+		if (!el) {
+			throw new Error(`NeuronAreaManager: 找不到元素 #${containerId}`)
+		}
+		this.container = el
 		this.currentMode = window.AI_CONFIG?.DEFAULT_MODE || 'player'
 		this.currentSpeed = window.AI_CONFIG?.DEFAULT_SPEED || 'step'
-		this.currentExploreMode = 'none'  // 探索模式：none/fixed/dynamic
-		// 种子控制状态
-		this.isSeedLocked = false
-		this.currentSeed = null
-		this.seedInputEl = null
-		this.lockBtnEl = null
-		
-		this.modeItems = []          // 模式按钮引用
-		this.speedItems = []         // 速度按钮引用
-		this.exploreItems = []       // 探索模式按钮引用
+		this.currentExploreMode = 'none'
 		this.init()
 	}
 
-	init() {
-		// 移除 placeholder
+	init(): void {
 		const placeholder = this.container.querySelector('#neuron-placeholder')
 		if (placeholder) placeholder.remove()
 
-		// 直接创建网络视图
 		this.currentView = new NetworkView('neuron-area')
-
-		// 创建控制按钮（训练模式和速度）
 		this.createControlButton()
 	}
 
-	// ========== 菜单创建 ==========
-
-	createControlButton() {
+	createControlButton(): void {
 		const menuContainer = document.getElementById('neuron-menu-container')
 		if (!menuContainer) return
 
 		const { btn, menu } = this._createMenuElements()
 
-		// 创建菜单组
 		menu.appendChild(this._createModeRow())
 		menu.appendChild(this._createDivider())
 		menu.appendChild(this._createSpeedGrid())
@@ -90,18 +122,16 @@ export class NeuronAreaManager {
 		menu.appendChild(this._createDivider())
 		menu.appendChild(this._createWeightControls())
 
-		// 绑定切换事件
 		btn.addEventListener('click', () => this._toggleMenu(btn, menu))
 
 		menuContainer.appendChild(btn)
 		menuContainer.appendChild(menu)
 
-		// 初始化菜单状态为隐藏
 		menu.style.display = 'none'
 		console.log('[NEURON_UI]', '菜单初始化完成 | 默认状态=隐藏')
 	}
 
-	_createMenuElements() {
+	private _createMenuElements(): { btn: HTMLButtonElement, menu: HTMLDivElement } {
 		const btn = document.createElement('button')
 		btn.id = 'view-menu-btn'
 		btn.className = 'ctrl-btn icon-only'
@@ -115,15 +145,13 @@ export class NeuronAreaManager {
 		return { btn, menu }
 	}
 
-	_createDivider() {
+	private _createDivider(): HTMLDivElement {
 		const divider = document.createElement('div')
 		divider.className = 'neuron-menu-divider'
 		return divider
 	}
 
-	// ========== 模式选择行 ==========
-
-	_createModeRow() {
+	private _createModeRow(): HTMLDivElement {
 		const modeRow = document.createElement('div')
 		modeRow.className = 'neuron-menu-row'
 
@@ -142,16 +170,14 @@ export class NeuronAreaManager {
 		return modeRow
 	}
 
-	_handleModeChange(newMode) {
+	private _handleModeChange(newMode: string): void {
 		console.log('[NEURON_UI]', `模式切换 | 旧=${this.currentMode} → 新=${newMode}`)
 		this.currentMode = newMode
 		this.updateModeHighlight()
 		if (this.onModeChange) this.onModeChange(newMode)
 	}
 
-	// ========== 速度选择网格 ==========
-
-	_createSpeedGrid() {
+	private _createSpeedGrid(): HTMLDivElement {
 		const speedGrid = document.createElement('div')
 		speedGrid.className = 'neuron-menu-grid'
 
@@ -169,16 +195,14 @@ export class NeuronAreaManager {
 		return speedGrid
 	}
 
-	_handleSpeedChange(newSpeed) {
+	private _handleSpeedChange(newSpeed: string): void {
 		console.log('[NEURON_UI]', `速度切换 | ${this.currentSpeed} → ${newSpeed}`)
 		this.currentSpeed = newSpeed
 		this.updateSpeedHighlight()
 		if (this.onSpeedChange) this.onSpeedChange(newSpeed)
 	}
 
-	// ========== 探索模式选择行 ==========
-
-	_createExploreRow() {
+	private _createExploreRow(): HTMLDivElement {
 		const exploreRow = document.createElement('div')
 		exploreRow.className = 'neuron-menu-row'
 
@@ -197,21 +221,18 @@ export class NeuronAreaManager {
 		return exploreRow
 	}
 
-	_handleExploreChange(newMode) {
+	private _handleExploreChange(newMode: string): void {
 		console.log('[NEURON_UI]', `探索模式切换 | 旧=${this.currentExploreMode} → 新=${newMode}`)
 		this.currentExploreMode = newMode
 		this.updateExploreHighlight()
 		if (this.onExploreModeChange) this.onExploreModeChange(newMode)
 	}
 
-	// ========== 种子控制行 ==========
-
-	_createSeedRow() {
+	private _createSeedRow(): HTMLDivElement {
 		const seedRow = document.createElement('div')
 		seedRow.className = 'neuron-menu-row'
 		seedRow.style.gap = '6px'
 
-		// 锁定按钮
 		this.lockBtnEl = document.createElement('button')
 		this.lockBtnEl.className = 'ctrl-btn icon-only'
 		this.lockBtnEl.style.width = '24px'
@@ -221,7 +242,6 @@ export class NeuronAreaManager {
 		this.lockBtnEl.addEventListener('click', () => this._toggleSeedLock())
 		seedRow.appendChild(this.lockBtnEl)
 
-		// 种子输入框
 		this.seedInputEl = document.createElement('input')
 		this.seedInputEl.type = 'text'
 		this.seedInputEl.className = 'seed-input'
@@ -240,14 +260,13 @@ export class NeuronAreaManager {
 		`
 		this.seedInputEl.addEventListener('change', () => this._handleSeedInput())
 		this.seedInputEl.addEventListener('focus', () => {
-			this.seedInputEl.style.borderColor = '#0f0'
+			this.seedInputEl!.style.borderColor = '#0f0'
 		})
 		this.seedInputEl.addEventListener('blur', () => {
-			this.seedInputEl.style.borderColor = 'rgba(0,255,0,0.3)'
+			this.seedInputEl!.style.borderColor = 'rgba(0,255,0,0.3)'
 		})
 		seedRow.appendChild(this.seedInputEl)
 
-		// 随机骰子按钮
 		const diceBtn = document.createElement('button')
 		diceBtn.className = 'ctrl-btn icon-only'
 		diceBtn.innerHTML = '🎲'
@@ -262,24 +281,25 @@ export class NeuronAreaManager {
 		return seedRow
 	}
 
-	_updateLockBtn() {
+	private _updateLockBtn(): void {
 		if (!this.lockBtnEl) return
 		this.lockBtnEl.innerHTML = this.isSeedLocked ? '🔒' : '🔓'
 		this.lockBtnEl.title = this.isSeedLocked ? '种子已锁定' : '种子未锁定（每局随机）'
 		this.lockBtnEl.style.opacity = this.isSeedLocked ? '1' : '0.5'
 	}
 
-	_toggleSeedLock() {
+	private _toggleSeedLock(): void {
 		this.isSeedLocked = !this.isSeedLocked
 		this._updateLockBtn()
 		console.log('[NEURON_UI]', `种子锁定切换 | ${this.isSeedLocked ? '锁定' : '解锁'}`)
 		if (this.onSeedLockChange) this.onSeedLockChange(this.isSeedLocked)
 	}
 
-	_handleSeedInput() {
+	private _handleSeedInput(): void {
+		if (!this.seedInputEl) return
 		const value = this.seedInputEl.value.trim()
 		const seed = value ? parseInt(value, 10) : null
-		if (isNaN(seed)) {
+		if (seed === null || isNaN(seed)) {
 			console.warn('[NEURON_UI]', `无效种子输入 | "${value}"`)
 			return
 		}
@@ -288,29 +308,24 @@ export class NeuronAreaManager {
 		if (this.onSeedChange) this.onSeedChange(seed)
 	}
 
-	_randomizeSeed() {
+	private _randomizeSeed(): void {
 		const newSeed = Date.now()
 		this.currentSeed = newSeed
 		if (this.seedInputEl) {
-			this.seedInputEl.value = newSeed
+			this.seedInputEl.value = String(newSeed)
 		}
 		console.log('[NEURON_UI]', `随机生成种子 | ${newSeed}`)
 		if (this.onSeedChange) this.onSeedChange(newSeed)
 	}
 
-	/**
-	 * 外部更新种子显示（如游戏生成新地形后）
-	 */
-	updateSeedDisplay(seed) {
+	updateSeedDisplay(seed: number): void {
 		if (!this.isSeedLocked && this.seedInputEl) {
-			this.seedInputEl.value = seed || ''
+			this.seedInputEl.value = String(seed)
 			this.currentSeed = seed
 		}
 	}
 
-	// ========== 元素权重控制 ==========
-
-	_createWeightControls() {
+	private _createWeightControls(): HTMLDivElement {
 		const container = document.createElement('div')
 		container.className = 'weight-controls'
 		container.style.cssText = `
@@ -319,7 +334,6 @@ export class NeuronAreaManager {
 			border-radius: 4px;
 		`
 
-		// 标题
 		const title = document.createElement('div')
 		title.textContent = '地形元素权重'
 		title.style.cssText = `
@@ -330,11 +344,7 @@ export class NeuronAreaManager {
 		`
 		container.appendChild(title)
 
-		// 三元素滑块
-		this.weightSliders = {}
-		this.weightToggles = {}
-
-		const elements = [
+		const elements: WeightRowConfig[] = [
 			{ key: 'ground', label: '🟩平地', color: '#27ae60', defaultWeight: 50 },
 			{ key: 'singlePit', label: '⬛单坑', color: '#e74c3c', defaultWeight: 30 },
 			{ key: 'doublePit', label: '⬛⬛双坑', color: '#c0392b', defaultWeight: 20 }
@@ -348,7 +358,7 @@ export class NeuronAreaManager {
 		return container
 	}
 
-	_createWeightRow({ key, label, color, defaultWeight }) {
+	private _createWeightRow({ key, label, color, defaultWeight }: WeightRowConfig): HTMLDivElement {
 		const row = document.createElement('div')
 		row.style.cssText = `
 			display: flex;
@@ -358,7 +368,6 @@ export class NeuronAreaManager {
 			font-size: 11px;
 		`
 
-		// 开关复选框
 		const toggle = document.createElement('input')
 		toggle.type = 'checkbox'
 		toggle.checked = true
@@ -373,7 +382,6 @@ export class NeuronAreaManager {
 		})
 		this.weightToggles[key] = toggle
 
-		// 标签
 		const labelEl = document.createElement('span')
 		labelEl.textContent = label
 		labelEl.style.cssText = `
@@ -381,12 +389,11 @@ export class NeuronAreaManager {
 			color: ${color};
 		`
 
-		// 滑块
 		const slider = document.createElement('input')
 		slider.type = 'range'
 		slider.min = '0'
 		slider.max = '100'
-		slider.value = defaultWeight
+		slider.value = String(defaultWeight)
 		slider.style.cssText = `
 			flex: 1;
 			height: 4px;
@@ -398,9 +405,8 @@ export class NeuronAreaManager {
 		})
 		this.weightSliders[key] = slider
 
-		// 数值显示
 		const valueDisplay = document.createElement('span')
-		valueDisplay.textContent = defaultWeight
+		valueDisplay.textContent = String(defaultWeight)
 		valueDisplay.style.cssText = `
 			width: 24px;
 			text-align: right;
@@ -419,14 +425,14 @@ export class NeuronAreaManager {
 		return row
 	}
 
-	_handleWeightChange(key, value) {
+	private _handleWeightChange(key: string, value: number): void {
 		console.log('[NEURON_UI]', `权重调整 | ${key}=${value}`)
 		if (this.onWeightChange) {
 			this.onWeightChange(key, value)
 		}
 	}
 
-	_handleWeightToggle(key, enabled) {
+	private _handleWeightToggle(key: string, enabled: boolean): void {
 		console.log('[NEURON_UI]', `元素开关 | ${key}=${enabled ? '开启' : '关闭'}`)
 		if (this.weightSliders[key]) {
 			this.weightSliders[key].disabled = !enabled
@@ -437,12 +443,9 @@ export class NeuronAreaManager {
 		}
 	}
 
-	/**
-	 * 获取当前权重配置
-	 */
-	getWeightConfig() {
-		const weights = {}
-		const enabled = {}
+	getWeightConfig(): { weights: Record<string, number>, enabled: Record<string, boolean> } {
+		const weights: Record<string, number> = {}
+		const enabled: Record<string, boolean> = {}
 		
 		for (const key of ['ground', 'singlePit', 'doublePit']) {
 			weights[key] = this.weightSliders[key] 
@@ -456,19 +459,29 @@ export class NeuronAreaManager {
 		return { weights, enabled }
 	}
 
-	// ========== 通用按钮创建 ==========
-
-	_createButton({ item, isActive, className, datasetKey, onClick }) {
+	private _createButton({ 
+		item, 
+		isActive, 
+		className, 
+		datasetKey, 
+		onClick 
+	}: { 
+		item: MenuItem
+		isActive: boolean
+		className: string
+		datasetKey: string
+		onClick: () => void
+	}): HTMLElement {
 		const el = document.createElement('div')
-		el.dataset[datasetKey] = item.id
+		;(el.dataset as Record<string, string>)[datasetKey] = item.id
 		el.textContent = item.label
 		el.className = `${className} ${isActive ? 'active' : 'inactive'}`
 		el.addEventListener('click', onClick)
-		this._attachHover(el, () => el.dataset[datasetKey] === this._getCurrentValue(datasetKey))
+		this._attachHover(el, () => (el.dataset as Record<string, string>)[datasetKey] === this._getCurrentValue(datasetKey))
 		return el
 	}
 
-	_getCurrentValue(datasetKey) {
+	private _getCurrentValue(datasetKey: string): string {
 		switch (datasetKey) {
 			case 'mode': return this.currentMode
 			case 'speed': return this.currentSpeed
@@ -477,7 +490,7 @@ export class NeuronAreaManager {
 		}
 	}
 
-	_attachHover(el, isActiveCheck) {
+	private _attachHover(el: HTMLElement, isActiveCheck: () => boolean): void {
 		el.addEventListener('mouseenter', () => {
 			if (!isActiveCheck()) el.style.background = 'rgba(255,255,255,0.1)'
 		})
@@ -486,50 +499,48 @@ export class NeuronAreaManager {
 		})
 	}
 
-	_toggleMenu(btn, menu) {
+	private _toggleMenu(btn: HTMLButtonElement, menu: HTMLDivElement): void {
 		const isOpen = menu.style.display === 'none'
 		menu.style.display = isOpen ? 'block' : 'none'
 		btn.classList.toggle('active', isOpen)
 	}
 
-	// ========== 渲染 ==========
-
-	render(network, inputs = null, action = null, isPreview = false, isResize = false, weightChanges = null) {
+	render(
+		network: NeuralNetwork, 
+		inputs: number[] | null = null, 
+		action: number | null = null, 
+		isPreview: boolean = false, 
+		isResize: boolean = false, 
+		weightChanges: number[][][] | null = null
+	): void {
 		console.log('[NEURON_UI]', `render | isPreview=${isPreview} isResize=${isResize} weightChanges=${weightChanges ? '有' : '无'}`)
-		if (this.currentView && this.currentView.render) {
+		if (this.currentView) {
 			this.currentView.render(network, inputs, action, isPreview, isResize, weightChanges)
 		}
 	}
 
-	// ========== 高亮更新 ==========
-
-	updateModeHighlight() {
+	updateModeHighlight(): void {
 		this._updateHighlight(this.modeItems, 'mode')
 	}
 
-	updateSpeedHighlight() {
+	updateSpeedHighlight(): void {
 		this._updateHighlight(this.speedItems, 'speed')
 	}
 
-	updateExploreHighlight() {
+	updateExploreHighlight(): void {
 		this._updateHighlight(this.exploreItems, 'explore')
 	}
 
-	/**
-	 * 统一高亮更新方法
-	 * @param {HTMLElement[]} items - 按钮元素数组
-	 * @param {string} datasetKey - dataset 属性名（mode / speed / explore）
-	 */
-	_updateHighlight(items, datasetKey) {
+	private _updateHighlight(items: HTMLElement[], datasetKey: string): void {
 		const currentValue = this._getCurrentValue(datasetKey)
 		items.forEach(el => {
-			const isActive = el.dataset[datasetKey] === currentValue
+			const isActive = (el.dataset as Record<string, string>)[datasetKey] === currentValue
 			this._applyButtonStyle(el, isActive, datasetKey)
 		})
 		console.log('[NEURON_UI]', `高亮更新 | 类型=${datasetKey} 当前值=${currentValue}`)
 	}
 
-	_applyButtonStyle(el, isActive, type) {
+	private _applyButtonStyle(el: HTMLElement, isActive: boolean, type: string): void {
 		const baseClass = `neuron-${type}-btn`
 		el.className = `${baseClass} ${isActive ? 'active' : 'inactive'}`
 		

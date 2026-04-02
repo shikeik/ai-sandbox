@@ -3,9 +3,32 @@
  * 封装所有 AI 决策、训练循环、速度控制与结果记录逻辑
  */
 
-import { ACTION, GAME_STATUS, PLAYER_ACTION } from '@game/JumpGame.js'
+import { ACTION, GAME_STATUS, PLAYER_ACTION, JumpGame, GameStatusType, PlayerActionType, ActionType } from '@game/JumpGame.js'
+import { NeuralNetwork, ExploreMode } from './NeuralNetwork.js'
 
-export const AI_CONFIG = {
+export type SpeedType = 'step' | number
+
+export interface AIConfigOptions {
+	STEP_REWARD: number
+	DEATH_REWARD: number
+	WIN_REWARD: number
+	SPEEDS: {
+		STEP: 'step'
+		SLOW: number
+		NORMAL: number
+		FAST: number
+		MAX: number
+	}
+	DEFAULT_SPEED: string
+	DEFAULT_MODE: string
+	ANIMATION: {
+		MAX_DURATION: number
+		FAST_DURATION: number
+	}
+	TIMER_INTERVAL: number
+}
+
+export const AI_CONFIG: AIConfigOptions = {
 	STEP_REWARD: 0.02,
 	DEATH_REWARD: -1,
 	WIN_REWARD: 1,
@@ -19,30 +42,49 @@ export const AI_CONFIG = {
 	DEFAULT_SPEED: 'step',
 	DEFAULT_MODE: 'player',
 	ANIMATION: {
-		MAX_DURATION: 16,   // 极速模式：约1帧完成动画
-		FAST_DURATION: 50   // 快速模式动画时长(ms)
+		MAX_DURATION: 16,
+		FAST_DURATION: 50
 	},
-	TIMER_INTERVAL: 100   // 游戏信息刷新间隔(ms)
+	TIMER_INTERVAL: 100
+}
+
+export interface AIControllerOptions {
+	game: JumpGame
+	network: NeuralNetwork
+	onRenderView: (inputs: number[], action: number | null, isPreview: boolean, weightChanges: number[][][] | null) => void
+}
+
+export interface PendingDecision {
+	action: number
+	actionType: ActionType
+	inputs: number[]
+	scores: number[]
 }
 
 export class AIController {
-	constructor({ game, network, onRenderView }) {
+	game: JumpGame
+	network: NeuralNetwork
+	onRenderView: (inputs: number[], action: number | null, isPreview: boolean, weightChanges: number[][][] | null) => void
+	isAIMode: boolean = false
+	isAITrainMode: boolean = false
+	isStepMode: boolean
+	aiSpeed: SpeedType
+	aiInterval: ReturnType<typeof setInterval> | null = null
+	fastLoopId: number | null = null
+	pendingAIDecision: PendingDecision | null = null
+	performanceHistory: number[] = []
+	windowSize: number = 5
+
+	constructor({ game, network, onRenderView }: AIControllerOptions) {
 		this.game = game
 		this.network = network
 		this.onRenderView = onRenderView
 
-		this.isAIMode = false
-		this.isAITrainMode = false
 		this.isStepMode = AI_CONFIG.DEFAULT_SPEED === 'step'
-		this.aiSpeed = this.isStepMode ? AI_CONFIG.SPEEDS.NORMAL : AI_CONFIG.SPEEDS[AI_CONFIG.DEFAULT_SPEED.toUpperCase()]
-		this.aiInterval = null
-		this.fastLoopId = null
-		this.pendingAIDecision = null
-		this.performanceHistory = []
-		this.windowSize = 5
+		this.aiSpeed = this.isStepMode ? AI_CONFIG.SPEEDS.NORMAL : AI_CONFIG.SPEEDS[AI_CONFIG.DEFAULT_SPEED.toUpperCase() as keyof typeof AI_CONFIG.SPEEDS]
 	}
 
-	setMode(mode) {
+	setMode(mode: 'player' | 'ai' | 'train'): void {
 		switch (mode) {
 			case 'player':
 				this.isAIMode = false
@@ -65,7 +107,7 @@ export class AIController {
 		}
 	}
 
-	setSpeed(speedId) {
+	setSpeed(speedId: SpeedType): void {
 		if (speedId === AI_CONFIG.SPEEDS.STEP) {
 			this.isStepMode = true
 			this.aiSpeed = AI_CONFIG.SPEEDS.NORMAL
@@ -85,7 +127,7 @@ export class AIController {
 		}
 	}
 
-	start() {
+	start(): void {
 		if (!this.isAIMode) return
 		console.log('[AI]', `启动 | 模式=${this.isAITrainMode ? '训练' : '观察'} | 速度=${this.aiSpeed}ms | 单步=${this.isStepMode}`)
 		if (this.game.gameStatus === GAME_STATUS.READY) {
@@ -94,12 +136,12 @@ export class AIController {
 		this._startInterval()
 	}
 
-	stop() {
+	stop(): void {
 		console.log('[AI]', '停止')
 		this._stopInterval()
 	}
 
-	step() {
+	step(): void {
 		if (!this.isAIMode || !this.isStepMode) return
 		if (this.pendingAIDecision) {
 			console.log('[AI]', '单步: 执行缓存决策')
@@ -110,7 +152,7 @@ export class AIController {
 		}
 	}
 
-	recordResult(finalStatus) {
+	recordResult(finalStatus: 'death' | 'win'): void {
 		const player = this.game.getState().player
 		const steps = player.grid
 
@@ -123,12 +165,6 @@ export class AIController {
 				: steps
 			this.performanceHistory.push(steps)
 
-			/**
-			 * 动态探索率调整（仅在 dynamic 模式下生效）
-			 * 原理：表现好就多利用经验，表现差就多探索随机策略
-			 * - 步数 > 窗口平均（表现好）→ 降低探索率，相信已有经验
-			 * - 步数 < 窗口平均（表现差）→ 提高探索率，尝试新策略
-			 */
 			if (this.network.exploreMode === 'dynamic') {
 				if (steps > currentAvg) {
 					this.network.epsilon = Math.max(0.1, this.network.epsilon - 0.05)
@@ -144,7 +180,7 @@ export class AIController {
 		}
 	}
 
-	_convertToInputs(terrainAhead) {
+	private _convertToInputs(terrainAhead: string[]): number[] {
 		return [
 			terrainAhead[0] === 'pit' ? 1 : 0,
 			terrainAhead[1] === 'pit' ? 1 : 0,
@@ -153,12 +189,12 @@ export class AIController {
 		]
 	}
 
-	_canMakeDecision() {
+	private _canMakeDecision(): boolean {
 		return this.game.gameStatus === GAME_STATUS.RUNNING &&
 			this.game.getState().player.action === PLAYER_ACTION.IDLE
 	}
 
-	_startInterval() {
+	private _startInterval(): void {
 		this._stopInterval()
 		if (this.isStepMode) {
 			console.log('[AI]', '区间: 单步模式，不启动自动循环')
@@ -171,11 +207,11 @@ export class AIController {
 			console.log('[AI]', `区间: 启动定时器 ${this.aiSpeed}ms`)
 			this.aiInterval = setInterval(() => {
 				if (this._canMakeDecision()) this._makeDecision()
-			}, this.aiSpeed)
+			}, this.aiSpeed as number)
 		}
 	}
 
-	_stopInterval() {
+	private _stopInterval(): void {
 		if (this.aiInterval) {
 			console.log('[AI]', '区间: 清除定时器')
 			clearInterval(this.aiInterval)
@@ -188,7 +224,7 @@ export class AIController {
 		}
 	}
 
-	_runFastLoop() {
+	private _runFastLoop(): void {
 		if (!this.isAIMode || this.isStepMode || this.aiSpeed !== AI_CONFIG.SPEEDS.MAX) {
 			console.log('[AI]', '极速循环: 条件不满足，退出')
 			return
@@ -199,7 +235,7 @@ export class AIController {
 		this.fastLoopId = requestAnimationFrame(() => this._runFastLoop())
 	}
 
-	_makeDecisionPreview() {
+	private _makeDecisionPreview(): void {
 		if (!this.isAIMode || !this.network) return
 
 		const state = this.game.getStateForAI()
@@ -213,7 +249,6 @@ export class AIController {
 
 		this._logDecision(action, scores)
 
-		// 预测执行结果并计算奖励
 		const { previewReward, willDie } = this._predictResult(action, state.terrainAhead)
 		this._logPrediction(action, willDie)
 		
@@ -226,15 +261,8 @@ export class AIController {
 		}
 	}
 
-	/**
-	 * 预测动作执行结果
-	 * @param {number} action - 动作索引 (0=移动, 1=跳跃, 2=远跳)
-	 * @param {string[]} terrainAhead - 前方地形数组
-	 * @returns {Object} { previewReward, willDie }
-	 */
-	_predictResult(action, terrainAhead) {
-		// 动作与跳跃格数映射
-		const actionJumpGrids = [0, 1, 2]  // 移动=0格, 跳跃=1格(落点前2格), 远跳=2格(落点前3格)
+	private _predictResult(action: number, terrainAhead: string[]): { previewReward: number, willDie: boolean } {
+		const actionJumpGrids = [0, 1, 2]
 		const landingGrid = actionJumpGrids[action]
 		
 		const willDie = terrainAhead[landingGrid] === 'pit'
@@ -243,14 +271,14 @@ export class AIController {
 		return { previewReward, willDie }
 	}
 
-	_logDecision(action, scores) {
+	private _logDecision(action: number, scores: number[]): void {
 		const actionNames = ['移动', '跳跃', '远跳']
 		const scoreLog = `移动:${scores[0].toFixed(2)} 跳跃:${scores[1].toFixed(2)} 远跳:${scores[2].toFixed(2)}`
 		const chosen = actionNames[action] || '未知'
 		console.log('[AI]', `决策完成 | ${scoreLog} | 选中=[${chosen}] | 探索=${this.network.isExploring ? '是' : '否'}`)
 	}
 
-	_logPrediction(action, willDie) {
+	private _logPrediction(action: number, willDie: boolean): void {
 		if (willDie) {
 			console.log('[AI]', `决策预览预测 | 动作=${action} 预测结果=死亡 使用DEATH_REWARD`)
 		} else {
@@ -258,7 +286,7 @@ export class AIController {
 		}
 	}
 
-	_executePendingDecision() {
+	private _executePendingDecision(): void {
 		if (!this.pendingAIDecision) return
 
 		const { actionType, inputs, action } = this.pendingAIDecision
@@ -270,13 +298,12 @@ export class AIController {
 		}
 
 		this.pendingAIDecision = null
-		// 执行后不显示高亮（传 null），实际权重更新在 onActionStart 中处理
 		if (this.onRenderView) {
 			this.onRenderView(inputs, action, false, null)
 		}
 	}
 
-	_makeDecision() {
+	private _makeDecision(): void {
 		if (!this.isAIMode || !this.network) return
 		if (!this._canMakeDecision()) return
 
@@ -290,7 +317,7 @@ export class AIController {
 		this.game.execute(actionType)
 	}
 
-	_actionIndexToType(action) {
+	private _actionIndexToType(action: number): ActionType {
 		switch (action) {
 			case 0: return ACTION.RIGHT
 			case 1: return ACTION.JUMP

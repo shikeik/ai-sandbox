@@ -8,14 +8,15 @@ import { formatTimeMs } from '@utils/timeUtils.js'
 const PLAYER_BEST_KEY = 'ai-sandbox-player-best-ms'
 
 export class PlayerBestStore {
+	private bestTime: number
+
 	constructor() {
 		this.bestTime = this.load()
 	}
 	
-	load() {
+	private load(): number {
 		try {
 			const stored = localStorage.getItem(PLAYER_BEST_KEY)
-			// 如果没有记录或记录为0，都返回Infinity（视为无记录）
 			if (!stored) return Infinity
 			const value = parseInt(stored, 10)
 			return value > 0 ? value : Infinity
@@ -24,7 +25,7 @@ export class PlayerBestStore {
 		}
 	}
 	
-	save(time) {
+	private save(time: number): void {
 		try {
 			localStorage.setItem(PLAYER_BEST_KEY, time.toString())
 		} catch (e) {
@@ -33,12 +34,11 @@ export class PlayerBestStore {
 	}
 	
 	/**
-	* 尝试更新最佳记录
-	* @param {number} time - 通关时间（毫秒）
-	* @returns {boolean} 是否更新成功（新记录更快）
-	*/
-	tryUpdate(time) {
-	// 只接受有效的时间（大于0）
+	 * 尝试更新最佳记录
+	 * @param time - 通关时间（毫秒）
+	 * @returns 是否更新成功（新记录更快）
+	 */
+	tryUpdate(time: number): boolean {
 		if (!time || time <= 0) return false
 		if (time < this.bestTime) {
 			this.bestTime = time
@@ -49,22 +49,22 @@ export class PlayerBestStore {
 	}
 	
 	/**
-	* 获取最佳时间（格式化）
-	* @returns {string} mm:ss.mmm 格式，无记录返回 '--:--.---'
-	*/
-	getFormatted() {
+	 * 获取最佳时间（格式化）
+	 * @returns mm:ss.mmm 格式，无记录返回 '--:--.---'
+	 */
+	getFormatted(): string {
 		if (this.bestTime === Infinity || this.bestTime <= 0) return '--:--.---'
 		return formatTimeMs(this.bestTime)
 	}
 	
 	/**
-	* 获取最佳时间（毫秒）
-	*/
-	getRaw() {
+	 * 获取最佳时间（毫秒）
+	 */
+	getRaw(): number | null {
 		return this.bestTime === Infinity ? null : this.bestTime
 	}
 	
-	reset() {
+	reset(): void {
 		this.bestTime = Infinity
 		localStorage.removeItem(PLAYER_BEST_KEY)
 	}

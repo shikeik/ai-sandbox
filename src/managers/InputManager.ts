@@ -3,10 +3,23 @@
  * 负责键盘输入和窗口大小调整事件处理
  */
 
-import { ACTION, GAME_STATUS } from '@game/JumpGame.js'
+import { ACTION, GAME_STATUS, JumpGame } from '@game/JumpGame.js'
+import { AIController } from '@ai/AIController.js'
+
+interface InputManagerOptions {
+	game: JumpGame
+	aiController: AIController
+	EPS: { updateViewport: () => void }
+	onRenderView: (inputs: number[], action: number | null) => void
+}
 
 export class InputManager {
-	constructor({ game, aiController, EPS, onRenderView }) {
+	private game: JumpGame
+	private aiController: AIController
+	private EPS: { updateViewport: () => void }
+	private onRenderView: (inputs: number[], action: number | null) => void
+
+	constructor({ game, aiController, EPS, onRenderView }: InputManagerOptions) {
 		this.game = game
 		this.aiController = aiController
 		this.EPS = EPS
@@ -16,22 +29,21 @@ export class InputManager {
 		this.handleResize = this.handleResize.bind(this)
 	}
 
-	bind() {
+	bind(): void {
 		document.addEventListener('keydown', this.handleKeyDown)
 		window.addEventListener('resize', this.handleResize)
 		console.log('[INPUT]', '输入事件绑定完成')
 	}
 
-	unbind() {
+	unbind(): void {
 		document.removeEventListener('keydown', this.handleKeyDown)
 		window.removeEventListener('resize', this.handleResize)
 		console.log('[INPUT]', '输入事件解绑完成')
 	}
 
-	handleKeyDown(e) {
+	handleKeyDown(e: KeyboardEvent): void {
 		if (e.repeat) return
 
-		// AI单步模式：空格键执行下一步
 		if (this.aiController.isAIMode && this.aiController.isStepMode && e.key === ' ') {
 			e.preventDefault()
 			console.log('[INPUT]', '空格键触发单步执行')
@@ -59,19 +71,13 @@ export class InputManager {
 		}
 	}
 
-	handleResize() {
+	handleResize(): void {
 		this.EPS.updateViewport()
 		const isLandscape = window.innerWidth > window.innerHeight
 		const realWidth = isLandscape ? window.innerHeight : window.innerWidth
 
-		if (!this.game) {
-			console.log('[RESIZE]', 'game 实例不存在，跳过窗口适配')
-			return
-		}
-
 		console.log('[INPUT]', `窗口大小调整 | 宽度=${realWidth}px 横屏=${isLandscape}`)
 		this.game.setViewportSize(realWidth)
-		// 注：renderer 更新由调用方处理
 	}
 }
 

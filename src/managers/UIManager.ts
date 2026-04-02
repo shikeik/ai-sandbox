@@ -3,31 +3,52 @@
  * 负责所有 UI 更新、DOM 操作和控制面板渲染
  */
 
-import { ACTION, GAME_STATUS } from '@game/JumpGame.js'
+import { ACTION, GAME_STATUS, JumpGame, ActionType } from '@game/JumpGame.js'
 import { formatTimeMs } from '@utils/timeUtils.js'
+import { AIController } from '@ai/AIController.js'
+import { PlayerBestStore } from '@ai/PlayerBestStore.js'
+import { NeuronAreaManager } from '@views/NeuronAreaManager.js'
+import { NeuralNetwork } from '@ai/NeuralNetwork.js'
+
+interface UIManagerOptions {
+	game: JumpGame
+	aiController: AIController
+	playerBestStore: PlayerBestStore
+	viewManager: NeuronAreaManager
+	network: NeuralNetwork
+}
 
 export class UIManager {
-	constructor({ game, aiController, playerBestStore, viewManager, network }) {
+	private game: JumpGame
+	aiController: AIController
+	private playerBestStore: PlayerBestStore
+	private viewManager: NeuronAreaManager
+	private network: NeuralNetwork
+	private _lastGrid: number = -1
+
+	constructor({ game, aiController, playerBestStore, viewManager, network }: UIManagerOptions) {
 		this.game = game
 		this.aiController = aiController
 		this.playerBestStore = playerBestStore
 		this.viewManager = viewManager
 		this.network = network
-		this._lastGrid = -1 // 用于追踪位置变化
 		console.log('[UI_MANAGER]', 'UI管理器初始化完成')
 	}
 
 	// ========== 控制面板渲染 ==========
 
-	bindPlayerBtn(btn, action) {
+	bindPlayerBtn(btn: HTMLElement | null, action: ActionType): void {
 		if (!btn) {
 			console.warn('[UI_MANAGER]', `绑定按钮失败: 按钮不存在, action=${action}`)
 			return
 		}
-		const actionNames = { [ACTION.RIGHT]: '移动', [ACTION.JUMP]: '跳跃', [ACTION.LONG_JUMP]: '远跳' }
+		const actionNames: Record<string, string> = { 
+			[ACTION.RIGHT]: '移动', 
+			[ACTION.JUMP]: '跳跃', 
+			[ACTION.LONG_JUMP]: '远跳' 
+		}
 		console.log('[UI_MANAGER]', `绑定按钮 | action=${action}(${actionNames[action] || '未知'}) btn#${btn.id}`)
 		
-		// 按下效果处理（移动端 :active 不灵敏，手动添加 class）
 		const addActive = () => btn.classList.add('btn-pressed')
 		const removeActive = () => btn.classList.remove('btn-pressed')
 		
@@ -38,7 +59,7 @@ export class UIManager {
 		btn.addEventListener('mouseup', removeActive)
 		btn.addEventListener('mouseleave', removeActive)
 		
-		const handler = (e) => {
+		const handler = (e: Event) => {
 			e.preventDefault()
 			console.log('[UI_MANAGER]', `按钮触发 | action=${action} gameStatus=${this.game.gameStatus}`)
 			if (this.game.gameStatus === GAME_STATUS.RUNNING) {
@@ -52,7 +73,7 @@ export class UIManager {
 		btn.addEventListener('mousedown', handler)
 	}
 
-	renderPlayerControls(controlArea) {
+	renderPlayerControls(controlArea: HTMLElement): void {
 		console.log('[CONTROLS]', '渲染玩家模式按钮 | 右移+跳跃+远跳')
 		controlArea.innerHTML = `
 			<button class="btn" id="btn-right" ontouchstart="">
@@ -76,7 +97,7 @@ export class UIManager {
 		this.bindPlayerBtn(btnLongJump, ACTION.LONG_JUMP)
 	}
 
-	renderStepControls(controlArea) {
+	renderStepControls(controlArea: HTMLElement): void {
 		console.log('[CONTROLS]', '渲染单步模式按钮 | 决策/执行')
 		const pending = this.aiController.pendingAIDecision
 		const actionNames = ['移动', '跳跃', '远跳']
@@ -97,14 +118,14 @@ export class UIManager {
 		}
 	}
 
-	renderAutoHint(controlArea) {
+	renderAutoHint(controlArea: HTMLElement): void {
 		console.log('[CONTROLS]', '渲染自动模式提示 | AI运行中')
 		controlArea.innerHTML = `
 			<div style="color: #888; font-size: 14px; width: 100%; text-align: center;">🤖 AI自动运行中...</div>
 		`
 	}
 
-	updateControlsUI() {
+	updateControlsUI(): void {
 		const controlArea = document.getElementById('control-area')
 		if (!controlArea) return
 
@@ -122,7 +143,7 @@ export class UIManager {
 
 	// ========== 遮罩控制 ==========
 
-	showStartOverlay() {
+	showStartOverlay(): void {
 		const overlay = document.getElementById('start-overlay')
 		if (overlay) overlay.classList.remove('hidden')
 		if (this.game.gameStatus !== GAME_STATUS.READY) {
@@ -130,12 +151,12 @@ export class UIManager {
 		}
 	}
 
-	hideStartOverlay() {
+	hideStartOverlay(): void {
 		const overlay = document.getElementById('start-overlay')
 		if (overlay) overlay.classList.add('hidden')
 	}
 
-	bindStartButton(onStart) {
+	bindStartButton(onStart: () => void): void {
 		const startBtn = document.getElementById('start-btn')
 		if (startBtn) {
 			startBtn.addEventListener('click', onStart)
@@ -145,7 +166,7 @@ export class UIManager {
 
 	// ========== 游戏信息更新 ==========
 
-	updateGameInfo() {
+	updateGameInfo(): void {
 		const gameInfo = document.getElementById('game-info')
 		if (!gameInfo) return
 
@@ -155,7 +176,6 @@ export class UIManager {
 
 		gameInfo.innerHTML = `POS: <span id="pos-display">${player.grid}</span> | GEN: <span id="gen-display">${this.game.getState().generation}</span>${this.aiController.isAIMode ? '' : ` | TIME: ${currentTime} | BEST: ${bestTime}`}`
 
-		// 只在位置变化时输出日志，避免计时器刷屏
 		if (player.grid !== this._lastGrid) {
 			console.log('[UI_MANAGER]', `游戏信息更新 | 位置=${player.grid} 世代=${this.game.getState().generation}`)
 			this._lastGrid = player.grid
@@ -164,7 +184,12 @@ export class UIManager {
 
 	// ========== AI 视图渲染 ==========
 
-	renderCurrentAIView(inputs = null, action = null, isPreview = false, weightChanges = null) {
+	renderCurrentAIView(
+		inputs: number[] | null = null, 
+		action: number | null = null, 
+		isPreview: boolean = false, 
+		weightChanges: number[][][] | null = null
+	): void {
 		if (this.network) {
 			this.viewManager.render(this.network, inputs, action, isPreview, false, weightChanges)
 		}
