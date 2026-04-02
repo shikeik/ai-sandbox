@@ -15,7 +15,8 @@ export default {
 			'@render': resolve(__dirname, 'src/render'),
 			'@ai': resolve(__dirname, 'src/ai'),
 			'@views': resolve(__dirname, 'src/views'),
-			'@utils': resolve(__dirname, 'src/utils')
+			'@utils': resolve(__dirname, 'src/utils'),
+			'@managers': resolve(__dirname, 'src/managers')
 		}
 	}
 }
