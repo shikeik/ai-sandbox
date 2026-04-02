@@ -13,6 +13,7 @@ export class UIManager {
 		this.playerBestStore = playerBestStore
 		this.viewManager = viewManager
 		this.network = network
+		this._lastGrid = -1 // 用于追踪位置变化
 		console.log('[UI_MANAGER]', 'UI管理器初始化完成')
 	}
 
@@ -125,7 +126,12 @@ export class UIManager {
 		const bestTime = this.playerBestStore.getFormatted()
 
 		gameInfo.innerHTML = `POS: <span id="pos-display">${player.grid}</span> | GEN: <span id="gen-display">${this.game.getState().generation}</span>${this.aiController.isAIMode ? '' : ` | TIME: ${currentTime} | BEST: ${bestTime}`}`
-		console.log('[UI_MANAGER]', `游戏信息更新 | 位置=${player.grid} 世代=${this.game.getState().generation}`)
+
+		// 只在位置变化时输出日志，避免计时器刷屏
+		if (player.grid !== this._lastGrid) {
+			console.log('[UI_MANAGER]', `游戏信息更新 | 位置=${player.grid} 世代=${this.game.getState().generation}`)
+			this._lastGrid = player.grid
+		}
 	}
 
 	// ========== AI 视图渲染 ==========
