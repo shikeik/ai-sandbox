@@ -11,8 +11,9 @@ export class NeuralNetwork {
 		this.weightClip = config.weightClip || 5
 	
 		// --- 探索率相关属性 ---
-		this.epsilon = 0         // 初始探索率 0（封存好奇心，纯利用模式）
-		this.autoAdjustEpsilon = false  // 自动调节关闭，手动可控观察
+		this.exploreMode = config.exploreMode || 'none'
+		this.fixedEpsilon = config.fixedEpsilon || 0.5
+		this.epsilon = config.epsilon || 0.3             // 动态模式初始探索率 30%
 		this.isExploring = false  // 记录当前动作是否为“探索”产生的
 	
 		// 初始化权重和偏置
@@ -90,8 +91,9 @@ export class NeuralNetwork {
 		this.lastScores = result.scores
 		
 		// ε-贪心策略逻辑
-		// 注：当前阶段 epsilon 固定为 0，需要可控观察，暂不启用探索机制，保持纯利用模式
-		if (Math.random() < this.epsilon) {
+		// 通过 getEpsilon() 统一获取，支持三种探索模式
+		const epsilon = this.getEpsilon()
+		if (Math.random() < epsilon) {
 		// 【探索】：不看分数，随机选一个
 			this.isExploring = true
 			this.lastAction = Math.floor(Math.random() * this.layerSizes[this.layerSizes.length - 1])
@@ -105,8 +107,25 @@ export class NeuralNetwork {
 		if (this.isExploring && this.lastAction !== result.action) {
 			console.log('[AI]', `探索冲突修复 | 贪心=${result.action} → 随机=${this.lastAction} | 输入=[${inputs.join(',')}]`)
 		}
-		console.log('[AI]', `决策 | 输入=[${inputs.join(',')}] 得分=[${result.scores.map(s => s.toFixed(2)).join(',')}] 动作=${this.lastAction} 探索=${this.isExploring}`)
+		console.log('[AI]', `决策 | 输入=[${inputs.join(',')}] 得分=[${result.scores.map(s => s.toFixed(2)).join(',')}] 动作=${this.lastAction} 探索=${this.isExploring} 模式=${this.exploreMode} ε=${this.getEpsilon().toFixed(2)}`)
 		return this.lastAction
+	}
+
+	/**
+	 * 获取当前探索率（统一入口）
+	 * @returns {number} 当前探索率 0~1
+	 */
+	getEpsilon() {
+		switch (this.exploreMode) {
+			case 'none':
+				return 0
+			case 'fixed':
+				return this.fixedEpsilon
+			case 'dynamic':
+				return this.epsilon
+			default:
+				return 0
+			}
 	}
 	
 	/**

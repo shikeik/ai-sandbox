@@ -108,6 +108,13 @@ function init() {
 		uiManager.updateControlsUI()
 	}
 
+	// 设置探索模式切换回调
+	viewManager.onExploreModeChange = (mode) => {
+		network.exploreMode = mode
+		const epsilon = network.getEpsilon ? network.getEpsilon() : 0
+		console.log('[MAIN]', `探索模式切换 | 新模式=${mode} | ε=${epsilon.toFixed(2)}`)
+	}
+
 	// 初始化输入管理器
 	inputManager = new InputManager({
 		game,

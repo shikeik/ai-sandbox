@@ -12,8 +12,10 @@ export class NeuronAreaManager {
 		// 从全局配置读取默认值
 		this.currentMode = window.AI_CONFIG?.DEFAULT_MODE || 'player'
 		this.currentSpeed = window.AI_CONFIG?.DEFAULT_SPEED || 'step'
+		this.currentExploreMode = 'none'  // 探索模式：none/fixed/dynamic
 		this.modeItems = []          // 模式按钮引用
 		this.speedItems = []         // 速度按钮引用
+		this.exploreItems = []       // 探索模式按钮引用
 		this.init()
 	}
 
@@ -119,6 +121,40 @@ export class NeuronAreaManager {
 		})
 		menu.appendChild(speedGrid)
 
+		// 分隔线
+		const divider2 = document.createElement('div')
+		divider2.className = 'neuron-menu-divider'
+		menu.appendChild(divider2)
+
+		// 探索模式 - 1行3列
+		const exploreRow = document.createElement('div')
+		exploreRow.className = 'neuron-menu-row'
+
+		const explores = [
+			{ id: 'none', label: '🚫无探索' },
+			{ id: 'fixed', label: '🎯固定50%' },
+			{ id: 'dynamic', label: '⚡动态' }
+		]
+
+		explores.forEach(item => {
+			const el = document.createElement('div')
+			el.dataset.explore = item.id
+			el.textContent = item.label
+			const isActive = item.id === this.currentExploreMode
+			el.className = `neuron-explore-btn ${isActive ? 'active' : 'inactive'}`
+			el.addEventListener('click', () => {
+				console.log('[NEURON_UI]', `探索模式切换 | 旧=${this.currentExploreMode} → 新=${item.id}`)
+				this.currentExploreMode = item.id
+				this.updateExploreHighlight()
+				if (this.onExploreModeChange) this.onExploreModeChange(item.id)
+			})
+			attachHover(el, () => item.id === this.currentExploreMode)
+			this.exploreItems.push(el)
+			exploreRow.appendChild(el)
+		})
+		console.log('[NEURON_UI]', `创建探索模式按钮 | 数量=${explores.length} 默认=${this.currentExploreMode}`)
+		menu.appendChild(exploreRow)
+
 		btn.addEventListener('click', () => {
 			const isOpen = menu.style.display === 'none'
 			menu.style.display = isOpen ? 'block' : 'none'
@@ -168,6 +204,10 @@ export class NeuronAreaManager {
 
 	updateSpeedHighlight() {
 		this._updateHighlight(this.speedItems, this.currentSpeed, 'speed', 'rgba(255,255,255,0.8)')
+	}
+
+	updateExploreHighlight() {
+		this._updateHighlight(this.exploreItems, this.currentExploreMode, 'explore', '#fff')
 	}
 }
 

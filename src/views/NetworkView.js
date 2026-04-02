@@ -176,14 +176,21 @@ export class NetworkView {
 	
 	updateInfoBar(network, isPreview = false) {
 		const structure = network.getStructure()
-		const eps = (network.epsilon * 100).toFixed(0)
+		// 使用 getEpsilon() 获取实际探索率（根据 exploreMode 返回对应值）
+		const epsilon = network.getEpsilon ? network.getEpsilon() : network.epsilon
+		const eps = (epsilon * 100).toFixed(0)
 		const exploring = network.isExploring ? ' <span style="color:#f39c12">🎲</span>' : ''
 		const previewTag = isPreview ? ' <span style="color:#3498db">[预览]</span>' : ''
+		
+		// 添加模式标识：无探索=⊘ 固定=🔒 动态=⚡
+		const modeIcon = network.exploreMode === 'none' ? '⊘' : 
+		                  network.exploreMode === 'fixed' ? '🔒' : '⚡'
 		
 		this.infoBar.innerHTML = `
 			<span>结构:${structure.layerSizes.join('-')}</span>
 			<span>权重:${structure.totalWeights}</span>
 			<span style="color:rgba(255,255,255,0.6)">ε:${eps}%${exploring}${previewTag}</span>
+			<span style="color:#0f0" title="探索模式:${network.exploreMode}">${modeIcon}</span>
 		`
 	}
 	

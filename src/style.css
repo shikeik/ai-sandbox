@@ -726,7 +726,8 @@ html, body {
 
 /* 非激活状态 */
 .neuron-mode-btn.inactive,
-.neuron-speed-btn.inactive {
+.neuron-speed-btn.inactive,
+.neuron-explore-btn.inactive {
 	color: #fff;
 	background: rgba(255, 255, 255, 0.05);
 	border: 1px solid transparent;
@@ -738,8 +739,20 @@ html, body {
 
 /* 激活状态 */
 .neuron-mode-btn.active,
-.neuron-speed-btn.active {
+.neuron-speed-btn.active,
+.neuron-explore-btn.active {
 	color: #0f0;
 	background: rgba(0, 255, 0, 0.15);
 	border: 1px solid #0f0;
+}
+
+/* 探索模式按钮样式 */
+.neuron-explore-btn {
+	flex: 1;
+	padding: 6px 4px;
+	cursor: pointer;
+	text-align: center;
+	border-radius: 3px;
+	transition: all 0.2s;
+	font-size: 11px;
 }

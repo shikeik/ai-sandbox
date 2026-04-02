@@ -123,7 +123,13 @@ export class AIController {
 				: steps
 			this.performanceHistory.push(steps)
 
-			if (this.network.autoAdjustEpsilon) {
+			/**
+			 * 动态探索率调整（仅在 dynamic 模式下生效）
+			 * 原理：表现好就多利用经验，表现差就多探索随机策略
+			 * - 步数 > 窗口平均（表现好）→ 降低探索率，相信已有经验
+			 * - 步数 < 窗口平均（表现差）→ 提高探索率，尝试新策略
+			 */
+			if (this.network.exploreMode === 'dynamic') {
 				if (steps > currentAvg) {
 					this.network.epsilon = Math.max(0.1, this.network.epsilon - 0.05)
 				} else if (steps < currentAvg) {
@@ -133,7 +139,8 @@ export class AIController {
 				}
 			}
 
-			console.log('[AI]', `窗口平均:${currentAvg.toFixed(1)} | 本局:${steps} | 新好奇心(ε):${this.network.epsilon.toFixed(2)}`)
+			const epsilon = this.network.getEpsilon()
+			console.log('[AI]', `窗口平均:${currentAvg.toFixed(1)} | 本局:${steps} | 探索率(ε):${epsilon.toFixed(2)} | 模式:${this.network.exploreMode}`)
 		}
 	}
 
