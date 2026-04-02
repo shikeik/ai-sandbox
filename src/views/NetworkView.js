@@ -109,9 +109,9 @@ export class NetworkView {
 			this.resize()
 		})
 		this.resizeObserver.observe(this.container)
-		console.log('[NETWORK_VIEW]', `初始化完成 | 画布尺寸=${this.width}x${this.height} 边距配置=${JSON.stringify(CANVAS_MARGIN)}`)
+		console.log('[NETWORK_VIEW]', '画布元素创建完成，等待尺寸计算...')
 	}
-	
+
 	resize() {
 		// 使用 canvas 父容器的实际尺寸
 		const canvasContainer = this.canvas.parentElement
@@ -121,6 +121,11 @@ export class NetworkView {
 			// 过渡动画期间布局可能尚未完成，延迟一帧重试
 			requestAnimationFrame(() => this.resize())
 			return
+		}
+
+		// 首次设置尺寸时输出日志
+		if (!this.width || !this.height) {
+			console.log('[NETWORK_VIEW]', `初始化完成 | 画布尺寸=${w}x${h} 边距配置=${JSON.stringify(CANVAS_MARGIN)}`)
 		}
 
 		this.canvas.width = w * window.devicePixelRatio
