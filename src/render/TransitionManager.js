@@ -2,6 +2,13 @@
  * 转场管理器
  * 处理死亡/胜利后的渐暗渐亮效果
  */
+
+const TIMING = {
+	SHOW_RESULT: 800,    // 死亡/胜利动画展示时间(ms)
+	FADE_DURATION: 400,  // 渐暗/渐亮过渡时间(ms)
+	PAUSE: 100           // 暗屏停顿时间(ms)
+}
+
 export class TransitionManager {
 	constructor(containerId) {
 		this.container = document.getElementById(containerId)
@@ -36,11 +43,11 @@ export class TransitionManager {
 		this.isTransitioning = true
 
 		// 等待缓冲时间（死亡/胜利动画展示）
-		await this._delay(800)
+		await this._delay(TIMING.SHOW_RESULT)
 
 		// 渐暗
 		this.overlay.style.opacity = '1'
-		await this._delay(400)  // 等待渐暗完成
+		await this._delay(TIMING.FADE_DURATION)
 
 		// 执行重生逻辑（在暗屏时）
 		if (onMidPoint) {
@@ -48,11 +55,11 @@ export class TransitionManager {
 		}
 
 		// 短暂停顿（确保重生完成）
-		await this._delay(100)
+		await this._delay(TIMING.PAUSE)
 
 		// 渐亮
 		this.overlay.style.opacity = '0'
-		await this._delay(400)  // 等待渐亮完成
+		await this._delay(TIMING.FADE_DURATION)
 
 		this.isTransitioning = false
 

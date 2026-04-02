@@ -47,6 +47,9 @@ export const CONFIG = {
 	JUMP_DURATION: 600,     // 跳跃动画时长(ms)
 	CAMERA_OFFSET_RATIO: 0.3, // 玩家在屏幕左侧30%位置
 	
+	// 地形生成
+	PIT_PROBABILITY: 0.6,   // 非连续坑洞时生成坑的概率
+	
 	// 辅助函数：单位转像素
 	toPx(units) { return Math.floor(units * this.GRID_SIZE) },
 	// 辅助函数：像素转单位
@@ -348,53 +351,44 @@ export class JumpGame {
 	}
 	
 	/**
-	* 触发死亡（由渲染器在补间完成后调用）
+	* 触发对局结束（死亡或胜利）
+	* @param {string} type - 'death' | 'win'
+	* @param {Function} onEvent - 对应的事件回调（onDeath / onWin）
+	* @private
 	*/
-	triggerDeath() {
-		if (!this._pendingDeath) return
-		this._pendingDeath = false
+	_triggerFinish(type, onEvent) {
+		const pendingKey = type === 'death' ? '_pendingDeath' : '_pendingWin'
+		if (!this[pendingKey]) return
+		this[pendingKey] = false
 	
-		this.gameStatus = GAME_STATUS.FINISHED  // 明确结束状态
-		this._inputLocked = true  // 锁定输入
+		this.gameStatus = GAME_STATUS.FINISHED
+		this._inputLocked = true
 
-		if (this.onDeath) this.onDeath()
+		if (onEvent) onEvent()
 
-		// 使用转场而非直接重生
 		if (this.onTransitionStart) {
 			this.onTransitionStart(() => {
-				// 转场中点回调
 				this._executeRespawn()
 			}, () => {
-				// 转场结束回调
 				this._onRespawnComplete()
 			})
 		} else {
-		// 兼容：无转场管理器时直接重生
 			setTimeout(() => this._nextGeneration(), 1500)
 		}
+	}
+
+	/**
+	* 触发死亡（由渲染器在补间完成后调用）
+	*/
+	triggerDeath() {
+		this._triggerFinish('death', this.onDeath)
 	}
 
 	/**
 	* 触发胜利（由渲染器在补间完成后调用）
 	*/
 	triggerWin() {
-		if (!this._pendingWin) return
-		this._pendingWin = false
-	
-		this.gameStatus = GAME_STATUS.FINISHED  // 明确结束状态
-		this._inputLocked = true  // 锁定输入
-
-		if (this.onWin) this.onWin()
-
-		if (this.onTransitionStart) {
-			this.onTransitionStart(() => {
-				this._executeRespawn()
-			}, () => {
-				this._onRespawnComplete()
-			})
-		} else {
-			setTimeout(() => this._nextGeneration(), 1500)
-		}
+		this._triggerFinish('win', this.onWin)
 	}
 
 	// 执行重生（在暗屏时调用）
@@ -444,7 +438,7 @@ export class JumpGame {
 				currentGrid += len
 				lastWasPit = false
 			} else {
-				if (Math.random() < 0.6) {
+				if (Math.random() < CONFIG.PIT_PROBABILITY) {
 					const len = 1 + Math.floor(Math.random() * 2)
 					this._addGround(currentGrid, len)
 					currentGrid += len

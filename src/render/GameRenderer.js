@@ -4,6 +4,7 @@
  */
 
 import { CONFIG, TERRAIN } from '@game/JumpGame.js'
+import { FoxAnimator } from './FoxAnimator.js'
 
 /**
  * 补间动画类
@@ -195,7 +196,7 @@ export class GameRenderer {
 				this.visual.y = y
 				this._updatePlayerVisual(x, y)
 				// 更新狐狸动画状态 - 跳跃时根据高度判断，平地移动时显示奔跑
-				this._updateFoxAnimation({ x, y, status: 'moving' }, !isJump, isJump)
+				this.foxAnimator.update({ x, y, status: 'moving' }, !isJump, isJump)
 				// 用视觉位置更新相机（平滑跟随）
 				if (this.game) {
 					this.game._updateCamera(x)
@@ -205,13 +206,7 @@ export class GameRenderer {
 			onComplete: () => {
 				this.currentTween = null
 				// 动画完成，狐狸恢复待机状态
-				if (this.foxContainer) {
-					this.foxContainer.classList.remove('state-run', 'state-jump-up', 'state-jump-down', 'state-land')
-					this.foxContainer.classList.add('state-idle')
-					this._foxState = 'idle'
-					// 恢复待机尾巴动画
-					this._startTailAnimation('idle')
-				}
+				this.foxAnimator.setState('idle')
 				// 通知游戏逻辑动画完成
 				if (this.game) {
 					this.game.notifyVisualComplete()
@@ -264,14 +259,7 @@ export class GameRenderer {
 	* 显示死亡动画
 	*/
 	showDeath() {
-	// 给狐狸容器添加死亡状态
-		if (this.foxContainer) {
-			this.foxContainer.classList.remove('state-idle', 'state-run', 'state-jump-up', 'state-jump-down', 'state-land')
-			this.foxContainer.classList.add('state-dead')
-			this._foxState = 'dead'
-			// 停止尾巴动画
-			this._startTailAnimation('dead')
-		}
+		this.foxAnimator.showDeath()
 		this._showStatus('💀', 'dead')
 	}
 	
@@ -286,16 +274,7 @@ export class GameRenderer {
 	* 重置玩家状态（新一关）
 	*/
 	resetPlayer() {
-	// 重置狐狸状态
-		if (this.foxContainer) {
-			this.foxContainer.className = 'fox-container state-idle'
-			this._foxState = 'idle'
-			this._foxLastY = 0
-			this._foxVelocity = 0
-			this._foxOnGround = true
-			// 重置尾巴动画
-			this._startTailAnimation('idle')
-		}
+		this.foxAnimator.reset()
 		this._hideStatus()
 	
 		// 停止补间
@@ -429,146 +408,12 @@ export class GameRenderer {
 	`
 		this.worldEl.appendChild(this.playerEl)
 	
-		// 获取狐狸容器用于动画控制
-		this.foxContainer = this.playerEl.querySelector('.fox-container')
-		this.foxTail = this.playerEl.querySelector('.fox-tail')
-	
-		// 初始化动画状态
-		this._foxState = 'idle'
-		this._foxLastY = 0
-		this._foxVelocity = 0
-		this._foxOnGround = true
-	
-		// 尾巴WAAPI动画控制（实现类似Spine的动画混合）
-		this._tailAnimation = null
-		// 延迟启动动画，确保DOM已渲染
-		requestAnimationFrame(() => {
-			this._startTailAnimation('idle')
-		})
+		// 初始化狐狸动画控制器
+		this.foxAnimator = new FoxAnimator(this.playerEl)
+		this.foxAnimator.init()
 	}
 	
-	/**
-	* 使用WAAPI启动尾巴动画（无过渡，直接切换）
-	*/
-	_startTailAnimation(state) {
-		if (!this.foxTail) return
-	
-		// 停止当前动画
-		if (this._tailAnimation) {
-			this._tailAnimation.cancel()
-			this._tailAnimation = null
-		}
-	
-		// 根据状态定义动画（直接切换，无过渡）
-		let keyframes, options
-	
-		switch(state) {
-			case 'run':
-				keyframes = [
-					{ transform: 'rotate(-10deg)' },
-					{ transform: 'rotate(15deg)' },
-					{ transform: 'rotate(-10deg)' }
-				]
-				options = { duration: 300, iterations: Infinity }
-				break
-			case 'jump-up':
-				keyframes = [
-					{ transform: 'rotate(-30deg) scaleX(0.9)' }
-				]
-				options = { duration: 1000, fill: 'both' }
-				break
-			case 'jump-down':
-				keyframes = [
-					{ transform: 'rotate(20deg)' }
-				]
-				options = { duration: 1000, fill: 'both' }
-				break
-			case 'land':
-				keyframes = [
-					{ transform: 'rotate(-10deg)' }
-				]
-				options = { duration: 200, fill: 'forwards' }
-				break
-			case 'dead':
-				// 死亡时停止尾巴动画
-				return
-			case 'idle':
-			default:
-				keyframes = [
-					{ transform: 'rotate(-10deg)' },
-					{ transform: 'rotate(5deg)' },
-					{ transform: 'rotate(-10deg)' }
-				]
-				options = { duration: 3000, iterations: Infinity }
-		}
-	
-		// 使用WAAPI启动动画
-		this._tailAnimation = this.foxTail.animate(keyframes, options)
-	}
-	
-	/**
-	* 更新狐狸动画状态（程序自动计算）
-	*/
-	_updateFoxAnimation(player, isMoving, isJump) {
-		if (!this.foxContainer) return
-	
-		const currentY = player.y
-		const currentX = player.x
-	
-		// 计算垂直速度
-		this._foxVelocity = currentY - this._foxLastY
-		this._foxLastY = currentY
-	
-		// 判断是否在地面上
-		const groundY = CONFIG.toPx(CONFIG.GROUND_HEIGHT)
-		const onGround = Math.abs(currentY - groundY) < 5
-	
-		// 计算新状态
-		let newState = 'idle'
-	
-		if (player.action === 'dead') {
-			newState = 'dead'
-		} else if (!onGround) {
-		// 在空中
-			if (this._foxVelocity > 0.5) {
-				newState = 'jump-down'  // 下降
-			} else if (this._foxVelocity < -0.5) {
-				newState = 'jump-up'    // 上升
-			} else {
-				newState = 'jump-up'    // 最高点附近，保持上升姿态
-			}
-		} else if (isMoving) {
-			newState = 'run'  // 地面移动
-		} else {
-			newState = 'idle' // 待机
-		}
-	
-		// 落地检测（从空中到地面）
-		if (!this._foxOnGround && onGround && this._foxState !== 'idle') {
-			newState = 'land'
-			// 0.2秒后恢复待机
-			setTimeout(() => {
-				if (this.foxContainer) {
-					this.foxContainer.classList.remove('state-land')
-					this.foxContainer.classList.add('state-idle')
-					// 同步更新尾巴动画为待机
-					this._startTailAnimation('idle')
-				}
-			}, 200)
-		}
-	
-		// 应用新状态
-		if (newState !== this._foxState) {
-			this.foxContainer.classList.remove(`state-${this._foxState}`)
-			this.foxContainer.classList.add(`state-${newState}`)
-			this._foxState = newState
-		
-			// 使用WAAPI更新尾巴动画（平滑混合）
-			this._startTailAnimation(newState)
-		}
-	
-		this._foxOnGround = onGround
-	}
+
 	
 	_showStatus(emoji, type) {
 		if (this.statusText) {
