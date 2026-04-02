@@ -583,7 +583,8 @@ html, body {
 	color: white;
 }
 
-#btn-right:active:not(:disabled) {
+#btn-right:active:not(:disabled),
+#btn-right.btn-pressed:not(:disabled) {
 	box-shadow: 0 2px 0 var(--color-btn-right-shadow), 0 3px 8px rgba(39, 174, 96, 0.4);
 	transform: translateY(2px) scale(0.92);
 }
@@ -594,7 +595,8 @@ html, body {
 	color: white;
 }
 
-#btn-jump:active:not(:disabled) {
+#btn-jump:active:not(:disabled),
+#btn-jump.btn-pressed:not(:disabled) {
 	box-shadow: 0 2px 0 var(--color-btn-jump-shadow), 0 3px 8px rgba(243, 156, 18, 0.4);
 	transform: translateY(2px) scale(0.92);
 }
@@ -604,7 +606,8 @@ html, body {
 	color: white;
 }
 
-#btn-long-jump:active:not(:disabled) {
+#btn-long-jump:active:not(:disabled),
+#btn-long-jump.btn-pressed:not(:disabled) {
 	box-shadow: 0 2px 0 var(--color-btn-long-shadow), 0 3px 8px rgba(52, 152, 219, 0.4);
 	transform: translateY(2px) scale(0.92);
 }

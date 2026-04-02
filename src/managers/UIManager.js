@@ -26,6 +26,18 @@ export class UIManager {
 		}
 		const actionNames = { [ACTION.RIGHT]: '移动', [ACTION.JUMP]: '跳跃', [ACTION.LONG_JUMP]: '远跳' }
 		console.log('[UI_MANAGER]', `绑定按钮 | action=${action}(${actionNames[action] || '未知'}) btn#${btn.id}`)
+		
+		// 按下效果处理（移动端 :active 不灵敏，手动添加 class）
+		const addActive = () => btn.classList.add('btn-pressed')
+		const removeActive = () => btn.classList.remove('btn-pressed')
+		
+		btn.addEventListener('touchstart', addActive, { passive: true })
+		btn.addEventListener('touchend', removeActive, { passive: true })
+		btn.addEventListener('touchcancel', removeActive, { passive: true })
+		btn.addEventListener('mousedown', addActive)
+		btn.addEventListener('mouseup', removeActive)
+		btn.addEventListener('mouseleave', removeActive)
+		
 		const handler = (e) => {
 			e.preventDefault()
 			console.log('[UI_MANAGER]', `按钮触发 | action=${action} gameStatus=${this.game.gameStatus}`)
