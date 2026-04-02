@@ -115,6 +115,36 @@ function init() {
 		console.log('[MAIN]', `探索模式切换 | 新模式=${mode} | ε=${epsilon.toFixed(2)}`)
 	}
 
+	// 设置种子控制回调
+	viewManager.onSeedLockChange = (isLocked) => {
+		game.setTerrainConfig({ isSeedLocked: isLocked })
+		console.log('[MAIN]', `种子锁定切换 | ${isLocked ? '锁定' : '解锁'}`)
+	}
+
+	viewManager.onSeedChange = (seed) => {
+		game.setTerrainConfig({ seed })
+		console.log('[MAIN]', `种子变更 | ${seed}`)
+	}
+
+	// 设置权重控制回调
+	viewManager.onWeightChange = (key, value) => {
+		const config = game.terrainConfig
+		config.weights[key] = value
+		console.log('[MAIN]', `权重调整 | ${key}=${value} 当前权重=`, config.weights)
+	}
+
+	viewManager.onElementToggle = (key, enabled) => {
+		const config = game.terrainConfig
+		config.enabled[key] = enabled
+		console.log('[MAIN]', `元素开关 | ${key}=${enabled ? '开启' : '关闭'}`)
+	}
+
+	// 游戏地形生成后更新UI显示
+	game.onTerrainSeedChange = (seed, stats) => {
+		viewManager.updateSeedDisplay(seed)
+		console.log('[MAIN]', `地形已生成 | 种子=${seed} 平地=${stats.ground} 单坑=${stats.singlePit} 双坑=${stats.doublePit}`)
+	}
+
 	// 初始化输入管理器
 	inputManager = new InputManager({
 		game,
