@@ -43,12 +43,12 @@
 
         .main-grid {
             display: grid;
-            grid-template-columns: 320px 1fr 280px;
+            grid-template-columns: 340px 1fr 300px;
             gap: 14px;
-            max-width: 1100px;
+            max-width: 1180px;
             margin: 0 auto;
         }
-        @media (max-width: 900px) {
+        @media (max-width: 960px) {
             .main-grid { grid-template-columns: 1fr; }
         }
 
@@ -77,14 +77,14 @@
             gap: 6px;
         }
         .row-label {
-            width: 40px;
+            width: 36px;
             font-size: 10px;
             color: #9aa0a6;
             text-align: right;
         }
         .terrain-cell {
-            width: 46px;
-            height: 46px;
+            width: 44px;
+            height: 44px;
             border-radius: 8px;
             border: 1px solid #3c4043;
             background: #0b0c0f;
@@ -101,11 +101,11 @@
         .col-labels {
             display: flex;
             gap: 6px;
-            padding-left: 46px;
+            padding-left: 42px;
             margin-top: 2px;
         }
         .col-label {
-            width: 46px;
+            width: 44px;
             text-align: center;
             font-size: 10px;
             color: #5f6368;
@@ -149,18 +149,37 @@
             background: #1a2332;
             box-shadow: 0 0 0 1px #8ab4f8;
         }
-        .brush-item.disabled {
-            opacity: .35;
-            cursor: not-allowed;
-        }
         .brush-emoji { font-size: 18px; }
         .brush-name { font-size: 9px; color: #bdc1c6; margin-top: 1px; }
-        .brush-hint {
-            text-align: center;
-            font-size: 9px;
-            color: #5f6368;
-            margin-top: 6px;
+
+        .terrain-status {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 8px;
+            background: #0b0c0f;
+            border: 1px solid #2c2f36;
+            font-size: 11px;
+            line-height: 1.7;
+            min-height: 50px;
         }
+
+        .btn-row {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        button {
+            border: none;
+            border-radius: 6px;
+            padding: 8px 12px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: opacity .2s;
+        }
+        button:disabled { opacity: .4; cursor: not-allowed; }
+        .btn-primary { background: #8ab4f8; color: #0b0c0f; }
+        .btn-accent { background: #f9ab00; color: #0b0c0f; }
+        .btn-secondary { background: #5f6368; color: #fff; }
 
         .rule-box {
             margin-top: 10px;
@@ -176,7 +195,7 @@
         /* MLP 可视化 */
         #mlp-canvas {
             width: 100%;
-            height: 280px;
+            height: 260px;
             background: #0b0c0f;
             border-radius: 8px;
             display: block;
@@ -213,23 +232,6 @@
             flex-direction: column;
             gap: 10px;
         }
-        .btn-row {
-            display: flex;
-            gap: 8px;
-            flex-wrap: wrap;
-        }
-        button {
-            border: none;
-            border-radius: 6px;
-            padding: 8px 12px;
-            font-size: 12px;
-            cursor: pointer;
-            transition: opacity .2s;
-        }
-        button:disabled { opacity: .4; cursor: not-allowed; }
-        .btn-primary { background: #8ab4f8; color: #0b0c0f; }
-        .btn-accent { background: #f9ab00; color: #0b0c0f; }
-        .btn-secondary { background: #5f6368; color: #fff; }
         .metric {
             font-size: 11px;
             color: #9aa0a6;
@@ -250,7 +252,7 @@
             transition: width .2s;
         }
 
-        /* 考试区 */
+        /* 考试区 + 动画 */
         .exam-result {
             margin-top: 10px;
             padding: 10px;
@@ -262,7 +264,15 @@
         .exam-result.ok { border: 1px solid #34a853; }
         .exam-result.bad { border: 1px solid #ea4335; }
         .exam-result.wait { border: 1px solid #2c2f36; }
-        .log-highlight { color: #f9ab00; }
+
+        #anim-canvas {
+            width: 100%;
+            height: 160px;
+            background: #0b0c0f;
+            border-radius: 8px;
+            display: block;
+            margin-top: 10px;
+        }
     </style>
 </head>
 <body>
@@ -273,26 +283,22 @@
     <div class="main-grid">
         <!-- 左侧：地形编辑器 -->
         <div class="panel">
-            <div class="panel-title">地形编辑器 (4×3)</div>
-            <div class="terrain-wrap" id="terrain-wrap">
-                <!-- JS 生成 -->
-            </div>
+            <div class="panel-title">地形编辑器 (5×3) — x0为主角</div>
+            <div class="terrain-wrap" id="terrain-wrap"></div>
             <div class="col-labels">
-                <div class="col-label">前1</div>
-                <div class="col-label">前2</div>
-                <div class="col-label">前3</div>
-                <div class="col-label">前4</div>
+                <div class="col-label" style="width:44px">主角</div>
+                <div class="col-label" style="width:44px">前1</div>
+                <div class="col-label" style="width:44px">前2</div>
+                <div class="col-label" style="width:44px">前3</div>
+                <div class="col-label" style="width:44px">前4</div>
             </div>
 
             <div class="brush-panel">
                 <div class="brush-title">选中画笔后点击上方格子绘制</div>
-                <div class="brush-list" id="brush-list">
-                    <!-- JS 生成 -->
-                </div>
-                <div class="brush-hint" id="brush-hint">点击画笔选择，点击上方格子绘制</div>
+                <div class="brush-list" id="brush-list"></div>
             </div>
 
-            <div class="terrain-status" id="terrain-status" style="margin-top:10px;padding:10px;border-radius:8px;background:#0b0c0f;border:1px solid #2c2f36;font-size:12px;line-height:1.6;min-height:40px;display:flex;align-items:center;justify-content:center;color:#9aa0a6;">
+            <div class="terrain-status" id="terrain-status">
                 点击「合法性检查」查看当前地形是否可解
             </div>
 
@@ -306,8 +312,8 @@
                 走：前1地面=平地 + 前1天上≠恶魔 + 前1地上≠史莱姆<br>
                 跳：前1天上≠恶魔 + <b>前2地面=平地</b> + 前2天上≠恶魔 + 前2地上≠史莱姆<br>
                 远跳：前1/前2天上≠恶魔 + <b>前3地面=平地</b> + 前3天上≠恶魔 + 前3地上≠史莱姆<br>
-                下蹲：前1地面=平地 + 前1地上≠史莱姆<br>
-                优先级：走 → 跳 → 远跳 → 下蹲
+                走A：前1地面=平地（击杀同层史莱姆，但对天上恶魔无效）<br>
+                优先级：走 → 跳 → 远跳 → 走A
             </div>
         </div>
 
@@ -319,11 +325,11 @@
                 <div class="prob-row"><div class="prob-name">走</div><div class="prob-track"><div class="prob-fill" style="width:0%"></div></div><div class="prob-val">0%</div></div>
                 <div class="prob-row"><div class="prob-name">跳</div><div class="prob-track"><div class="prob-fill" style="width:0%"></div></div><div class="prob-val">0%</div></div>
                 <div class="prob-row"><div class="prob-name">远跳</div><div class="prob-track"><div class="prob-fill" style="width:0%"></div></div><div class="prob-val">0%</div></div>
-                <div class="prob-row"><div class="prob-name">下蹲</div><div class="prob-track"><div class="prob-fill" style="width:0%"></div></div><div class="prob-val">0%</div></div>
+                <div class="prob-row"><div class="prob-name">走A</div><div class="prob-track"><div class="prob-fill" style="width:0%"></div></div><div class="prob-val">0%</div></div>
             </div>
         </div>
 
-        <!-- 右侧：训练控制 + 考试 -->
+        <!-- 右侧：训练控制 + 考试 + 动画 -->
         <div class="panel">
             <div class="panel-title">训练控制台</div>
             <div class="control-area">
@@ -346,518 +352,11 @@
             <div class="exam-result wait" id="exam-box">
                 点击"预测当前地形"开始验收
             </div>
+
+            <canvas id="anim-canvas"></canvas>
         </div>
     </div>
 
-    <script>
-        // ========== 常量 ==========
-        const ELEMENTS = [
-            { id: 0, name: '空气', emoji: '⬜' },
-            { id: 1, name: '平地', emoji: '🟩' },
-            { id: 2, name: '史莱姆', emoji: '🦠' },
-            { id: 3, name: '恶魔', emoji: '👿' },
-            { id: 4, name: '金币', emoji: '🪙' }
-        ];
-        // 层限制：0=天上，1=地上，2=地面
-        const LAYER_LIMITS = {
-            0: [0, 3, 4],      // 空气, 恶魔, 金币
-            1: [0, 2, 4],      // 空气, 史莱姆, 金币
-            2: [0, 1]          // 空气, 平地
-        };
-        const ACTIONS = ['走', '跳', '远跳', '下蹲'];
-        const ROW_NAMES = ['天上', '地上', '地面'];
-        const INPUT_DIM = 60;  // 4*3*5
-        const HIDDEN_DIM = 16;
-        const OUTPUT_DIM = 4;
-        const LR = 0.05;
-
-        // ========== 状态 ==========
-        let terrain = [
-            [0, 0, 0, 0], // 天上: 空气
-            [0, 0, 0, 0], // 地上: 空气
-            [1, 0, 0, 0]  // 地面: 平地
-        ];
-        let selectedBrush = 0; // 默认选空气
-        let dataset = [];
-        let trainSteps = 0;
-        let net = createNet();
-
-        // ========== 网络 ==========
-        function randn() {
-            let u = 0, v = 0;
-            while(u === 0) u = Math.random();
-            while(v === 0) v = Math.random();
-            return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
-        }
-        function createMat(rows, cols, scale = 1) {
-            return Array.from({length: rows}, () => Array.from({length: cols}, () => randn() * scale));
-        }
-        function zeroVec(n) { return Array(n).fill(0); }
-        function zeroMat(rows, cols) { return Array.from({length: rows}, () => Array(cols).fill(0)); }
-
-        function createNet() {
-            return {
-                W1: createMat(HIDDEN_DIM, INPUT_DIM, Math.sqrt(2 / INPUT_DIM)),
-                b1: zeroVec(HIDDEN_DIM),
-                W2: createMat(OUTPUT_DIM, HIDDEN_DIM, Math.sqrt(2 / HIDDEN_DIM)),
-                b2: zeroVec(OUTPUT_DIM)
-            };
-        }
-
-        function relu(x) { return x.map(v => Math.max(0, v)); }
-        function softmax(z) {
-            const max = Math.max(...z);
-            const exps = z.map(v => Math.exp(v - max));
-            const sum = exps.reduce((a, b) => a + b, 0);
-            return exps.map(v => v / sum);
-        }
-
-        function forward(net, x) {
-            const z1 = net.W1.map((row, i) => row.reduce((s, w, j) => s + w * x[j], 0) + net.b1[i]);
-            const h = relu(z1);
-            const z2 = net.W2.map((row, i) => row.reduce((s, w, j) => s + w * h[j], 0) + net.b2[i]);
-            const o = softmax(z2);
-            return { x, z1, h, z2, o };
-        }
-
-        function backward(net, fp, target) {
-            const dz2 = fp.o.map((v, i) => v - (i === target ? 1 : 0));
-            const dW2 = dz2.map(dz => fp.h.map(v => dz * v));
-            const db2 = dz2.slice();
-
-            const dh = Array(HIDDEN_DIM).fill(0);
-            for (let j = 0; j < HIDDEN_DIM; j++) {
-                for (let i = 0; i < OUTPUT_DIM; i++) dh[j] += dz2[i] * net.W2[i][j];
-            }
-            const dz1 = dh.map((v, i) => fp.z1[i] > 0 ? v : 0);
-            const dW1 = dz1.map(dz => fp.x.map(v => dz * v));
-            const db1 = dz1.slice();
-            return { dW1, db1, dW2, db2 };
-        }
-
-        // ========== 数据生成 ==========
-        function terrainToOneHot(t) {
-            const vec = Array(INPUT_DIM).fill(0);
-            for (let r = 0; r < 3; r++) {
-                for (let c = 0; c < 4; c++) {
-                    const id = t[r][c];
-                    vec[(r * 4 + c) * 5 + id] = 1;
-                }
-            }
-            return vec;
-        }
-
-        function getActionChecks(t, col = 0) {
-            const sky0   = ELEMENTS[t[0][col]].name;
-            const sky1   = ELEMENTS[t[0][col + 1]] ? ELEMENTS[t[0][col + 1]].name : '空气';
-            const sky2   = ELEMENTS[t[0][col + 2]] ? ELEMENTS[t[0][col + 2]].name : '空气';
-            const ground0 = ELEMENTS[t[2][col]].name;
-            const ground1 = ELEMENTS[t[2][col + 1]] ? ELEMENTS[t[2][col + 1]].name : '空气';
-            const ground2 = ELEMENTS[t[2][col + 2]] ? ELEMENTS[t[2][col + 2]].name : '空气';
-            const mid0   = ELEMENTS[t[1][col]].name;
-            const mid1   = ELEMENTS[t[1][col + 1]] ? ELEMENTS[t[1][col + 1]].name : '空气';
-            const mid2   = ELEMENTS[t[1][col + 2]] ? ELEMENTS[t[1][col + 2]].name : '空气';
-
-            return {
-                canWalk:  ground0 === '平地' && sky0 !== '恶魔' && mid0 !== '史莱姆',
-                canJump:  sky0 !== '恶魔' && ground1 === '平地' && sky1 !== '恶魔' && mid1 !== '史莱姆',
-                canLongJump: sky0 !== '恶魔' && sky1 !== '恶魔' && ground2 === '平地' && sky2 !== '恶魔' && mid2 !== '史莱姆',
-                canCrouch: ground0 === '平地' && mid0 !== '史莱姆'
-            };
-        }
-
-        function getLabel(t) {
-            const checks = getActionChecks(t, 0);
-            if (checks.canWalk) return 0;
-            if (checks.canJump) return 1;
-            if (checks.canLongJump) return 2;
-            if (checks.canCrouch) return 3;
-            return -1; // 无解
-        }
-
-        function isValidTerrain(t) {
-            return getLabel(t) !== -1;
-        }
-
-        function randElem(layer) {
-            const pool = LAYER_LIMITS[layer];
-            return pool[Math.floor(Math.random() * pool.length)];
-        }
-
-        function generateData() {
-            dataset = [];
-            let attempts = 0;
-            while (dataset.length < 6000 && attempts < 50000) {
-                const t = [
-                    [randElem(0), randElem(0), randElem(0), randElem(0)],
-                    [randElem(1), randElem(1), randElem(1), randElem(1)],
-                    [randElem(2), randElem(2), randElem(2), randElem(2)]
-                ];
-                attempts++;
-                if (!isValidTerrain(t)) continue;
-                const y = getLabel(t);
-                dataset.push({ t, x: terrainToOneHot(t), y });
-            }
-            document.getElementById('data-count').textContent = dataset.length;
-            document.getElementById('btn-train').disabled = dataset.length === 0;
-            updateExam(`已生成 ${dataset.length} 条合法训练数据 (过滤了无解地形)，点击「训练 100 步」开始训练`, 'wait');
-        }
-
-        // ========== 训练 ==========
-        async function trainBatch() {
-            const btn = document.getElementById('btn-train');
-            btn.disabled = true;
-            const batchSize = 32;
-            const steps = 100;
-
-            for (let s = 0; s < steps; s++) {
-                let gW1 = zeroMat(HIDDEN_DIM, INPUT_DIM);
-                let gb1 = zeroVec(HIDDEN_DIM);
-                let gW2 = zeroMat(OUTPUT_DIM, HIDDEN_DIM);
-                let gb2 = zeroVec(OUTPUT_DIM);
-
-                let lossSum = 0;
-                let correct = 0;
-
-                for (let b = 0; b < batchSize; b++) {
-                    const idx = Math.floor(Math.random() * dataset.length);
-                    const sample = dataset[idx];
-                    const fp = forward(net, sample.x);
-                    const grad = backward(net, fp, sample.y);
-
-                    for (let i = 0; i < HIDDEN_DIM; i++) {
-                        for (let j = 0; j < INPUT_DIM; j++) gW1[i][j] += grad.dW1[i][j] / batchSize;
-                        gb1[i] += grad.db1[i] / batchSize;
-                    }
-                    for (let i = 0; i < OUTPUT_DIM; i++) {
-                        for (let j = 0; j < HIDDEN_DIM; j++) gW2[i][j] += grad.dW2[i][j] / batchSize;
-                        gb2[i] += grad.db2[i] / batchSize;
-                    }
-
-                    lossSum += -Math.log(Math.max(fp.o[sample.y], 1e-7));
-                    if (fp.o.indexOf(Math.max(...fp.o)) === sample.y) correct++;
-                }
-
-                for (let i = 0; i < HIDDEN_DIM; i++) {
-                    for (let j = 0; j < INPUT_DIM; j++) net.W1[i][j] -= LR * gW1[i][j];
-                    net.b1[i] -= LR * gb1[i];
-                }
-                for (let i = 0; i < OUTPUT_DIM; i++) {
-                    for (let j = 0; j < HIDDEN_DIM; j++) net.W2[i][j] -= LR * gW2[i][j];
-                    net.b2[i] -= LR * gb2[i];
-                }
-
-                trainSteps++;
-                if (s % 20 === 0) {
-                    document.getElementById('step-count').textContent = trainSteps;
-                    document.getElementById('loss-display').textContent = (lossSum / batchSize).toFixed(4);
-                    document.getElementById('acc-display').textContent = ((correct / batchSize) * 100).toFixed(0) + '%';
-                    document.getElementById('train-progress').style.width = ((s + 1) / steps * 100) + '%';
-                    await new Promise(r => setTimeout(r, 1));
-                }
-            }
-
-            evaluateAll();
-            btn.disabled = false;
-            predict();
-        }
-
-        function evaluateAll() {
-            let correct = 0;
-            let lossSum = 0;
-            for (const sample of dataset) {
-                const fp = forward(net, sample.x);
-                if (fp.o.indexOf(Math.max(...fp.o)) === sample.y) correct++;
-                lossSum += -Math.log(Math.max(fp.o[sample.y], 1e-7));
-            }
-            document.getElementById('step-count').textContent = trainSteps;
-            document.getElementById('acc-display').textContent = ((correct / dataset.length) * 100).toFixed(1) + '%';
-            document.getElementById('loss-display').textContent = (lossSum / dataset.length).toFixed(4);
-            document.getElementById('train-progress').style.width = '100%';
-        }
-
-        function resetNet() {
-            net = createNet();
-            trainSteps = 0;
-            dataset = [];
-            document.getElementById('data-count').textContent = '0';
-            document.getElementById('step-count').textContent = '0';
-            document.getElementById('acc-display').textContent = '-';
-            document.getElementById('loss-display').textContent = '-';
-            document.getElementById('train-progress').style.width = '0%';
-            document.getElementById('btn-train').disabled = true;
-            updateExam('网络已重置', 'wait');
-            drawMLP(null);
-            updateProbs([0,0,0,0]);
-        }
-
-        // ========== 预测 / 考试 ==========
-        function predict() {
-            const x = terrainToOneHot(terrain);
-            const fp = forward(net, x);
-            const pred = fp.o.indexOf(Math.max(...fp.o));
-            const correct = getLabel(terrain);
-            if (correct === -1) {
-                updateExam(
-                    `AI 预测: <b>${ACTIONS[pred]}</b> (置信度 ${(fp.o[pred]*100).toFixed(1)}%)<br>规则答案: <b class="log-highlight">此地形无解（死局）</b>`,
-                    'bad'
-                );
-                drawMLP(fp);
-                updateProbs(fp.o);
-                return;
-            }
-            const ok = pred === correct;
-            const conf = (fp.o[pred] * 100).toFixed(1);
-            updateExam(
-                `AI 预测: <b>${ACTIONS[pred]}</b> (置信度 ${conf}%)<br>规则答案: <b>${ACTIONS[correct]}</b> ${ok ? '✅ 通过' : '❌ 错误'}`,
-                ok ? 'ok' : 'bad'
-            );
-            drawMLP(fp);
-            updateProbs(fp.o);
-        }
-
-        function validateTerrain() {
-            const valid = isValidTerrain(terrain);
-            const checks = getActionChecks(terrain, 0);
-            let reasons = [];
-            if (checks.canWalk) reasons.push('可走');
-            if (checks.canJump) reasons.push('可跳');
-            if (checks.canLongJump) reasons.push('可远跳');
-            if (checks.canCrouch) reasons.push('可下蹲');
-
-            if (valid) {
-                updateTerrainStatus('ok', `✅ 当前地形合法<br>可选动作: <b>${reasons.join(' / ')}</b>`);
-            } else {
-                updateTerrainStatus('bad', `❌ 当前地形无解（死局）<br>前1格: 天上${ELEMENTS[terrain[0][0]].name} + 地上${ELEMENTS[terrain[1][0]].name} + 地面${ELEMENTS[terrain[2][0]].name}`);
-            }
-        }
-
-        function updateTerrainStatus(cls, html) {
-            const box = document.getElementById('terrain-status');
-            box.innerHTML = html;
-            box.style.color = '#e8eaed';
-            if (cls === 'ok') {
-                box.style.borderColor = '#34a853';
-                box.style.background = '#0d1f12';
-            } else if (cls === 'bad') {
-                box.style.borderColor = '#ea4335';
-                box.style.background = '#1f0d0d';
-            } else {
-                box.style.borderColor = '#2c2f36';
-                box.style.background = '#0b0c0f';
-                box.style.color = '#9aa0a6';
-            }
-        }
-
-        function updateExam(html, cls) {
-            const box = document.getElementById('exam-box');
-            box.innerHTML = html;
-            box.className = 'exam-result ' + cls;
-        }
-
-        function updateProbs(probs) {
-            const rows = document.querySelectorAll('.prob-row');
-            for (let i = 0; i < 4; i++) {
-                const p = probs[i] * 100;
-                rows[i].querySelector('.prob-fill').style.width = p + '%';
-                rows[i].querySelector('.prob-val').textContent = p.toFixed(1) + '%';
-            }
-        }
-
-        function randomTerrain() {
-            let attempts = 0;
-            do {
-                terrain = [
-                    [randElem(0), randElem(0), randElem(0), randElem(0)],
-                    [randElem(1), randElem(1), randElem(1), randElem(1)],
-                    [randElem(2), randElem(2), randElem(2), randElem(2)]
-                ];
-                attempts++;
-            } while (!isValidTerrain(terrain) && attempts < 1000);
-            renderTerrain();
-            updateTerrainStatus('wait', '已随机生成新地形，点击「预测当前地形」查看 AI 判断');
-            drawMLP(null);
-            updateProbs([0, 0, 0, 0]);
-        }
-
-        // ========== 地形编辑器 UI ==========
-        function renderTerrain() {
-            const wrap = document.getElementById('terrain-wrap');
-            wrap.innerHTML = '';
-            for (let r = 0; r < 3; r++) {
-                const rowDiv = document.createElement('div');
-                rowDiv.className = 'terrain-row';
-                const label = document.createElement('div');
-                label.className = 'row-label';
-                label.textContent = ROW_NAMES[r];
-                rowDiv.appendChild(label);
-                for (let c = 0; c < 4; c++) {
-                    const cell = document.createElement('div');
-                    cell.className = 'terrain-cell';
-                    const id = terrain[r][c];
-                    const el = ELEMENTS[id];
-                    cell.textContent = el.emoji;
-                    cell.title = el.name;
-                    cell.onclick = () => paintCell(r, c);
-                    rowDiv.appendChild(cell);
-                }
-                wrap.appendChild(rowDiv);
-            }
-        }
-
-        function paintCell(r, c) {
-            const allowed = LAYER_LIMITS[r];
-            if (!allowed.includes(selectedBrush)) {
-                updateTerrainStatus('bad', `❌ ${ELEMENTS[selectedBrush].name} 不能放在 ${ROW_NAMES[r]}层`);
-                return;
-            }
-            terrain[r][c] = selectedBrush;
-            renderTerrain();
-            updateTerrainStatus('wait', '地形已更新，点击「合法性检查」或「预测当前地形」查看结果');
-        }
-
-        function renderBrushes() {
-            const list = document.getElementById('brush-list');
-            list.innerHTML = '';
-            ELEMENTS.forEach((el, i) => {
-                const item = document.createElement('div');
-                item.className = 'brush-item' + (i === selectedBrush ? ' active' : '');
-                item.innerHTML = `<div class="brush-emoji">${el.emoji}</div><div class="brush-name">${el.name}</div>`;
-                item.onclick = () => {
-                    selectedBrush = i;
-                    renderBrushes();
-                    updateBrushHint('');
-                };
-                list.appendChild(item);
-            });
-        }
-
-        function updateBrushHint(text) {
-            document.getElementById('brush-hint').textContent = text || '点击画笔选择，点击上方格子绘制';
-        }
-
-
-
-        // ========== MLP Canvas 绘图 ==========
-        function drawMLP(fp) {
-            const canvas = document.getElementById('mlp-canvas');
-            const rect = canvas.getBoundingClientRect();
-            const dpr = window.devicePixelRatio || 1;
-            canvas.width = Math.floor(rect.width * dpr);
-            canvas.height = Math.floor(rect.height * dpr);
-            const ctx = canvas.getContext('2d');
-            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-            const W = rect.width, H = rect.height;
-            ctx.clearRect(0, 0, W, H);
-
-            const cellW = 28, cellH = 24, gapX = 4, gapY = 4;
-            const gridW = 4 * cellW + 3 * gapX;
-            const gridH = 3 * cellH + 2 * gapY;
-            const startX = 10;
-            const startY = (H - gridH) / 2;
-
-            for (let r = 0; r < 3; r++) {
-                for (let c = 0; c < 4; c++) {
-                    const id = terrain[r][c];
-                    const x = startX + c * (cellW + gapX);
-                    const y = startY + r * (cellH + gapY);
-                    const colors = ['#1a1a1a','#2d4059','#2f4f2f','#4a1c1c','#4a4a1c'];
-                    ctx.fillStyle = colors[id];
-                    ctx.fillRect(x, y, cellW, cellH);
-                    ctx.strokeStyle = '#3c4043';
-                    ctx.lineWidth = 1;
-                    ctx.strokeRect(x, y, cellW, cellH);
-                    ctx.fillStyle = '#e8eaed';
-                    ctx.font = '12px sans-serif';
-                    ctx.textAlign = 'center';
-                    ctx.fillText(ELEMENTS[id].emoji, x + cellW/2, y + cellH/2 + 4);
-                }
-            }
-
-            const hidX = W / 2;
-            const hidY = Array.from({length: 16}, (_, i) => {
-                const gap = H / (16 + 1);
-                return gap * (i + 1);
-            });
-
-            const outX = W - 50;
-            const outY = Array.from({length: 4}, (_, i) => {
-                const gap = H / (4 + 1);
-                return gap * (i + 1);
-            });
-
-            ctx.lineWidth = 0.5;
-            for (let r = 0; r < 3; r++) {
-                for (let c = 0; c < 4; c++) {
-                    const x1 = startX + c * (cellW + gapX) + cellW/2;
-                    const y1 = startY + r * (cellH + gapY) + cellH/2;
-                    for (let h = 0; h < 16; h++) {
-                        ctx.strokeStyle = 'rgba(95,99,104,0.15)';
-                        ctx.beginPath();
-                        ctx.moveTo(x1, y1);
-                        ctx.lineTo(hidX, hidY[h]);
-                        ctx.stroke();
-                    }
-                }
-            }
-
-            for (let h = 0; h < 16; h++) {
-                for (let o = 0; o < 4; o++) {
-                    let w = 0;
-                    if (fp) w = net.W2[o][h];
-                    const alpha = Math.min(Math.abs(w) * 2, 1);
-                    ctx.strokeStyle = w > 0 ? `rgba(138,180,248,${alpha})` : `rgba(249,171,0,${alpha})`;
-                    ctx.lineWidth = Math.max(0.5, Math.abs(w) * 2);
-                    ctx.beginPath();
-                    ctx.moveTo(hidX, hidY[h]);
-                    ctx.lineTo(outX, outY[o]);
-                    ctx.stroke();
-                }
-            }
-            ctx.lineWidth = 1;
-
-            for (let h = 0; h < 16; h++) {
-                const r = 6;
-                ctx.beginPath();
-                ctx.arc(hidX, hidY[h], r, 0, Math.PI * 2);
-                ctx.fillStyle = '#16181d';
-                ctx.fill();
-                ctx.strokeStyle = '#8ab4f8';
-                ctx.stroke();
-                if (fp) {
-                    ctx.fillStyle = '#e8eaed';
-                    ctx.font = '8px monospace';
-                    ctx.textAlign = 'center';
-                    ctx.fillText(fp.h[h].toFixed(1), hidX, hidY[h] + 2);
-                }
-            }
-
-            for (let o = 0; o < 4; o++) {
-                const r = 10;
-                ctx.beginPath();
-                ctx.arc(outX, outY[o], r, 0, Math.PI * 2);
-                ctx.fillStyle = '#16181d';
-                ctx.fill();
-                ctx.strokeStyle = '#8ab4f8';
-                ctx.lineWidth = 2;
-                ctx.stroke();
-                if (fp) {
-                    ctx.fillStyle = '#e8eaed';
-                    ctx.font = '10px monospace';
-                    ctx.textAlign = 'center';
-                    ctx.fillText(fp.o[o].toFixed(2), outX, outY[o] + 3);
-                }
-                ctx.fillStyle = '#9aa0a6';
-                ctx.font = '9px sans-serif';
-                ctx.fillText(ACTIONS[o], outX, outY[o] + 24);
-            }
-        }
-
-        // ========== 初始化 ==========
-        renderTerrain();
-        renderBrushes();
-        drawMLP(null);
-        window.addEventListener('resize', () => drawMLP(null));
-    </script>
+    <script type="module" src="/src/vector-params.ts"></script>
 </body>
 </html>
