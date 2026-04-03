@@ -642,7 +642,10 @@ function init() {
   ;(window as any).predict = predict
   ;(window as any).validateTerrain = validateTerrain
   ;(window as any).randomTerrain = randomTerrain
-  ;(window as any).resetView = () => stopAnimation(state)
+  ;(window as any).resetView = () => {
+    stopAnimation(state)
+    drawEditor()
+  }
 
   // 初始化控制台
   const consolePanel = new ConsolePanel("#console-mount", logger)
