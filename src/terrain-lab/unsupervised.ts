@@ -19,23 +19,23 @@ export interface ActionEvaluation {
 	reward: number
 }
 
-// 梯度容器
+// 梯度容器（与 Gradients 接口兼容）
 export interface GradientBuffer {
-	gEmbed: number[][]
-	gW1: number[][]
-	gb1: number[]
-	gW2: number[][]
-	gb2: number[]
+	dEmbed: number[][]
+	dW1: number[][]
+	db1: number[]
+	dW2: number[][]
+	db2: number[]
 }
 
 // 创建空梯度容器
 export function createGradientBuffer(): GradientBuffer {
 	return {
-		gEmbed: Array(NUM_ELEMENTS).fill(null).map(() => Array(2).fill(0)),
-		gW1: Array(HIDDEN_DIM).fill(null).map(() => Array(INPUT_DIM).fill(0)),
-		gb1: Array(HIDDEN_DIM).fill(0),
-		gW2: Array(OUTPUT_DIM).fill(null).map(() => Array(HIDDEN_DIM).fill(0)),
-		gb2: Array(OUTPUT_DIM).fill(0),
+		dEmbed: Array(NUM_ELEMENTS).fill(null).map(() => Array(2).fill(0)),
+		dW1: Array(HIDDEN_DIM).fill(null).map(() => Array(INPUT_DIM).fill(0)),
+		db1: Array(HIDDEN_DIM).fill(0),
+		dW2: Array(OUTPUT_DIM).fill(null).map(() => Array(HIDDEN_DIM).fill(0)),
+		db2: Array(OUTPUT_DIM).fill(0),
 	}
 }
 
@@ -97,37 +97,37 @@ function _addGradient(
 
 	for (let e = 0; e < NUM_ELEMENTS; e++) {
 		for (let d = 0; d < 2; d++) {
-			buffer.gEmbed[e][d] += grad.dEmbed[e][d] * scale
+			buffer.dEmbed[e][d] += grad.dEmbed[e][d] * scale
 		}
 	}
 	for (let i = 0; i < HIDDEN_DIM; i++) {
 		for (let j = 0; j < INPUT_DIM; j++) {
-			buffer.gW1[i][j] += grad.dW1[i][j] * scale
+			buffer.dW1[i][j] += grad.dW1[i][j] * scale
 		}
-		buffer.gb1[i] += grad.db1[i] * scale
+		buffer.db1[i] += grad.db1[i] * scale
 	}
 	for (let i = 0; i < OUTPUT_DIM; i++) {
 		for (let j = 0; j < HIDDEN_DIM; j++) {
-			buffer.gW2[i][j] += grad.dW2[i][j] * scale
+			buffer.dW2[i][j] += grad.dW2[i][j] * scale
 		}
-		buffer.gb2[i] += grad.db2[i] * scale
+		buffer.db2[i] += grad.db2[i] * scale
 	}
 }
 
 // 验证梯度缓冲区是否有效（测试用）
 export function isValidGradientBuffer(buffer: GradientBuffer): boolean {
 	// 检查维度
-	if (buffer.gEmbed.length !== NUM_ELEMENTS) return false
-	if (buffer.gW1.length !== HIDDEN_DIM) return false
-	if (buffer.gW2.length !== OUTPUT_DIM) return false
+	if (buffer.dEmbed.length !== NUM_ELEMENTS) return false
+	if (buffer.dW1.length !== HIDDEN_DIM) return false
+	if (buffer.dW2.length !== OUTPUT_DIM) return false
 
 	// 检查是否有 NaN 或 Infinity
 	const allValues = [
-		...buffer.gEmbed.flat(),
-		...buffer.gW1.flat(),
-		...buffer.gb1,
-		...buffer.gW2.flat(),
-		...buffer.gb2,
+		...buffer.dEmbed.flat(),
+		...buffer.dW1.flat(),
+		...buffer.db1,
+		...buffer.dW2.flat(),
+		...buffer.db2,
 	]
 	return allValues.every(v => !isNaN(v) && isFinite(v))
 }
@@ -135,11 +135,11 @@ export function isValidGradientBuffer(buffer: GradientBuffer): boolean {
 // 计算缓冲区总梯度幅值（测试用）
 export function getTotalGradientMagnitude(buffer: GradientBuffer): number {
 	const allValues = [
-		...buffer.gEmbed.flat(),
-		...buffer.gW1.flat(),
-		...buffer.gb1,
-		...buffer.gW2.flat(),
-		...buffer.gb2,
+		...buffer.dEmbed.flat(),
+		...buffer.dW1.flat(),
+		...buffer.db1,
+		...buffer.dW2.flat(),
+		...buffer.db2,
 	]
 	return allValues.reduce((sum, v) => sum + Math.abs(v), 0)
 }

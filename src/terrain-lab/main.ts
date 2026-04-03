@@ -198,7 +198,7 @@ async function trainUnsupervised() {
 				isOptimal: reward === UNSUPERVISED_CONFIG.rewardOptimal,
 				reward,
 			}
-			accumulateGradients({ gEmbed, gW1, gb1, gW2, gb2 }, state.net, sample.indices, evaluation, batchSize)
+			accumulateGradients({ dEmbed: gEmbed, dW1: gW1, db1: gb1, dW2: gW2, db2: gb2 }, state.net, sample.indices, evaluation, batchSize)
 		}
 
 		updateNetwork(state.net, { dEmbed: gEmbed, dW1: gW1, db1: gb1, dW2: gW2, db2: gb2 }, 1)
@@ -853,7 +853,7 @@ async function runCurriculumUnsupervised() {
 				const evaluation = calculateReward(action, isValid, action === optimal, UNSUPERVISED_CONFIG)
 
 				// 无监督学习梯度累积
-				accumulateGradients({ gEmbed, gW1, gb1, gW2, gb2 }, state.net, sample.indices, evaluation, batchSize)
+				accumulateGradients({ dEmbed: gEmbed, dW1: gW1, db1: gb1, dW2: gW2, db2: gb2 }, state.net, sample.indices, evaluation, batchSize)
 			}
 
 			updateNetwork(state.net, { dEmbed: gEmbed, dW1: gW1, db1: gb1, dW2: gW2, db2: gb2 }, 1)
