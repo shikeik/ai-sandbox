@@ -864,7 +864,7 @@ function drawEmbedding() {
 
 	const cx = W / 2
 	const cy = H / 2
-	const padding = 30
+	const padding = 34
 	const availW = Math.max(W - padding * 2, 1)
 	const availH = Math.max(H - padding * 2, 1)
 
@@ -878,6 +878,21 @@ function drawEmbedding() {
 	const scaleX = availW / 2 / maxAbs
 	const scaleY = availH / 2 / maxAbs
 	const scale = Math.min(scaleX, scaleY)
+	const halfSide = maxAbs * scale
+
+	// 方形边界框（以最远元素为半径）
+	ctx.strokeStyle = "rgba(95,99,104,0.4)"
+	ctx.lineWidth = 1
+	ctx.setLineDash([4, 4])
+	ctx.strokeRect(cx - halfSide, cy - halfSide, halfSide * 2, halfSide * 2)
+	ctx.setLineDash([])
+
+	// 标注半径数值
+	ctx.fillStyle = "#5f6368"
+	ctx.font = "9px sans-serif"
+	ctx.textAlign = "left"
+	ctx.textBaseline = "top"
+	ctx.fillText(`R=${maxAbs.toFixed(2)}`, cx + halfSide + 4, cy - halfSide)
 
 	// 坐标轴
 	ctx.strokeStyle = "#3c4043"
@@ -899,21 +914,21 @@ function drawEmbedding() {
 		const py = cy - ey * scale
 
 		ctx.beginPath()
-		ctx.arc(px, py, 5, 0, Math.PI * 2)
+		ctx.arc(px, py, 3, 0, Math.PI * 2)
 		ctx.fillStyle = "#8ab4f8"
 		ctx.fill()
 		ctx.strokeStyle = "#e8eaed"
 		ctx.lineWidth = 1
 		ctx.stroke()
 
-		ctx.font = "10px sans-serif"
+		ctx.font = "9px sans-serif"
 		ctx.textAlign = "left"
 		ctx.textBaseline = "middle"
 		ctx.fillStyle = "#e8eaed"
-		ctx.fillText(el.emoji, px + 8, py)
+		ctx.fillText(el.emoji, px + 5, py)
 		ctx.fillStyle = "#9aa0a6"
-		ctx.font = "9px sans-serif"
-		ctx.fillText(el.name, px + 22, py)
+		ctx.font = "8px sans-serif"
+		ctx.fillText(el.name, px + 16, py)
 	}
 }
 
