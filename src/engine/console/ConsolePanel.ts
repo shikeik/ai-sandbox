@@ -53,9 +53,8 @@ export class ConsolePanel {
 	clear(): void {
 		globalLogger.clear()
 		if (this.logsContainer) this.logsContainer.innerHTML = ""
-		this.tagRegistry.clear()
-		this.tagVisible.clear()
-		this._renderFilterMenu()
+		// 保留 tagRegistry 和 tagVisible，不清除筛选状态
+		// 这样 clear 后之前的 tag 勾选/不勾选状态保持不变
 	}
 
 	download(): void {
