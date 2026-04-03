@@ -126,7 +126,7 @@ console.log("\n--- 策略2: 两阶段训练（高探索→低探索）---")
 		updateNetwork(net, buffer, 1)
 	}
 	
-	let mid = evaluateModel(net, dataset)
+	const mid = evaluateModel(net, dataset)
 	console.log(`阶段1后: 合法率 ${mid.validRate.toFixed(1)}%`)
 	
 	// 阶段2: 低探索固化（5000步，ε=0.2）

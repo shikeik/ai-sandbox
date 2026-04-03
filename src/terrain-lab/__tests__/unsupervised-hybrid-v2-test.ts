@@ -57,7 +57,7 @@ console.log(`预热后: 准确率 ${afterPretrain.accuracy.toFixed(1)}%`)
 // 阶段2: 无监督微调
 console.log("\n--- 阶段2: 无监督微调（1000步）---")
 const history = []
-let epsilon = 0.3
+const epsilon = 0.3
 
 for (let step = 0; step < FINETUNE_STEPS; step++) {
 	const buffer = createUnsupervisedBuffer()
@@ -86,6 +86,6 @@ for (let step = 0; step < FINETUNE_STEPS; step++) {
 
 const final = evaluateModel(net, dataset)
 console.log(`\n最终结果: 准确率 ${final.accuracy.toFixed(1)}%`)
-console.log(`是否达到80%: ${final.accuracy >= 80 ? '✅ 是' : '❌ 否'}`)
+console.log(`是否达到80%: ${final.accuracy >= 80 ? "✅ 是" : "❌ 否"}`)
 
 printTestComplete()

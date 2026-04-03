@@ -55,6 +55,43 @@ export function calculateReward(
 	return { action, isValid, isOptimal, reward: config.rewardValid }
 }
 
+// 新增：带最优动作引导的梯度累积
+export interface GuidedEvaluation extends ActionEvaluation {
+	optimalAction: number  // 已知的最优动作（用于引导）
+}
+
+// 最优动作引导的梯度累积（平衡版）
+// 核心改进：保持合法性学习的同时，让embedding层也能学到最优特征
+export function accumulateGradientsGuided(
+	buffer: GradientBuffer,
+	net: NetParams,
+	indices: number[],
+	evaluation: GuidedEvaluation,
+	batchSize: number
+): void {
+	const { reward, action: selectedAction, optimalAction, isValid } = evaluation
+	const gradScale = 0.3 / batchSize
+
+	if (!isValid) {
+		// 不合法：惩罚选中动作，向最优动作引导
+		_addGradient(buffer, net, indices, selectedAction, -gradScale)
+		_addGradient(buffer, net, indices, optimalAction, gradScale)
+		return
+	}
+
+	// 合法动作的处理：平衡"维持合法性"和"学习最优"
+	if (selectedAction === optimalAction) {
+		// 选中最优：大幅强化（和监督学习强度相同）
+		_addGradient(buffer, net, indices, optimalAction, gradScale * 2.0)
+	} else {
+		// 选中次优：两个目标都更新
+		// 1. 以较小权重强化选中动作（维持合法性知识）
+		_addGradient(buffer, net, indices, selectedAction, gradScale * 0.4)
+		// 2. 以较大权重向最优动作引导（embedding学习关键）
+		_addGradient(buffer, net, indices, optimalAction, gradScale * 1.2)
+	}
+}
+
 // 累积梯度到缓冲区（核心逻辑，可测试）
 export function accumulateGradients(
 	buffer: GradientBuffer,

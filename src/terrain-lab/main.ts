@@ -7,7 +7,7 @@ import {
 	UNSUPERVISED_CONFIG
 } from "./constants.js"
 import { createGradientBuffer, accumulateGradients, calculateReward, type ActionEvaluation } from "./unsupervised.js"
-import { createGradientBuffer as createSupervisedBuffer, accumulateSupervisedGrad, evaluateModel } from "./supervised.js"
+import { createGradientBuffer as createSuperBuffer, accumulateSupervisedGrad, evaluateModel } from "./supervised.js"
 import { zeroMat, zeroVec, easeOutQuad } from "./utils.js"
 import { forward, backward, updateNetwork, cloneNet } from "./neural-network.js"
 import {
@@ -104,7 +104,7 @@ async function trainSupervised() {
 	}
 
 	for (let s = 0; s < steps; s++) {
-		const buffer = createSupervisedBuffer()
+		const buffer = createSuperBuffer()
 		let lossSum = 0
 		let correct = 0
 		let validCount = 0
@@ -151,12 +151,12 @@ async function trainUnsupervised() {
 	}
 
 	for (let s = 0; s < steps; s++) {
-		const gEmbed = zeroMat(NUM_ELEMENTS, 2)
-		const gW1 = zeroMat(HIDDEN_DIM, INPUT_DIM)
-		const gb1 = zeroVec(HIDDEN_DIM)
-		const gW2 = zeroMat(OUTPUT_DIM, HIDDEN_DIM)
-		const gb2 = zeroVec(OUTPUT_DIM)
-
+		// 过滤式监督学习：只有选中最优动作时才用监督学习更新
+		const superBuffer = createSuperBuffer()
+		const unsuperBuffer = createGradientBuffer()
+		let hasSuperUpdate = false
+		let hasUnsuperUpdate = false
+		
 		let totalReward = 0
 		let validCount = 0
 
@@ -169,47 +169,54 @@ async function trainUnsupervised() {
 			// ε-贪心选择动作（使用动态探索率）
 			let action: number
 			if (Math.random() < state.epsilon) {
-				// 随机探索
 				action = Math.floor(Math.random() * OUTPUT_DIM)
 			} else {
-				// 选择概率最大的
 				action = fp.o.indexOf(Math.max(...fp.o))
 			}
 
-			// 检查动作是否合法（使用地形合法性检查）
+			// 检查动作是否合法
 			const heroCol = findHeroCol(sample.t)
 			const checks = getActionChecks(sample.t, heroCol)
 			const isValid = isActionValidByChecks(checks, action)
 			const optimal = getLabel(sample.t)
+			const isOptimal = (action === optimal)
 
-			// 计算奖励
+			// 计算奖励（用于统计）
 			let reward: number
-			let targetAction: number
 			if (isValid) {
 				validCount++
-				if (action === optimal) {
-					reward = UNSUPERVISED_CONFIG.rewardOptimal
-				} else {
-					reward = UNSUPERVISED_CONFIG.rewardValid
-				}
-				targetAction = action
+				reward = isOptimal ? UNSUPERVISED_CONFIG.rewardOptimal : UNSUPERVISED_CONFIG.rewardValid
 			} else {
 				reward = UNSUPERVISED_CONFIG.rewardInvalid
-				targetAction = action
 			}
 			totalReward += reward
 
-			// 无监督学习梯度累积
-			const evaluation: ActionEvaluation = {
-				action: targetAction,
-				isValid: reward > 0,
-				isOptimal: reward === UNSUPERVISED_CONFIG.rewardOptimal,
-				reward,
+			// 过滤式更新策略
+			if (isOptimal) {
+				// 选中最优动作 → 监督学习更新（强信号！）
+				accumulateSupervisedGrad(superBuffer, state.net, sample.indices, optimal, batchSize)
+				hasSuperUpdate = true
+			} else if (!isValid) {
+				// 选中不合法 → 无监督惩罚
+				const evaluation: ActionEvaluation = {
+					action,
+					isValid: false,
+					isOptimal: false,
+					reward: UNSUPERVISED_CONFIG.rewardInvalid,
+				}
+				accumulateGradients(unsuperBuffer, state.net, sample.indices, evaluation, batchSize)
+				hasUnsuperUpdate = true
 			}
-			accumulateGradients({ dEmbed: gEmbed, dW1: gW1, db1: gb1, dW2: gW2, db2: gb2 }, state.net, sample.indices, evaluation, batchSize)
+			// 选中次优但合法 → 跳过（避免噪声）
 		}
 
-		updateNetwork(state.net, { dEmbed: gEmbed, dW1: gW1, db1: gb1, dW2: gW2, db2: gb2 }, 1)
+		// 应用更新
+		if (hasSuperUpdate) {
+			updateNetwork(state.net, superBuffer, 1)
+		}
+		if (hasUnsuperUpdate) {
+			updateNetwork(state.net, unsuperBuffer, 1)
+		}
 
 		state.trainSteps++
 		if (s % 20 === 0 || s === steps - 1) {
@@ -807,7 +814,7 @@ async function runCurriculumSupervised() {
 
 	while (state.trainSteps < maxTotalSteps) {
 		for (let s = 0; s < stepsPerBatch; s++) {
-			const buffer = createSupervisedBuffer()
+			const buffer = createSuperBuffer()
 
 			for (let b = 0; b < batchSize; b++) {
 				const idx = Math.floor(Math.random() * state.dataset.length)

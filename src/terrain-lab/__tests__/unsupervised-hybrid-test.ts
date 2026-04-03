@@ -133,7 +133,7 @@ console.log("\n--- 纯无监督对比（1500步）---")
 {
 	const net = createNet()
 	const history: number[] = []
-	let epsilon = 0.5
+	const epsilon = 0.5
 	
 	for (let step = 0; step < PRETRAIN_STEPS + FINETUNE_STEPS; step++) {
 		const buffer = createUnsupervisedBuffer()

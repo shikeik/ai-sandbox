@@ -74,13 +74,13 @@ console.log("\n========== 监督学习收敛测试 ==========")
 			const result = evaluateModel(net, dataset)
 			const improved = result.accuracy > bestAcc
 			bestAcc = Math.max(bestAcc, result.accuracy)
-			console.log(`[Step ${(step + 1).toString().padStart(4)}] 准确率: ${result.accuracy.toFixed(1)}%, 合法率: ${result.validRate.toFixed(1)}%, 损失: ${result.avgLoss.toFixed(4)} ${improved ? '↑' : ''}`)
+			console.log(`[Step ${(step + 1).toString().padStart(4)}] 准确率: ${result.accuracy.toFixed(1)}%, 合法率: ${result.validRate.toFixed(1)}%, 损失: ${result.avgLoss.toFixed(4)} ${improved ? "↑" : ""}`)
 		}
 	}
 
 	const final = evaluateModel(net, dataset)
 	console.log(`\n最终结果: 准确率 ${final.accuracy.toFixed(1)}%, 合法率: ${final.validRate.toFixed(1)}%, 损失: ${final.avgLoss.toFixed(4)}`)
-	assertGreaterThan(final.accuracy, 70, `监督学习准确率应 > 70%`)
+	assertGreaterThan(final.accuracy, 70, "监督学习准确率应 > 70%")
 }
 
 // ========== 无监督学习收敛测试 ==========
@@ -140,7 +140,7 @@ console.log("\n========== 无监督学习收敛测试 ==========")
 			
 			// 与 terrain-lab 日志格式一致
 			console.log(`[UNS] 合法率:${result.validRate.toFixed(1)}% 探索率ε:${epsilon.toFixed(2)} 历史窗口:[${history.map(v => v.toFixed(0)).join(",")}]`)
-			console.log(`       → 准确率:${result.accuracy.toFixed(1)}% 损失:${result.avgLoss.toFixed(4)} ${improved ? '↑' : ''}`)
+			console.log(`       → 准确率:${result.accuracy.toFixed(1)}% 损失:${result.avgLoss.toFixed(4)} ${improved ? "↑" : ""}`)
 		}
 	}
 
