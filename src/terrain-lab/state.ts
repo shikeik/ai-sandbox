@@ -6,70 +6,89 @@ import { NUM_COLS, NUM_LAYERS, ELEM_AIR, ELEM_HERO, ELEM_GROUND } from "./consta
 
 // ========== 应用状态 ==========
 
+export interface Snapshot {
+	step: number
+	net: NetParams
+	observedProbs?: number[]
+}
+
 export interface AppState {
-  // 地形
-  terrain: number[][]
-  selectedBrush: number
-  
-  // 数据集
-  dataset: DatasetItem[]
-  trainSteps: number
-  
-  // 神经网络
-  net: NetParams
-  lastForwardResult: ForwardResult | null
-  
-  // 动画
-  animation: AnimationState
+	// 地形
+	terrain: number[][]
+	selectedBrush: number
+
+	// 数据集
+	dataset: DatasetItem[]
+	trainSteps: number
+
+	// 神经网络
+	net: NetParams
+	lastForwardResult: ForwardResult | null
+
+	// 训练快照
+	snapshots: Snapshot[]
+	selectedSnapshotIndex: number
+
+	// 执念曲线观察样本
+	observedSample: DatasetItem | null
+
+	// 动画
+	animation: AnimationState
 }
 
 export function createInitialState(): AppState {
-  return {
-    terrain: [
-      Array(NUM_COLS).fill(ELEM_AIR),                    // 天上: 全空气
-      [ELEM_HERO, ...Array(NUM_COLS - 1).fill(ELEM_AIR)], // 地上: 狐狸默认在x0（编辑器初始状态，数据生成时位置随机） // 地上: 狐狸默认在x0（编辑器初始状态，数据生成时位置随机）
-      [ELEM_GROUND, ELEM_GROUND, ...Array(NUM_COLS - 2).fill(ELEM_AIR)], // 地面
-    ],
-    selectedBrush: ELEM_AIR,
-    dataset: [],
-    trainSteps: 0,
-    net: createNet(),
-    lastForwardResult: null,
-    animation: createAnimationState(),
-  }
+	return {
+		terrain: [
+			Array(NUM_COLS).fill(ELEM_AIR),                    // 天上: 全空气
+			[ELEM_HERO, ...Array(NUM_COLS - 1).fill(ELEM_AIR)], // 地上: 狐狸默认在x0（编辑器初始状态，数据生成时位置随机） // 地上: 狐狸默认在x0（编辑器初始状态，数据生成时位置随机）
+			[ELEM_GROUND, ELEM_GROUND, ...Array(NUM_COLS - 2).fill(ELEM_AIR)], // 地面
+		],
+		selectedBrush: ELEM_AIR,
+		dataset: [],
+		trainSteps: 0,
+		net: createNet(),
+		lastForwardResult: null,
+		snapshots: [],
+		selectedSnapshotIndex: -1,
+		observedSample: null,
+		animation: createAnimationState(),
+	}
 }
 
 // ========== 状态更新辅助函数 ==========
 
 export function resetState(state: AppState): void {
-  state.terrain = [
-    Array(NUM_COLS).fill(ELEM_AIR),
-    [ELEM_HERO, ...Array(NUM_COLS - 1).fill(ELEM_AIR)],
-    [ELEM_GROUND, ELEM_GROUND, ...Array(NUM_COLS - 2).fill(ELEM_AIR)],
-  ]
-  state.selectedBrush = ELEM_AIR
-  state.dataset = []
-  state.trainSteps = 0
-  state.net = createNet()
-  state.lastForwardResult = null
-  stopAnimation(state)
+	state.terrain = [
+		Array(NUM_COLS).fill(ELEM_AIR),
+		[ELEM_HERO, ...Array(NUM_COLS - 1).fill(ELEM_AIR)],
+		[ELEM_GROUND, ELEM_GROUND, ...Array(NUM_COLS - 2).fill(ELEM_AIR)],
+	]
+	state.selectedBrush = ELEM_AIR
+	state.dataset = []
+	state.trainSteps = 0
+	state.net = createNet()
+	state.lastForwardResult = null
+	state.snapshots = []
+	state.selectedSnapshotIndex = -1
+	state.observedSample = null
+	stopAnimation(state)
 }
 
 export function stopAnimation(state: AppState): void {
-  if (state.animation.animId !== null) {
-    cancelAnimationFrame(state.animation.animId)
-    state.animation.animId = null
-  }
-  state.animation.animAction = null
-  state.animation.animSlimeKilled = false
+	if (state.animation.animId !== null) {
+		cancelAnimationFrame(state.animation.animId)
+		state.animation.animId = null
+	}
+	state.animation.animAction = null
+	state.animation.animSlimeKilled = false
 }
 
 export function setTerrainCell(state: AppState, r: number, c: number, brush: number): void {
-  // 如果放置狐狸，清除之前位置的狐狸
-  if (brush === 1) {
-    for (let col = 0; col < NUM_COLS; col++) {
-      if (state.terrain[1][col] === 1) state.terrain[1][col] = 0
-    }
-  }
-  state.terrain[r][c] = brush
+	// 如果放置狐狸，清除之前位置的狐狸
+	if (brush === 1) {
+		for (let col = 0; col < NUM_COLS; col++) {
+			if (state.terrain[1][col] === 1) state.terrain[1][col] = 0
+		}
+	}
+	state.terrain[r][c] = brush
 }

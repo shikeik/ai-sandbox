@@ -5,7 +5,7 @@ import {
 	INPUT_DIM, ACTIONS, ELEM_AIR, ELEM_HERO, ELEM_GROUND, ELEM_SLIME, ELEM_DEMON, ELEM_COIN
 } from "./constants.js"
 import { zeroMat, zeroVec, easeOutQuad } from "./utils.js"
-import { forward, backward, updateNetwork } from "./neural-network.js"
+import { forward, backward, updateNetwork, cloneNet } from "./neural-network.js"
 import {
 	terrainToIndices, findHeroCol, getActionChecks, getLabel,
 	generateTerrainData, generateRandomTerrain
@@ -24,6 +24,7 @@ const state: AppState = createInitialState()
 let editorCanvas: HTMLCanvasElement
 let mlpCanvas: HTMLCanvasElement
 let embeddingCanvas: HTMLCanvasElement
+let obsessionCanvas: HTMLCanvasElement
 
 // UI 元素定义（多处复用）
 const UI_ELEMENTS = [
@@ -75,6 +76,13 @@ async function trainBatch() {
 	const batchSize = 32
 	const steps = 100
 
+	// 清空旧快照，保留初始状态
+	state.snapshots = [{ step: state.trainSteps, net: cloneNet(state.net) }]
+	state.selectedSnapshotIndex = 0
+
+	// 若已有观察样本，先记录初始概率
+	recordSnapshotProbs(0)
+
 	for (let s = 0; s < steps; s++) {
 		const gEmbed = zeroMat(NUM_ELEMENTS, 2)
 		const gW1 = zeroMat(HIDDEN_DIM, INPUT_DIM)
@@ -110,15 +118,48 @@ async function trainBatch() {
 		updateNetwork(state.net, { dEmbed: gEmbed, dW1: gW1, db1: gb1, dW2: gW2, db2: gb2 }, 1)
 
 		state.trainSteps++
-		if (s % 20 === 0) {
+		if (s % 20 === 0 || s === steps - 1) {
 			updateMetrics(lossSum / batchSize, (correct / batchSize) * 100, ((s + 1) / steps) * 100)
+			// 保存快照
+			state.snapshots.push({ step: state.trainSteps, net: cloneNet(state.net) })
+			recordSnapshotProbs(state.snapshots.length - 1)
 			await new Promise(r => setTimeout(r, 1))
 		}
 	}
 
+	updateSnapshotSlider()
 	evaluateAll()
 	predict()
+	drawObsessionCurve()
 	btn.disabled = false
+}
+
+function recordSnapshotProbs(snapshotIndex: number) {
+	if (!state.observedSample || snapshotIndex < 0 || snapshotIndex >= state.snapshots.length) return
+	const snap = state.snapshots[snapshotIndex]
+	const fp = forward(snap.net, state.observedSample.indices)
+	state.snapshots[snapshotIndex].observedProbs = fp.o.slice()
+}
+
+function updateSnapshotSlider() {
+	const slider = document.getElementById("snapshot-slider") as HTMLInputElement
+	const label = document.getElementById("snapshot-label")!
+	slider.max = String(state.snapshots.length - 1)
+	slider.value = String(state.snapshots.length - 1)
+	slider.disabled = state.snapshots.length <= 1
+	state.selectedSnapshotIndex = state.snapshots.length - 1
+	const step = state.snapshots[state.selectedSnapshotIndex]?.step ?? 0
+	label.textContent = `步数 ${step}`
+}
+
+function applySnapshot(index: number) {
+	if (index < 0 || index >= state.snapshots.length) return
+	state.selectedSnapshotIndex = index
+	state.net = cloneNet(state.snapshots[index].net)
+	const label = document.getElementById("snapshot-label")!
+	label.textContent = `步数 ${state.snapshots[index].step}`
+	predict()
+	drawObsessionCurve()
 }
 
 function updateMetrics(loss: number, acc?: number, progress?: number) {
@@ -157,6 +198,48 @@ function generateData() {
 	const btn = document.getElementById("btn-train") as HTMLButtonElement
 	btn.disabled = state.dataset.length === 0
 	updateExam(`已生成 ${state.dataset.length} 条合法训练数据`, "wait")
+	// 默认随机选一个观察样本
+	if (state.dataset.length > 0 && !state.observedSample) {
+		setObservedRandom()
+	}
+}
+
+// ========== 观察样本设置 ==========
+
+function setObservedFromTerrain() {
+	const indices = terrainToIndices(state.terrain)
+	const label = getLabel(state.terrain)
+	if (label === -1) {
+		updateObsessionStatus("当前地形为死局，无法设为观察样本", "bad")
+		return
+	}
+	state.observedSample = { t: state.terrain.map(row => row.slice()), indices, y: label }
+	updateObsessionStatus(`观察样本：当前地形 | 规则答案：${ACTIONS[label]}`, "ok")
+	// 若有快照，重新计算所有快照对该样本的概率
+	for (let i = 0; i < state.snapshots.length; i++) {
+		recordSnapshotProbs(i)
+	}
+	drawObsessionCurve()
+}
+
+function setObservedRandom() {
+	if (state.dataset.length === 0) {
+		updateObsessionStatus("数据集为空，无法抽取样本", "bad")
+		return
+	}
+	const sample = state.dataset[Math.floor(Math.random() * state.dataset.length)]
+	state.observedSample = sample
+	updateObsessionStatus(`观察样本：数据集第 ${state.dataset.indexOf(sample) + 1} 条 | 规则答案：${ACTIONS[sample.y]}`, "ok")
+	for (let i = 0; i < state.snapshots.length; i++) {
+		recordSnapshotProbs(i)
+	}
+	drawObsessionCurve()
+}
+
+function updateObsessionStatus(text: string, cls: "ok" | "bad" | "wait") {
+	const box = document.getElementById("obsession-status")!
+	box.textContent = text
+	box.style.color = cls === "ok" ? "#34a853" : cls === "bad" ? "#ea4335" : "#9aa0a6"
 }
 
 // ========== 预测与验证 ==========
@@ -368,6 +451,9 @@ function resetNet() {
 	drawMLP(null)
 	drawEmbedding()
 	updateProbs([0, 0, 0, 0])
+	updateSnapshotSlider()
+	drawObsessionCurve()
+	updateObsessionStatus("未设置观察样本", "wait")
 }
 
 // ========== 编辑器绘制 ==========
@@ -588,6 +674,107 @@ function drawEmbedding() {
 	}
 }
 
+// ========== 执念曲线绘制 ==========
+
+function drawObsessionCurve() {
+	const canvas = obsessionCanvas
+	const ctx = canvas.getContext("2d")!
+	const rect = canvas.getBoundingClientRect()
+	const dpr = window.devicePixelRatio || 1
+	canvas.width = Math.floor(rect.width * dpr)
+	canvas.height = Math.floor(rect.height * dpr)
+	ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+	const W = rect.width, H = rect.height
+	ctx.clearRect(0, 0, W, H)
+
+	if (!state.observedSample || state.snapshots.length < 2) {
+		ctx.fillStyle = "#5f6368"
+		ctx.font = "11px sans-serif"
+		ctx.textAlign = "center"
+		ctx.fillText(state.observedSample ? "训练后此处将显示概率演变曲线" : "请先设置观察样本", W / 2, H / 2)
+		return
+	}
+
+	const padding = { left: 36, right: 10, top: 16, bottom: 24 }
+	const chartW = W - padding.left - padding.right
+	const chartH = H - padding.top - padding.bottom
+
+	// 坐标轴
+	ctx.strokeStyle = "#3c4043"
+	ctx.lineWidth = 1
+	ctx.beginPath()
+	ctx.moveTo(padding.left, padding.top)
+	ctx.lineTo(padding.left, H - padding.bottom)
+	ctx.lineTo(W - padding.right, H - padding.bottom)
+	ctx.stroke()
+
+	// 数据
+	const steps = state.snapshots.map(s => s.step)
+	const maxStep = steps[steps.length - 1]
+	const colors = ["#8ab4f8", "#f9ab00", "#34a853", "#ea4335"]
+
+	// 绘制每条动作概率线
+	for (let a = 0; a < OUTPUT_DIM; a++) {
+		ctx.strokeStyle = colors[a]
+		ctx.lineWidth = a === state.observedSample.y ? 2.5 : 1.5
+		ctx.beginPath()
+		let hasPoint = false
+		for (let i = 0; i < state.snapshots.length; i++) {
+			const probs = state.snapshots[i].observedProbs
+			if (!probs) continue
+			const x = padding.left + (steps[i] / maxStep) * chartW
+			const y = (H - padding.bottom) - probs[a] * chartH
+			if (!hasPoint) {
+				ctx.moveTo(x, y)
+				hasPoint = true
+			} else {
+				ctx.lineTo(x, y)
+			}
+		}
+		ctx.stroke()
+	}
+
+	// 当前选中快照指示线
+	if (state.selectedSnapshotIndex >= 0) {
+		const curStep = steps[state.selectedSnapshotIndex]
+		const x = padding.left + (curStep / maxStep) * chartW
+		ctx.strokeStyle = "rgba(255,255,255,0.3)"
+		ctx.lineWidth = 1
+		ctx.setLineDash([4, 4])
+		ctx.beginPath()
+		ctx.moveTo(x, padding.top)
+		ctx.lineTo(x, H - padding.bottom)
+		ctx.stroke()
+		ctx.setLineDash([])
+	}
+
+	// Y轴刻度
+	ctx.fillStyle = "#5f6368"
+	ctx.font = "9px sans-serif"
+	ctx.textAlign = "right"
+	ctx.textBaseline = "middle"
+	for (const v of [0, 0.5, 1]) {
+		const y = (H - padding.bottom) - v * chartH
+		ctx.fillText(String(v), padding.left - 6, y)
+	}
+
+	// X轴标签
+	ctx.textAlign = "center"
+	ctx.textBaseline = "top"
+	ctx.fillText("0", padding.left, H - padding.bottom + 4)
+	ctx.fillText(String(maxStep), W - padding.right, H - padding.bottom + 4)
+
+	// 图例
+	ctx.textAlign = "left"
+	ctx.textBaseline = "top"
+	let lx = padding.left + 4
+	for (let a = 0; a < OUTPUT_DIM; a++) {
+		ctx.fillStyle = colors[a]
+		ctx.fillText(ACTIONS[a], lx, padding.top - 12)
+		lx += 32
+	}
+}
+
 // ========== 动画 ==========
 
 function playAnimation(action: ActionType) {
@@ -668,6 +855,7 @@ function init() {
 	editorCanvas = document.getElementById("editor-canvas") as HTMLCanvasElement
 	mlpCanvas = document.getElementById("mlp-canvas") as HTMLCanvasElement
 	embeddingCanvas = document.getElementById("embedding-canvas") as HTMLCanvasElement
+	obsessionCanvas = document.getElementById("obsession-canvas") as HTMLCanvasElement
 
 	// 动态更新HTML标题
 	const editorTitle = document.getElementById("editor-title")
@@ -683,6 +871,7 @@ function init() {
 	drawEditor()
 	drawMLP(null)
 	drawEmbedding()
+	drawObsessionCurve()
 	updateProbs([0, 0, 0, 0])
 
 	const ro = new ResizeObserver((entries) => {
@@ -694,12 +883,15 @@ function init() {
 				drawMLP(state.lastForwardResult)
 			} else if (target === embeddingCanvas) {
 				drawEmbedding()
+			} else if (target === obsessionCanvas) {
+				drawObsessionCurve()
 			}
 		}
 	})
 	ro.observe(editorCanvas)
 	ro.observe(mlpCanvas)
 	ro.observe(embeddingCanvas)
+	ro.observe(obsessionCanvas)
 
 	// canvas 点击绘制
 	editorCanvas.addEventListener("click", e => {
@@ -707,6 +899,12 @@ function init() {
 		const cell = getEditorCellAt(e.clientX - rect.left, e.clientY - rect.top, rect)
 		if (!cell) return
 		paintCell(cell.r, cell.c)
+	})
+
+	// 快照滑块
+	const slider = document.getElementById("snapshot-slider") as HTMLInputElement
+	slider.addEventListener("input", () => {
+		applySnapshot(Number(slider.value))
 	})
 
 	// 绑定全局函数
@@ -720,6 +918,8 @@ function init() {
 		stopAnimation(state)
 		drawEditor()
 	}
+	;(window as any).setObservedFromTerrain = setObservedFromTerrain
+	;(window as any).setObservedRandom = setObservedRandom
 
 	// 初始化控制台
 	const consolePanel = new ConsolePanel("#console-mount", logger)

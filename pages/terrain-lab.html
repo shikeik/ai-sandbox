@@ -170,6 +170,39 @@
             border-radius: 8px;
             display: block;
         }
+        #obsession-canvas {
+            width: 100%;
+            height: 140px;
+            background: #0b0c0f;
+            border-radius: 8px;
+            display: block;
+            margin-top: 8px;
+        }
+        .slider-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 11px;
+            color: #9aa0a6;
+        }
+        .slider-row input[type="range"] {
+            flex: 1;
+        }
+        .obsession-controls {
+            display: flex;
+            gap: 8px;
+            margin-top: 8px;
+        }
+        .obsession-controls button {
+            font-size: 10px;
+            padding: 6px 8px;
+        }
+        .obsession-status {
+            font-size: 10px;
+            color: #9aa0a6;
+            margin-top: 6px;
+            min-height: 16px;
+        }
         .prob-bars {
             margin-top: 10px;
             background: #0b0c0f;
@@ -283,6 +316,22 @@
             <!-- 中：Embedding 可视化 -->
             <div class="panel-title" style="margin-top:14px">元素 Embedding 空间</div>
             <canvas id="embedding-canvas"></canvas>
+
+            <!-- 快照滑块 -->
+            <div class="panel-title" style="margin-top:14px">训练快照</div>
+            <div class="slider-row">
+                <input type="range" id="snapshot-slider" min="0" max="0" value="0" disabled>
+                <span id="snapshot-label">步数 0</span>
+            </div>
+
+            <!-- 执念曲线 -->
+            <div class="panel-title" style="margin-top:14px">执念曲线（单样本概率演变）</div>
+            <div class="obsession-controls">
+                <button class="btn-secondary" onclick="setObservedFromTerrain()" id="btn-obs-terrain">当前地形为样本</button>
+                <button class="btn-secondary" onclick="setObservedRandom()">随机数据样本</button>
+            </div>
+            <div class="obsession-status" id="obsession-status">未设置观察样本</div>
+            <canvas id="obsession-canvas"></canvas>
 
             <!-- 中：概率条 -->
             <div class="prob-bars" id="prob-bars">

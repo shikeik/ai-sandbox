@@ -99,3 +99,13 @@ export function updateNetwork(net: NetParams, grads: Gradients, batchSize: numbe
 		net.b2[i] -= LR * grads.db2[i] / batchSize
 	}
 }
+
+export function cloneNet(net: NetParams): NetParams {
+	return {
+		embed: net.embed.map(row => row.slice()),
+		W1: net.W1.map(row => row.slice()),
+		b1: net.b1.slice(),
+		W2: net.W2.map(row => row.slice()),
+		b2: net.b2.slice(),
+	}
+}
