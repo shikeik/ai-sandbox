@@ -11,550 +11,722 @@
             background: #0b0c0f;
             color: #e8eaed;
             min-height: 100vh;
-            padding: 16px;
+            padding: 12px;
         }
         .back-nav {
             position: fixed;
-            top: 12px;
-            left: 12px;
+            top: 10px;
+            left: 10px;
             z-index: 1000;
         }
         .back-nav a {
             text-decoration: none;
             color: #9aa0a6;
-            font-size: 13px;
-            padding: 6px 12px;
-            border-radius: 8px;
+            font-size: 12px;
+            padding: 6px 10px;
+            border-radius: 6px;
             border: 1px solid #2c2f36;
             background: #16181d;
         }
         h1 {
             text-align: center;
-            font-size: 20px;
-            margin: 28px 0 6px;
+            font-size: 18px;
+            margin: 32px 0 4px;
             color: #8ab4f8;
         }
         .subtitle {
             text-align: center;
             color: #9aa0a6;
-            font-size: 12px;
-            margin-bottom: 18px;
+            font-size: 11px;
+            margin-bottom: 14px;
         }
 
-        /* 跑道条 */
-        .track-bar {
-            display: flex;
-            justify-content: center;
-            gap: 10px;
-            margin-bottom: 18px;
-            flex-wrap: wrap;
-        }
-        .track-label {
-            width: 100%;
-            text-align: center;
-            font-size: 12px;
-            color: #9aa0a6;
-            margin-bottom: 6px;
-        }
-        .track-cell {
-            width: 64px;
-            height: 64px;
-            border-radius: 12px;
-            border: 2px solid #2c2f36;
-            background: #16181d;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            transition: border-color .2s, transform .1s;
-            user-select: none;
-        }
-        .track-cell:hover { border-color: #5f6368; }
-        .track-cell:active { transform: scale(0.96); }
-        .track-cell .emoji { font-size: 26px; }
-        .track-cell .name { font-size: 10px; color: #bdc1c6; margin-top: 2px; }
-
-        /* 主区域 */
-        .main-stage {
+        .main-grid {
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 16px;
-            max-width: 960px;
-            margin: 0 auto 16px;
+            grid-template-columns: 280px 1fr 280px;
+            gap: 14px;
+            max-width: 1100px;
+            margin: 0 auto;
         }
-        @media (max-width: 720px) {
-            .main-stage { grid-template-columns: 1fr; }
+        @media (max-width: 900px) {
+            .main-grid { grid-template-columns: 1fr; }
         }
 
         .panel {
             background: #16181d;
             border: 1px solid #2c2f36;
-            border-radius: 12px;
+            border-radius: 10px;
             padding: 12px;
         }
         .panel-title {
-            font-size: 13px;
+            font-size: 12px;
             color: #8ab4f8;
-            margin-bottom: 8px;
+            margin-bottom: 10px;
             text-align: center;
         }
 
-        /* Embedding 空间 */
-        #embedding-canvas {
-            width: 100%;
-            aspect-ratio: 1 / 1;
-            background: #0b0c0f;
+        /* 地形编辑器 */
+        .terrain-wrap {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .terrain-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .row-label {
+            width: 40px;
+            font-size: 10px;
+            color: #9aa0a6;
+            text-align: right;
+        }
+        .terrain-cell {
+            width: 46px;
+            height: 46px;
             border-radius: 8px;
-            display: block;
+            border: 1px solid #3c4043;
+            background: #0b0c0f;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            cursor: pointer;
+            user-select: none;
+            transition: transform .05s;
+        }
+        .terrain-cell:hover { border-color: #5f6368; }
+        .terrain-cell:active { transform: scale(0.95); }
+        .col-labels {
+            display: flex;
+            gap: 6px;
+            padding-left: 46px;
+            margin-top: 2px;
+        }
+        .col-label {
+            width: 46px;
+            text-align: center;
+            font-size: 10px;
+            color: #5f6368;
         }
         .legend {
             display: flex;
             flex-wrap: wrap;
-            gap: 8px;
+            gap: 6px;
+            margin-top: 10px;
             justify-content: center;
-            margin-top: 8px;
         }
         .legend-item {
-            font-size: 11px;
+            font-size: 10px;
             color: #bdc1c6;
             background: #0b0c0f;
-            padding: 3px 8px;
-            border-radius: 6px;
+            padding: 3px 7px;
+            border-radius: 5px;
             border: 1px solid #2c2f36;
         }
 
-        /* MLP 图 */
+        /* MLP 可视化 */
         #mlp-canvas {
             width: 100%;
-            height: 220px;
+            height: 280px;
             background: #0b0c0f;
             border-radius: 8px;
             display: block;
         }
-
-        /* 控制区 */
-        .control-area {
-            max-width: 960px;
-            margin: 0 auto;
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 16px;
+        .prob-bars {
+            margin-top: 10px;
         }
-        @media (max-width: 720px) {
-            .control-area { grid-template-columns: 1fr; }
+        .prob-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 6px;
+            font-size: 11px;
+        }
+        .prob-name { width: 40px; color: #bdc1c6; }
+        .prob-track {
+            flex: 1;
+            height: 10px;
+            background: #2c2f36;
+            border-radius: 5px;
+            overflow: hidden;
+        }
+        .prob-fill {
+            height: 100%;
+            background: #8ab4f8;
+            border-radius: 5px;
+            transition: width .2s;
+        }
+        .prob-val { width: 36px; text-align: right; color: #8ab4f8; }
+
+        /* 控制台 */
+        .control-area {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
         }
         .btn-row {
             display: flex;
             gap: 8px;
             flex-wrap: wrap;
-            justify-content: center;
-            margin-top: 8px;
         }
         button {
             border: none;
-            border-radius: 8px;
-            padding: 10px 16px;
-            font-size: 13px;
+            border-radius: 6px;
+            padding: 8px 12px;
+            font-size: 12px;
             cursor: pointer;
             transition: opacity .2s;
         }
         button:disabled { opacity: .4; cursor: not-allowed; }
         .btn-primary { background: #8ab4f8; color: #0b0c0f; }
-        .btn-secondary { background: #5f6368; color: #fff; }
         .btn-accent { background: #f9ab00; color: #0b0c0f; }
-        .action-btn { background: #2c2f36; color: #e8eaed; border: 1px solid #3c4043; }
-        .action-btn.active { background: #8ab4f8; color: #0b0c0f; border-color: #8ab4f8; }
-
-        .log-panel {
-            max-width: 960px;
-            margin: 16px auto 0;
-            background: #16181d;
-            border: 1px solid #2c2f36;
-            border-radius: 12px;
-            padding: 12px;
-            font-size: 12px;
-            line-height: 1.7;
-            max-height: 220px;
-            overflow-y: auto;
+        .btn-secondary { background: #5f6368; color: #fff; }
+        .metric {
+            font-size: 11px;
+            color: #9aa0a6;
+            margin-top: 4px;
         }
-        .log-entry { margin-bottom: 6px; color: #bdc1c6; }
-        .log-math { color: #8ab4f8; font-family: monospace; }
-        .log-highlight { color: #f9ab00; }
+        .metric span { color: #e8eaed; font-weight: 500; }
+        .progress-wrap {
+            height: 6px;
+            background: #2c2f36;
+            border-radius: 3px;
+            margin-top: 6px;
+            overflow: hidden;
+        }
+        .progress-bar {
+            height: 100%;
+            background: #8ab4f8;
+            width: 0%;
+            transition: width .2s;
+        }
+
+        /* 考试区 */
+        .exam-result {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 8px;
+            background: #0b0c0f;
+            font-size: 12px;
+            line-height: 1.6;
+        }
+        .exam-result.ok { border: 1px solid #34a853; }
+        .exam-result.bad { border: 1px solid #ea4335; }
+        .exam-result.wait { border: 1px solid #2c2f36; }
+        .rule-box {
+            margin-top: 10px;
+            font-size: 10px;
+            color: #9aa0a6;
+            line-height: 1.7;
+            background: #0b0c0f;
+            padding: 8px;
+            border-radius: 6px;
+        }
+        .rule-box b { color: #e8eaed; }
     </style>
 </head>
 <body>
     <div class="back-nav"><a href="../index.html">← 返回导航</a></div>
-
     <h1>🧮 向量化参数演示</h1>
-    <p class="subtitle">把离散元素变成向量，让 MLP 突破 0/1 二元限制</p>
+    <p class="subtitle">监督学习：给定地形 → MLP 学习最优动作</p>
 
-    <!-- 跑道状态条 -->
-    <div class="track-bar" id="track-bar">
-        <div class="track-label">点击格子切换前方 3 格地形元素</div>
-        <div class="track-cell" data-idx="0" onclick="cycleElement(0)">
-            <div class="emoji" id="emoji-0">🟩</div>
-            <div class="name" id="name-0">平地</div>
+    <div class="main-grid">
+        <!-- 左侧：地形编辑器 -->
+        <div class="panel">
+            <div class="panel-title">地形编辑器 (4×3)</div>
+            <div class="terrain-wrap" id="terrain-wrap">
+                <!-- JS 生成 -->
+            </div>
+            <div class="col-labels">
+                <div class="col-label">前1</div>
+                <div class="col-label">前2</div>
+                <div class="col-label">前3</div>
+                <div class="col-label">前4</div>
+            </div>
+            <div class="legend">
+                <span class="legend-item">🟩 平地</span>
+                <span class="legend-item">🕳️ 坑</span>
+                <span class="legend-item">💧 史莱姆</span>
+                <span class="legend-item">👿 恶魔</span>
+                <span class="legend-item">🪙 金币</span>
+            </div>
+            <div class="rule-box">
+                <b>规则答案逻辑：</b><br>
+                走安全 = 地面无坑 + 天上无恶魔 + 地上无史莱姆<br>
+                跳安全 = 天上无恶魔<br>
+                远跳安全 = 前1+前2 天上都无恶魔<br>
+                下蹲安全 = 地面无坑 + 地上无史莱姆<br>
+                优先级：走 → 跳 → 远跳 → 下蹲
+            </div>
         </div>
-        <div class="track-cell" data-idx="1" onclick="cycleElement(1)">
-            <div class="emoji" id="emoji-1">🕳️</div>
-            <div class="name" id="name-1">坑</div>
-        </div>
-        <div class="track-cell" data-idx="2" onclick="cycleElement(2)">
-            <div class="emoji" id="emoji-2">🌵</div>
-            <div class="name" id="name-2">刺</div>
-        </div>
-    </div>
 
-    <!-- 主舞台 -->
-    <div class="main-stage">
+        <!-- 中间：MLP 可视化 -->
         <div class="panel">
-            <div class="panel-title">Embedding 向量空间（2D）</div>
-            <canvas id="embedding-canvas"></canvas>
-            <div class="legend" id="legend"></div>
-        </div>
-        <div class="panel">
-            <div class="panel-title">微型 MLP（6 输入 → 4 隐藏 → 3 输出）</div>
+            <div class="panel-title">MLP 网络状态 (60 → 16 → 4)</div>
             <canvas id="mlp-canvas"></canvas>
-        </div>
-    </div>
-
-    <!-- 控制区 -->
-    <div class="control-area">
-        <div class="panel">
-            <div class="panel-title">操作</div>
-            <div class="btn-row">
-                <button class="btn-primary" onclick="forward()">▶ 前向传播</button>
-                <button class="btn-accent" onclick="trainStep()" id="btn-train" disabled>↺ 训练一步</button>
-                <button class="btn-secondary" onclick="resetAll()">⟲ 重置</button>
+            <div class="prob-bars" id="prob-bars">
+                <div class="prob-row"><div class="prob-name">走</div><div class="prob-track"><div class="prob-fill" style="width:0%"></div></div><div class="prob-val">0%</div></div>
+                <div class="prob-row"><div class="prob-name">跳</div><div class="prob-track"><div class="prob-fill" style="width:0%"></div></div><div class="prob-val">0%</div></div>
+                <div class="prob-row"><div class="prob-name">远跳</div><div class="prob-track"><div class="prob-fill" style="width:0%"></div></div><div class="prob-val">0%</div></div>
+                <div class="prob-row"><div class="prob-name">下蹲</div><div class="prob-track"><div class="prob-fill" style="width:0%"></div></div><div class="prob-val">0%</div></div>
             </div>
         </div>
-        <div class="panel">
-            <div class="panel-title">选择正确动作（用于训练）</div>
-            <div class="btn-row">
-                <button class="action-btn" id="act-0" onclick="setTarget(0)">移动</button>
-                <button class="action-btn" id="act-1" onclick="setTarget(1)">跳跃</button>
-                <button class="action-btn" id="act-2" onclick="setTarget(2)">远跳</button>
-            </div>
-        </div>
-    </div>
 
-    <!-- 日志 -->
-    <div class="log-panel" id="logPanel">
-        <div class="log-entry">
-            <span class="log-highlight">💡 使用说明：</span><br>
-            1. 点击上方 3 个格子切换元素组合<br>
-            2. 点击【前向传播】查看 MLP 对当前组合的预测动作<br>
-            3. 选择正确动作，点击【训练一步】，同时更新 MLP 权重和 Embedding 向量
+        <!-- 右侧：训练控制 + 考试 -->
+        <div class="panel">
+            <div class="panel-title">训练控制台</div>
+            <div class="control-area">
+                <div class="btn-row">
+                    <button class="btn-primary" onclick="generateData()">生成数据</button>
+                    <button class="btn-accent" onclick="trainBatch()" id="btn-train" disabled>训练 100 步</button>
+                    <button class="btn-secondary" onclick="resetNet()">重置网络</button>
+                </div>
+                <div class="metric">数据集: <span id="data-count">0</span> 条</div>
+                <div class="metric">训练步数: <span id="step-count">0</span></div>
+                <div class="metric">准确率: <span id="acc-display">-</span></div>
+                <div class="metric">损失: <span id="loss-display">-</span></div>
+                <div class="progress-wrap"><div class="progress-bar" id="train-progress"></div></div>
+            </div>
+
+            <div class="panel-title" style="margin-top:14px">验收 / 考试</div>
+            <div class="btn-row">
+                <button class="btn-primary" onclick="predict()">预测当前地形</button>
+                <button class="btn-secondary" onclick="randomTerrain()">随机地形</button>
+            </div>
+            <div class="exam-result wait" id="exam-box">
+                点击"预测当前地形"开始验收
+            </div>
         </div>
     </div>
 
     <script>
-        // ========== 元素定义 ==========
+        // ========== 常量 ==========
         const ELEMENTS = [
-            { id: 0, name: '平地', emoji: '🟩', danger: 0, magic: 0 },
-            { id: 1, name: '坑',   emoji: '🕳️', danger: 1, magic: 0 },
-            { id: 2, name: '刺',   emoji: '🌵', danger: 1, magic: 0 },
-            { id: 3, name: '史莱姆', emoji: '💧', danger: 0.5, magic: 0.2 },
-            { id: 4, name: '血包', emoji: '❤️', danger: -0.3, magic: 0.1 },
-            { id: 5, name: '金币', emoji: '🪙', danger: 0, magic: 0 },
-            { id: 6, name: '恶魔', emoji: '👿', danger: 0.8, magic: 0.9 }
+            { id: 0, name: '平地', emoji: '🟩' },
+            { id: 1, name: '坑',   emoji: '🕳️' },
+            { id: 2, name: '史莱姆', emoji: '💧' },
+            { id: 3, name: '飞行恶魔', emoji: '👿' },
+            { id: 4, name: '金币', emoji: '🪙' }
         ];
-
-        // ========== 网络超参数 ==========
-        const INPUT_DIM = 6;   // 3格 * 2D
-        const HIDDEN_DIM = 4;
-        const OUTPUT_DIM = 3;  // 移动/跳跃/远跳
-        const LEARNING_RATE = 0.15;
+        const ACTIONS = ['走', '跳', '远跳', '下蹲'];
+        const ROW_NAMES = ['天上', '地上', '地面'];
+        const INPUT_DIM = 60;  // 4*3*5
+        const HIDDEN_DIM = 16;
+        const OUTPUT_DIM = 4;
+        const LR = 0.05;
 
         // ========== 状态 ==========
-        let track = [1, 2, 6]; // 当前3格元素的id
-        let targetAction = -1; // 用于训练的目标动作
-        let lastOutput = null; // 上次前向传播结果
+        let terrain = [
+            [3, 0, 0, 0], // 天上
+            [0, 2, 0, 0], // 地上
+            [1, 1, 0, 0]  // 地面
+        ];
+        let dataset = [];
+        let trainSteps = 0;
+        let net = createNet();
 
-        // Embedding: 7个元素，每个2D向量，初始带一点先验（危险/魔法倾向）
-        let embeddings = ELEMENTS.map(e => [
-            (Math.random() - 0.5) * 0.4 + e.danger * 0.6,  // x轴≈危险度
-            (Math.random() - 0.5) * 0.4 + e.magic * 0.6   // y轴≈魔法度
-        ]);
+        // ========== 网络 ==========
+        function randn() {
+            let u = 0, v = 0;
+            while(u === 0) u = Math.random();
+            while(v === 0) v = Math.random();
+            return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+        }
+        function createMat(rows, cols, scale = 1) {
+            return Array.from({length: rows}, () => Array.from({length: cols}, () => randn() * scale));
+        }
+        function zeroVec(n) { return Array(n).fill(0); }
+        function zeroMat(rows, cols) { return Array.from({length: rows}, () => Array(cols).fill(0)); }
 
-        // 权重和偏置
-        function randWeight() { return (Math.random() - 0.5) * 0.6; }
-        let W1 = Array.from({length: HIDDEN_DIM}, () => Array.from({length: INPUT_DIM}, randWeight));
-        let b1 = Array(HIDDEN_DIM).fill(0).map(() => 0.1);
-        let W2 = Array.from({length: OUTPUT_DIM}, () => Array.from({length: HIDDEN_DIM}, randWeight));
-        let b2 = Array(OUTPUT_DIM).fill(0).map(() => 0.1);
+        function createNet() {
+            return {
+                W1: createMat(HIDDEN_DIM, INPUT_DIM, Math.sqrt(2 / INPUT_DIM)),
+                b1: zeroVec(HIDDEN_DIM),
+                W2: createMat(OUTPUT_DIM, HIDDEN_DIM, Math.sqrt(2 / HIDDEN_DIM)),
+                b2: zeroVec(OUTPUT_DIM)
+            };
+        }
 
-        // ========== 激活函数 ==========
-        function relu(x) { return Math.max(0, x); }
-        function sigmoid(x) { return 1 / (1 + Math.exp(-x)); }
-        function softmax(arr) {
-            const max = Math.max(...arr);
-            const exps = arr.map(v => Math.exp(v - max));
+        function relu(x) { return x.map(v => Math.max(0, v)); }
+        function softmax(z) {
+            const max = Math.max(...z);
+            const exps = z.map(v => Math.exp(v - max));
             const sum = exps.reduce((a, b) => a + b, 0);
             return exps.map(v => v / sum);
         }
 
-        // ========== 构造输入 ==========
-        function getInput() {
-            const vec = [];
-            for (let i = 0; i < 3; i++) {
-                const emb = embeddings[track[i]];
-                vec.push(emb[0], emb[1]);
+        function forward(net, x) {
+            const z1 = net.W1.map((row, i) => row.reduce((s, w, j) => s + w * x[j], 0) + net.b1[i]);
+            const h = relu(z1);
+            const z2 = net.W2.map((row, i) => row.reduce((s, w, j) => s + w * h[j], 0) + net.b2[i]);
+            const o = softmax(z2);
+            return { x, z1, h, z2, o };
+        }
+
+        function backward(net, fp, target) {
+            const dz2 = fp.o.map((v, i) => v - (i === target ? 1 : 0));
+            const dW2 = dz2.map(dz => fp.h.map(v => dz * v));
+            const db2 = dz2.slice();
+
+            const dh = Array(HIDDEN_DIM).fill(0);
+            for (let j = 0; j < HIDDEN_DIM; j++) {
+                for (let i = 0; i < OUTPUT_DIM; i++) dh[j] += dz2[i] * net.W2[i][j];
+            }
+            const dz1 = dh.map((v, i) => fp.z1[i] > 0 ? v : 0);
+            const dW1 = dz1.map(dz => fp.x.map(v => dz * v));
+            const db1 = dz1.slice();
+            return { dW1, db1, dW2, db2 };
+        }
+
+        // ========== 数据生成 ==========
+        function terrainToOneHot(t) {
+            const vec = Array(INPUT_DIM).fill(0);
+            for (let r = 0; r < 3; r++) {
+                for (let c = 0; c < 4; c++) {
+                    const id = t[r][c];
+                    vec[(r * 4 + c) * 5 + id] = 1;
+                }
             }
             return vec;
         }
 
-        // ========== 前向传播 ==========
-        function forwardPass(input) {
-            const z1 = W1.map((row, i) => row.reduce((s, w, j) => s + w * input[j], 0) + b1[i]);
-            const h = z1.map(relu);
-            const z2 = W2.map((row, i) => row.reduce((s, w, j) => s + w * h[j], 0) + b2[i]);
-            const o = softmax(z2);
-            return { z1, h, z2, o, input };
+        function getLabel(t) {
+            const sky0 = ELEMENTS[t[0][0]].name;
+            const sky1 = ELEMENTS[t[0][1]].name;
+            const ground0 = ELEMENTS[t[2][0]].name;
+            const mid0 = ELEMENTS[t[1][0]].name;
+
+            const canWalk  = ground0 !== '坑' && sky0 !== '飞行恶魔' && mid0 !== '史莱姆';
+            const canJump  = sky0 !== '飞行恶魔';
+            const canLongJump = sky0 !== '飞行恶魔' && sky1 !== '飞行恶魔';
+            const canCrouch = ground0 !== '坑' && mid0 !== '史莱姆';
+
+            if (canWalk) return 0;
+            if (canJump) return 1;
+            if (canLongJump) return 2;
+            if (canCrouch) return 3;
+            return 0; // 默认走（等死）
         }
 
-        // ========== 反向传播 ==========
-        function backwardPass(targetIdx, fp) {
-            const { o, h, input } = fp;
-            // 输出层梯度 (交叉熵 + softmax)
-            const dz2 = o.map((v, i) => v - (i === targetIdx ? 1 : 0));
-            // dW2, db2
-            const dW2 = dz2.map((dz, i) => h.map(v => dz * v));
-            const db2 = dz2.slice();
-            // 隐藏层梯度
-            const dh = Array(HIDDEN_DIM).fill(0);
-            for (let j = 0; j < HIDDEN_DIM; j++) {
-                for (let i = 0; i < OUTPUT_DIM; i++) {
-                    dh[j] += dz2[i] * W2[i][j];
-                }
+        function randElem(layer) {
+            if (layer === 0) return Math.random() > 0.75 ? 3 : 0; // 天上：恶魔或平地
+            if (layer === 1) {
+                const r = Math.random();
+                if (r < 0.55) return 0;
+                if (r < 0.8) return 2;
+                return 4;
             }
-            const dz1 = dh.map((v, i) => (fp.z1[i] > 0 ? v : 0));
-            // dW1, db1
-            const dW1 = dz1.map((dz, i) => input.map(v => dz * v));
-            const db1 = dz1.slice();
-            // dEmbedding（关键：输入对emb的梯度）
-            const dEmb = Array(7).fill(null).map(() => [0, 0]);
-            for (let g = 0; g < 3; g++) {
+            return Math.random() > 0.55 ? 1 : 0; // 地面：坑或平地
+        }
+
+        function generateData() {
+            dataset = [];
+            for (let i = 0; i < 6000; i++) {
+                const t = [
+                    [randElem(0), randElem(0), randElem(0), randElem(0)],
+                    [randElem(1), randElem(1), randElem(1), randElem(1)],
+                    [randElem(2), randElem(2), randElem(2), randElem(2)]
+                ];
+                const y = getLabel(t);
+                dataset.push({ t, x: terrainToOneHot(t), y });
+            }
+            document.getElementById('data-count').textContent = dataset.length;
+            document.getElementById('btn-train').disabled = false;
+            updateExam('已生成 6000 条训练数据，点击「训练 100 步」开始训练', 'wait');
+        }
+
+        // ========== 训练 ==========
+        async function trainBatch() {
+            const btn = document.getElementById('btn-train');
+            btn.disabled = true;
+            const batchSize = 32;
+            const steps = 100;
+
+            for (let s = 0; s < steps; s++) {
+                // 累积梯度
+                let gW1 = zeroMat(HIDDEN_DIM, INPUT_DIM);
+                let gb1 = zeroVec(HIDDEN_DIM);
+                let gW2 = zeroMat(OUTPUT_DIM, HIDDEN_DIM);
+                let gb2 = zeroVec(OUTPUT_DIM);
+
+                let lossSum = 0;
+                let correct = 0;
+
+                for (let b = 0; b < batchSize; b++) {
+                    const idx = Math.floor(Math.random() * dataset.length);
+                    const sample = dataset[idx];
+                    const fp = forward(net, sample.x);
+                    const grad = backward(net, fp, sample.y);
+
+                    // 累加梯度
+                    for (let i = 0; i < HIDDEN_DIM; i++) {
+                        for (let j = 0; j < INPUT_DIM; j++) gW1[i][j] += grad.dW1[i][j] / batchSize;
+                        gb1[i] += grad.db1[i] / batchSize;
+                    }
+                    for (let i = 0; i < OUTPUT_DIM; i++) {
+                        for (let j = 0; j < HIDDEN_DIM; j++) gW2[i][j] += grad.dW2[i][j] / batchSize;
+                        gb2[i] += grad.db2[i] / batchSize;
+                    }
+
+                    lossSum += -Math.log(Math.max(fp.o[sample.y], 1e-7));
+                    if (fp.o.indexOf(Math.max(...fp.o)) === sample.y) correct++;
+                }
+
+                // 更新参数
                 for (let i = 0; i < HIDDEN_DIM; i++) {
-                    dEmb[track[g]][0] += dz1[i] * W1[i][g * 2];
-                    dEmb[track[g]][1] += dz1[i] * W1[i][g * 2 + 1];
+                    for (let j = 0; j < INPUT_DIM; j++) net.W1[i][j] -= LR * gW1[i][j];
+                    net.b1[i] -= LR * gb1[i];
+                }
+                for (let i = 0; i < OUTPUT_DIM; i++) {
+                    for (let j = 0; j < HIDDEN_DIM; j++) net.W2[i][j] -= LR * gW2[i][j];
+                    net.b2[i] -= LR * gb2[i];
+                }
+
+                trainSteps++;
+                if (s % 20 === 0) {
+                    document.getElementById('step-count').textContent = trainSteps;
+                    document.getElementById('loss-display').textContent = (lossSum / batchSize).toFixed(4);
+                    document.getElementById('acc-display').textContent = ((correct / batchSize) * 100).toFixed(0) + '%';
+                    document.getElementById('train-progress').style.width = ((s + 1) / steps * 100) + '%';
+                    await new Promise(r => setTimeout(r, 1)); // 让 UI 刷新
                 }
             }
-            return { dW1, db1, dW2, db2, dEmb };
+
+            // 全量评估
+            evaluateAll();
+            btn.disabled = false;
+            predict();
         }
 
-        // ========== 应用梯度 ==========
-        function applyGrad(grad) {
-            for (let i = 0; i < HIDDEN_DIM; i++) {
-                for (let j = 0; j < INPUT_DIM; j++) W1[i][j] -= LEARNING_RATE * grad.dW1[i][j];
-                b1[i] -= LEARNING_RATE * grad.db1[i];
+        function evaluateAll() {
+            let correct = 0;
+            let lossSum = 0;
+            for (const sample of dataset) {
+                const fp = forward(net, sample.x);
+                if (fp.o.indexOf(Math.max(...fp.o)) === sample.y) correct++;
+                lossSum += -Math.log(Math.max(fp.o[sample.y], 1e-7));
             }
-            for (let i = 0; i < OUTPUT_DIM; i++) {
-                for (let j = 0; j < HIDDEN_DIM; j++) W2[i][j] -= LEARNING_RATE * grad.dW2[i][j];
-                b2[i] -= LEARNING_RATE * grad.db2[i];
-            }
-            for (let e = 0; e < 7; e++) {
-                embeddings[e][0] -= LEARNING_RATE * grad.dEmb[e][0];
-                embeddings[e][1] -= LEARNING_RATE * grad.dEmb[e][1];
-            }
+            document.getElementById('step-count').textContent = trainSteps;
+            document.getElementById('acc-display').textContent = ((correct / dataset.length) * 100).toFixed(1) + '%';
+            document.getElementById('loss-display').textContent = (lossSum / dataset.length).toFixed(4);
+            document.getElementById('train-progress').style.width = '100%';
         }
 
-        // ========== UI 交互 ==========
-        function cycleElement(idx) {
-            track[idx] = (track[idx] + 1) % ELEMENTS.length;
-            updateTrackUI();
-            log(`切换格子 ${idx + 1} → ${ELEMENTS[track[idx]].name}`);
-            drawMLP(null);
-        }
-        function updateTrackUI() {
-            for (let i = 0; i < 3; i++) {
-                const el = ELEMENTS[track[i]];
-                document.getElementById('emoji-' + i).textContent = el.emoji;
-                document.getElementById('name-' + i).textContent = el.name;
-            }
-        }
-
-        function setTarget(idx) {
-            targetAction = idx;
-            for (let i = 0; i < 3; i++) {
-                document.getElementById('act-' + i).classList.toggle('active', i === idx);
-            }
-            document.getElementById('btn-train').disabled = !lastOutput || targetAction === -1;
-        }
-
-        function forward() {
-            const input = getInput();
-            lastOutput = forwardPass(input);
-            const actionNames = ['移动', '跳跃', '远跳'];
-            const maxIdx = lastOutput.o.indexOf(Math.max(...lastOutput.o));
-            log(`前向传播 | 输入=[${input.map(v => v.toFixed(2)).join(', ')}] | 输出=[${lastOutput.o.map(v => (v * 100).toFixed(1) + '%').join(', ')}] | 预测动作=<span class="log-highlight">${actionNames[maxIdx]}</span>`);
-            drawMLP(lastOutput);
-            document.getElementById('btn-train').disabled = targetAction === -1;
-        }
-
-        function trainStep() {
-            if (!lastOutput || targetAction === -1) return;
-            const grad = backwardPass(targetAction, lastOutput);
-            applyGrad(grad);
-            const loss = -Math.log(Math.max(lastOutput.o[targetAction], 1e-7));
-            log(`训练一步 | 目标=${['移动','跳跃','远跳'][targetAction]} | 损失=<span class="log-math">${loss.toFixed(4)}</span> | Embedding 和权重已更新`);
-            drawEmbedding();
-            forward(); // 重新前向传播看效果
-        }
-
-        function resetAll() {
-            embeddings = ELEMENTS.map(e => [
-                (Math.random() - 0.5) * 0.4 + e.danger * 0.6,
-                (Math.random() - 0.5) * 0.4 + e.magic * 0.6
-            ]);
-            W1 = Array.from({length: HIDDEN_DIM}, () => Array.from({length: INPUT_DIM}, randWeight));
-            b1 = Array(HIDDEN_DIM).fill(0).map(() => 0.1);
-            W2 = Array.from({length: OUTPUT_DIM}, () => Array.from({length: HIDDEN_DIM}, randWeight));
-            b2 = Array(OUTPUT_DIM).fill(0).map(() => 0.1);
-            lastOutput = null;
-            targetAction = -1;
-            for (let i = 0; i < 3; i++) document.getElementById('act-' + i).classList.remove('active');
+        function resetNet() {
+            net = createNet();
+            trainSteps = 0;
+            dataset = [];
+            document.getElementById('data-count').textContent = '0';
+            document.getElementById('step-count').textContent = '0';
+            document.getElementById('acc-display').textContent = '-';
+            document.getElementById('loss-display').textContent = '-';
+            document.getElementById('train-progress').style.width = '0%';
             document.getElementById('btn-train').disabled = true;
-            log('已重置所有参数（Embedding + MLP 权重）');
-            drawEmbedding();
+            updateExam('网络已重置', 'wait');
             drawMLP(null);
+            updateProbs([0,0,0,0]);
         }
 
-        function log(html) {
-            const panel = document.getElementById('logPanel');
-            const div = document.createElement('div');
-            div.className = 'log-entry';
-            div.innerHTML = html;
-            panel.appendChild(div);
-            panel.scrollTop = panel.scrollHeight;
+        // ========== 预测 / 考试 ==========
+        function predict() {
+            const x = terrainToOneHot(terrain);
+            const fp = forward(net, x);
+            const pred = fp.o.indexOf(Math.max(...fp.o));
+            const correct = getLabel(terrain);
+            const ok = pred === correct;
+            const conf = (fp.o[pred] * 100).toFixed(1);
+            updateExam(
+                `AI 预测: <b>${ACTIONS[pred]}</b> (置信度 ${conf}%)<br>规则答案: <b>${ACTIONS[correct]}</b> ${ok ? '✅ 通过' : '❌ 错误'}`,
+                ok ? 'ok' : 'bad'
+            );
+            drawMLP(fp);
+            updateProbs(fp.o);
         }
 
-        // ========== Canvas 绘图 ==========
-        const embCanvas = document.getElementById('embedding-canvas');
-        const mlpCanvas = document.getElementById('mlp-canvas');
-        function setupCanvas(canvas) {
+        function updateExam(html, cls) {
+            const box = document.getElementById('exam-box');
+            box.innerHTML = html;
+            box.className = 'exam-result ' + cls;
+        }
+
+        function updateProbs(probs) {
+            const rows = document.querySelectorAll('.prob-row');
+            for (let i = 0; i < 4; i++) {
+                const p = probs[i] * 100;
+                rows[i].querySelector('.prob-fill').style.width = p + '%';
+                rows[i].querySelector('.prob-val').textContent = p.toFixed(1) + '%';
+            }
+        }
+
+        function randomTerrain() {
+            terrain = [
+                [randElem(0), randElem(0), randElem(0), randElem(0)],
+                [randElem(1), randElem(1), randElem(1), randElem(1)],
+                [randElem(2), randElem(2), randElem(2), randElem(2)]
+            ];
+            renderTerrain();
+            predict();
+        }
+
+        // ========== 地形编辑器 UI ==========
+        function renderTerrain() {
+            const wrap = document.getElementById('terrain-wrap');
+            wrap.innerHTML = '';
+            for (let r = 0; r < 3; r++) {
+                const rowDiv = document.createElement('div');
+                rowDiv.className = 'terrain-row';
+                const label = document.createElement('div');
+                label.className = 'row-label';
+                label.textContent = ROW_NAMES[r];
+                rowDiv.appendChild(label);
+                for (let c = 0; c < 4; c++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'terrain-cell';
+                    const el = ELEMENTS[terrain[r][c]];
+                    cell.textContent = el.emoji;
+                    cell.title = el.name;
+                    cell.onclick = () => {
+                        terrain[r][c] = (terrain[r][c] + 1) % 5;
+                        renderTerrain();
+                    };
+                    rowDiv.appendChild(cell);
+                }
+                wrap.appendChild(rowDiv);
+            }
+        }
+
+        // ========== MLP Canvas 绘图 ==========
+        function drawMLP(fp) {
+            const canvas = document.getElementById('mlp-canvas');
             const rect = canvas.getBoundingClientRect();
             const dpr = window.devicePixelRatio || 1;
             canvas.width = Math.floor(rect.width * dpr);
             canvas.height = Math.floor(rect.height * dpr);
             const ctx = canvas.getContext('2d');
             ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-            return { ctx, width: rect.width, height: rect.height };
-        }
+            const W = rect.width, H = rect.height;
+            ctx.clearRect(0, 0, W, H);
 
-        function drawEmbedding() {
-            const { ctx, width, height } = setupCanvas(embCanvas);
-            ctx.clearRect(0, 0, width, height);
-            const cx = width / 2, cy = height / 2;
-            const scale = Math.min(width, height) / 2.6;
+            // 层配置
+            const layers = [5, 16, 4]; // 为了可视化，输入层只画5个代表节点（对应5种元素的颜色块概念）
+            // 实际上应该画输入的热力图。改为：左侧画 3x4 网格作为输入层可视化
+            // 中间隐藏层画16个神经元，右侧输出层画4个
 
-            // 网格和轴
-            ctx.strokeStyle = '#2c2f36';
-            ctx.lineWidth = 1;
-            ctx.beginPath();
-            ctx.moveTo(cx, 0); ctx.lineTo(cx, height);
-            ctx.moveTo(0, cy); ctx.lineTo(width, cy);
-            ctx.stroke();
-            ctx.strokeRect(cx - scale, cy - scale, scale * 2, scale * 2);
+            // 输入层：画成 3x4 的网格
+            const cellW = 28, cellH = 24, gapX = 4, gapY = 4;
+            const gridW = 4 * cellW + 3 * gapX;
+            const gridH = 3 * cellH + 2 * gapY;
+            const startX = 10;
+            const startY = (H - gridH) / 2;
 
-            // 轴标签
-            ctx.fillStyle = '#5f6368';
-            ctx.font = '11px sans-serif';
-            ctx.fillText('危险 →', width - 38, cy - 4);
-            ctx.fillText('魔法 ↑', cx + 4, 14);
+            for (let r = 0; r < 3; r++) {
+                for (let c = 0; c < 4; c++) {
+                    const id = terrain[r][c];
+                    const x = startX + c * (cellW + gapX);
+                    const y = startY + r * (cellH + gapY);
+                    ctx.fillStyle = ['#2d4059','#5c4033','#2f4f4f','#4a1c1c','#4a4a1c'][id];
+                    ctx.fillRect(x, y, cellW, cellH);
+                    ctx.strokeStyle = '#3c4043';
+                    ctx.lineWidth = 1;
+                    ctx.strokeRect(x, y, cellW, cellH);
+                    ctx.fillStyle = '#e8eaed';
+                    ctx.font = '12px sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(ELEMENTS[id].emoji, x + cellW/2, y + cellH/2 + 4);
+                }
+            }
 
-            // 点
-            ELEMENTS.forEach((el, i) => {
-                const x = cx + embeddings[i][0] * scale;
-                const y = cy - embeddings[i][1] * scale;
-                ctx.beginPath();
-                ctx.arc(x, y, 6, 0, Math.PI * 2);
-                ctx.fillStyle = i === track[0] || i === track[1] || i === track[2] ? '#8ab4f8' : '#5f6368';
-                ctx.fill();
-                ctx.fillStyle = '#e8eaed';
-                ctx.font = '12px sans-serif';
-                ctx.fillText(el.emoji, x + 10, y + 4);
-                ctx.fillStyle = '#9aa0a6';
-                ctx.font = '10px sans-serif';
-                ctx.fillText(el.name, x + 10, y + 16);
-            });
-        }
-
-        function drawMLP(fp) {
-            const { ctx, width, height } = setupCanvas(mlpCanvas);
-            ctx.clearRect(0, 0, width, height);
-            const layers = [6, 4, 3];
-            const layerX = [60, width / 2, width - 60];
-            const nodeY = layers.map(n => {
-                const gap = height / (n + 1);
-                return Array.from({length: n}, (_, i) => gap * (i + 1));
+            // 隐藏层
+            const hidX = W / 2;
+            const hidY = Array.from({length: 16}, (_, i) => {
+                const gap = H / (16 + 1);
+                return gap * (i + 1);
             });
 
-            // 连接线
-            ctx.lineWidth = 1;
-            for (let L = 0; L < 2; L++) {
-                for (let i = 0; i < layers[L]; i++) {
-                    for (let j = 0; j < layers[L + 1]; j++) {
-                        let w = 0;
-                        if (L === 0) w = W1[j][i];
-                        else w = W2[j][i];
-                        const alpha = Math.min(Math.abs(w) * 1.5, 1);
-                        ctx.strokeStyle = w > 0 ? `rgba(138,180,248,${alpha})` : `rgba(249,171,0,${alpha})`;
+            // 输出层
+            const outX = W - 50;
+            const outY = Array.from({length: 4}, (_, i) => {
+                const gap = H / (4 + 1);
+                return gap * (i + 1);
+            });
+
+            // 连线：输入层中心 -> 隐藏层
+            ctx.lineWidth = 0.5;
+            for (let r = 0; r < 3; r++) {
+                for (let c = 0; c < 4; c++) {
+                    const x1 = startX + c * (cellW + gapX) + cellW/2;
+                    const y1 = startY + r * (cellH + gapY) + cellH/2;
+                    for (let h = 0; h < 16; h++) {
+                        ctx.strokeStyle = 'rgba(95,99,104,0.15)';
                         ctx.beginPath();
-                        ctx.moveTo(layerX[L], nodeY[L][i]);
-                        ctx.lineTo(layerX[L + 1], nodeY[L + 1][j]);
+                        ctx.moveTo(x1, y1);
+                        ctx.lineTo(hidX, hidY[h]);
                         ctx.stroke();
                     }
                 }
             }
 
-            // 节点
-            const nodeValues = fp ? [fp.input, fp.h, fp.o] : [null, null, null];
-            const labels = [
-                ['e0.x', 'e0.y', 'e1.x', 'e1.y', 'e2.x', 'e2.y'],
-                ['h1', 'h2', 'h3', 'h4'],
-                ['移动', '跳跃', '远跳']
-            ];
-            for (let L = 0; L < 3; L++) {
-                for (let i = 0; i < layers[L]; i++) {
-                    const x = layerX[L], y = nodeY[L][i];
+            // 连线：隐藏层 -> 输出层
+            for (let h = 0; h < 16; h++) {
+                for (let o = 0; o < 4; o++) {
+                    let w = 0;
+                    if (fp) w = net.W2[o][h];
+                    const alpha = Math.min(Math.abs(w) * 2, 1);
+                    ctx.strokeStyle = w > 0 ? `rgba(138,180,248,${alpha})` : `rgba(249,171,0,${alpha})`;
+                    ctx.lineWidth = Math.max(0.5, Math.abs(w) * 2);
                     ctx.beginPath();
-                    ctx.arc(x, y, 10, 0, Math.PI * 2);
-                    ctx.fillStyle = '#16181d';
-                    ctx.fill();
-                    ctx.strokeStyle = '#8ab4f8';
-                    ctx.lineWidth = 2;
+                    ctx.moveTo(hidX, hidY[h]);
+                    ctx.lineTo(outX, outY[o]);
                     ctx.stroke();
-
-                    if (nodeValues[L]) {
-                        const v = nodeValues[L][i];
-                        ctx.fillStyle = '#e8eaed';
-                        ctx.font = '10px monospace';
-                        ctx.textAlign = 'center';
-                        ctx.fillText(typeof v === 'number' ? v.toFixed(2) : v, x, y + 3);
-                    }
-                    ctx.fillStyle = '#9aa0a6';
-                    ctx.font = '9px sans-serif';
-                    ctx.textAlign = 'center';
-                    ctx.fillText(labels[L][i], x, y + 22);
                 }
+            }
+            ctx.lineWidth = 1;
+
+            // 隐藏层节点
+            for (let h = 0; h < 16; h++) {
+                const r = 6;
+                ctx.beginPath();
+                ctx.arc(hidX, hidY[h], r, 0, Math.PI * 2);
+                ctx.fillStyle = '#16181d';
+                ctx.fill();
+                ctx.strokeStyle = '#8ab4f8';
+                ctx.stroke();
+                if (fp) {
+                    ctx.fillStyle = '#e8eaed';
+                    ctx.font = '8px monospace';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(fp.h[h].toFixed(1), hidX, hidY[h] + 2);
+                }
+            }
+
+            // 输出层节点
+            for (let o = 0; o < 4; o++) {
+                const r = 10;
+                ctx.beginPath();
+                ctx.arc(outX, outY[o], r, 0, Math.PI * 2);
+                ctx.fillStyle = '#16181d';
+                ctx.fill();
+                ctx.strokeStyle = '#8ab4f8';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                if (fp) {
+                    ctx.fillStyle = '#e8eaed';
+                    ctx.font = '10px monospace';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(fp.o[o].toFixed(2), outX, outY[o] + 3);
+                }
+                ctx.fillStyle = '#9aa0a6';
+                ctx.font = '9px sans-serif';
+                ctx.fillText(ACTIONS[o], outX, outY[o] + 24);
             }
         }
 
-        // 初始化图例
-        const legendEl = document.getElementById('legend');
-        ELEMENTS.forEach(e => {
-            const span = document.createElement('span');
-            span.className = 'legend-item';
-            span.textContent = `${e.emoji} ${e.name}`;
-            legendEl.appendChild(span);
-        });
-
-        window.addEventListener('resize', () => { drawEmbedding(); drawMLP(lastOutput); });
-        updateTrackUI();
-        drawEmbedding();
+        // ========== 初始化 ==========
+        renderTerrain();
         drawMLP(null);
+        window.addEventListener('resize', () => drawMLP(null));
     </script>
 </body>
 </html>
