@@ -3,7 +3,7 @@ import type { AppState } from "./state.js"
 import {
 	NUM_COLS, NUM_LAYERS, NUM_ELEMENTS, HIDDEN_DIM, OUTPUT_DIM,
 	INPUT_DIM, ACTIONS, ELEM_AIR, ELEM_HERO, ELEM_GROUND, ELEM_SLIME, ELEM_DEMON, ELEM_COIN,
-	CURRICULUM_STAGES
+	CURRICULUM_STAGES, EMBED_SIZE_BASE, EMBED_SIZE_SENSITIVITY, EMBED_SIZE_OFFSET, EMBED_SIZE_MIN, EMBED_SIZE_MAX
 } from "./constants.js"
 import { zeroMat, zeroVec, easeOutQuad } from "./utils.js"
 import { forward, backward, updateNetwork, cloneNet } from "./neural-network.js"
@@ -907,7 +907,10 @@ function drawEmbedding() {
 	ctx.stroke()
 
 	// 全局大小系数：由外框半径 R 统一决定，R 越小整体越大，R 越大整体越小
-	const globalSizeFactor = Math.max(0.6, Math.min(1.4, 1.5 / maxAbs))
+	const globalSizeFactor = Math.max(
+		EMBED_SIZE_MIN,
+		Math.min(EMBED_SIZE_MAX, EMBED_SIZE_BASE - EMBED_SIZE_SENSITIVITY * (maxAbs - EMBED_SIZE_OFFSET))
+	)
 
 	// 元素点
 	for (const el of UI_ELEMENTS) {

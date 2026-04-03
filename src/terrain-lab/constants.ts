@@ -59,6 +59,14 @@ export const CURRICULUM_STAGES: { name: string; config: TerrainConfig }[] = [
 	{ name: "阶段5：金币干扰", config: { groundOnly: false, slime: true, demon: true, coin: true } },
 ]
 
+// ========== 可视化常量 ==========
+// embedding 元素点大小由全局 R 值缩放：factor = base - sensitivity * (maxAbs - offset)
+export const EMBED_SIZE_BASE = 1.2
+export const EMBED_SIZE_SENSITIVITY = 0.1
+export const EMBED_SIZE_OFFSET = 0.5
+export const EMBED_SIZE_MIN = 0.8
+export const EMBED_SIZE_MAX = 1.5
+
 // ========== 其他常量 ==========
 export const ACTIONS: ActionType[] = ["走", "跳", "远跳", "走A"]
 export const ROW_NAMES = ["天上", "地上", "地面"]
