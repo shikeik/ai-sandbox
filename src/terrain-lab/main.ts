@@ -25,6 +25,48 @@ let editorCanvas: HTMLCanvasElement
 let mlpCanvas: HTMLCanvasElement
 let embeddingCanvas: HTMLCanvasElement
 
+// UI 元素定义（多处复用）
+const UI_ELEMENTS = [
+	{ id: ELEM_AIR, name: "空气", emoji: "⬛" },
+	{ id: ELEM_HERO, name: "狐狸", emoji: "🦊" },
+	{ id: ELEM_GROUND, name: "平地", emoji: "🟩" },
+	{ id: ELEM_SLIME, name: "史莱姆", emoji: "🦠" },
+	{ id: ELEM_DEMON, name: "恶魔", emoji: "👿" },
+	{ id: ELEM_COIN, name: "金币", emoji: "🪙" },
+]
+
+// 编辑器布局计算（抽离重复逻辑）
+function getEditorLayout(rect: { width: number; height: number }) {
+	const cellSize = 44
+	const cellW = cellSize
+	const cellH = cellSize
+	const gapX = 6
+	const gapY = 6
+	const gridW = NUM_COLS * cellW + (NUM_COLS - 1) * gapX
+	const gridH = NUM_LAYERS * cellH + (NUM_LAYERS - 1) * gapY
+	const startX = (rect.width - gridW) / 2
+	const startY = (rect.height - gridH) / 2 + 10
+	return { cellW, cellH, gapX, gapY, gridW, gridH, startX, startY }
+}
+
+function drawEditorLabels(
+	ctx: CanvasRenderingContext2D,
+	startX: number, startY: number,
+	cellW: number, cellH: number, gapX: number, gapY: number
+) {
+	ctx.fillStyle = "#9aa0a6"
+	ctx.font = "10px sans-serif"
+	ctx.textAlign = "right"
+	for (let r = 0; r < NUM_LAYERS; r++) {
+		ctx.fillText(["天上", "地上", "地面"][r], startX - 8, startY + r * (cellH + gapY) + cellH / 2 + 3)
+	}
+	ctx.textAlign = "center"
+	const labels = Array.from({ length: NUM_COLS }, (_, i) => `x${i}`)
+	for (let c = 0; c < NUM_COLS; c++) {
+		ctx.fillText(labels[c], startX + c * (cellW + gapX) + cellW / 2, startY - 8)
+	}
+}
+
 // ========== 训练相关 ==========
 
 async function trainBatch() {
@@ -124,11 +166,16 @@ function predict() {
 	const fp = forward(state.net, indices)
 	state.lastForwardResult = fp
 	const pred = fp.o.indexOf(Math.max(...fp.o))
+	const heroCol = findHeroCol(state.terrain)
+	const checks = getActionChecks(state.terrain, heroCol)
 	const correct = getLabel(state.terrain)
+
+	const conf = (fp.o[pred] * 100).toFixed(1)
+
 	if (correct === -1) {
 		updateTerrainStatus(
 			"bad",
-			`AI 预测: <b>${ACTIONS[pred]}</b> (置信度 ${(fp.o[pred] * 100).toFixed(1)}%)<br>规则答案: <b style="color:#f9ab00">此地形无解（死局）</b>`
+			`AI 预测: <b>${ACTIONS[pred]}</b> (置信度 ${conf}%)<br>规则答案: <b style="color:#f9ab00">此地形无解（死局）</b>`
 		)
 		drawMLP(fp)
 		drawEmbedding()
@@ -136,12 +183,33 @@ function predict() {
 		stopAnimation(state)
 		return
 	}
-	const ok = pred === correct
-	const conf = (fp.o[pred] * 100).toFixed(1)
-	updateTerrainStatus(
-		ok ? "ok" : "bad",
-		`AI 预测: <b>${ACTIONS[pred]}</b> (置信度 ${conf}%)<br>规则答案: <b>${ACTIONS[correct]}</b> ${ok ? "✅ 通过" : "❌ 错误"}`
-	)
+
+	// 判断预测动作是否合法
+	const isValid =
+		(pred === 0 && checks.canWalk.ok) ||
+		(pred === 1 && checks.canJump.ok) ||
+		(pred === 2 && checks.canLongJump.ok) ||
+		(pred === 3 && checks.canWalkAttack.ok)
+
+	if (isValid) {
+		if (pred === correct) {
+			updateTerrainStatus(
+				"ok",
+				`AI 预测: <b>${ACTIONS[pred]}</b> (置信度 ${conf}%)<br>规则答案: <b>${ACTIONS[correct]}</b> ✅ 最优`
+			)
+		} else {
+			updateTerrainStatus(
+				"ok",
+				`AI 预测: <b>${ACTIONS[pred]}</b> (置信度 ${conf}%)<br>规则答案: <b>${ACTIONS[correct]}</b> ✅ 合法（但非最优）`
+			)
+		}
+	} else {
+		updateTerrainStatus(
+			"bad",
+			`AI 预测: <b>${ACTIONS[pred]}</b> (置信度 ${conf}%)<br>规则答案: <b>${ACTIONS[correct]}</b> ❌ 非法`
+		)
+	}
+
 	drawMLP(fp)
 	drawEmbedding()
 	updateProbs(fp.o)
@@ -267,15 +335,7 @@ function updateProbs(probs: number[]) {
 function renderBrushes() {
 	const list = document.getElementById("brush-list") as HTMLDivElement
 	list.innerHTML = ""
-	const elements = [
-		{ id: ELEM_AIR, name: "空气", emoji: "⬛" },
-		{ id: ELEM_HERO, name: "狐狸", emoji: "🦊" },
-		{ id: ELEM_GROUND, name: "平地", emoji: "🟩" },
-		{ id: 3, name: "史莱姆", emoji: "🦠" },
-		{ id: 4, name: "恶魔", emoji: "👿" },
-		{ id: 5, name: "金币", emoji: "🪙" },
-	]
-	elements.forEach((el) => {
+	UI_ELEMENTS.forEach((el) => {
 		const item = document.createElement("div")
 		item.className = "brush-item" + (el.id === state.selectedBrush ? " active" : "")
 		item.innerHTML = `<div class="brush-emoji">${el.emoji}</div><div class="brush-name">${el.name}</div>`
@@ -325,30 +385,9 @@ function drawEditorWithState() {
 	ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
 	ctx.clearRect(0, 0, rect.width, rect.height)
 
-	const cellSize = 44
-	const cellW = cellSize
-	const cellH = cellSize
-	const gapX = 6
-	const gapY = 6
-	const gridW = NUM_COLS * cellW + (NUM_COLS - 1) * gapX
-	const gridH = NUM_LAYERS * cellH + (NUM_LAYERS - 1) * gapY
-	const startX = (rect.width - gridW) / 2
-	const startY = (rect.height - gridH) / 2 + 10
+	const { cellW, cellH, gapX, gapY, startX, startY } = getEditorLayout(rect)
+	drawEditorLabels(ctx, startX, startY, cellW, cellH, gapX, gapY)
 
-	// 标签
-	ctx.fillStyle = "#9aa0a6"
-	ctx.font = "10px sans-serif"
-	ctx.textAlign = "right"
-	for (let r = 0; r < NUM_LAYERS; r++) {
-		ctx.fillText(["天上", "地上", "地面"][r], startX - 8, startY + r * (cellH + gapY) + cellH / 2 + 3)
-	}
-	ctx.textAlign = "center"
-	const labels = Array.from({ length: NUM_COLS }, (_, i) => `x${i}`)
-	for (let c = 0; c < NUM_COLS; c++) {
-		ctx.fillText(labels[c], startX + c * (cellW + gapX) + cellW / 2, startY - 8)
-	}
-
-	// 找到狐狸当前位置
 	const heroCol = findHeroCol(state.terrain)
 
 	// 动画状态
@@ -358,16 +397,12 @@ function drawEditorWithState() {
 	if (state.animation.animAction !== null) {
 		const heroBaseX = startX + heroCol * (cellW + gapX) + cellW / 2
 		const heroBaseY = startY + 1 * (cellH + gapY) + cellH / 2
-
 		const path = calculateAnimationPath(heroCol, state.animation.animAction)
 		const targetX = startX + path.targetCol * (cellW + gapX) + cellW / 2
-
 		const duration = path.duration
 		let t = (performance.now() - state.animation.animStartTime) / duration
 		if (t > 1) t = 1
-
 		animHeroX = heroBaseX + (targetX - heroBaseX) * t
-
 		if (path.isJump) {
 			const parabola = 4 * t * (1 - t)
 			animHeroY = heroBaseY - parabola * (cellH + path.jumpHeight)
@@ -376,7 +411,6 @@ function drawEditorWithState() {
 		}
 	}
 
-	// 绘制网格
 	drawTerrainGrid(ctx, state.terrain, {
 		cellW, cellH, gapX, gapY, startX, startY,
 		hideSlimeAt: state.animation.animSlimeKilled ? (heroCol + 1 < NUM_COLS ? heroCol + 1 : null) : null,
@@ -384,7 +418,6 @@ function drawEditorWithState() {
 		dimNonInteractive: false,
 	})
 
-	// 动画时单独绘制移动的狐狸
 	if (animHeroX !== null && animHeroY !== null) {
 		drawEmoji(ctx, "🦊", animHeroX, animHeroY, Math.min(cellW, cellH) * 0.65)
 	}
@@ -530,15 +563,7 @@ function drawEmbedding() {
 	ctx.stroke()
 
 	// 元素点
-	const elements = [
-		{ id: ELEM_AIR, name: "空气", emoji: "⬛" },
-		{ id: ELEM_HERO, name: "狐狸", emoji: "🦊" },
-		{ id: ELEM_GROUND, name: "平地", emoji: "🟩" },
-		{ id: ELEM_SLIME, name: "史莱姆", emoji: "🦠" },
-		{ id: ELEM_DEMON, name: "恶魔", emoji: "👿" },
-		{ id: ELEM_COIN, name: "金币", emoji: "🪙" },
-	]
-	for (const el of elements) {
+	for (const el of UI_ELEMENTS) {
 		const ex = state.net.embed[el.id][0]
 		const ey = state.net.embed[el.id][1]
 		const px = cx + ex * scale
@@ -584,45 +609,20 @@ function stepAnimation(now: number) {
 	ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
 	ctx.clearRect(0, 0, rect.width, rect.height)
 
-	const cellSize = 44
-	const cellW = cellSize
-	const cellH = cellSize
-	const gapX = 6
-	const gapY = 6
-	const gridW = NUM_COLS * cellW + (NUM_COLS - 1) * gapX
-	const gridH = NUM_LAYERS * cellH + (NUM_LAYERS - 1) * gapY
-	const startX = (rect.width - gridW) / 2
-	const startY = (rect.height - gridH) / 2 + 10
+	const { cellW, cellH, gapX, gapY, startX, startY } = getEditorLayout(rect)
+	drawEditorLabels(ctx, startX, startY, cellW, cellH, gapX, gapY)
 
-	// 标签
-	ctx.fillStyle = "#9aa0a6"
-	ctx.font = "10px sans-serif"
-	ctx.textAlign = "right"
-	for (let r = 0; r < NUM_LAYERS; r++) {
-		ctx.fillText(["天上", "地上", "地面"][r], startX - 8, startY + r * (cellH + gapY) + cellH / 2 + 3)
-	}
-	ctx.textAlign = "center"
-	const labels = Array.from({ length: NUM_COLS }, (_, i) => `x${i}`)
-	for (let c = 0; c < NUM_COLS; c++) {
-		ctx.fillText(labels[c], startX + c * (cellW + gapX) + cellW / 2, startY - 8)
-	}
-
-	// 找到狐狸起始位置
 	const startHeroCol = findHeroCol(state.terrain)
-
-	// 计算进度
 	const path = calculateAnimationPath(startHeroCol, state.animation.animAction)
 	const duration = path.duration
 	let t = (now - state.animation.animStartTime) / duration
 	if (t > 1) t = 1
 
-	// 狐狸起始位置
 	const heroBaseX = startX + startHeroCol * (cellW + gapX) + cellW / 2
 	const heroBaseY = startY + 1 * (cellH + gapY) + cellH / 2
 
 	let hx = heroBaseX
 	let hy = heroBaseY
-
 	const targetX = startX + path.targetCol * (cellW + gapX) + cellW / 2
 
 	if (!path.isJump) {
@@ -635,7 +635,6 @@ function stepAnimation(now: number) {
 		hy = heroBaseY - parabola * (cellH + path.jumpHeight)
 	}
 
-	// 绘制地形（隐藏原位置的狐狸）
 	drawTerrainGrid(ctx, state.terrain, {
 		cellW, cellH, gapX, gapY, startX, startY,
 		hideSlimeAt: null,
@@ -643,7 +642,6 @@ function stepAnimation(now: number) {
 		dimNonInteractive: false,
 	})
 
-	// 单独画移动的狐狸
 	drawEmoji(ctx, "🦊", hx, hy, Math.min(cellW, cellH) * 0.65)
 
 	if (t < 1) {
