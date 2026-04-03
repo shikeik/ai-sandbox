@@ -1,50 +1,41 @@
-// ========== 收敛性测试 ==========
+// ========== 收敛性测试（使用 terrain-lab 实际逻辑）==========
 // 运行方式: npx tsx src/terrain-lab/__tests__/convergence-test.ts
 
-import { createNet, forward, updateNetwork, cloneNet } from "../neural-network.js"
+import { createNet, forward, updateNetwork } from "../neural-network.js"
 import { createGradientBuffer, accumulateSupervisedGrad, evaluateModel } from "../supervised.js"
 import { createGradientBuffer as createUnsupervisedBuffer, accumulateGradients, calculateReward } from "../unsupervised.js"
-import { UNSUPERVISED_CONFIG } from "../constants.js"
-import { generateTerrainData } from "../terrain.js"
+import { UNSUPERVISED_CONFIG, DEFAULT_TERRAIN_CONFIG } from "../constants.js"
+import { generateTerrainData, getLabel, findHeroCol, getActionChecks, isActionValidByChecks } from "../terrain.js"
+import type { DatasetItem } from "../types.js"
 import { assertGreaterThan, printTestSuite, printTestComplete } from "./test-utils.js"
 
-// 生成小数据集用于快速测试
-function createTestDataset(size: number) {
-	// 简单的地形：只有平地，狐狸在x0
-	return Array.from({ length: size }, (_, i) => {
-		// 地形: 天上全空气，地上狐狸在x0，地面全平地
-		const t = [
-			Array(5).fill(0), // 天上: 全空气
-			[1, 0, 0, 0, 0],  // 地上: 狐狸在x0
-			Array(5).fill(2), // 地面: 全平地
-		]
-		// 所有样本都是"走"最优
-		return {
-			t,
-			indices: [0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 2, 2, 2, 2, 2], // 展平的地形
-			y: 0, // 最优动作是"走"
-		}
-	})
+printTestSuite("收敛性测试（使用 terrain-lab 实际数据）")
+
+const DATASET_SIZE = 500
+const TRAIN_STEPS = 1000
+const BATCH_SIZE = 32
+const LOG_INTERVAL = 100
+const CONVERGENCE_THRESHOLD = 70
+
+// 使用 terrain-lab 实际生成数据
+console.log("\n生成数据集...")
+const dataset = generateTerrainData(DATASET_SIZE, DEFAULT_TERRAIN_CONFIG)
+console.log(`数据集大小: ${dataset.length} 条`)
+
+if (dataset.length === 0) {
+	throw new Error("数据集生成失败，无法继续测试")
 }
 
-printTestSuite("收敛性测试")
-
-const DATASET_SIZE = 100
-const TRAIN_STEPS = 500
-const BATCH_SIZE = 16
-const CONVERGENCE_THRESHOLD = 60 // 收敛阈值：60%准确率/合法率
-
-const dataset = createTestDataset(DATASET_SIZE)
-const indices = dataset[0].indices // 所有样本相同
-
 // ========== 监督学习收敛测试 ==========
-console.log("\n--- 监督学习收敛测试 ---")
+console.log("\n========== 监督学习收敛测试 ==========")
 {
 	const net = createNet()
 	const initialResult = evaluateModel(net, dataset)
-	console.log(`初始状态: 准确率 ${initialResult.accuracy.toFixed(1)}%, 损失 ${initialResult.avgLoss.toFixed(4)}`)
+	console.log(`[Step 0] 准确率: ${initialResult.accuracy.toFixed(1)}%, 损失: ${initialResult.avgLoss.toFixed(4)}`)
 
-	// 训练
+	let bestAcc = initialResult.accuracy
+	let bestLoss = initialResult.avgLoss
+
 	for (let step = 0; step < TRAIN_STEPS; step++) {
 		const buffer = createGradientBuffer()
 		
@@ -54,77 +45,124 @@ console.log("\n--- 监督学习收敛测试 ---")
 		}
 		
 		updateNetwork(net, buffer, 1)
+
+		if ((step + 1) % LOG_INTERVAL === 0) {
+			const result = evaluateModel(net, dataset)
+			const improved = result.accuracy > bestAcc || (result.accuracy === bestAcc && result.avgLoss < bestLoss)
+			const mark = improved ? "↑" : "→"
+			console.log(`[Step ${step + 1}] 准确率: ${result.accuracy.toFixed(1)}%, 损失: ${result.avgLoss.toFixed(4)} ${mark}`)
+			bestAcc = Math.max(bestAcc, result.accuracy)
+			bestLoss = Math.min(bestLoss, result.avgLoss)
+		}
 	}
 
 	const finalResult = evaluateModel(net, dataset)
-	console.log(`训练后: 准确率 ${finalResult.accuracy.toFixed(1)}%, 损失 ${finalResult.avgLoss.toFixed(4)}`)
+	console.log(`\n最终结果: 准确率 ${finalResult.accuracy.toFixed(1)}%, 损失: ${finalResult.avgLoss.toFixed(4)}`)
 	
 	assertGreaterThan(finalResult.accuracy, CONVERGENCE_THRESHOLD, 
 		`监督学习应收敛到 ${CONVERGENCE_THRESHOLD}% 以上准确率`)
 }
 
 // ========== 无监督学习收敛测试 ==========
-console.log("\n--- 无监督学习收敛测试 ---")
+console.log("\n========== 无监督学习收敛测试 ==========")
 {
 	const net = createNet()
 	
-	// 评估初始合法率
-	let initialValid = 0
-	for (const sample of dataset) {
-		const fp = forward(net, sample.indices)
-		const action = fp.o.indexOf(Math.max(...fp.o))
-		// 在这个简单地形中，只有"走"是合法的
-		initialValid += (action === 0) ? 1 : 0
+	// 使用 terrain-lab 实际的合法性检查
+	function evaluateUnsupervised(currentNet: typeof net, data: DatasetItem[]) {
+		let validCount = 0
+		for (const sample of data) {
+			const fp = forward(currentNet, sample.indices)
+			const predictedAction = fp.o.indexOf(Math.max(...fp.o))
+			
+			// 使用 terrain-lab 实际的合法性检查
+			const heroCol = findHeroCol(sample.t)
+			const checks = getActionChecks(sample.t, heroCol)
+			const isValid = isActionValidByChecks(checks, predictedAction)
+			
+			if (isValid) validCount++
+		}
+		return {
+			validRate: (validCount / data.length) * 100,
+			avgMaxProb: data.reduce((sum, s) => {
+				const fp = forward(currentNet, s.indices)
+				return sum + Math.max(...fp.o)
+			}, 0) / data.length,
+		}
 	}
-	const initialValidRate = (initialValid / dataset.length) * 100
-	console.log(`初始状态: 合法率 ${initialValidRate.toFixed(1)}%`)
 
-	// 训练（无监督）
+	const initialResult = evaluateUnsupervised(net, dataset)
+	console.log(`[Step 0] 合法率: ${initialResult.validRate.toFixed(1)}%, 平均最大概率: ${initialResult.avgMaxProb.toFixed(4)}`)
+
+	// 动态探索率状态
+	const history: number[] = []
+	let epsilon = 0.5
+
 	for (let step = 0; step < TRAIN_STEPS; step++) {
 		const buffer = createUnsupervisedBuffer()
 		
 		for (let b = 0; b < BATCH_SIZE; b++) {
 			const sample = dataset[Math.floor(Math.random() * dataset.length)]
 			const fp = forward(net, sample.indices)
-			const action = fp.o.indexOf(Math.max(...fp.o))
 			
-			// 评估动作
-			const isValid = (action === 0) // 只有"走"合法
-			const isOptimal = isValid
+			// ε-贪心选择动作
+			let action: number
+			if (Math.random() < epsilon) {
+				action = Math.floor(Math.random() * 4)
+			} else {
+				action = fp.o.indexOf(Math.max(...fp.o))
+			}
+			
+			// 使用 terrain-lab 实际的标签和合法性检查
+			const heroCol = findHeroCol(sample.t)
+			const checks = getActionChecks(sample.t, heroCol)
+			const isValid = isActionValidByChecks(checks, action)
+			const optimalAction = getLabel(sample.t)
+			const isOptimal = (action === optimalAction)
 			
 			const evaluation = calculateReward(action, isValid, isOptimal, UNSUPERVISED_CONFIG)
 			accumulateGradients(buffer, net, sample.indices, evaluation, BATCH_SIZE)
 		}
 		
 		updateNetwork(net, buffer, 1)
+
+		if ((step + 1) % LOG_INTERVAL === 0) {
+			const result = evaluateUnsupervised(net, dataset)
+			
+			// 动态调整探索率
+			history.push(result.validRate)
+			if (history.length > 5) history.shift()
+			
+			if (history.length >= 5) {
+				const avg = history.slice(0, -1).reduce((a, b) => a + b, 0) / (history.length - 1)
+				if (result.validRate > avg + 1) {
+					epsilon = Math.max(0.1, epsilon - 0.015)
+				} else if (result.validRate < avg - 1) {
+					epsilon = Math.min(0.6, epsilon + 0.015)
+				} else {
+					epsilon = Math.max(0.1, epsilon - 0.005)
+				}
+			}
+			
+			console.log(`[Step ${step + 1}] 合法率: ${result.validRate.toFixed(1)}%, 最大概率: ${result.avgMaxProb.toFixed(4)}, ε: ${epsilon.toFixed(2)}`)
+		}
 	}
 
-	// 评估最终合法率
-	let finalValid = 0
-	for (const sample of dataset) {
-		const fp = forward(net, sample.indices)
-		const action = fp.o.indexOf(Math.max(...fp.o))
-		finalValid += (action === 0) ? 1 : 0
-	}
-	const finalValidRate = (finalValid / dataset.length) * 100
-	console.log(`训练后: 合法率 ${finalValidRate.toFixed(1)}%`)
+	const finalResult = evaluateUnsupervised(net, dataset)
+	console.log(`\n最终结果: 合法率 ${finalResult.validRate.toFixed(1)}%, 平均最大概率: ${finalResult.avgMaxProb.toFixed(4)}`)
 
-	// 这个测试可能会失败，用来暴露问题
-	try {
-		assertGreaterThan(finalValidRate, CONVERGENCE_THRESHOLD,
-			`无监督学习应收敛到 ${CONVERGENCE_THRESHOLD}% 以上合法率`)
-		console.log("✅ 无监督学习收敛测试通过")
-	} catch (e) {
-		console.error("❌ 无监督学习未能收敛！")
+	if (finalResult.validRate < CONVERGENCE_THRESHOLD) {
+		console.error("\n❌ 无监督学习未能达到收敛阈值")
 		console.error(`   期望: > ${CONVERGENCE_THRESHOLD}%`)
-		console.error(`   实际: ${finalValidRate.toFixed(1)}%`)
-		console.error("\n可能的原因:")
-		console.error("1. 奖励信号太弱")
-		console.error("2. 探索率衰减过快")
-		console.error("3. 概率重新分配逻辑有问题")
-		console.error("4. 需要更多训练步数")
+		console.error(`   实际: ${finalResult.validRate.toFixed(1)}%`)
+		console.error("\n可能原因:")
+		console.error("- 探索率参数需要调优")
+		console.error("- 奖励值需要调整")
+		console.error("- 需要更多训练步数")
 		throw new Error("无监督学习收敛测试失败")
 	}
+	
+	console.log(`✅ 无监督学习收敛到 ${finalResult.validRate.toFixed(1)}%`)
 }
 
 printTestComplete()
