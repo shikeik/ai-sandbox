@@ -1,0 +1,174 @@
+/* ---------- 通用控制台面板 ---------- */
+.console-panel {
+	height: 0;
+	background: rgba(15, 15, 35, 0.98);
+	border: 1px solid transparent;
+	border-radius: 0 0 8px 8px;
+	overflow: hidden;
+	transition: height 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+				border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+	display: flex;
+	flex-direction: column;
+	flex-shrink: 0;
+	z-index: 3000;
+}
+
+.console-panel.open {
+	height: min(360px, 40vh);
+	border-color: #2c2f36;
+}
+
+/* fox-jump 全屏场景下可以外部覆盖为 height: 22% */
+
+.console-toolbar {
+	height: 32px;
+	flex-shrink: 0;
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	gap: 8px;
+	padding: 0 12px;
+	background: rgba(0, 0, 0, 0.25);
+	border-bottom: 1px solid rgba(0, 255, 0, 0.15);
+	position: relative;
+}
+
+.console-btn {
+	padding: 4px 8px;
+	font-size: 11px;
+	background: #2c2f36;
+	border: 1px solid #3c4043;
+	color: #e8eaed;
+	border-radius: 4px;
+	cursor: pointer;
+	transition: background 0.15s, border-color 0.15s;
+}
+
+.console-btn:hover {
+	background: #3c4043;
+}
+
+.console-btn.active {
+	border-color: #0f0;
+	background: rgba(0, 255, 0, 0.1);
+}
+
+.console-content {
+	flex: 1;
+	width: 100%;
+	padding: 8px 12px;
+	overflow-y: auto;
+	-webkit-overflow-scrolling: touch;
+	overscroll-behavior: contain;
+	font-family: 'Courier New', monospace;
+	font-size: 11px;
+	line-height: 1.5;
+	color: rgba(255, 255, 255, 0.85);
+	white-space: pre-wrap;
+	word-break: break-word;
+}
+
+.console-content::-webkit-scrollbar {
+	width: 4px;
+}
+
+.console-content::-webkit-scrollbar-thumb {
+	background: rgba(0, 255, 0, 0.3);
+	border-radius: 2px;
+}
+
+.console-line {
+	margin-bottom: 4px;
+}
+
+.console-line.log  { color: rgba(255, 255, 255, 0.85); }
+.console-line.warn { color: #f39c12; }
+.console-line.error { color: #e74c3c; }
+.console-line.info { color: #4ecdc4; }
+
+.console-stack {
+	padding-left: 8px;
+	margin-top: 2px;
+	white-space: pre-wrap;
+	color: rgba(231, 76, 60, 0.8);
+	font-size: 9px;
+	border-left: 2px solid rgba(231, 76, 60, 0.4);
+}
+
+/* ---------- 日志筛选菜单 ---------- */
+.console-filter-menu {
+	position: absolute;
+	top: 30px;
+	right: 4px;
+	width: 160px;
+	max-height: 240px;
+	background: #0f0f23;
+	border: 1px solid #0f0;
+	border-radius: 4px;
+	z-index: 3100;
+	display: none;
+	flex-direction: column;
+	overflow: hidden;
+	box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+}
+
+.console-filter-menu.open {
+	display: flex;
+}
+
+.console-filter-header {
+	display: flex;
+	gap: 6px;
+	padding: 6px 8px;
+	border-bottom: 1px solid rgba(0, 255, 0, 0.2);
+	flex-shrink: 0;
+}
+
+.console-filter-header-btn {
+	flex: 1;
+	padding: 3px 0;
+	background: #222;
+	border: 1px solid #0f0;
+	color: #0f0;
+	font-size: 10px;
+	cursor: pointer;
+	border-radius: 3px;
+	font-family: monospace;
+}
+
+.console-filter-header-btn:hover {
+	background: #0f0;
+	color: #000;
+}
+
+.console-filter-list {
+	flex: 1;
+	overflow-y: auto;
+	padding: 4px 0;
+}
+
+.console-filter-item {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	padding: 4px 8px;
+	cursor: pointer;
+	font-size: 10px;
+	color: rgba(255, 255, 255, 0.85);
+	transition: background 0.1s;
+}
+
+.console-filter-item:hover {
+	background: rgba(0, 255, 0, 0.1);
+}
+
+.console-filter-item input[type="checkbox"] {
+	accent-color: #0f0;
+	width: 12px;
+	height: 12px;
+	cursor: pointer;
+}
+
+.console-filter-tag {
+	font-family: 'Courier New', monospace;
+}

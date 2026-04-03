@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>向量化参数演示</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Microsoft YaHei', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: #0b0c0f;
+            color: #e8eaed;
+            min-height: 100vh;
+            padding: 12px;
+        }
+        .back-nav {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            z-index: 1000;
+        }
+        .back-nav a {
+            text-decoration: none;
+            color: #9aa0a6;
+            font-size: 12px;
+            padding: 6px 10px;
+            border-radius: 6px;
+            border: 1px solid #2c2f36;
+            background: #16181d;
+        }
+        h1 {
+            text-align: center;
+            font-size: 18px;
+            margin: 32px 0 4px;
+            color: #8ab4f8;
+        }
+        .subtitle {
+            text-align: center;
+            color: #9aa0a6;
+            font-size: 11px;
+            margin-bottom: 14px;
+        }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
+            max-width: 960px;
+            margin: 0 auto;
+        }
+        @media (max-width: 720px) {
+            .main-grid { grid-template-columns: 1fr; }
+        }
+
+        .panel {
+            background: #16181d;
+            border: 1px solid #2c2f36;
+            border-radius: 10px;
+            padding: 12px;
+        }
+        .panel-title {
+            font-size: 12px;
+            color: #8ab4f8;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
+        /* 编辑器 canvas */
+        #editor-canvas {
+            width: 100%;
+            height: 200px;
+            background: #0b0c0f;
+            border-radius: 8px;
+            display: block;
+            cursor: crosshair;
+        }
+
+        /* 规则说明 */
+        .rule-box {
+            margin-top: 10px;
+            font-size: 10px;
+            color: #9aa0a6;
+            line-height: 1.7;
+            background: #0b0c0f;
+            padding: 10px;
+            border-radius: 6px;
+        }
+        .rule-box b { color: #e8eaed; }
+
+        /* 画笔栏 */
+        .brush-panel {
+            margin-top: 10px;
+        }
+        .brush-title {
+            font-size: 10px;
+            color: #9aa0a6;
+            margin-bottom: 8px;
+            text-align: center;
+        }
+        .brush-list {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        .brush-item {
+            width: 48px;
+            height: 48px;
+            border-radius: 8px;
+            border: 1px solid #3c4043;
+            background: #0b0c0f;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: border-color .15s, background .15s;
+            user-select: none;
+        }
+        .brush-item:hover { border-color: #5f6368; }
+        .brush-item.active {
+            border-color: #8ab4f8;
+            background: #1a2332;
+            box-shadow: 0 0 0 1px #8ab4f8;
+        }
+        .brush-emoji { font-size: 18px; }
+        .brush-name { font-size: 9px; color: #bdc1c6; margin-top: 1px; }
+
+        .terrain-status {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 8px;
+            background: #0b0c0f;
+            border: 1px solid #2c2f36;
+            font-size: 11px;
+            line-height: 1.7;
+            min-height: 50px;
+        }
+
+        .btn-row {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        button {
+            border: none;
+            border-radius: 6px;
+            padding: 8px 12px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: opacity .2s;
+        }
+        button:disabled { opacity: .4; cursor: not-allowed; }
+        .btn-primary { background: #8ab4f8; color: #0b0c0f; }
+        .btn-accent { background: #f9ab00; color: #0b0c0f; }
+        .btn-secondary { background: #5f6368; color: #fff; }
+
+        /* MLP 可视化 */
+        #mlp-canvas {
+            width: 100%;
+            height: 200px;
+            background: #0b0c0f;
+            border-radius: 8px;
+            display: block;
+        }
+        .prob-bars {
+            margin-top: 10px;
+            background: #0b0c0f;
+            padding: 10px;
+            border-radius: 6px;
+        }
+        .prob-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 6px;
+            font-size: 11px;
+        }
+        .prob-row:last-child { margin-bottom: 0; }
+        .prob-name { width: 40px; color: #bdc1c6; }
+        .prob-track {
+            flex: 1;
+            height: 10px;
+            background: #2c2f36;
+            border-radius: 5px;
+            overflow: hidden;
+        }
+        .prob-fill {
+            height: 100%;
+            background: #8ab4f8;
+            border-radius: 5px;
+            transition: width .2s;
+        }
+        .prob-val { width: 36px; text-align: right; color: #8ab4f8; }
+
+        .metric {
+            font-size: 11px;
+            color: #9aa0a6;
+            margin-top: 4px;
+        }
+        .metric span { color: #e8eaed; font-weight: 500; }
+        .progress-wrap {
+            height: 6px;
+            background: #2c2f36;
+            border-radius: 3px;
+            margin-top: 6px;
+            overflow: hidden;
+        }
+        .progress-bar {
+            height: 100%;
+            background: #8ab4f8;
+            width: 0%;
+            transition: width .2s;
+        }
+
+        .exam-result {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 8px;
+            background: #0b0c0f;
+            font-size: 12px;
+            line-height: 1.6;
+        }
+        .exam-result.ok { border: 1px solid #34a853; }
+        .exam-result.bad { border: 1px solid #ea4335; }
+        .exam-result.wait { border: 1px solid #2c2f36; }
+    </style>
+</head>
+<body>
+    <div class="back-nav"><a href="/index.html">← 返回导航</a></div>
+    <h1>🧮 向量化参数演示</h1>
+    <p class="subtitle">监督学习：给定地形 → MLP 学习最优动作</p>
+
+    <div class="main-grid">
+        <!-- 左栏：环境编辑器区域 -->
+        <div class="panel">
+            <!-- 上：编辑预览视图 -->
+            <div class="panel-title" id="editor-title">编辑预览视图 — 点击绘制，狐狸可在任意列</div>
+            <canvas id="editor-canvas"></canvas>
+
+            <!-- 中：规则答案说明 -->
+            <div class="rule-box">
+                <b>规则答案逻辑：</b><br>
+                走：前1地面=平地 + 前1天上≠恶魔 + 前1地上≠史莱姆<br>
+                跳：前1天上≠恶魔 + <b>前2地面=平地</b> + 前2天上≠恶魔 + 前2地上≠史莱姆<br>
+                远跳：前1/前2天上≠恶魔 + <b>前3地面=平地</b> + 前3天上≠恶魔 + 前3地上≠史莱姆<br>
+                走A：前1地面=平地（击杀同层史莱姆，对天上恶魔无效）<br>
+                优先级：走 → 跳 → 远跳 → 走A
+            </div>
+
+            <!-- 中：Tile选择区 -->
+            <div class="brush-panel">
+                <div class="brush-title">选中画笔后点击上方格子绘制</div>
+                <div class="brush-list" id="brush-list"></div>
+            </div>
+
+            <!-- 下：验收/考试区 -->
+            <div class="panel-title" style="margin-top:14px">验收 / 考试</div>
+            <div class="btn-row">
+                <button class="btn-primary" onclick="predict()">验收预测</button>
+                <button class="btn-secondary" onclick="resetView()">刷新视图</button>
+                <button class="btn-secondary" onclick="validateTerrain()">合法性检查</button>
+                <button class="btn-secondary" onclick="randomTerrain()">随机地形</button>
+            </div>
+            <div class="terrain-status" id="terrain-status">
+                点击「合法性检查」查看当前地形是否可解，或点击「验收预测」开始验收
+            </div>
+        </div>
+
+        <!-- 右栏：MLP网络区域 -->
+        <div class="panel">
+            <!-- 上：MLP网络图 -->
+            <div class="panel-title" id="mlp-title">MLP 网络状态</div>
+            <canvas id="mlp-canvas"></canvas>
+
+            <!-- 中：概率条 -->
+            <div class="prob-bars" id="prob-bars">
+                <div class="prob-row"><div class="prob-name">走</div><div class="prob-track"><div class="prob-fill" style="width:0%"></div></div><div class="prob-val">0%</div></div>
+                <div class="prob-row"><div class="prob-name">跳</div><div class="prob-track"><div class="prob-fill" style="width:0%"></div></div><div class="prob-val">0%</div></div>
+                <div class="prob-row"><div class="prob-name">远跳</div><div class="prob-track"><div class="prob-fill" style="width:0%"></div></div><div class="prob-val">0%</div></div>
+                <div class="prob-row"><div class="prob-name">走A</div><div class="prob-track"><div class="prob-fill" style="width:0%"></div></div><div class="prob-val">0%</div></div>
+            </div>
+
+            <!-- 下：训练控制台 -->
+            <div class="panel-title" style="margin-top:14px">训练控制台</div>
+            <div class="btn-row">
+                <button class="btn-primary" onclick="generateData()">生成数据</button>
+                <button class="btn-accent" onclick="trainBatch()" id="btn-train" disabled>训练100步+预测</button>
+                <button class="btn-secondary" onclick="resetNet()">重置网络</button>
+            </div>
+            <div class="metric">数据集: <span id="data-count">0</span> 条</div>
+            <div class="metric">训练步数: <span id="step-count">0</span></div>
+            <div class="metric">准确率: <span id="acc-display">-</span></div>
+            <div class="metric">损失: <span id="loss-display">-</span></div>
+            <div class="progress-wrap"><div class="progress-bar" id="train-progress"></div></div>
+            <div class="exam-result wait" id="exam-box" style="margin-top:10px;">
+                点击「生成数据」开始生成训练集
+            </div>
+        </div>
+    </div>
+
+    <!-- 控制台挂载点 -->
+    <div id="console-mount" style="margin-top:14px; max-width:960px; margin-left:auto; margin-right:auto; background:#16181d; border:1px solid #2c2f36; border-radius:10px; overflow:hidden;"></div>
+
+    <script type="module" src="/src/terrain-lab/main.ts"></script>
+</body>
+</html>

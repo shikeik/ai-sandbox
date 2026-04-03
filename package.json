@@ -5,11 +5,20 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "prebuild": "npm run type-check && npm run lint",
     "build": "vite build",
     "build:single": "node scripts/build-single-file.mjs",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "type-check": "node node_modules/typescript/bin/tsc --noEmit",
+    "lint": "eslint src/",
+    "lint:fix": "eslint src/ --fix"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@typescript-eslint/eslint-plugin": "^8.58.0",
+    "@typescript-eslint/parser": "^8.58.0",
+    "eslint": "^10.1.0",
+    "typescript": "^6.0.2",
     "vite": "^5.0.0"
   }
 }

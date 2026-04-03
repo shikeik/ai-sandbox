@@ -1,0 +1,33 @@
+{
+	"compilerOptions": {
+		"target": "ES2020",
+		"useDefineForClassFields": true,
+		"module": "ESNext",
+		"lib": ["ES2020", "DOM", "DOM.Iterable"],
+		"skipLibCheck": true,
+		"ignoreDeprecations": "6.0",
+
+		"moduleResolution": "bundler",
+		"allowImportingTsExtensions": true,
+		"resolveJsonModule": true,
+		"isolatedModules": true,
+		"noEmit": true,
+
+		"strict": true,
+		"noFallthroughCasesInSwitch": true,
+
+		"baseUrl": ".",
+		"paths": {
+			"@engine/*": ["src/engine/*"],
+			"@fox-jump/*": ["src/fox-jump/*"],
+			"@game/*": ["src/fox-jump/game/*"],
+			"@render/*": ["src/fox-jump/render/*"],
+			"@ai/*": ["src/fox-jump/ai/*"],
+			"@views/*": ["src/fox-jump/views/*"],
+			"@utils/*": ["src/fox-jump/utils/*"],
+			"@managers/*": ["src/fox-jump/managers/*"]
+		}
+	},
+	"include": ["src/**/*.ts"],
+	"references": [{ "path": "./tsconfig.node.json" }]
+}
