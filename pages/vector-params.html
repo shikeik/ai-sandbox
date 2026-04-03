@@ -289,7 +289,16 @@
                 <div class="brush-list" id="brush-list">
                     <!-- JS 生成 -->
                 </div>
-                <div class="brush-hint" id="brush-hint">点击画笔选择，灰色笔刷表示不能绘制在当前层</div>
+                <div class="brush-hint" id="brush-hint">点击画笔选择，点击上方格子绘制</div>
+            </div>
+
+            <div class="terrain-status" id="terrain-status" style="margin-top:10px;padding:10px;border-radius:8px;background:#0b0c0f;border:1px solid #2c2f36;font-size:12px;line-height:1.6;min-height:40px;display:flex;align-items:center;justify-content:center;color:#9aa0a6;">
+                点击下方按钮检查当前地形合法性或随机生成地形
+            </div>
+
+            <div class="btn-row" style="margin-top:10px;justify-content:center;">
+                <button class="btn-secondary" onclick="checkValidity()">合法性检查</button>
+                <button class="btn-secondary" onclick="randomTerrain()">随机地形</button>
             </div>
 
             <div class="rule-box">
@@ -333,8 +342,6 @@
             <div class="panel-title" style="margin-top:14px">验收 / 考试</div>
             <div class="btn-row">
                 <button class="btn-primary" onclick="predict()">预测当前地形</button>
-                <button class="btn-secondary" onclick="checkValidity()">合法性检查</button>
-                <button class="btn-secondary" onclick="randomTerrain()">随机地形</button>
             </div>
             <div class="exam-result wait" id="exam-box">
                 点击"预测当前地形"开始验收
@@ -366,9 +373,9 @@
 
         // ========== 状态 ==========
         let terrain = [
-            [3, 0, 0, 0], // 天上
-            [2, 0, 0, 0], // 地上
-            [1, 0, 0, 0]  // 地面
+            [0, 0, 0, 0], // 天上: 空气
+            [0, 0, 0, 0], // 地上: 空气
+            [1, 0, 0, 0]  // 地面: 平地
         ];
         let selectedBrush = 0; // 默认选空气
         let dataset = [];
@@ -614,9 +621,26 @@
             if (checks.canCrouch) reasons.push('可下蹲');
 
             if (valid) {
-                updateExam(`✅ 当前地形合法<br>可选动作: ${reasons.join(' / ')}`, 'ok');
+                updateTerrainStatus('ok', `✅ 当前地形合法<br>可选动作: <b>${reasons.join(' / ')}</b>`);
             } else {
-                updateExam(`❌ 当前地形无解（死局）<br>前1格: 天上${ELEMENTS[terrain[0][0]].name} + 地上${ELEMENTS[terrain[1][0]].name} + 地面${ELEMENTS[terrain[2][0]].name}<br>走/跳/远跳/下蹲 全部不满足安全条件`, 'bad');
+                updateTerrainStatus('bad', `❌ 当前地形无解（死局）<br>前1格: 天上${ELEMENTS[terrain[0][0]].name} + 地上${ELEMENTS[terrain[1][0]].name} + 地面${ELEMENTS[terrain[2][0]].name}`);
+            }
+        }
+
+        function updateTerrainStatus(cls, html) {
+            const box = document.getElementById('terrain-status');
+            box.innerHTML = html;
+            box.style.color = '#e8eaed';
+            if (cls === 'ok') {
+                box.style.borderColor = '#34a853';
+                box.style.background = '#0d1f12';
+            } else if (cls === 'bad') {
+                box.style.borderColor = '#ea4335';
+                box.style.background = '#1f0d0d';
+            } else {
+                box.style.borderColor = '#2c2f36';
+                box.style.background = '#0b0c0f';
+                box.style.color = '#9aa0a6';
             }
         }
 
@@ -636,13 +660,19 @@
         }
 
         function randomTerrain() {
-            terrain = [
-                [randElem(0), randElem(0), randElem(0), randElem(0)],
-                [randElem(1), randElem(1), randElem(1), randElem(1)],
-                [randElem(2), randElem(2), randElem(2), randElem(2)]
-            ];
+            let attempts = 0;
+            do {
+                terrain = [
+                    [randElem(0), randElem(0), randElem(0), randElem(0)],
+                    [randElem(1), randElem(1), randElem(1), randElem(1)],
+                    [randElem(2), randElem(2), randElem(2), randElem(2)]
+                ];
+                attempts++;
+            } while (!isValidTerrain(terrain) && attempts < 1000);
             renderTerrain();
-            predict();
+            updateTerrainStatus('wait', '已随机生成新地形，点击「预测当前地形」查看 AI 判断');
+            drawMLP(null);
+            updateProbs([0, 0, 0, 0]);
         }
 
         // ========== 地形编辑器 UI ==========
@@ -673,12 +703,12 @@
         function paintCell(r, c) {
             const allowed = LAYER_LIMITS[r];
             if (!allowed.includes(selectedBrush)) {
-                updateBrushHint(`❌ ${ELEMENTS[selectedBrush].name} 不能放在 ${ROW_NAMES[r]}层`);
+                updateTerrainStatus('bad', `❌ ${ELEMENTS[selectedBrush].name} 不能放在 ${ROW_NAMES[r]}层`);
                 return;
             }
             terrain[r][c] = selectedBrush;
             renderTerrain();
-            updateBrushHint('');
+            updateTerrainStatus('wait', '地形已更新，点击「合法性检查」或「预测当前地形」查看结果');
         }
 
         function renderBrushes() {
@@ -700,6 +730,8 @@
         function updateBrushHint(text) {
             document.getElementById('brush-hint').textContent = text || '点击画笔选择，点击上方格子绘制';
         }
+
+
 
         // ========== MLP Canvas 绘图 ==========
         function drawMLP(fp) {
