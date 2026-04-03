@@ -1,4 +1,4 @@
-import { globalLogger, LogEntry } from "../../utils/GlobalLogger.js"
+import { globalLogger, LogEntry } from "../utils/GlobalLogger.js"
 import "./console.css"
 
 export class ConsolePanel {

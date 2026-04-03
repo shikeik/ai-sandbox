@@ -18,12 +18,14 @@
 
 		"baseUrl": ".",
 		"paths": {
-			"@game/*": ["src/game/*"],
-			"@render/*": ["src/render/*"],
-			"@ai/*": ["src/ai/*"],
-			"@views/*": ["src/views/*"],
-			"@utils/*": ["src/utils/*"],
-			"@managers/*": ["src/managers/*"]
+			"@engine/*": ["src/engine/*"],
+			"@fox-jump/*": ["src/fox-jump/*"],
+			"@game/*": ["src/fox-jump/game/*"],
+			"@render/*": ["src/fox-jump/render/*"],
+			"@ai/*": ["src/fox-jump/ai/*"],
+			"@views/*": ["src/fox-jump/views/*"],
+			"@utils/*": ["src/fox-jump/utils/*"],
+			"@managers/*": ["src/fox-jump/managers/*"]
 		}
 	},
 	"include": ["src/**/*.ts"],

@@ -852,8 +852,8 @@ function easeOutQuad(t: number): number {
   return t * (2 - t)
 }
 
-import { globalLogger } from "./utils/GlobalLogger.js"
-import { ConsolePanel } from "./components/Console/ConsolePanel.js"
+import { globalLogger } from "../engine/utils/GlobalLogger.js"
+import { ConsolePanel } from "../engine/console/ConsolePanel.js"
 
 // ========== 初始化 ==========
 function init() {
