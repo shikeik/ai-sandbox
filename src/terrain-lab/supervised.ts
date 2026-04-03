@@ -1,0 +1,114 @@
+// ========== 监督学习核心逻辑（可测试封装）==========
+
+import type { NetParams, ForwardResult } from "./types.js"
+import { NUM_ELEMENTS, HIDDEN_DIM, INPUT_DIM, OUTPUT_DIM } from "./constants.js"
+import { forward, backward } from "./neural-network.js"
+
+// 梯度容器（与 Gradients 接口兼容）
+export interface GradientBuffer {
+	dEmbed: number[][]
+	dW1: number[][]
+	db1: number[]
+	dW2: number[][]
+	db2: number[]
+}
+
+// 训练统计
+export interface TrainingStats {
+	lossSum: number
+	correctCount: number
+}
+
+// 创建空梯度容器
+export function createGradientBuffer(): GradientBuffer {
+	return {
+		dEmbed: Array(NUM_ELEMENTS).fill(null).map(() => Array(2).fill(0)),
+		dW1: Array(HIDDEN_DIM).fill(null).map(() => Array(INPUT_DIM).fill(0)),
+		db1: Array(HIDDEN_DIM).fill(0),
+		dW2: Array(OUTPUT_DIM).fill(null).map(() => Array(HIDDEN_DIM).fill(0)),
+		db2: Array(OUTPUT_DIM).fill(0),
+	}
+}
+
+// 单样本监督学习梯度累积
+export function accumulateSupervisedGrad(
+	buffer: GradientBuffer,
+	net: NetParams,
+	indices: number[],
+	targetLabel: number,
+	batchSize: number
+): { loss: number; isCorrect: boolean } {
+	const fp = forward(net, indices)
+	const grad = backward(net, fp, targetLabel)
+
+	// 累积梯度
+	for (let e = 0; e < NUM_ELEMENTS; e++) {
+		for (let d = 0; d < 2; d++) {
+			buffer.dEmbed[e][d] += grad.dEmbed[e][d] / batchSize
+		}
+	}
+	for (let i = 0; i < HIDDEN_DIM; i++) {
+		for (let j = 0; j < INPUT_DIM; j++) {
+			buffer.dW1[i][j] += grad.dW1[i][j] / batchSize
+		}
+		buffer.db1[i] += grad.db1[i] / batchSize
+	}
+	for (let i = 0; i < OUTPUT_DIM; i++) {
+		for (let j = 0; j < HIDDEN_DIM; j++) {
+			buffer.dW2[i][j] += grad.dW2[i][j] / batchSize
+		}
+		buffer.db2[i] += grad.db2[i] / batchSize
+	}
+
+	// 计算损失和准确率
+	const loss = -Math.log(Math.max(fp.o[targetLabel], 1e-7))
+	const predicted = fp.o.indexOf(Math.max(...fp.o))
+	const isCorrect = predicted === targetLabel
+
+	return { loss, isCorrect }
+}
+
+// 评估模型在数据集上的性能
+export function evaluateModel(
+	net: NetParams,
+	dataset: { indices: number[]; y: number }[]
+): { accuracy: number; avgLoss: number } {
+	let correct = 0
+	let lossSum = 0
+
+	for (const sample of dataset) {
+		const fp = forward(net, sample.indices)
+		const predicted = fp.o.indexOf(Math.max(...fp.o))
+		if (predicted === sample.y) correct++
+		lossSum += -Math.log(Math.max(fp.o[sample.y], 1e-7))
+	}
+
+	return {
+		accuracy: (correct / dataset.length) * 100,
+		avgLoss: lossSum / dataset.length,
+	}
+}
+
+// 验证梯度缓冲区是否有效（测试用）
+export function isValidGradientBuffer(buffer: GradientBuffer): boolean {
+	const allValues = [
+		...buffer.dEmbed.flat(),
+		...buffer.dW1.flat(),
+		...buffer.db1,
+		...buffer.dW2.flat(),
+		...buffer.db2,
+	]
+	return allValues.every(v => !isNaN(v) && isFinite(v))
+}
+
+// 计算缓冲区总梯度幅值（测试用）
+export function getTotalGradientMagnitude(buffer: GradientBuffer): number {
+	const allValues = [
+		...buffer.dEmbed.flat(),
+		...buffer.dW1.flat(),
+		...buffer.db1,
+		...buffer.dW2.flat(),
+		...buffer.db2,
+	]
+	return allValues.reduce((sum, v) => sum + Math.abs(v), 0)
+}
