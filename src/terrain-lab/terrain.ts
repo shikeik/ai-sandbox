@@ -172,13 +172,14 @@ export function getActionChecks(t: number[][], heroCol: number): ActionChecks {
 	}
 }
 
+// 动作优先级（反转）：走A > 远跳 > 跳 > 走
 export function getLabel(t: number[][]): number {
 	const heroCol = findHeroCol(t)
 	const checks = getActionChecks(t, heroCol)
-	if (checks.canWalk.ok) return 0
-	if (checks.canJump.ok) return 1
-	if (checks.canLongJump.ok) return 2
-	if (checks.canWalkAttack.ok) return 3
+	if (checks.canWalkAttack.ok) return 3  // 走A最优
+	if (checks.canLongJump.ok) return 2    // 远跳次优
+	if (checks.canJump.ok) return 1        // 跳第三
+	if (checks.canWalk.ok) return 0        // 走最差
 	return -1
 }
 
