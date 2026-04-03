@@ -718,13 +718,13 @@ function drawMLP(fp: ForwardResult | null) {
 }
 
 // ========== 动画 ==========
-function stopAnimation() {
+function stopAnimation(keepSlimeKilled = false) {
   if (animId !== null) {
     cancelAnimationFrame(animId)
     animId = null
   }
   animAction = null
-  animSlimeKilled = false
+  if (!keepSlimeKilled) animSlimeKilled = false
   drawEditor()
 }
 
@@ -818,6 +818,9 @@ function stepAnimation(now: number) {
 
   if (t < 1) {
     animId = requestAnimationFrame(stepAnimation)
+  } else {
+    stopAnimation(true)
+    console.log("[ANIM] 动画自然结束，保留史莱姆击杀状态")
   }
 }
 
@@ -840,10 +843,26 @@ function init() {
   drawEditor()
   drawMLP(null)
   updateProbs([0, 0, 0, 0])
-  window.addEventListener("resize", () => {
-    drawEditor()
-    if (lastForwardResult) drawMLP(lastForwardResult)
+  const ro = new ResizeObserver((entries) => {
+    for (const entry of entries) {
+      const target = entry.target as HTMLCanvasElement
+      console.log(
+        "[RESIZE]",
+        target.id,
+        `size=${Math.round(entry.contentRect.width)}x${Math.round(entry.contentRect.height)}`,
+        `animAction=${animAction}`,
+        `animSlimeKilled=${animSlimeKilled}`,
+        `lastForwardResult=${!!lastForwardResult}`
+      )
+      if (target === editorCanvas) {
+        drawEditor()
+      } else if (target === mlpCanvas && lastForwardResult) {
+        drawMLP(lastForwardResult)
+      }
+    }
   })
+  ro.observe(editorCanvas)
+  ro.observe(mlpCanvas)
 
   // canvas 点击绘制
   editorCanvas.addEventListener("click", e => {
