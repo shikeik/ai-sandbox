@@ -471,31 +471,42 @@ function drawTerrainGrid(
       const x = startX + c * (cellW + gapX)
       const y = startY + r * (cellH + gapY)
       const isHeroCol = c === 0
-      const colors = ["#1a1a1a", "#2d4059", "#2f4f2f", "#4a1c1c", "#4a4a1c"]
 
-      if (isHeroCol) {
-        ctx.fillStyle = "#1a2332"
-      } else {
-        ctx.fillStyle = colors[t[r][c]]
+      // x0列无线框，其他列画线框
+      if (!isHeroCol) {
+        ctx.strokeStyle = "#3c4043"
+        ctx.lineWidth = 1
+        ctx.strokeRect(x, y, cellW, cellH)
       }
-      ctx.fillRect(x, y, cellW, cellH)
-
-      ctx.strokeStyle = isHeroCol ? "#2c3e50" : "#3c4043"
-      ctx.lineWidth = 1
-      ctx.strokeRect(x, y, cellW, cellH)
 
       if (dimNonInteractive && isHeroCol) {
         // 淡化主角列以突出可交互区
         ctx.fillStyle = "rgba(11,12,15,0.3)"
         ctx.fillRect(x, y, cellW, cellH)
       }
+    }
+  }
+
+  // 先画狐狸（层级低，会被后续元素遮挡）
+  if (showHero && heroCol !== undefined && heroRow !== undefined) {
+    const x = startX + heroCol * (cellW + gapX)
+    const y = startY + heroRow * (cellH + gapY)
+    drawEmoji(ctx, "🦊", x + cellW / 2, y + cellH / 2, Math.min(cellW, cellH) * 0.65)
+  }
+
+  // 再画其他元素（层级高，遮挡狐狸）
+  for (let r = 0; r < 3; r++) {
+    for (let c = 0; c < COLS; c++) {
+      const x = startX + c * (cellW + gapX)
+      const y = startY + r * (cellH + gapY)
+      const isHeroCol = c === 0
 
       // 画元素
       let emoji = ""
       if (isHeroCol) {
         if (r === 0) emoji = "⬜"
         else if (r === 2) emoji = "🟩"
-        // r===1 是狐狸，在动画中单独画
+        // r===1 狐狸已单独画
       } else {
         if (r === 1 && c === (hideSlimeAt ?? -1)) {
           // 史莱姆被击杀
@@ -504,11 +515,6 @@ function drawTerrainGrid(
         }
       }
       if (emoji) drawEmoji(ctx, emoji, x + cellW / 2, y + cellH / 2, Math.min(cellW, cellH) * 0.55)
-
-      // 画狐狸
-      if (showHero && heroCol === c && heroRow === r) {
-        drawEmoji(ctx, "🦊", x + cellW / 2, y + cellH / 2, Math.min(cellW, cellH) * 0.65)
-      }
     }
   }
 }
@@ -522,8 +528,9 @@ function drawEditor() {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
   ctx.clearRect(0, 0, rect.width, rect.height)
 
-  const cellW = 46
-  const cellH = 40
+  const cellSize = 44
+  const cellW = cellSize
+  const cellH = cellSize
   const gapX = 6
   const gapY = 6
   const gridW = COLS * cellW + (COLS - 1) * gapX
@@ -557,8 +564,9 @@ function drawEditor() {
 
 function getEditorCellAt(mx: number, my: number): { r: number; c: number } | null {
   const rect = editorCanvas.getBoundingClientRect()
-  const cellW = 46
-  const cellH = 40
+  const cellSize = 44
+  const cellW = cellSize
+  const cellH = cellSize
   const gapX = 6
   const gapY = 6
   const gridW = COLS * cellW + (COLS - 1) * gapX
@@ -584,7 +592,7 @@ function drawEmoji(ctx: CanvasRenderingContext2D, emoji: string, x: number, y: n
   ctx.font = `${Math.floor(size)}px sans-serif`
   ctx.textAlign = "center"
   ctx.textBaseline = "middle"
-  ctx.fillText(emoji, x, y + 2)
+  ctx.fillText(emoji, x, y)
 }
 
 // ========== MLP Canvas ==========
@@ -600,7 +608,9 @@ function drawMLP(fp: ForwardResult | null) {
   ctx.clearRect(0, 0, W, H)
 
   // 左侧：5x3 环境网格
-  const cellW = 28, cellH = 24, gapX = 4, gapY = 4
+  const cellSize = 28, gapX = 4, gapY = 4
+  const cellW = cellSize
+  const cellH = cellSize
   const gridW = COLS * cellW + (COLS - 1) * gapX
   const gridH = 3 * cellH + 2 * gapY
   const startX = 10
@@ -728,8 +738,9 @@ function stepAnimation(now: number) {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
   ctx.clearRect(0, 0, rect.width, rect.height)
 
-  const cellW = 46
-  const cellH = 40
+  const cellSize = 44
+  const cellW = cellSize
+  const cellH = cellSize
   const gapX = 6
   const gapY = 6
   const gridW = COLS * cellW + (COLS - 1) * gapX
