@@ -2,7 +2,7 @@ import type { NetParams, ForwardResult, DatasetItem } from "./types.js"
 import type { AnimationState } from "./animation.js"
 import { createNet } from "./neural-network.js"
 import { createAnimationState } from "./animation.js"
-import { NUM_COLS, NUM_LAYERS, ELEM_AIR, ELEM_HERO, ELEM_GROUND } from "./constants.js"
+import { NUM_COLS, NUM_LAYERS, ELEM_AIR, ELEM_HERO, ELEM_GROUND, DEFAULT_TERRAIN_CONFIG } from "./constants.js"
 
 // ========== 应用状态 ==========
 
@@ -10,12 +10,15 @@ export interface Snapshot {
 	step: number
 	net: NetParams
 	observedProbs?: number[]
+	acc?: number
+	loss?: number
 }
 
 export interface AppState {
 	// 地形
 	terrain: number[][]
 	selectedBrush: number
+	terrainConfig: import("./constants.js").TerrainConfig
 
 	// 数据集
 	dataset: DatasetItem[]
@@ -44,6 +47,7 @@ export function createInitialState(): AppState {
 			[ELEM_GROUND, ELEM_GROUND, ...Array(NUM_COLS - 2).fill(ELEM_AIR)], // 地面
 		],
 		selectedBrush: ELEM_AIR,
+		terrainConfig: { ...DEFAULT_TERRAIN_CONFIG },
 		dataset: [],
 		trainSteps: 0,
 		net: createNet(),

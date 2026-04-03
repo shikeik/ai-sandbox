@@ -36,6 +36,37 @@ export const OUTPUT_DIM = 4        // 输出层动作数
 // 派生常量
 export const INPUT_DIM = NUM_COLS * NUM_LAYERS * EMBED_DIM     // 30 = 5×3×2
 
+// ========== 地形配置 ==========
+export interface TerrainConfig {
+	groundOnly: boolean // true = 地面层只有平地（无坑）
+	slime: boolean
+	demon: boolean
+	coin: boolean
+}
+
+export const DEFAULT_TERRAIN_CONFIG: TerrainConfig = {
+	groundOnly: false,
+	slime: true,
+	demon: true,
+	coin: true,
+}
+
+export const CURRICULUM_STAGES: { name: string; config: TerrainConfig }[] = [
+	{ name: "阶段1：平地大道", config: { groundOnly: true, slime: false, demon: false, coin: false } },
+	{ name: "阶段2：小心坑洞", config: { groundOnly: false, slime: false, demon: false, coin: false } },
+	{ name: "阶段3：史莱姆出没", config: { groundOnly: false, slime: true, demon: false, coin: false } },
+	{ name: "阶段4：天降恶魔", config: { groundOnly: false, slime: true, demon: true, coin: false } },
+	{ name: "阶段5：金币干扰", config: { groundOnly: false, slime: true, demon: true, coin: true } },
+]
+
+// ========== 可视化常量 ==========
+// embedding 元素点大小由全局 R 值缩放：factor = base - sensitivity * (maxAbs - offset)
+export const EMBED_SIZE_BASE = 1.8
+export const EMBED_SIZE_SENSITIVITY = 0.1
+export const EMBED_SIZE_OFFSET = 0.5
+export const EMBED_SIZE_MIN = 0.6
+export const EMBED_SIZE_MAX = 2
+
 // ========== 其他常量 ==========
 export const ACTIONS: ActionType[] = ["走", "跳", "远跳", "走A"]
 export const ROW_NAMES = ["天上", "地上", "地面"]

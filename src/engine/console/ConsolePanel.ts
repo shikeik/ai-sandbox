@@ -25,6 +25,7 @@ export class ConsolePanel {
 	}
 
 	init(): void {
+		this.container.classList.add("console-panel")
 		this._renderInternals()
 		this.unsubscribe = this.logger.subscribe((entry) => this._appendEntry(entry))
 		// 回放已有日志

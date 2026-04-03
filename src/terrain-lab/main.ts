@@ -2,13 +2,14 @@ import type { ForwardResult, ActionType } from "./types.js"
 import type { AppState } from "./state.js"
 import {
 	NUM_COLS, NUM_LAYERS, NUM_ELEMENTS, HIDDEN_DIM, OUTPUT_DIM,
-	INPUT_DIM, ACTIONS, ELEM_AIR, ELEM_HERO, ELEM_GROUND, ELEM_SLIME, ELEM_DEMON, ELEM_COIN
+	INPUT_DIM, ACTIONS, ELEM_AIR, ELEM_HERO, ELEM_GROUND, ELEM_SLIME, ELEM_DEMON, ELEM_COIN,
+	CURRICULUM_STAGES, EMBED_SIZE_BASE, EMBED_SIZE_SENSITIVITY, EMBED_SIZE_OFFSET, EMBED_SIZE_MIN, EMBED_SIZE_MAX
 } from "./constants.js"
 import { zeroMat, zeroVec, easeOutQuad } from "./utils.js"
 import { forward, backward, updateNetwork, cloneNet } from "./neural-network.js"
 import {
 	terrainToIndices, findHeroCol, getActionChecks, getLabel,
-	generateTerrainData, generateRandomTerrain
+	isActionValidByChecks, generateTerrainData, generateRandomTerrain
 } from "./terrain.js"
 import { drawTerrainGrid, drawEmoji, getEditorCellAt } from "./renderer.js"
 import { calculateAnimationPath } from "./animation.js"
@@ -79,7 +80,7 @@ async function trainBatch() {
 	// 若快照为空，先保存初始状态（全局累积，不清空旧快照）
 	if (state.snapshots.length === 0) {
 		state.snapshots.push({ step: state.trainSteps, net: cloneNet(state.net) })
-		recordSnapshotProbs(0)
+		recordSnapshotStats(0)
 		state.selectedSnapshotIndex = 0
 	}
 
@@ -122,7 +123,7 @@ async function trainBatch() {
 			updateMetrics(lossSum / batchSize, (correct / batchSize) * 100, ((s + 1) / steps) * 100)
 			// 保存快照
 			state.snapshots.push({ step: state.trainSteps, net: cloneNet(state.net) })
-			recordSnapshotProbs(state.snapshots.length - 1)
+			recordSnapshotStats(state.snapshots.length - 1)
 			await new Promise(r => setTimeout(r, 1))
 		}
 	}
@@ -134,11 +135,28 @@ async function trainBatch() {
 	btn.disabled = false
 }
 
-function recordSnapshotProbs(snapshotIndex: number) {
-	if (!state.observedSample || snapshotIndex < 0 || snapshotIndex >= state.snapshots.length) return
+function recordSnapshotStats(snapshotIndex: number) {
+	if (snapshotIndex < 0 || snapshotIndex >= state.snapshots.length) return
 	const snap = state.snapshots[snapshotIndex]
-	const fp = forward(snap.net, state.observedSample.indices)
-	state.snapshots[snapshotIndex].observedProbs = fp.o.slice()
+
+	// 执念曲线概率
+	if (state.observedSample) {
+		const fp = forward(snap.net, state.observedSample.indices)
+		snap.observedProbs = fp.o.slice()
+	}
+
+	// 准确率与损失
+	if (state.dataset.length > 0) {
+		let correct = 0
+		let lossSum = 0
+		for (const sample of state.dataset) {
+			const fp = forward(snap.net, sample.indices)
+			if (fp.o.indexOf(Math.max(...fp.o)) === sample.y) correct++
+			lossSum += -Math.log(Math.max(fp.o[sample.y], 1e-7))
+		}
+		snap.acc = (correct / state.dataset.length) * 100
+		snap.loss = lossSum / state.dataset.length
+	}
 }
 
 function updateSnapshotSlider() {
@@ -156,8 +174,16 @@ function applySnapshot(index: number) {
 	if (index < 0 || index >= state.snapshots.length) return
 	state.selectedSnapshotIndex = index
 	state.net = cloneNet(state.snapshots[index].net)
+	const snap = state.snapshots[index]
 	const label = document.getElementById("snapshot-label")!
-	label.textContent = `步数 ${state.snapshots[index].step}`
+	label.textContent = `步数 ${snap.step}`
+	document.getElementById("step-count")!.textContent = String(snap.step)
+	if (snap.acc !== undefined) {
+		document.getElementById("acc-display")!.textContent = snap.acc.toFixed(1) + "%"
+	}
+	if (snap.loss !== undefined) {
+		document.getElementById("loss-display")!.textContent = snap.loss.toFixed(4)
+	}
 	predict()
 	drawObsessionCurve()
 }
@@ -192,7 +218,7 @@ function evaluateAll() {
 // ========== 数据生成 ==========
 
 function generateData() {
-	state.dataset = generateTerrainData(6000)
+	state.dataset = generateTerrainData(6000, state.terrainConfig)
 	updateMetrics(0)
 	document.getElementById("data-count")!.textContent = String(state.dataset.length)
 	const btn = document.getElementById("btn-train") as HTMLButtonElement
@@ -217,7 +243,7 @@ function setObservedFromTerrain() {
 	updateObsessionStatus(`观察样本：当前地形 | 规则答案：${ACTIONS[label]}`, "ok")
 	// 若有快照，重新计算所有快照对该样本的概率
 	for (let i = 0; i < state.snapshots.length; i++) {
-		recordSnapshotProbs(i)
+		recordSnapshotStats(i)
 	}
 	drawObsessionCurve()
 }
@@ -231,7 +257,7 @@ function setObservedRandom() {
 	state.observedSample = sample
 	updateObsessionStatus(`观察样本：数据集第 ${state.dataset.indexOf(sample) + 1} 条 | 规则答案：${ACTIONS[sample.y]}`, "ok")
 	for (let i = 0; i < state.snapshots.length; i++) {
-		recordSnapshotProbs(i)
+		recordSnapshotStats(i)
 	}
 	drawObsessionCurve()
 }
@@ -267,30 +293,23 @@ function predict() {
 		return
 	}
 
-	// 判断预测动作是否合法
-	const isValid =
-		(pred === 0 && checks.canWalk.ok) ||
-		(pred === 1 && checks.canJump.ok) ||
-		(pred === 2 && checks.canLongJump.ok) ||
-		(pred === 3 && checks.canWalkAttack.ok)
+	// 统一使用与合法性检查同一数据源的判定函数
+	const isValid = isActionValidByChecks(checks, pred)
+	const lines: string[] = []
+	lines.push(`AI 预测: <b>${ACTIONS[pred]}</b> (置信度 ${conf}%)`)
+	lines.push(`规则答案: <b>${ACTIONS[correct]}</b>`)
 
 	if (isValid) {
 		if (pred === correct) {
-			updateTerrainStatus(
-				"ok",
-				`AI 预测: <b>${ACTIONS[pred]}</b> (置信度 ${conf}%)<br>规则答案: <b>${ACTIONS[correct]}</b> ✅ 最优`
-			)
+			lines.push("<span style='color:#34a853'>✅ 最优</span>")
+			updateTerrainStatus("ok", lines.join("<br>"))
 		} else {
-			updateTerrainStatus(
-				"ok",
-				`AI 预测: <b>${ACTIONS[pred]}</b> (置信度 ${conf}%)<br>规则答案: <b>${ACTIONS[correct]}</b> ✅ 合法（但非最优）`
-			)
+			lines.push("<span style='color:#f9ab00'>✅ 合法（但非最优）</span>")
+			updateTerrainStatus("ok", lines.join("<br>"))
 		}
 	} else {
-		updateTerrainStatus(
-			"bad",
-			`AI 预测: <b>${ACTIONS[pred]}</b> (置信度 ${conf}%)<br>规则答案: <b>${ACTIONS[correct]}</b> ❌ 非法`
-		)
+		lines.push("<span style='color:#ea4335'>❌ 非法</span>")
+		updateTerrainStatus("bad", lines.join("<br>"))
 	}
 
 	drawMLP(fp)
@@ -415,10 +434,21 @@ function updateProbs(probs: number[]) {
 
 // ========== 渲染器 ==========
 
+function getAllowedElementsForBrush(): number[] {
+	const cfg = state.terrainConfig
+	const allowed = [ELEM_AIR, ELEM_HERO, ELEM_GROUND]
+	if (cfg.slime) allowed.push(ELEM_SLIME)
+	if (cfg.demon) allowed.push(ELEM_DEMON)
+	if (cfg.coin) allowed.push(ELEM_COIN)
+	return allowed
+}
+
 function renderBrushes() {
 	const list = document.getElementById("brush-list") as HTMLDivElement
 	list.innerHTML = ""
+	const allowed = getAllowedElementsForBrush()
 	UI_ELEMENTS.forEach((el) => {
+		if (!allowed.includes(el.id)) return
 		const item = document.createElement("div")
 		item.className = "brush-item" + (el.id === state.selectedBrush ? " active" : "")
 		item.innerHTML = `<div class="brush-emoji">${el.emoji}</div><div class="brush-name">${el.name}</div>`
@@ -431,8 +461,67 @@ function renderBrushes() {
 	})
 }
 
+function renderTerrainConfig() {
+	const stageTabs = document.getElementById("stage-tabs")!
+	const swGroundOnly = document.getElementById("sw-ground-only") as HTMLInputElement
+	const swSlime = document.getElementById("sw-slime") as HTMLInputElement
+	const swDemon = document.getElementById("sw-demon") as HTMLInputElement
+	const swCoin = document.getElementById("sw-coin") as HTMLInputElement
+
+	const cfg = state.terrainConfig
+	let matchedStage = -1
+	for (let i = 0; i < CURRICULUM_STAGES.length; i++) {
+		const s = CURRICULUM_STAGES[i].config
+		if (
+			cfg.groundOnly === s.groundOnly &&
+			cfg.slime === s.slime &&
+			cfg.demon === s.demon &&
+			cfg.coin === s.coin
+		) {
+			matchedStage = i
+			break
+		}
+	}
+
+	stageTabs.innerHTML = ""
+	for (let i = 0; i < CURRICULUM_STAGES.length; i++) {
+		const btn = document.createElement("div")
+		btn.className = "stage-tab" + (i === matchedStage ? " active" : "")
+		btn.textContent = CURRICULUM_STAGES[i].name
+		btn.onclick = () => {
+			state.terrainConfig = { ...CURRICULUM_STAGES[i].config }
+			renderTerrainConfig()
+			renderBrushes()
+			updateTerrainStatus("wait", `已切换到「${CURRICULUM_STAGES[i].name}」，随机地形和生成数据将使用该配置`)
+		}
+		stageTabs.appendChild(btn)
+	}
+
+	swGroundOnly.checked = cfg.groundOnly
+	swSlime.checked = cfg.slime
+	swDemon.checked = cfg.demon
+	swCoin.checked = cfg.coin
+}
+
+function onConfigChange() {
+	const swGroundOnly = document.getElementById("sw-ground-only") as HTMLInputElement
+	const swSlime = document.getElementById("sw-slime") as HTMLInputElement
+	const swDemon = document.getElementById("sw-demon") as HTMLInputElement
+	const swCoin = document.getElementById("sw-coin") as HTMLInputElement
+
+	state.terrainConfig = {
+		groundOnly: swGroundOnly.checked,
+		slime: swSlime.checked,
+		demon: swDemon.checked,
+		coin: swCoin.checked,
+	}
+	renderTerrainConfig()
+	renderBrushes()
+	updateTerrainStatus("wait", "地形配置已更新")
+}
+
 function randomTerrain() {
-	state.terrain = generateRandomTerrain()
+	state.terrain = generateRandomTerrain(state.terrainConfig)
 	stopAnimation(state)
 	drawEditor()
 	updateTerrainStatus("wait", "已随机生成新地形，点击「预测当前地形」查看 AI 判断")
@@ -454,6 +543,147 @@ function resetNet() {
 	updateSnapshotSlider()
 	drawObsessionCurve()
 	updateObsessionStatus("未设置观察样本", "wait")
+	updateCurriculumUI()
+}
+
+// ========== 课程学习 ==========
+
+let curriculumStageIdx = 0
+let curriculumRunning = false
+
+function updateCurriculumUI() {
+	const status = document.getElementById("curriculum-status")!
+	const btnCurriculum = document.getElementById("btn-curriculum") as HTMLButtonElement
+	const btnNext = document.getElementById("btn-next-stage") as HTMLButtonElement
+
+	if (curriculumRunning) {
+		status.textContent = `当前阶段：${CURRICULUM_STAGES[curriculumStageIdx].name}（训练中…）`
+		btnCurriculum.disabled = true
+		btnNext.disabled = true
+		return
+	}
+
+	const stageName = CURRICULUM_STAGES[curriculumStageIdx]?.name ?? "已完成全部阶段"
+	status.textContent = `当前阶段：${stageName}`
+	btnCurriculum.disabled = false
+	btnNext.disabled = curriculumStageIdx >= CURRICULUM_STAGES.length - 1
+}
+
+async function runCurriculum() {
+	if (curriculumRunning) return
+	if (curriculumStageIdx >= CURRICULUM_STAGES.length) {
+		updateExam("已完成全部课程阶段！", "ok")
+		return
+	}
+
+	curriculumRunning = true
+	updateCurriculumUI()
+
+	// 应用当前阶段配置
+	state.terrainConfig = { ...CURRICULUM_STAGES[curriculumStageIdx].config }
+	renderTerrainConfig()
+	renderBrushes()
+
+	// 生成数据
+	state.dataset = generateTerrainData(6000, state.terrainConfig)
+	document.getElementById("data-count")!.textContent = String(state.dataset.length)
+	const btnTrain = document.getElementById("btn-train") as HTMLButtonElement
+	btnTrain.disabled = state.dataset.length === 0
+
+	// 清空旧快照，保留初始状态
+	state.snapshots = [{ step: state.trainSteps, net: cloneNet(state.net) }]
+	recordSnapshotStats(0)
+	state.selectedSnapshotIndex = 0
+	updateSnapshotSlider()
+
+	const targetAcc = 90
+	const maxTotalSteps = 3000
+	const batchSize = 32
+	const stepsPerBatch = 100
+	let achieved = false
+
+	while (state.trainSteps < maxTotalSteps) {
+		for (let s = 0; s < stepsPerBatch; s++) {
+			const gEmbed = zeroMat(NUM_ELEMENTS, 2)
+			const gW1 = zeroMat(HIDDEN_DIM, INPUT_DIM)
+			const gb1 = zeroVec(HIDDEN_DIM)
+			const gW2 = zeroMat(OUTPUT_DIM, HIDDEN_DIM)
+			const gb2 = zeroVec(OUTPUT_DIM)
+
+			for (let b = 0; b < batchSize; b++) {
+				const idx = Math.floor(Math.random() * state.dataset.length)
+				const sample = state.dataset[idx]
+				const fp = forward(state.net, sample.indices)
+				const grad = backward(state.net, fp, sample.y)
+
+				for (let e = 0; e < NUM_ELEMENTS; e++) {
+					for (let d = 0; d < 2; d++) gEmbed[e][d] += grad.dEmbed[e][d] / batchSize
+				}
+				for (let i = 0; i < HIDDEN_DIM; i++) {
+					for (let j = 0; j < INPUT_DIM; j++) gW1[i][j] += grad.dW1[i][j] / batchSize
+					gb1[i] += grad.db1[i] / batchSize
+				}
+				for (let i = 0; i < OUTPUT_DIM; i++) {
+					for (let j = 0; j < HIDDEN_DIM; j++) gW2[i][j] += grad.dW2[i][j] / batchSize
+					gb2[i] += grad.db2[i] / batchSize
+				}
+			}
+
+			updateNetwork(state.net, { dEmbed: gEmbed, dW1: gW1, db1: gb1, dW2: gW2, db2: gb2 }, 1)
+			state.trainSteps++
+		}
+
+		// 评估
+		let evalCorrect = 0
+		for (const sample of state.dataset) {
+			const fp = forward(state.net, sample.indices)
+			if (fp.o.indexOf(Math.max(...fp.o)) === sample.y) evalCorrect++
+		}
+		const acc = (evalCorrect / state.dataset.length) * 100
+		updateMetrics(0, acc, Math.min(state.trainSteps / maxTotalSteps, 1) * 100)
+
+		// 保存快照
+		state.snapshots.push({ step: state.trainSteps, net: cloneNet(state.net) })
+		recordSnapshotStats(state.snapshots.length - 1)
+		updateSnapshotSlider()
+		drawObsessionCurve()
+
+		// 检查是否达标
+		if (acc >= targetAcc) {
+			achieved = true
+			break
+		}
+
+		await new Promise(r => setTimeout(r, 1))
+	}
+
+	curriculumRunning = false
+	updateCurriculumUI()
+
+	if (achieved) {
+		updateExam(
+			`${CURRICULUM_STAGES[curriculumStageIdx].name} 训练完成！准确率 ≥ ${targetAcc}%，可进入下一阶段`,
+			"ok"
+		)
+	} else {
+		updateExam(
+			`${CURRICULUM_STAGES[curriculumStageIdx].name} 训练结束，未达到 ${targetAcc}% 准确率（当前：${document.getElementById("acc-display")!.textContent}）。建议重置网络再试一次。`,
+			"bad"
+		)
+	}
+
+	predict()
+}
+
+function nextCurriculumStage() {
+	if (curriculumStageIdx < CURRICULUM_STAGES.length - 1) {
+		curriculumStageIdx++
+		state.terrainConfig = { ...CURRICULUM_STAGES[curriculumStageIdx].config }
+		renderTerrainConfig()
+		renderBrushes()
+		updateCurriculumUI()
+		updateExam(`已进入 ${CURRICULUM_STAGES[curriculumStageIdx].name}，点击「开始课程训练」生成数据并训练`, "wait")
+	}
 }
 
 // ========== 编辑器绘制 ==========
@@ -634,7 +864,35 @@ function drawEmbedding() {
 
 	const cx = W / 2
 	const cy = H / 2
-	const scale = Math.min(W, H) / 4
+	const padding = 34
+	const availW = Math.max(W - padding * 2, 1)
+	const availH = Math.max(H - padding * 2, 1)
+
+	// 动态计算缩放因子，确保所有元素都在画布内
+	let maxAbs = 0
+	for (const el of UI_ELEMENTS) {
+		maxAbs = Math.max(maxAbs, Math.abs(state.net.embed[el.id][0]), Math.abs(state.net.embed[el.id][1]))
+	}
+	maxAbs = Math.max(maxAbs, 0.5) // 防止初始全在0附近时scale过大
+
+	const scaleX = availW / 2 / maxAbs
+	const scaleY = availH / 2 / maxAbs
+	const scale = Math.min(scaleX, scaleY)
+	const halfSide = maxAbs * scale
+
+	// 方形边界框（以最远元素为半径）
+	ctx.strokeStyle = "rgba(95,99,104,0.4)"
+	ctx.lineWidth = 1
+	ctx.setLineDash([4, 4])
+	ctx.strokeRect(cx - halfSide, cy - halfSide, halfSide * 2, halfSide * 2)
+	ctx.setLineDash([])
+
+	// 标注半径数值（画布右上角，远离元素）
+	ctx.fillStyle = "#5f6368"
+	ctx.font = "9px sans-serif"
+	ctx.textAlign = "right"
+	ctx.textBaseline = "top"
+	ctx.fillText(`R=${maxAbs.toFixed(2)}`, W - 6, 6)
 
 	// 坐标轴
 	ctx.strokeStyle = "#3c4043"
@@ -648,29 +906,36 @@ function drawEmbedding() {
 	ctx.lineTo(cx, cy + H / 2 - 10)
 	ctx.stroke()
 
+	// 全局大小系数：由外框半径 R 统一决定，R 越小整体越大，R 越大整体越小
+	const globalSizeFactor = Math.max(
+		EMBED_SIZE_MIN,
+		Math.min(EMBED_SIZE_MAX, EMBED_SIZE_BASE - EMBED_SIZE_SENSITIVITY * (maxAbs - EMBED_SIZE_OFFSET))
+	)
+
 	// 元素点
 	for (const el of UI_ELEMENTS) {
 		const ex = state.net.embed[el.id][0]
 		const ey = state.net.embed[el.id][1]
 		const px = cx + ex * scale
 		const py = cy - ey * scale
+		const r = 3 * globalSizeFactor
 
 		ctx.beginPath()
-		ctx.arc(px, py, 5, 0, Math.PI * 2)
+		ctx.arc(px, py, r, 0, Math.PI * 2)
 		ctx.fillStyle = "#8ab4f8"
 		ctx.fill()
 		ctx.strokeStyle = "#e8eaed"
 		ctx.lineWidth = 1
 		ctx.stroke()
 
-		ctx.font = "10px sans-serif"
+		ctx.font = `${Math.floor(9 * globalSizeFactor)}px sans-serif`
 		ctx.textAlign = "left"
 		ctx.textBaseline = "middle"
 		ctx.fillStyle = "#e8eaed"
-		ctx.fillText(el.emoji, px + 8, py)
+		ctx.fillText(el.emoji, px + r + 2, py)
 		ctx.fillStyle = "#9aa0a6"
-		ctx.font = "9px sans-serif"
-		ctx.fillText(el.name, px + 22, py)
+		ctx.font = `${Math.floor(8 * globalSizeFactor)}px sans-serif`
+		ctx.fillText(el.name, px + r + 2 + 11 * globalSizeFactor, py)
 	}
 }
 
@@ -868,6 +1133,8 @@ function init() {
 	}
 
 	renderBrushes()
+	renderTerrainConfig()
+	updateCurriculumUI()
 	drawEditor()
 	drawMLP(null)
 	drawEmbedding()
@@ -920,6 +1187,9 @@ function init() {
 	}
 	;(window as any).setObservedFromTerrain = setObservedFromTerrain
 	;(window as any).setObservedRandom = setObservedRandom
+	;(window as any).onConfigChange = onConfigChange
+	;(window as any).runCurriculum = runCurriculum
+	;(window as any).nextCurriculumStage = nextCurriculumStage
 
 	// 初始化控制台
 	const consolePanel = new ConsolePanel("#console-mount", logger)
@@ -932,12 +1202,24 @@ function init() {
 	;(window as any).downloadConsole = () => consolePanel.download()
 }
 
+function getAllowedElementsForLayer(layer: number): number[] {
+	const cfg = state.terrainConfig
+	const pool = [ELEM_AIR]
+	if (layer === 0) {
+		if (cfg.demon) pool.push(ELEM_DEMON)
+		if (cfg.coin) pool.push(ELEM_COIN)
+	} else if (layer === 1) {
+		pool.push(ELEM_HERO)
+		if (cfg.slime) pool.push(ELEM_SLIME)
+		if (cfg.coin) pool.push(ELEM_COIN)
+	} else if (layer === 2) {
+		pool.push(ELEM_GROUND)
+	}
+	return pool
+}
+
 function paintCell(r: number, c: number) {
-	const allowed = [
-		[ELEM_AIR, ELEM_DEMON, ELEM_COIN],
-		[ELEM_AIR, ELEM_HERO, 3, ELEM_COIN],
-		[ELEM_AIR, ELEM_GROUND],
-	][r]
+	const allowed = getAllowedElementsForLayer(r)
 	if (!allowed.includes(state.selectedBrush)) {
 		updateTerrainStatus("bad", `❌ 该元素不能放在 ${["天上", "地上", "地面"][r]}层`)
 		return
