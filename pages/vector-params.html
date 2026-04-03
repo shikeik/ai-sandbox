@@ -43,7 +43,7 @@
 
         .main-grid {
             display: grid;
-            grid-template-columns: 280px 1fr 280px;
+            grid-template-columns: 320px 1fr 280px;
             gap: 14px;
             max-width: 1100px;
             margin: 0 auto;
@@ -94,9 +94,9 @@
             font-size: 20px;
             cursor: pointer;
             user-select: none;
-            transition: transform .05s;
+            transition: transform .05s, border-color .15s;
         }
-        .terrain-cell:hover { border-color: #5f6368; }
+        .terrain-cell:hover { border-color: #8ab4f8; }
         .terrain-cell:active { transform: scale(0.95); }
         .col-labels {
             display: flex;
@@ -110,21 +110,68 @@
             font-size: 10px;
             color: #5f6368;
         }
-        .legend {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 6px;
-            margin-top: 10px;
-            justify-content: center;
+
+        /* 画笔栏 */
+        .brush-panel {
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid #2c2f36;
         }
-        .legend-item {
+        .brush-title {
             font-size: 10px;
-            color: #bdc1c6;
-            background: #0b0c0f;
-            padding: 3px 7px;
-            border-radius: 5px;
-            border: 1px solid #2c2f36;
+            color: #9aa0a6;
+            margin-bottom: 8px;
+            text-align: center;
         }
+        .brush-list {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        .brush-item {
+            width: 48px;
+            height: 48px;
+            border-radius: 8px;
+            border: 1px solid #3c4043;
+            background: #0b0c0f;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: border-color .15s, background .15s;
+            user-select: none;
+        }
+        .brush-item:hover { border-color: #5f6368; }
+        .brush-item.active {
+            border-color: #8ab4f8;
+            background: #1a2332;
+            box-shadow: 0 0 0 1px #8ab4f8;
+        }
+        .brush-item.disabled {
+            opacity: .35;
+            cursor: not-allowed;
+        }
+        .brush-emoji { font-size: 18px; }
+        .brush-name { font-size: 9px; color: #bdc1c6; margin-top: 1px; }
+        .brush-hint {
+            text-align: center;
+            font-size: 9px;
+            color: #5f6368;
+            margin-top: 6px;
+        }
+
+        .rule-box {
+            margin-top: 10px;
+            font-size: 10px;
+            color: #9aa0a6;
+            line-height: 1.7;
+            background: #0b0c0f;
+            padding: 8px;
+            border-radius: 6px;
+        }
+        .rule-box b { color: #e8eaed; }
 
         /* MLP 可视化 */
         #mlp-canvas {
@@ -215,16 +262,6 @@
         .exam-result.ok { border: 1px solid #34a853; }
         .exam-result.bad { border: 1px solid #ea4335; }
         .exam-result.wait { border: 1px solid #2c2f36; }
-        .rule-box {
-            margin-top: 10px;
-            font-size: 10px;
-            color: #9aa0a6;
-            line-height: 1.7;
-            background: #0b0c0f;
-            padding: 8px;
-            border-radius: 6px;
-        }
-        .rule-box b { color: #e8eaed; }
     </style>
 </head>
 <body>
@@ -245,19 +282,21 @@
                 <div class="col-label">前3</div>
                 <div class="col-label">前4</div>
             </div>
-            <div class="legend">
-                <span class="legend-item">🟩 平地</span>
-                <span class="legend-item">🕳️ 坑</span>
-                <span class="legend-item">💧 史莱姆</span>
-                <span class="legend-item">👿 恶魔</span>
-                <span class="legend-item">🪙 金币</span>
+
+            <div class="brush-panel">
+                <div class="brush-title">选中画笔后点击上方格子绘制</div>
+                <div class="brush-list" id="brush-list">
+                    <!-- JS 生成 -->
+                </div>
+                <div class="brush-hint" id="brush-hint">点击画笔选择，灰色笔刷表示不能绘制在当前层</div>
             </div>
+
             <div class="rule-box">
-                <b>规则答案逻辑：</b><br>
-                走安全 = 地面无坑 + 天上无恶魔 + 地上无史莱姆<br>
-                跳安全 = 天上无恶魔<br>
-                远跳安全 = 前1+前2 天上都无恶魔<br>
-                下蹲安全 = 地面无坑 + 地上无史莱姆<br>
+                <b>规则答案逻辑（基于前1格）：</b><br>
+                走：地面是平地 + 天上无恶魔 + 地上无史莱姆<br>
+                跳：天上无恶魔（可越过地面空气/地上怪物）<br>
+                远跳：前1+前2 天上都无恶魔<br>
+                下蹲：地面是平地 + 地上无史莱姆<br>
                 优先级：走 → 跳 → 远跳 → 下蹲
             </div>
         </div>
@@ -304,12 +343,18 @@
     <script>
         // ========== 常量 ==========
         const ELEMENTS = [
-            { id: 0, name: '平地', emoji: '🟩' },
-            { id: 1, name: '坑',   emoji: '🕳️' },
-            { id: 2, name: '史莱姆', emoji: '💧' },
-            { id: 3, name: '飞行恶魔', emoji: '👿' },
+            { id: 0, name: '空气', emoji: '⬜' },
+            { id: 1, name: '平地', emoji: '🟩' },
+            { id: 2, name: '史莱姆', emoji: '🦠' },
+            { id: 3, name: '恶魔', emoji: '👿' },
             { id: 4, name: '金币', emoji: '🪙' }
         ];
+        // 层限制：0=天上，1=地上，2=地面
+        const LAYER_LIMITS = {
+            0: [0, 3, 4],      // 空气, 恶魔, 金币
+            1: [0, 2, 4],      // 空气, 史莱姆, 金币
+            2: [0, 1]          // 空气, 平地
+        };
         const ACTIONS = ['走', '跳', '远跳', '下蹲'];
         const ROW_NAMES = ['天上', '地上', '地面'];
         const INPUT_DIM = 60;  // 4*3*5
@@ -320,9 +365,10 @@
         // ========== 状态 ==========
         let terrain = [
             [3, 0, 0, 0], // 天上
-            [0, 2, 0, 0], // 地上
-            [1, 1, 0, 0]  // 地面
+            [2, 0, 0, 0], // 地上
+            [1, 0, 0, 0]  // 地面
         ];
+        let selectedBrush = 0; // 默认选空气
         let dataset = [];
         let trainSteps = 0;
         let net = createNet();
@@ -393,15 +439,15 @@
         }
 
         function getLabel(t) {
-            const sky0 = ELEMENTS[t[0][0]].name;
-            const sky1 = ELEMENTS[t[0][1]].name;
+            const sky0   = ELEMENTS[t[0][0]].name;
+            const sky1   = ELEMENTS[t[0][1]].name;
             const ground0 = ELEMENTS[t[2][0]].name;
-            const mid0 = ELEMENTS[t[1][0]].name;
+            const mid0   = ELEMENTS[t[1][0]].name;
 
-            const canWalk  = ground0 !== '坑' && sky0 !== '飞行恶魔' && mid0 !== '史莱姆';
-            const canJump  = sky0 !== '飞行恶魔';
-            const canLongJump = sky0 !== '飞行恶魔' && sky1 !== '飞行恶魔';
-            const canCrouch = ground0 !== '坑' && mid0 !== '史莱姆';
+            const canWalk  = ground0 === '平地' && sky0 !== '恶魔' && mid0 !== '史莱姆';
+            const canJump  = sky0 !== '恶魔';
+            const canLongJump = sky0 !== '恶魔' && sky1 !== '恶魔';
+            const canCrouch = ground0 === '平地' && mid0 !== '史莱姆';
 
             if (canWalk) return 0;
             if (canJump) return 1;
@@ -411,14 +457,8 @@
         }
 
         function randElem(layer) {
-            if (layer === 0) return Math.random() > 0.75 ? 3 : 0; // 天上：恶魔或平地
-            if (layer === 1) {
-                const r = Math.random();
-                if (r < 0.55) return 0;
-                if (r < 0.8) return 2;
-                return 4;
-            }
-            return Math.random() > 0.55 ? 1 : 0; // 地面：坑或平地
+            const pool = LAYER_LIMITS[layer];
+            return pool[Math.floor(Math.random() * pool.length)];
         }
 
         function generateData() {
@@ -445,7 +485,6 @@
             const steps = 100;
 
             for (let s = 0; s < steps; s++) {
-                // 累积梯度
                 let gW1 = zeroMat(HIDDEN_DIM, INPUT_DIM);
                 let gb1 = zeroVec(HIDDEN_DIM);
                 let gW2 = zeroMat(OUTPUT_DIM, HIDDEN_DIM);
@@ -460,7 +499,6 @@
                     const fp = forward(net, sample.x);
                     const grad = backward(net, fp, sample.y);
 
-                    // 累加梯度
                     for (let i = 0; i < HIDDEN_DIM; i++) {
                         for (let j = 0; j < INPUT_DIM; j++) gW1[i][j] += grad.dW1[i][j] / batchSize;
                         gb1[i] += grad.db1[i] / batchSize;
@@ -474,7 +512,6 @@
                     if (fp.o.indexOf(Math.max(...fp.o)) === sample.y) correct++;
                 }
 
-                // 更新参数
                 for (let i = 0; i < HIDDEN_DIM; i++) {
                     for (let j = 0; j < INPUT_DIM; j++) net.W1[i][j] -= LR * gW1[i][j];
                     net.b1[i] -= LR * gb1[i];
@@ -490,11 +527,10 @@
                     document.getElementById('loss-display').textContent = (lossSum / batchSize).toFixed(4);
                     document.getElementById('acc-display').textContent = ((correct / batchSize) * 100).toFixed(0) + '%';
                     document.getElementById('train-progress').style.width = ((s + 1) / steps * 100) + '%';
-                    await new Promise(r => setTimeout(r, 1)); // 让 UI 刷新
+                    await new Promise(r => setTimeout(r, 1));
                 }
             }
 
-            // 全量评估
             evaluateAll();
             btn.disabled = false;
             predict();
@@ -584,17 +620,46 @@
                 for (let c = 0; c < 4; c++) {
                     const cell = document.createElement('div');
                     cell.className = 'terrain-cell';
-                    const el = ELEMENTS[terrain[r][c]];
+                    const id = terrain[r][c];
+                    const el = ELEMENTS[id];
                     cell.textContent = el.emoji;
                     cell.title = el.name;
-                    cell.onclick = () => {
-                        terrain[r][c] = (terrain[r][c] + 1) % 5;
-                        renderTerrain();
-                    };
+                    cell.onclick = () => paintCell(r, c);
                     rowDiv.appendChild(cell);
                 }
                 wrap.appendChild(rowDiv);
             }
+        }
+
+        function paintCell(r, c) {
+            const allowed = LAYER_LIMITS[r];
+            if (!allowed.includes(selectedBrush)) {
+                updateBrushHint(`❌ ${ELEMENTS[selectedBrush].name} 不能放在 ${ROW_NAMES[r]}层`);
+                return;
+            }
+            terrain[r][c] = selectedBrush;
+            renderTerrain();
+            updateBrushHint('');
+        }
+
+        function renderBrushes() {
+            const list = document.getElementById('brush-list');
+            list.innerHTML = '';
+            ELEMENTS.forEach((el, i) => {
+                const item = document.createElement('div');
+                item.className = 'brush-item' + (i === selectedBrush ? ' active' : '');
+                item.innerHTML = `<div class="brush-emoji">${el.emoji}</div><div class="brush-name">${el.name}</div>`;
+                item.onclick = () => {
+                    selectedBrush = i;
+                    renderBrushes();
+                    updateBrushHint('');
+                };
+                list.appendChild(item);
+            });
+        }
+
+        function updateBrushHint(text) {
+            document.getElementById('brush-hint').textContent = text || '点击画笔选择，点击上方格子绘制';
         }
 
         // ========== MLP Canvas 绘图 ==========
@@ -609,12 +674,6 @@
             const W = rect.width, H = rect.height;
             ctx.clearRect(0, 0, W, H);
 
-            // 层配置
-            const layers = [5, 16, 4]; // 为了可视化，输入层只画5个代表节点（对应5种元素的颜色块概念）
-            // 实际上应该画输入的热力图。改为：左侧画 3x4 网格作为输入层可视化
-            // 中间隐藏层画16个神经元，右侧输出层画4个
-
-            // 输入层：画成 3x4 的网格
             const cellW = 28, cellH = 24, gapX = 4, gapY = 4;
             const gridW = 4 * cellW + 3 * gapX;
             const gridH = 3 * cellH + 2 * gapY;
@@ -626,7 +685,8 @@
                     const id = terrain[r][c];
                     const x = startX + c * (cellW + gapX);
                     const y = startY + r * (cellH + gapY);
-                    ctx.fillStyle = ['#2d4059','#5c4033','#2f4f4f','#4a1c1c','#4a4a1c'][id];
+                    const colors = ['#1a1a1a','#2d4059','#2f4f2f','#4a1c1c','#4a4a1c'];
+                    ctx.fillStyle = colors[id];
                     ctx.fillRect(x, y, cellW, cellH);
                     ctx.strokeStyle = '#3c4043';
                     ctx.lineWidth = 1;
@@ -638,21 +698,18 @@
                 }
             }
 
-            // 隐藏层
             const hidX = W / 2;
             const hidY = Array.from({length: 16}, (_, i) => {
                 const gap = H / (16 + 1);
                 return gap * (i + 1);
             });
 
-            // 输出层
             const outX = W - 50;
             const outY = Array.from({length: 4}, (_, i) => {
                 const gap = H / (4 + 1);
                 return gap * (i + 1);
             });
 
-            // 连线：输入层中心 -> 隐藏层
             ctx.lineWidth = 0.5;
             for (let r = 0; r < 3; r++) {
                 for (let c = 0; c < 4; c++) {
@@ -668,7 +725,6 @@
                 }
             }
 
-            // 连线：隐藏层 -> 输出层
             for (let h = 0; h < 16; h++) {
                 for (let o = 0; o < 4; o++) {
                     let w = 0;
@@ -684,7 +740,6 @@
             }
             ctx.lineWidth = 1;
 
-            // 隐藏层节点
             for (let h = 0; h < 16; h++) {
                 const r = 6;
                 ctx.beginPath();
@@ -701,7 +756,6 @@
                 }
             }
 
-            // 输出层节点
             for (let o = 0; o < 4; o++) {
                 const r = 10;
                 ctx.beginPath();
@@ -725,6 +779,7 @@
 
         // ========== 初始化 ==========
         renderTerrain();
+        renderBrushes();
         drawMLP(null);
         window.addEventListener('resize', () => drawMLP(null));
     </script>
