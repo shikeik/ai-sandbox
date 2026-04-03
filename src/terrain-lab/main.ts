@@ -887,12 +887,12 @@ function drawEmbedding() {
 	ctx.strokeRect(cx - halfSide, cy - halfSide, halfSide * 2, halfSide * 2)
 	ctx.setLineDash([])
 
-	// 标注半径数值
+	// 标注半径数值（画布右上角，远离元素）
 	ctx.fillStyle = "#5f6368"
 	ctx.font = "9px sans-serif"
-	ctx.textAlign = "left"
+	ctx.textAlign = "right"
 	ctx.textBaseline = "top"
-	ctx.fillText(`R=${maxAbs.toFixed(2)}`, cx + halfSide + 4, cy - halfSide)
+	ctx.fillText(`R=${maxAbs.toFixed(2)}`, W - 6, 6)
 
 	// 坐标轴
 	ctx.strokeStyle = "#3c4043"
