@@ -302,11 +302,11 @@
             </div>
 
             <div class="rule-box">
-                <b>规则答案逻辑（基于前1格）：</b><br>
-                走：地面是平地 + 天上无恶魔 + 地上无史莱姆<br>
-                跳：天上无恶魔（可越过地面空气/地上怪物）<br>
-                远跳：前1+前2 天上都无恶魔<br>
-                下蹲：地面是平地 + 地上无史莱姆<br>
+                <b>规则答案逻辑：</b><br>
+                走：前1地面=平地 + 前1天上≠恶魔 + 前1地上≠史莱姆<br>
+                跳：前1天上≠恶魔 + <b>前2地面=平地</b> + 前2天上≠恶魔 + 前2地上≠史莱姆<br>
+                远跳：前1/前2天上≠恶魔 + <b>前3地面=平地</b> + 前3天上≠恶魔 + 前3地上≠史莱姆<br>
+                下蹲：前1地面=平地 + 前1地上≠史莱姆<br>
                 优先级：走 → 跳 → 远跳 → 下蹲
             </div>
         </div>
@@ -450,13 +450,18 @@
         function getActionChecks(t, col = 0) {
             const sky0   = ELEMENTS[t[0][col]].name;
             const sky1   = ELEMENTS[t[0][col + 1]] ? ELEMENTS[t[0][col + 1]].name : '空气';
+            const sky2   = ELEMENTS[t[0][col + 2]] ? ELEMENTS[t[0][col + 2]].name : '空气';
             const ground0 = ELEMENTS[t[2][col]].name;
+            const ground1 = ELEMENTS[t[2][col + 1]] ? ELEMENTS[t[2][col + 1]].name : '空气';
+            const ground2 = ELEMENTS[t[2][col + 2]] ? ELEMENTS[t[2][col + 2]].name : '空气';
             const mid0   = ELEMENTS[t[1][col]].name;
+            const mid1   = ELEMENTS[t[1][col + 1]] ? ELEMENTS[t[1][col + 1]].name : '空气';
+            const mid2   = ELEMENTS[t[1][col + 2]] ? ELEMENTS[t[1][col + 2]].name : '空气';
 
             return {
                 canWalk:  ground0 === '平地' && sky0 !== '恶魔' && mid0 !== '史莱姆',
-                canJump:  sky0 !== '恶魔',
-                canLongJump: sky0 !== '恶魔' && sky1 !== '恶魔',
+                canJump:  sky0 !== '恶魔' && ground1 === '平地' && sky1 !== '恶魔' && mid1 !== '史莱姆',
+                canLongJump: sky0 !== '恶魔' && sky1 !== '恶魔' && ground2 === '平地' && sky2 !== '恶魔' && mid2 !== '史莱姆',
                 canCrouch: ground0 === '平地' && mid0 !== '史莱姆'
             };
         }
