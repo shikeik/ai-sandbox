@@ -161,7 +161,7 @@ function getActionChecks(t: number[][], col = 1) {
 
   return {
     canWalk: {
-      ok: ground0 === "平地" && sky0 !== "恶魔" && mid0 !== "史莱姆",
+      ok: ground0 === "平地" && mid0 !== "史莱姆",
       reasons: [
         ground0 !== "平地" ? "前1地面不是平地" : null,
         sky0 === "恶魔" ? "前1天上有恶魔" : null,
@@ -283,7 +283,6 @@ async function trainBatch() {
 
   evaluateAll()
   btn.disabled = false
-  predict()
 }
 
 function updateMetrics(loss: number, acc?: number, progress?: number) {
@@ -752,7 +751,6 @@ function finishAnimation() {
     animId = null
   }
   drawEditor()
-  console.log("[ANIM] 动画自然结束，保留结束状态")
 }
 
 function playAnimation(action: ActionType) {
