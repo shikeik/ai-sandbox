@@ -14,7 +14,7 @@
 }
 
 .console-panel.open {
-	height: 200px;
+	height: min(360px, 40vh);
 	border-color: #2c2f36;
 }
 
@@ -58,6 +58,8 @@
 	width: 100%;
 	padding: 8px 12px;
 	overflow-y: auto;
+	-webkit-overflow-scrolling: touch;
+	overscroll-behavior: contain;
 	font-family: 'Courier New', monospace;
 	font-size: 11px;
 	line-height: 1.5;

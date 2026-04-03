@@ -257,13 +257,13 @@
             <!-- 下：验收/考试区 -->
             <div class="panel-title" style="margin-top:14px">验收 / 考试</div>
             <div class="btn-row">
-                <button class="btn-primary" onclick="predict()">预测当前地形</button>
+                <button class="btn-primary" onclick="predict()">验收预测</button>
                 <button class="btn-secondary" onclick="resetView()">刷新视图</button>
                 <button class="btn-secondary" onclick="validateTerrain()">合法性检查</button>
                 <button class="btn-secondary" onclick="randomTerrain()">随机地形</button>
             </div>
             <div class="terrain-status" id="terrain-status">
-                点击「合法性检查」查看当前地形是否可解，或点击「预测当前地形」开始验收
+                点击「合法性检查」查看当前地形是否可解，或点击「验收预测」开始验收
             </div>
         </div>
 
@@ -285,7 +285,7 @@
             <div class="panel-title" style="margin-top:14px">训练控制台</div>
             <div class="btn-row">
                 <button class="btn-primary" onclick="generateData()">生成数据</button>
-                <button class="btn-accent" onclick="trainBatch()" id="btn-train" disabled>训练100步+预测</button>
+                <button class="btn-accent" onclick="trainBatch()" id="btn-train" disabled>训练100步</button>
                 <button class="btn-secondary" onclick="resetNet()">重置网络</button>
             </div>
             <div class="metric">数据集: <span id="data-count">0</span> 条</div>

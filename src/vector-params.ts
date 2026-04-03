@@ -161,7 +161,7 @@ function getActionChecks(t: number[][], col = 1) {
 
   return {
     canWalk: {
-      ok: ground0 === "平地" && mid0 !== "史莱姆",
+      ok: ground0 === "平地" && sky0 !== "恶魔" && mid0 !== "史莱姆",
       reasons: [
         ground0 !== "平地" ? "前1地面不是平地" : null,
         sky0 === "恶魔" ? "前1天上有恶魔" : null,
@@ -283,8 +283,7 @@ async function trainBatch() {
 
   evaluateAll()
   btn.disabled = false
-  // 训练完成后自动预测，但不在这里调用，让按钮行为更明确
-  // predict() 被移除，用户需手动点击预测
+  predict()
 }
 
 function updateMetrics(loss: number, acc?: number, progress?: number) {
@@ -336,9 +335,9 @@ function predict() {
   const pred = fp.o.indexOf(Math.max(...fp.o))
   const correct = getLabel(terrain)
   if (correct === -1) {
-    updateExam(
-      `AI 预测: <b>${ACTIONS[pred]}</b> (置信度 ${(fp.o[pred] * 100).toFixed(1)}%)<br>规则答案: <b style="color:#f9ab00">此地形无解（死局）</b>`,
-      "bad"
+    updateTerrainStatus(
+      "bad",
+      `AI 预测: <b>${ACTIONS[pred]}</b> (置信度 ${(fp.o[pred] * 100).toFixed(1)}%)<br>规则答案: <b style="color:#f9ab00">此地形无解（死局）</b>`
     )
     drawMLP(fp)
     updateProbs(fp.o)
@@ -347,9 +346,9 @@ function predict() {
   }
   const ok = pred === correct
   const conf = (fp.o[pred] * 100).toFixed(1)
-  updateExam(
-    `AI 预测: <b>${ACTIONS[pred]}</b> (置信度 ${conf}%)<br>规则答案: <b>${ACTIONS[correct]}</b> ${ok ? "✅ 通过" : "❌ 错误"}`,
-    ok ? "ok" : "bad"
+  updateTerrainStatus(
+    ok ? "ok" : "bad",
+    `AI 预测: <b>${ACTIONS[pred]}</b> (置信度 ${conf}%)<br>规则答案: <b>${ACTIONS[correct]}</b> ${ok ? "✅ 通过" : "❌ 错误"}`
   )
   drawMLP(fp)
   updateProbs(fp.o)
@@ -805,7 +804,7 @@ function stepAnimation(now: number) {
 
   // 狐狸路径
   const heroBaseX = startX + cellW / 2
-  const heroBaseY = startY + cellH + cellH / 2 // y1 中心
+  const heroBaseY = startY + 1 * (cellH + gapY) + cellH / 2 // y1 中心
 
   let hx = heroBaseX
   let hy = heroBaseY
