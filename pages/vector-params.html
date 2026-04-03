@@ -68,12 +68,24 @@
         /* 编辑器 canvas */
         #editor-canvas {
             width: 100%;
-            height: 220px;
+            height: 200px;
             background: #0b0c0f;
             border-radius: 8px;
             display: block;
             cursor: crosshair;
         }
+
+        /* 规则说明 */
+        .rule-box {
+            margin-top: 10px;
+            font-size: 10px;
+            color: #9aa0a6;
+            line-height: 1.7;
+            background: #0b0c0f;
+            padding: 10px;
+            border-radius: 6px;
+        }
+        .rule-box b { color: #e8eaed; }
 
         /* 画笔栏 */
         .brush-panel {
@@ -143,27 +155,19 @@
         .btn-accent { background: #f9ab00; color: #0b0c0f; }
         .btn-secondary { background: #5f6368; color: #fff; }
 
-        .rule-box {
-            margin-top: 10px;
-            font-size: 10px;
-            color: #9aa0a6;
-            line-height: 1.7;
-            background: #0b0c0f;
-            padding: 8px;
-            border-radius: 6px;
-        }
-        .rule-box b { color: #e8eaed; }
-
         /* MLP 可视化 */
         #mlp-canvas {
             width: 100%;
-            height: 300px;
+            height: 200px;
             background: #0b0c0f;
             border-radius: 8px;
             display: block;
         }
         .prob-bars {
             margin-top: 10px;
+            background: #0b0c0f;
+            padding: 10px;
+            border-radius: 6px;
         }
         .prob-row {
             display: flex;
@@ -172,6 +176,7 @@
             margin-bottom: 6px;
             font-size: 11px;
         }
+        .prob-row:last-child { margin-bottom: 0; }
         .prob-name { width: 40px; color: #bdc1c6; }
         .prob-track {
             flex: 1;
@@ -227,25 +232,13 @@
     <p class="subtitle">监督学习：给定地形 → MLP 学习最优动作</p>
 
     <div class="main-grid">
-        <!-- 左上：环境编辑器 -->
+        <!-- 左栏：环境编辑器区域 -->
         <div class="panel">
-            <div class="panel-title">地形编辑器 (5×3) — 点击绘制，x0 列为主角</div>
+            <!-- 上：编辑预览视图 -->
+            <div class="panel-title">编辑预览视图 (5×3) — 点击绘制，x0 列为主角</div>
             <canvas id="editor-canvas"></canvas>
 
-            <div class="brush-panel">
-                <div class="brush-title">选中画笔后点击上方格子绘制</div>
-                <div class="brush-list" id="brush-list"></div>
-            </div>
-
-            <div class="terrain-status" id="terrain-status">
-                点击「合法性检查」查看当前地形是否可解
-            </div>
-
-            <div class="btn-row" style="margin-top:10px;justify-content:center;">
-                <button class="btn-secondary" onclick="validateTerrain()">合法性检查</button>
-                <button class="btn-secondary" onclick="randomTerrain()">随机地形</button>
-            </div>
-
+            <!-- 中：规则答案说明 -->
             <div class="rule-box">
                 <b>规则答案逻辑：</b><br>
                 走：前1地面=平地 + 前1天上≠恶魔 + 前1地上≠史莱姆<br>
@@ -254,11 +247,41 @@
                 走A：前1地面=平地（击杀同层史莱姆，对天上恶魔无效）<br>
                 优先级：走 → 跳 → 远跳 → 走A
             </div>
+
+            <!-- 中：Tile选择区 -->
+            <div class="brush-panel">
+                <div class="brush-title">选中画笔后点击上方格子绘制</div>
+                <div class="brush-list" id="brush-list"></div>
+            </div>
+
+            <!-- 下：验收/考试区 -->
+            <div class="panel-title" style="margin-top:14px">验收 / 考试</div>
+            <div class="btn-row">
+                <button class="btn-primary" onclick="predict()">预测当前地形</button>
+                <button class="btn-secondary" onclick="validateTerrain()">合法性检查</button>
+                <button class="btn-secondary" onclick="randomTerrain()">随机地形</button>
+            </div>
+            <div class="terrain-status" id="terrain-status">
+                点击「合法性检查」查看当前地形是否可解，或点击「预测当前地形」开始验收
+            </div>
         </div>
 
-        <!-- 右上：训练控制 + 验收 -->
+        <!-- 右栏：MLP网络区域 -->
         <div class="panel">
-            <div class="panel-title">训练控制台</div>
+            <!-- 上：MLP网络图 -->
+            <div class="panel-title">MLP 网络状态 (60 → 16 → 4)</div>
+            <canvas id="mlp-canvas"></canvas>
+
+            <!-- 中：概率条 -->
+            <div class="prob-bars" id="prob-bars">
+                <div class="prob-row"><div class="prob-name">走</div><div class="prob-track"><div class="prob-fill" style="width:0%"></div></div><div class="prob-val">0%</div></div>
+                <div class="prob-row"><div class="prob-name">跳</div><div class="prob-track"><div class="prob-fill" style="width:0%"></div></div><div class="prob-val">0%</div></div>
+                <div class="prob-row"><div class="prob-name">远跳</div><div class="prob-track"><div class="prob-fill" style="width:0%"></div></div><div class="prob-val">0%</div></div>
+                <div class="prob-row"><div class="prob-name">走A</div><div class="prob-track"><div class="prob-fill" style="width:0%"></div></div><div class="prob-val">0%</div></div>
+            </div>
+
+            <!-- 下：训练控制台 -->
+            <div class="panel-title" style="margin-top:14px">训练控制台</div>
             <div class="btn-row">
                 <button class="btn-primary" onclick="generateData()">生成数据</button>
                 <button class="btn-accent" onclick="trainBatch()" id="btn-train" disabled>训练 100 步</button>
@@ -269,25 +292,8 @@
             <div class="metric">准确率: <span id="acc-display">-</span></div>
             <div class="metric">损失: <span id="loss-display">-</span></div>
             <div class="progress-wrap"><div class="progress-bar" id="train-progress"></div></div>
-
-            <div class="panel-title" style="margin-top:14px">验收 / 考试</div>
-            <div class="btn-row">
-                <button class="btn-primary" onclick="predict()">预测当前地形</button>
-            </div>
-            <div class="exam-result wait" id="exam-box">
-                点击"预测当前地形"开始验收
-            </div>
-        </div>
-
-        <!-- 下方全宽：MLP 可视化 -->
-        <div class="panel" style="grid-column: 1 / -1;">
-            <div class="panel-title">MLP 网络状态 (60 → 16 → 4)</div>
-            <canvas id="mlp-canvas"></canvas>
-            <div class="prob-bars" id="prob-bars">
-                <div class="prob-row"><div class="prob-name">走</div><div class="prob-track"><div class="prob-fill" style="width:0%"></div></div><div class="prob-val">0%</div></div>
-                <div class="prob-row"><div class="prob-name">跳</div><div class="prob-track"><div class="prob-fill" style="width:0%"></div></div><div class="prob-val">0%</div></div>
-                <div class="prob-row"><div class="prob-name">远跳</div><div class="prob-track"><div class="prob-fill" style="width:0%"></div></div><div class="prob-val">0%</div></div>
-                <div class="prob-row"><div class="prob-name">走A</div><div class="prob-track"><div class="prob-fill" style="width:0%"></div></div><div class="prob-val">0%</div></div>
+            <div class="exam-result wait" id="exam-box" style="margin-top:10px;">
+                点击「生成数据」开始生成训练集
             </div>
         </div>
     </div>
