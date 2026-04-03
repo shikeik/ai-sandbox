@@ -864,7 +864,20 @@ function drawEmbedding() {
 
 	const cx = W / 2
 	const cy = H / 2
-	const scale = Math.min(W, H) / 4
+	const padding = 30
+	const availW = Math.max(W - padding * 2, 1)
+	const availH = Math.max(H - padding * 2, 1)
+
+	// 动态计算缩放因子，确保所有元素都在画布内
+	let maxAbs = 0
+	for (const el of UI_ELEMENTS) {
+		maxAbs = Math.max(maxAbs, Math.abs(state.net.embed[el.id][0]), Math.abs(state.net.embed[el.id][1]))
+	}
+	maxAbs = Math.max(maxAbs, 0.5) // 防止初始全在0附近时scale过大
+
+	const scaleX = availW / 2 / maxAbs
+	const scaleY = availH / 2 / maxAbs
+	const scale = Math.min(scaleX, scaleY)
 
 	// 坐标轴
 	ctx.strokeStyle = "#3c4043"
