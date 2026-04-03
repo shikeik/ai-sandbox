@@ -1,8 +1,8 @@
 # AI 交接文档：terrain-lab 课程学习阶段
 
 > 编写时间：2026-04-04  
-> 当前分支：`feature/terrain-curriculum`（已基于 `main` 开发）  
-> 最后提交：`bf644c4`（embedding 动态缩放修复）
+> 当前分支：已合并回 `main`  
+> 最后提交：`7ecff36`（embedding 区域宽度 90%，高度 80vw）
 
 ---
 
@@ -42,18 +42,25 @@
    - 合法但非最优的动作不再标"❌ 错误"，而是标"✅ 合法（但非最优）"
    - 预测结果拆为三行显示：预测 / 规则答案 / 评价
 
+6. **Embedding 画布优化（最新）**
+   - 动态缩放：根据最远元素的 `maxAbs` 自动调整 scale，防止点跑出画布
+   - 方形虚线边界框：以最远元素为半径绘制
+   - 右上角标注 `R=xx` 半径数值
+   - 元素点大小由全局 R 值统一缩放（变化率可调，见 `EMBED_SIZE_*` 常量）
+   - 画布尺寸：宽度 90%，高度 80vw（max-height 240px）
+
 ---
 
 ## 二、关键文件变更
 
 | 文件 | 说明 |
 |---|---|
-| `src/terrain-lab/constants.ts` | 新增 `TerrainConfig`、`DEFAULT_TERRAIN_CONFIG`、`CURRICULUM_STAGES` |
+| `src/terrain-lab/constants.ts` | 新增 `TerrainConfig`、`DEFAULT_TERRAIN_CONFIG`、`CURRICULUM_STAGES`、`EMBED_SIZE_*` 可视化常量 |
 | `src/terrain-lab/types.ts` | `DatasetItem` 改用 `indices`（元素 ID 序列） |
 | `src/terrain-lab/neural-network.ts` | 增加 `embed` 矩阵、`cloneNet`、embedding 梯度回传 |
-| `src/terrain-lab/terrain.ts` | `randElem` → `getLayerPool` + `randElemFromPool`；生成器支持 `config` |
+| `src/terrain-lab/terrain.ts` | `randElem` → `getLayerPool` + `randElemFromPool`；生成器支持 `config`；新增 `isActionValidByChecks` |
 | `src/terrain-lab/state.ts` | 增加 `snapshots`、`selectedSnapshotIndex`、`observedSample`、`terrainConfig` |
-| `src/terrain-lab/main.ts` | 大改：训练快照、执念曲线、课程学习、UI 绑定全部在此 |
+| `src/terrain-lab/main.ts` | 大改：训练快照、执念曲线、课程学习、UI 绑定、embedding 动态绘制全部在此 |
 | `pages/terrain-lab.html` | 新增 embedding-canvas、快照滑块、执念曲线、地形配置、课程学习面板 |
 | `src/engine/console/ConsolePanel.ts` | 修复 `.console-panel` class 未正确添加导致高度为 0 的 bug |
 
@@ -71,7 +78,7 @@
 
 ### 坑 3：Embedding 点跑出画布
 **根因**：`drawEmbedding()` 的 `scale` 是固定值 `Math.min(W,H)/4`，训练后期某些 embedding 会越跑越远。
-**修复**：动态计算所有元素向量的最大绝对值，再算 `scale = min(availW/2/maxAbs, availH/2/maxAbs)`，始终把所有点圈在视野内。
+**修复**：动态计算所有元素向量的最大绝对值 `maxAbs`，再算 `scale = min(availW/2/maxAbs, availH/2/maxAbs)`，始终把所有点圈在视野内。
 
 ### 坑 4：控制台不可见
 **根因**：`ConsolePanel.init()` 忘了给挂载点加 `.console-panel` class，CSS 的 `height: 0` 和 `overflow: hidden` 直接把面板压没了。
@@ -149,3 +156,4 @@ for stage in [1..5]:
 3. **新增 UI 控件时**，要在 `init()` 里绑定事件，并暴露到 `(window as any)`，因为 HTML 内联 `onclick` 需要全局函数。
 4. **ConsolePanel 相关的 bug** 优先检查 `console-panel` class 是否正确挂载。
 5. **运行验证**：`npm run dev` → 打开 `/pages/terrain-lab.html`，重点测：生成数据 → 训练 → 拖动快照 → 切换课程阶段 → 开始课程训练。
+6. **想调 embedding 点大小变化率**：去 `src/terrain-lab/constants.ts` 改 `EMBED_SIZE_BASE / SENSITIVITY / OFFSET / MIN / MAX`。
