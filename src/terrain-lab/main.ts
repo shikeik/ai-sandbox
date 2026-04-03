@@ -906,16 +906,16 @@ function drawEmbedding() {
 	ctx.lineTo(cx, cy + H / 2 - 10)
 	ctx.stroke()
 
-	// 元素点（大小随向量模长缩放，越远越大）
+	// 全局大小系数：由外框半径 R 统一决定，R 越小整体越大，R 越大整体越小
+	const globalSizeFactor = Math.max(0.6, Math.min(1.4, 1.5 / maxAbs))
+
+	// 元素点
 	for (const el of UI_ELEMENTS) {
 		const ex = state.net.embed[el.id][0]
 		const ey = state.net.embed[el.id][1]
-		const dist = Math.sqrt(ex * ex + ey * ey)
-		const sizeFactor = 1.4 - Math.min(dist / (maxAbs || 1), 1) * 0.8 // 1.4 ~ 0.6（越近越大，越远越小）
-
 		const px = cx + ex * scale
 		const py = cy - ey * scale
-		const r = 3 * sizeFactor
+		const r = 3 * globalSizeFactor
 
 		ctx.beginPath()
 		ctx.arc(px, py, r, 0, Math.PI * 2)
@@ -925,14 +925,14 @@ function drawEmbedding() {
 		ctx.lineWidth = 1
 		ctx.stroke()
 
-		ctx.font = `${Math.floor(9 * sizeFactor)}px sans-serif`
+		ctx.font = `${Math.floor(9 * globalSizeFactor)}px sans-serif`
 		ctx.textAlign = "left"
 		ctx.textBaseline = "middle"
 		ctx.fillStyle = "#e8eaed"
 		ctx.fillText(el.emoji, px + r + 2, py)
 		ctx.fillStyle = "#9aa0a6"
-		ctx.font = `${Math.floor(8 * sizeFactor)}px sans-serif`
-		ctx.fillText(el.name, px + r + 2 + 11 * sizeFactor, py)
+		ctx.font = `${Math.floor(8 * globalSizeFactor)}px sans-serif`
+		ctx.fillText(el.name, px + r + 2 + 11 * globalSizeFactor, py)
 	}
 }
 
