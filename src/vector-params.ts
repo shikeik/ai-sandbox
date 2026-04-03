@@ -560,15 +560,34 @@ function drawEditorWithState() {
     ctx.fillText(labels[c], startX + c * (cellW + gapX) + cellW / 2, startY - 8)
   }
 
+  // 计算狐狸显示位置
+  let showHeroInGrid = true
+  let heroFinalX: number | null = null
+  let heroFinalY: number | null = null
+  if (animAction !== null) {
+    showHeroInGrid = false
+    let finalCol = 0
+    if (animAction === "走" || animAction === "走A") finalCol = 1
+    else if (animAction === "跳") finalCol = 2
+    else if (animAction === "远跳") finalCol = 3
+    heroFinalX = startX + finalCol * (cellW + gapX) + cellW / 2
+    heroFinalY = startY + 1 * (cellH + gapY) + cellH / 2
+  }
+
   // 绘制网格 - 考虑动画状态和史莱姆击杀状态
   drawTerrainGrid(ctx, terrain, {
     cellW, cellH, gapX, gapY, startX, startY,
-    showHero: animAction === null,
+    showHero: showHeroInGrid,
     heroCol: 0,
     heroRow: 1,
     hideSlimeAt: animSlimeKilled ? 1 : null,
     dimNonInteractive: false,
   })
+
+  // 动画结束状态：单独绘制狐狸在最终位置
+  if (heroFinalX !== null && heroFinalY !== null) {
+    drawEmoji(ctx, "🦊", heroFinalX, heroFinalY, Math.min(cellW, cellH) * 0.65)
+  }
 }
 
 function getEditorCellAt(mx: number, my: number): { r: number; c: number } | null {
@@ -718,14 +737,23 @@ function drawMLP(fp: ForwardResult | null) {
 }
 
 // ========== 动画 ==========
-function stopAnimation(keepSlimeKilled = false) {
+function stopAnimation() {
   if (animId !== null) {
     cancelAnimationFrame(animId)
     animId = null
   }
   animAction = null
-  if (!keepSlimeKilled) animSlimeKilled = false
+  animSlimeKilled = false
   drawEditor()
+}
+
+function finishAnimation() {
+  if (animId !== null) {
+    cancelAnimationFrame(animId)
+    animId = null
+  }
+  drawEditor()
+  console.log("[ANIM] 动画自然结束，保留结束状态")
 }
 
 function playAnimation(action: ActionType) {
@@ -819,8 +847,7 @@ function stepAnimation(now: number) {
   if (t < 1) {
     animId = requestAnimationFrame(stepAnimation)
   } else {
-    stopAnimation(true)
-    console.log("[ANIM] 动画自然结束，保留史莱姆击杀状态")
+    finishAnimation()
   }
 }
 
@@ -879,6 +906,7 @@ function init() {
   ;(window as any).predict = predict
   ;(window as any).validateTerrain = validateTerrain
   ;(window as any).randomTerrain = randomTerrain
+  ;(window as any).resetView = () => stopAnimation()
 
   // 初始化控制台视图
   const consolePanel = new ConsolePanel("#console-mount")
