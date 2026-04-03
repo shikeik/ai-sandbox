@@ -76,12 +76,12 @@ async function trainBatch() {
 	const batchSize = 32
 	const steps = 100
 
-	// 清空旧快照，保留初始状态
-	state.snapshots = [{ step: state.trainSteps, net: cloneNet(state.net) }]
-	state.selectedSnapshotIndex = 0
-
-	// 若已有观察样本，先记录初始概率
-	recordSnapshotProbs(0)
+	// 若快照为空，先保存初始状态（全局累积，不清空旧快照）
+	if (state.snapshots.length === 0) {
+		state.snapshots.push({ step: state.trainSteps, net: cloneNet(state.net) })
+		recordSnapshotProbs(0)
+		state.selectedSnapshotIndex = 0
+	}
 
 	for (let s = 0; s < steps; s++) {
 		const gEmbed = zeroMat(NUM_ELEMENTS, 2)
