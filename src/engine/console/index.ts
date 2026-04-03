@@ -1,2 +1,2 @@
-export { globalLogger } from "../utils/GlobalLogger.js"
+export { Logger, globalLogger } from "../utils/Logger.js"
 export { ConsolePanel } from "./ConsolePanel.js"

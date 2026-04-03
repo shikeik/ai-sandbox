@@ -105,6 +105,7 @@ function evaluateAll() {
 function generateData() {
   state.dataset = generateTerrainData(6000)
   updateMetrics(0)
+  document.getElementById("data-count")!.textContent = String(state.dataset.length)
   const btn = document.getElementById("btn-train") as HTMLButtonElement
   btn.disabled = state.dataset.length === 0
   updateExam(`已生成 ${state.dataset.length} 条合法训练数据`, "wait")
