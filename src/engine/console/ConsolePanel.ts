@@ -1,4 +1,4 @@
-import { globalLogger, LogEntry } from "../utils/GlobalLogger.js"
+import { Logger, LogEntry } from "../utils/Logger.js"
 import "./console.css"
 
 export class ConsolePanel {
@@ -9,22 +9,26 @@ export class ConsolePanel {
 	private tagRegistry = new Set<string>()
 	private tagVisible = new Map<string, boolean>()
 	private unsubscribe: (() => void) | null = null
+	private logger: Logger
+
 	/**
 	 * @param mount 挂载点，可以是 HTMLElement 或 CSS 选择器字符串
+	 * @param logger 日志实例
 	 */
-	constructor(mount: HTMLElement | string) {
+	constructor(mount: HTMLElement | string, logger: Logger) {
 		const el = typeof mount === "string" ? document.querySelector(mount) : mount
 		if (!el || !(el instanceof HTMLElement)) {
 			throw new Error(`ConsolePanel: 找不到挂载点 ${mount}`)
 		}
 		this.container = el
+		this.logger = logger
 	}
 
 	init(): void {
 		this._renderInternals()
-		this.unsubscribe = globalLogger.subscribe((entry) => this._appendEntry(entry))
+		this.unsubscribe = this.logger.subscribe((entry) => this._appendEntry(entry))
 		// 回放已有日志
-		globalLogger.getLogs().forEach(l => this._appendEntry(l))
+		this.logger.getLogs().forEach(l => this._appendEntry(l))
 	}
 
 	destroy(): void {
@@ -51,14 +55,14 @@ export class ConsolePanel {
 	}
 
 	clear(): void {
-		globalLogger.clear()
+		this.logger.clear()
 		if (this.logsContainer) this.logsContainer.innerHTML = ""
 		// 保留 tagRegistry 和 tagVisible，不清除筛选状态
 		// 这样 clear 后之前的 tag 勾选/不勾选状态保持不变
 	}
 
 	download(): void {
-		globalLogger.download()
+		this.logger.download()
 	}
 
 	private _renderInternals(): void {

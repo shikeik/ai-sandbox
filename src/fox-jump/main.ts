@@ -10,7 +10,7 @@ import { NeuralNetwork } from "@ai/NeuralNetwork.js"
 import { AIController, AI_CONFIG } from "@ai/AIController.js"
 import { PlayerBestStore } from "@ai/PlayerBestStore.js"
 import { NeuronAreaManager } from "@views/NeuronAreaManager.js"
-import { globalLogger } from "../engine/utils/GlobalLogger.js"
+import { Logger } from "../engine/utils/Logger.js"
 import { ConsolePanel } from "../engine/console/ConsolePanel.js"
 import { UIManager } from "@managers/UIManager.js"
 import { InputManager } from "@managers/InputManager.js"
@@ -28,6 +28,7 @@ let playerBestStore: PlayerBestStore | null = null
 let viewManager: NeuronAreaManager | null = null
 
 let consolePanel: ConsolePanel | null = null
+let logger: Logger | null = null
 let timerInterval: ReturnType<typeof setInterval> | null = null
 let aiController: AIController | null = null
 let uiManager: UIManager | null = null
@@ -39,11 +40,11 @@ const gameArea = document.getElementById("game-area")!
 
 // ========== 初始化 ==========
 function init(): void {
-	// 全局日志拦截（纯逻辑，尽早初始化）
-	globalLogger.init()
+	// 创建独立的 Logger 实例
+	logger = new Logger("fox-jump")
 
 	// 初始化控制台视图
-	consolePanel = new ConsolePanel("#console-panel")
+	consolePanel = new ConsolePanel("#console-panel", logger)
 	consolePanel.init()
 
 	// 暴露全局 console API

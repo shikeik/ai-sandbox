@@ -14,7 +14,7 @@ import { drawTerrainGrid, drawEmoji, getEditorCellAt } from "./renderer.js"
 import { calculateAnimationPath } from "./animation.js"
 import { createInitialState, resetState, setTerrainCell, stopAnimation } from "./state.js"
 
-import { globalLogger } from "../engine/utils/GlobalLogger.js"
+import { Logger } from "../engine/utils/Logger.js"
 import { ConsolePanel } from "../engine/console/ConsolePanel.js"
 
 // ========== 全局状态 ==========
@@ -591,8 +591,8 @@ function finishAnimation() {
 // ========== 初始化 ==========
 
 function init() {
-  // 全局日志拦截
-  globalLogger.init()
+  // 创建独立的 Logger 实例
+  const logger = new Logger("terrain-lab")
 
   editorCanvas = document.getElementById("editor-canvas") as HTMLCanvasElement
   mlpCanvas = document.getElementById("mlp-canvas") as HTMLCanvasElement
@@ -643,7 +643,7 @@ function init() {
   ;(window as any).resetView = () => stopAnimation(state)
 
   // 初始化控制台
-  const consolePanel = new ConsolePanel("#console-mount")
+  const consolePanel = new ConsolePanel("#console-mount", logger)
   consolePanel.init()
   console.log("TERRAIN-LAB", "控制台初始化完成")
 
