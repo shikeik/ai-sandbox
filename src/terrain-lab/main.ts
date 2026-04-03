@@ -6,6 +6,8 @@ import {
 	CURRICULUM_STAGES, EMBED_SIZE_BASE, EMBED_SIZE_SENSITIVITY, EMBED_SIZE_OFFSET, EMBED_SIZE_MIN, EMBED_SIZE_MAX,
 	UNSUPERVISED_CONFIG
 } from "./constants.js"
+import { createGradientBuffer, accumulateGradients, calculateReward, type ActionEvaluation } from "./unsupervised.js"
+import { createGradientBuffer as createSupervisedBuffer, accumulateSupervisedGrad, evaluateModel } from "./supervised.js"
 import { zeroMat, zeroVec, easeOutQuad } from "./utils.js"
 import { forward, backward, updateNetwork, cloneNet } from "./neural-network.js"
 import {
@@ -102,38 +104,19 @@ async function trainSupervised() {
 	}
 
 	for (let s = 0; s < steps; s++) {
-		const gEmbed = zeroMat(NUM_ELEMENTS, 2)
-		const gW1 = zeroMat(HIDDEN_DIM, INPUT_DIM)
-		const gb1 = zeroVec(HIDDEN_DIM)
-		const gW2 = zeroMat(OUTPUT_DIM, HIDDEN_DIM)
-		const gb2 = zeroVec(OUTPUT_DIM)
-
+		const buffer = createSupervisedBuffer()
 		let lossSum = 0
 		let correct = 0
 
 		for (let b = 0; b < batchSize; b++) {
 			const idx = Math.floor(Math.random() * state.dataset.length)
 			const sample = state.dataset[idx]
-			const fp = forward(state.net, sample.indices)
-			const grad = backward(state.net, fp, sample.y)
-
-			for (let e = 0; e < NUM_ELEMENTS; e++) {
-				for (let d = 0; d < 2; d++) gEmbed[e][d] += grad.dEmbed[e][d] / batchSize
-			}
-			for (let i = 0; i < HIDDEN_DIM; i++) {
-				for (let j = 0; j < INPUT_DIM; j++) gW1[i][j] += grad.dW1[i][j] / batchSize
-				gb1[i] += grad.db1[i] / batchSize
-			}
-			for (let i = 0; i < OUTPUT_DIM; i++) {
-				for (let j = 0; j < HIDDEN_DIM; j++) gW2[i][j] += grad.dW2[i][j] / batchSize
-				gb2[i] += grad.db2[i] / batchSize
-			}
-
-			lossSum += -Math.log(Math.max(fp.o[sample.y], 1e-7))
-			if (fp.o.indexOf(Math.max(...fp.o)) === sample.y) correct++
+			const { loss, isCorrect } = accumulateSupervisedGrad(buffer, state.net, sample.indices, sample.y, batchSize)
+			lossSum += loss
+			if (isCorrect) correct++
 		}
 
-		updateNetwork(state.net, { dEmbed: gEmbed, dW1: gW1, db1: gb1, dW2: gW2, db2: gb2 }, 1)
+		updateNetwork(state.net, buffer, 1)
 
 		state.trainSteps++
 		if (s % 20 === 0 || s === steps - 1) {
@@ -208,61 +191,14 @@ async function trainUnsupervised() {
 			}
 			totalReward += reward
 
-			// 关键：无监督学习的梯度更新
-			// 正奖励：增加 targetAction 的概率
-			// 负奖励：减少 targetAction 的概率，同时增加其他动作的概率（概率重新分配）
-			const gradScale = Math.abs(reward) * 0.3
-
-			if (reward > 0) {
-				// 正向强化：让 targetAction 概率更高
-				const grad = backward(state.net, fp, targetAction)
-				for (let e = 0; e < NUM_ELEMENTS; e++) {
-					for (let d = 0; d < 2; d++) gEmbed[e][d] += grad.dEmbed[e][d] / batchSize * gradScale
-				}
-				for (let i = 0; i < HIDDEN_DIM; i++) {
-					for (let j = 0; j < INPUT_DIM; j++) gW1[i][j] += grad.dW1[i][j] / batchSize * gradScale
-					gb1[i] += grad.db1[i] / batchSize * gradScale
-				}
-				for (let i = 0; i < OUTPUT_DIM; i++) {
-					for (let j = 0; j < HIDDEN_DIM; j++) gW2[i][j] += grad.dW2[i][j] / batchSize * gradScale
-					gb2[i] += grad.db2[i] / batchSize * gradScale
-				}
-			} else {
-				// 负向惩罚：减少 targetAction 概率，同时增加其他动作概率
-				// 这是关键！不能把概率"删掉"，要重新分配给其他动作
-				for (let otherAction = 0; otherAction < OUTPUT_DIM; otherAction++) {
-					if (otherAction === targetAction) {
-						// 惩罚坏动作：减少其概率
-						const grad = backward(state.net, fp, targetAction)
-						for (let e = 0; e < NUM_ELEMENTS; e++) {
-							for (let d = 0; d < 2; d++) gEmbed[e][d] -= grad.dEmbed[e][d] / batchSize * gradScale
-						}
-						for (let i = 0; i < HIDDEN_DIM; i++) {
-							for (let j = 0; j < INPUT_DIM; j++) gW1[i][j] -= grad.dW1[i][j] / batchSize * gradScale
-							gb1[i] -= grad.db1[i] / batchSize * gradScale
-						}
-						for (let i = 0; i < OUTPUT_DIM; i++) {
-							for (let j = 0; j < HIDDEN_DIM; j++) gW2[i][j] -= grad.dW2[i][j] / batchSize * gradScale
-							gb2[i] -= grad.db2[i] / batchSize * gradScale
-						}
-					} else {
-						// 奖励其他动作：增加其概率（把从坏动作拿走的概率分给他们）
-						const grad = backward(state.net, fp, otherAction)
-						const redistributeScale = gradScale / (OUTPUT_DIM - 1) * 0.5  // 分摊给其他动作
-						for (let e = 0; e < NUM_ELEMENTS; e++) {
-							for (let d = 0; d < 2; d++) gEmbed[e][d] += grad.dEmbed[e][d] / batchSize * redistributeScale
-						}
-						for (let i = 0; i < HIDDEN_DIM; i++) {
-							for (let j = 0; j < INPUT_DIM; j++) gW1[i][j] += grad.dW1[i][j] / batchSize * redistributeScale
-							gb1[i] += grad.db1[i] / batchSize * redistributeScale
-						}
-						for (let i = 0; i < OUTPUT_DIM; i++) {
-							for (let j = 0; j < HIDDEN_DIM; j++) gW2[i][j] += grad.dW2[i][j] / batchSize * redistributeScale
-							gb2[i] += grad.db2[i] / batchSize * redistributeScale
-						}
-					}
-				}
+			// 无监督学习梯度累积
+			const evaluation: ActionEvaluation = {
+				action: targetAction,
+				isValid: reward > 0,
+				isOptimal: reward === UNSUPERVISED_CONFIG.rewardOptimal,
+				reward,
 			}
+			accumulateGradients({ gEmbed, gW1, gb1, gW2, gb2 }, state.net, sample.indices, evaluation, batchSize)
 		}
 
 		updateNetwork(state.net, { dEmbed: gEmbed, dW1: gW1, db1: gb1, dW2: gW2, db2: gb2 }, 1)
@@ -291,61 +227,6 @@ function updateMetricsUnsupervised(avgReward: number, validRate: number, progres
 	document.getElementById("acc-display")!.textContent = validRate.toFixed(0) + "%"
 	if (progress !== undefined) {
 		;(document.getElementById("train-progress") as HTMLDivElement).style.width = progress + "%"
-	}
-}
-
-// 无监督学习单步更新（复用）
-function unsupervisedUpdate(net: NetParams, indices: number[], action: number, reward: number): void {
-	const gradScale = Math.abs(reward) * 0.3
-
-	if (reward > 0) {
-		// 正向强化：增加 targetAction 概率
-		const grad = backward(net, forward(net, indices), action)
-		for (let e = 0; e < NUM_ELEMENTS; e++) {
-			for (let d = 0; d < 2; d++) net.embed[e][d] -= grad.dEmbed[e][d] * gradScale
-		}
-		for (let i = 0; i < HIDDEN_DIM; i++) {
-			for (let j = 0; j < INPUT_DIM; j++) net.W1[i][j] -= grad.dW1[i][j] * gradScale
-			net.b1[i] -= grad.db1[i] * gradScale
-		}
-		for (let i = 0; i < OUTPUT_DIM; i++) {
-			for (let j = 0; j < HIDDEN_DIM; j++) net.W2[i][j] -= grad.dW2[i][j] * gradScale
-			net.b2[i] -= grad.db2[i] * gradScale
-		}
-	} else {
-		// 负向惩罚：减少 targetAction，同时增加其他动作
-		const fp = forward(net, indices)
-		for (let otherAction = 0; otherAction < OUTPUT_DIM; otherAction++) {
-			const grad = backward(net, fp, otherAction)
-			if (otherAction === action) {
-				// 惩罚坏动作
-				for (let e = 0; e < NUM_ELEMENTS; e++) {
-					for (let d = 0; d < 2; d++) net.embed[e][d] -= grad.dEmbed[e][d] * gradScale
-				}
-				for (let i = 0; i < HIDDEN_DIM; i++) {
-					for (let j = 0; j < INPUT_DIM; j++) net.W1[i][j] -= grad.dW1[i][j] * gradScale
-					net.b1[i] -= grad.db1[i] * gradScale
-				}
-				for (let i = 0; i < OUTPUT_DIM; i++) {
-					for (let j = 0; j < HIDDEN_DIM; j++) net.W2[i][j] -= grad.dW2[i][j] * gradScale
-					net.b2[i] -= grad.db2[i] * gradScale
-				}
-			} else {
-				// 奖励其他动作（分摊概率）
-				const redistributeScale = gradScale / (OUTPUT_DIM - 1) * 0.5
-				for (let e = 0; e < NUM_ELEMENTS; e++) {
-					for (let d = 0; d < 2; d++) net.embed[e][d] -= grad.dEmbed[e][d] * redistributeScale
-				}
-				for (let i = 0; i < HIDDEN_DIM; i++) {
-					for (let j = 0; j < INPUT_DIM; j++) net.W1[i][j] -= grad.dW1[i][j] * redistributeScale
-					net.b1[i] -= grad.db1[i] * redistributeScale
-				}
-				for (let i = 0; i < OUTPUT_DIM; i++) {
-					for (let j = 0; j < HIDDEN_DIM; j++) net.W2[i][j] -= grad.dW2[i][j] * redistributeScale
-					net.b2[i] -= grad.db2[i] * redistributeScale
-				}
-			}
-		}
 	}
 }
 
@@ -889,42 +770,20 @@ async function runCurriculumSupervised() {
 
 	while (state.trainSteps < maxTotalSteps) {
 		for (let s = 0; s < stepsPerBatch; s++) {
-			const gEmbed = zeroMat(NUM_ELEMENTS, 2)
-			const gW1 = zeroMat(HIDDEN_DIM, INPUT_DIM)
-			const gb1 = zeroVec(HIDDEN_DIM)
-			const gW2 = zeroMat(OUTPUT_DIM, HIDDEN_DIM)
-			const gb2 = zeroVec(OUTPUT_DIM)
+			const buffer = createSupervisedBuffer()
 
 			for (let b = 0; b < batchSize; b++) {
 				const idx = Math.floor(Math.random() * state.dataset.length)
 				const sample = state.dataset[idx]
-				const fp = forward(state.net, sample.indices)
-				const grad = backward(state.net, fp, sample.y)
-
-				for (let e = 0; e < NUM_ELEMENTS; e++) {
-					for (let d = 0; d < 2; d++) gEmbed[e][d] += grad.dEmbed[e][d] / batchSize
-				}
-				for (let i = 0; i < HIDDEN_DIM; i++) {
-					for (let j = 0; j < INPUT_DIM; j++) gW1[i][j] += grad.dW1[i][j] / batchSize
-					gb1[i] += grad.db1[i] / batchSize
-				}
-				for (let i = 0; i < OUTPUT_DIM; i++) {
-					for (let j = 0; j < HIDDEN_DIM; j++) gW2[i][j] += grad.dW2[i][j] / batchSize
-					gb2[i] += grad.db2[i] / batchSize
-				}
+				accumulateSupervisedGrad(buffer, state.net, sample.indices, sample.y, batchSize)
 			}
 
-			updateNetwork(state.net, { dEmbed: gEmbed, dW1: gW1, db1: gb1, dW2: gW2, db2: gb2 }, 1)
+			updateNetwork(state.net, buffer, 1)
 			state.trainSteps++
 		}
 
 		// 评估
-		let evalCorrect = 0
-		for (const sample of state.dataset) {
-			const fp = forward(state.net, sample.indices)
-			if (fp.o.indexOf(Math.max(...fp.o)) === sample.y) evalCorrect++
-		}
-		const acc = (evalCorrect / state.dataset.length) * 100
+		const { accuracy: acc } = evaluateModel(state.net, state.dataset)
 		updateMetrics(0, acc, Math.min(state.trainSteps / maxTotalSteps, 1) * 100)
 
 		// 保存快照
@@ -991,70 +850,10 @@ async function runCurriculumUnsupervised() {
 				const optimal = getLabel(sample.t)
 
 				// 计算奖励
-				let reward: number
-				let targetAction: number
-				if (isValid) {
-					if (action === optimal) {
-						reward = UNSUPERVISED_CONFIG.rewardOptimal
-					} else {
-						reward = UNSUPERVISED_CONFIG.rewardValid
-					}
-					targetAction = action
-				} else {
-					reward = UNSUPERVISED_CONFIG.rewardInvalid
-					targetAction = action
-				}
+				const evaluation = calculateReward(action, isValid, action === optimal, UNSUPERVISED_CONFIG)
 
-				// 关键：无监督学习的梯度更新（概率重新分配）
-				const gradScale = Math.abs(reward) * 0.3
-
-				if (reward > 0) {
-					// 正向强化
-					const grad = backward(state.net, fp, targetAction)
-					for (let e = 0; e < NUM_ELEMENTS; e++) {
-						for (let d = 0; d < 2; d++) gEmbed[e][d] += grad.dEmbed[e][d] / batchSize * gradScale
-					}
-					for (let i = 0; i < HIDDEN_DIM; i++) {
-						for (let j = 0; j < INPUT_DIM; j++) gW1[i][j] += grad.dW1[i][j] / batchSize * gradScale
-						gb1[i] += grad.db1[i] / batchSize * gradScale
-					}
-					for (let i = 0; i < OUTPUT_DIM; i++) {
-						for (let j = 0; j < HIDDEN_DIM; j++) gW2[i][j] += grad.dW2[i][j] / batchSize * gradScale
-						gb2[i] += grad.db2[i] / batchSize * gradScale
-					}
-				} else {
-					// 负向惩罚：减少 targetAction，同时增加其他动作
-					for (let otherAction = 0; otherAction < OUTPUT_DIM; otherAction++) {
-						if (otherAction === targetAction) {
-							const grad = backward(state.net, fp, targetAction)
-							for (let e = 0; e < NUM_ELEMENTS; e++) {
-								for (let d = 0; d < 2; d++) gEmbed[e][d] -= grad.dEmbed[e][d] / batchSize * gradScale
-							}
-							for (let i = 0; i < HIDDEN_DIM; i++) {
-								for (let j = 0; j < INPUT_DIM; j++) gW1[i][j] -= grad.dW1[i][j] / batchSize * gradScale
-								gb1[i] -= grad.db1[i] / batchSize * gradScale
-							}
-							for (let i = 0; i < OUTPUT_DIM; i++) {
-								for (let j = 0; j < HIDDEN_DIM; j++) gW2[i][j] -= grad.dW2[i][j] / batchSize * gradScale
-								gb2[i] -= grad.db2[i] / batchSize * gradScale
-							}
-						} else {
-							const grad = backward(state.net, fp, otherAction)
-							const redistributeScale = gradScale / (OUTPUT_DIM - 1) * 0.5
-							for (let e = 0; e < NUM_ELEMENTS; e++) {
-								for (let d = 0; d < 2; d++) gEmbed[e][d] += grad.dEmbed[e][d] / batchSize * redistributeScale
-							}
-							for (let i = 0; i < HIDDEN_DIM; i++) {
-								for (let j = 0; j < INPUT_DIM; j++) gW1[i][j] += grad.dW1[i][j] / batchSize * redistributeScale
-								gb1[i] += grad.db1[i] / batchSize * redistributeScale
-							}
-							for (let i = 0; i < OUTPUT_DIM; i++) {
-								for (let j = 0; j < HIDDEN_DIM; j++) gW2[i][j] += grad.dW2[i][j] / batchSize * redistributeScale
-								gb2[i] += grad.db2[i] / batchSize * redistributeScale
-							}
-						}
-					}
-				}
+				// 无监督学习梯度累积
+				accumulateGradients({ gEmbed, gW1, gb1, gW2, gb2 }, state.net, sample.indices, evaluation, batchSize)
 			}
 
 			updateNetwork(state.net, { dEmbed: gEmbed, dW1: gW1, db1: gb1, dW2: gW2, db2: gb2 }, 1)
