@@ -172,6 +172,14 @@ export function getActionChecks(t: number[][], heroCol: number): ActionChecks {
 	}
 }
 
+// 动作名称映射（与 constants.ts 中的 ACTIONS 数组一致）
+const ACTION_NAMES = ["走", "跳", "远跳", "走A"]
+
+// 将动作索引转换为动作名称
+export function getActionName(actionIdx: number): string {
+	return ACTION_NAMES[actionIdx] ?? "未知"
+}
+
 // 动作优先级（反转）：走A > 远跳 > 跳 > 走
 export function getLabel(t: number[][]): number {
 	const heroCol = findHeroCol(t)

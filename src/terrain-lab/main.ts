@@ -11,7 +11,7 @@ import { createGradientBuffer as createSuperBuffer, accumulateSupervisedGrad, ev
 import { zeroMat, zeroVec, easeOutQuad } from "./utils.js"
 import { forward, backward, updateNetwork, cloneNet } from "./neural-network.js"
 import {
-	terrainToIndices, findHeroCol, getActionChecks, getLabel,
+	terrainToIndices, findHeroCol, getActionChecks, getLabel, getActionName,
 	isActionValidByChecks, generateTerrainData, generateRandomTerrain
 } from "./terrain.js"
 import { drawTerrainGrid, drawEmoji, getEditorCellAt } from "./renderer.js"
@@ -221,23 +221,26 @@ async function trainUnsupervised() {
 
 		state.trainSteps++
 		if (s % 20 === 0 || s === steps - 1) {
-			// 无监督学习显示平均奖励、合法率和准确率
-			const avgReward = totalReward / batchSize
-			const validRate = (validCount / batchSize) * 100
-			
-			// 计算准确率（与最优标签对比）
+			// 计算准确率和合法率（基于预测动作，不是探索动作）
 			let correctCount = 0
-			for (const sample of state.dataset.slice(0, 100)) { // 采样100个计算准确率
+			let predValidCount = 0
+			for (const sample of state.dataset.slice(0, 100)) { // 采样100个计算
 				const fp = forward(state.net, sample.indices)
 				const predicted = fp.o.indexOf(Math.max(...fp.o))
 				if (predicted === sample.y) correctCount++
+				
+				// 计算预测动作的合法率
+				const heroCol = findHeroCol(sample.t)
+				const checks = getActionChecks(sample.t, heroCol)
+				if (isActionValidByChecks(checks, predicted)) predValidCount++
 			}
 			const accuracy = (correctCount / 100) * 100
+			const validRate = (predValidCount / 100) * 100  // 基于预测动作的合法率
 			
 			// 动态调整探索率
 			const newEpsilon = adjustEpsilon(validRate)
 			console.log("[UNS]", `合法率:${validRate.toFixed(1)}% 准确率:${accuracy.toFixed(1)}% 探索率ε:${newEpsilon.toFixed(2)}`)
-			updateMetricsUnsupervised(avgReward, validRate, ((s + 1) / steps) * 100, accuracy)
+			updateMetricsUnsupervised(totalReward / batchSize, validRate, ((s + 1) / steps) * 100, accuracy)
 			// 保存快照
 			state.snapshots.push({ step: state.trainSteps, net: cloneNet(state.net) })
 			recordSnapshotStats(state.snapshots.length - 1)
@@ -446,6 +449,11 @@ function predict() {
 	const heroCol = findHeroCol(state.terrain)
 	const checks = getActionChecks(state.terrain, heroCol)
 	const correct = getLabel(state.terrain)
+	
+	// 调试：输出预测详情（使用 getActionName 避免硬编码）
+	console.log("[PREDICT] AI预测:", pred, getActionName(pred), "规则答案:", correct, getActionName(correct))
+	console.log("[PREDICT] 输出概率:", fp.o.map((v, i) => `${getActionName(i)}:${v.toFixed(3)}`).join(", "))
+	console.log("[PREDICT] 各动作合法性:", `${getActionName(0)}:${checks.canWalk.ok} ${getActionName(1)}:${checks.canJump.ok} ${getActionName(2)}:${checks.canLongJump.ok} ${getActionName(3)}:${checks.canWalkAttack.ok}`)
 
 	const conf = (fp.o[pred] * 100).toFixed(1)
 
