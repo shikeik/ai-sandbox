@@ -37,6 +37,13 @@ export interface AppState {
 
 	// 动画
 	animation: AnimationState
+
+	// 学习模式：supervised | unsupervised
+	learningMode: "supervised" | "unsupervised"
+
+	// 无监督学习动态探索率
+	unsupervisedHistory: number[]  // 滑动窗口：最近几次评估的合法率
+	epsilon: number  // 当前探索率
 }
 
 export function createInitialState(): AppState {
@@ -56,6 +63,9 @@ export function createInitialState(): AppState {
 		selectedSnapshotIndex: -1,
 		observedSample: null,
 		animation: createAnimationState(),
+		learningMode: "supervised",
+		unsupervisedHistory: [],
+		epsilon: 0.5,
 	}
 }
 
@@ -75,6 +85,9 @@ export function resetState(state: AppState): void {
 	state.snapshots = []
 	state.selectedSnapshotIndex = -1
 	state.observedSample = null
+	state.learningMode = "supervised"
+	state.unsupervisedHistory = []
+	state.epsilon = 0.5
 	stopAnimation(state)
 }
 

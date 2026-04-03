@@ -80,23 +80,31 @@ export function backward(net: NetParams, fp: ForwardResult, target: number): Gra
 	return { dEmbed, dW1, db1, dW2, db2 }
 }
 
+const WEIGHT_CLIP = 5.0  // 权重裁剪，防止梯度爆炸
+
 export function updateNetwork(net: NetParams, grads: Gradients, batchSize: number): void {
 	for (let e = 0; e < NUM_ELEMENTS; e++) {
 		for (let d = 0; d < EMBED_DIM; d++) {
 			net.embed[e][d] -= LR * grads.dEmbed[e][d] / batchSize
+			// 权重裁剪
+			net.embed[e][d] = Math.max(-WEIGHT_CLIP, Math.min(WEIGHT_CLIP, net.embed[e][d]))
 		}
 	}
 	for (let i = 0; i < HIDDEN_DIM; i++) {
 		for (let j = 0; j < INPUT_DIM; j++) {
 			net.W1[i][j] -= LR * grads.dW1[i][j] / batchSize
+			net.W1[i][j] = Math.max(-WEIGHT_CLIP, Math.min(WEIGHT_CLIP, net.W1[i][j]))
 		}
 		net.b1[i] -= LR * grads.db1[i] / batchSize
+		net.b1[i] = Math.max(-WEIGHT_CLIP, Math.min(WEIGHT_CLIP, net.b1[i]))
 	}
 	for (let i = 0; i < OUTPUT_DIM; i++) {
 		for (let j = 0; j < HIDDEN_DIM; j++) {
 			net.W2[i][j] -= LR * grads.dW2[i][j] / batchSize
+			net.W2[i][j] = Math.max(-WEIGHT_CLIP, Math.min(WEIGHT_CLIP, net.W2[i][j]))
 		}
 		net.b2[i] -= LR * grads.db2[i] / batchSize
+		net.b2[i] = Math.max(-WEIGHT_CLIP, Math.min(WEIGHT_CLIP, net.b2[i]))
 	}
 }
 

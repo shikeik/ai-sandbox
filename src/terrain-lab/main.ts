@@ -3,7 +3,8 @@ import type { AppState } from "./state.js"
 import {
 	NUM_COLS, NUM_LAYERS, NUM_ELEMENTS, HIDDEN_DIM, OUTPUT_DIM,
 	INPUT_DIM, ACTIONS, ELEM_AIR, ELEM_HERO, ELEM_GROUND, ELEM_SLIME, ELEM_DEMON, ELEM_COIN,
-	CURRICULUM_STAGES, EMBED_SIZE_BASE, EMBED_SIZE_SENSITIVITY, EMBED_SIZE_OFFSET, EMBED_SIZE_MIN, EMBED_SIZE_MAX
+	CURRICULUM_STAGES, EMBED_SIZE_BASE, EMBED_SIZE_SENSITIVITY, EMBED_SIZE_OFFSET, EMBED_SIZE_MIN, EMBED_SIZE_MAX,
+	UNSUPERVISED_CONFIG
 } from "./constants.js"
 import { zeroMat, zeroVec, easeOutQuad } from "./utils.js"
 import { forward, backward, updateNetwork, cloneNet } from "./neural-network.js"
@@ -74,6 +75,22 @@ function drawEditorLabels(
 async function trainBatch() {
 	const btn = document.getElementById("btn-train") as HTMLButtonElement
 	btn.disabled = true
+
+	if (state.learningMode === "supervised") {
+		await trainSupervised()
+	} else {
+		await trainUnsupervised()
+	}
+
+	updateSnapshotSlider()
+	evaluateAll()
+	predict()
+	drawObsessionCurve()
+	btn.disabled = false
+}
+
+// 监督学习：使用标签数据
+async function trainSupervised() {
 	const batchSize = 32
 	const steps = 100
 
@@ -127,12 +144,241 @@ async function trainBatch() {
 			await new Promise(r => setTimeout(r, 1))
 		}
 	}
+}
 
-	updateSnapshotSlider()
-	evaluateAll()
-	predict()
-	drawObsessionCurve()
-	btn.disabled = false
+// 无监督学习：ε-贪心探索，根据结果给奖励
+async function trainUnsupervised() {
+	const batchSize = 32
+	const steps = 100
+	// 使用动态探索率，初始值从 state.epsilon 获取
+
+	// 若快照为空，先保存初始状态
+	if (state.snapshots.length === 0) {
+		state.snapshots.push({ step: state.trainSteps, net: cloneNet(state.net) })
+		recordSnapshotStats(0)
+		state.selectedSnapshotIndex = 0
+	}
+
+	for (let s = 0; s < steps; s++) {
+		const gEmbed = zeroMat(NUM_ELEMENTS, 2)
+		const gW1 = zeroMat(HIDDEN_DIM, INPUT_DIM)
+		const gb1 = zeroVec(HIDDEN_DIM)
+		const gW2 = zeroMat(OUTPUT_DIM, HIDDEN_DIM)
+		const gb2 = zeroVec(OUTPUT_DIM)
+
+		let totalReward = 0
+		let validCount = 0
+
+		for (let b = 0; b < batchSize; b++) {
+			// 随机选一个地形样本
+			const idx = Math.floor(Math.random() * state.dataset.length)
+			const sample = state.dataset[idx]
+			const fp = forward(state.net, sample.indices)
+
+			// ε-贪心选择动作（使用动态探索率）
+			let action: number
+			if (Math.random() < state.epsilon) {
+				// 随机探索
+				action = Math.floor(Math.random() * OUTPUT_DIM)
+			} else {
+				// 选择概率最大的
+				action = fp.o.indexOf(Math.max(...fp.o))
+			}
+
+			// 检查动作是否合法（使用地形合法性检查）
+			const heroCol = findHeroCol(sample.t)
+			const checks = getActionChecks(sample.t, heroCol)
+			const isValid = isActionValidByChecks(checks, action)
+			const optimal = getLabel(sample.t)
+
+			// 计算奖励
+			let reward: number
+			let targetAction: number
+			if (isValid) {
+				validCount++
+				if (action === optimal) {
+					reward = UNSUPERVISED_CONFIG.rewardOptimal
+				} else {
+					reward = UNSUPERVISED_CONFIG.rewardValid
+				}
+				targetAction = action
+			} else {
+				reward = UNSUPERVISED_CONFIG.rewardInvalid
+				targetAction = action
+			}
+			totalReward += reward
+
+			// 关键：无监督学习的梯度更新
+			// 正奖励：增加 targetAction 的概率
+			// 负奖励：减少 targetAction 的概率，同时增加其他动作的概率（概率重新分配）
+			const gradScale = Math.abs(reward) * 0.3
+
+			if (reward > 0) {
+				// 正向强化：让 targetAction 概率更高
+				const grad = backward(state.net, fp, targetAction)
+				for (let e = 0; e < NUM_ELEMENTS; e++) {
+					for (let d = 0; d < 2; d++) gEmbed[e][d] += grad.dEmbed[e][d] / batchSize * gradScale
+				}
+				for (let i = 0; i < HIDDEN_DIM; i++) {
+					for (let j = 0; j < INPUT_DIM; j++) gW1[i][j] += grad.dW1[i][j] / batchSize * gradScale
+					gb1[i] += grad.db1[i] / batchSize * gradScale
+				}
+				for (let i = 0; i < OUTPUT_DIM; i++) {
+					for (let j = 0; j < HIDDEN_DIM; j++) gW2[i][j] += grad.dW2[i][j] / batchSize * gradScale
+					gb2[i] += grad.db2[i] / batchSize * gradScale
+				}
+			} else {
+				// 负向惩罚：减少 targetAction 概率，同时增加其他动作概率
+				// 这是关键！不能把概率"删掉"，要重新分配给其他动作
+				for (let otherAction = 0; otherAction < OUTPUT_DIM; otherAction++) {
+					if (otherAction === targetAction) {
+						// 惩罚坏动作：减少其概率
+						const grad = backward(state.net, fp, targetAction)
+						for (let e = 0; e < NUM_ELEMENTS; e++) {
+							for (let d = 0; d < 2; d++) gEmbed[e][d] -= grad.dEmbed[e][d] / batchSize * gradScale
+						}
+						for (let i = 0; i < HIDDEN_DIM; i++) {
+							for (let j = 0; j < INPUT_DIM; j++) gW1[i][j] -= grad.dW1[i][j] / batchSize * gradScale
+							gb1[i] -= grad.db1[i] / batchSize * gradScale
+						}
+						for (let i = 0; i < OUTPUT_DIM; i++) {
+							for (let j = 0; j < HIDDEN_DIM; j++) gW2[i][j] -= grad.dW2[i][j] / batchSize * gradScale
+							gb2[i] -= grad.db2[i] / batchSize * gradScale
+						}
+					} else {
+						// 奖励其他动作：增加其概率（把从坏动作拿走的概率分给他们）
+						const grad = backward(state.net, fp, otherAction)
+						const redistributeScale = gradScale / (OUTPUT_DIM - 1) * 0.5  // 分摊给其他动作
+						for (let e = 0; e < NUM_ELEMENTS; e++) {
+							for (let d = 0; d < 2; d++) gEmbed[e][d] += grad.dEmbed[e][d] / batchSize * redistributeScale
+						}
+						for (let i = 0; i < HIDDEN_DIM; i++) {
+							for (let j = 0; j < INPUT_DIM; j++) gW1[i][j] += grad.dW1[i][j] / batchSize * redistributeScale
+							gb1[i] += grad.db1[i] / batchSize * redistributeScale
+						}
+						for (let i = 0; i < OUTPUT_DIM; i++) {
+							for (let j = 0; j < HIDDEN_DIM; j++) gW2[i][j] += grad.dW2[i][j] / batchSize * redistributeScale
+							gb2[i] += grad.db2[i] / batchSize * redistributeScale
+						}
+					}
+				}
+			}
+		}
+
+		updateNetwork(state.net, { dEmbed: gEmbed, dW1: gW1, db1: gb1, dW2: gW2, db2: gb2 }, 1)
+
+		state.trainSteps++
+		if (s % 20 === 0 || s === steps - 1) {
+			// 无监督学习显示平均奖励和合法率
+			const avgReward = totalReward / batchSize
+			const validRate = (validCount / batchSize) * 100
+			// 动态调整探索率
+			const newEpsilon = adjustEpsilon(validRate)
+			console.log("[UNS]", `合法率:${validRate.toFixed(1)}% 探索率ε:${newEpsilon.toFixed(2)} 历史窗口:[${state.unsupervisedHistory.map(v => v.toFixed(0)).join(",")}]`)
+			updateMetricsUnsupervised(avgReward, validRate, ((s + 1) / steps) * 100)
+			// 保存快照
+			state.snapshots.push({ step: state.trainSteps, net: cloneNet(state.net) })
+			recordSnapshotStats(state.snapshots.length - 1)
+			await new Promise(r => setTimeout(r, 1))
+		}
+	}
+}
+
+// 无监督学习指标更新
+function updateMetricsUnsupervised(avgReward: number, validRate: number, progress?: number) {
+	document.getElementById("step-count")!.textContent = String(state.trainSteps)
+	document.getElementById("loss-display")!.textContent = avgReward.toFixed(2)
+	document.getElementById("acc-display")!.textContent = validRate.toFixed(0) + "%"
+	if (progress !== undefined) {
+		;(document.getElementById("train-progress") as HTMLDivElement).style.width = progress + "%"
+	}
+}
+
+// 无监督学习单步更新（复用）
+function unsupervisedUpdate(net: NetParams, indices: number[], action: number, reward: number): void {
+	const gradScale = Math.abs(reward) * 0.3
+
+	if (reward > 0) {
+		// 正向强化：增加 targetAction 概率
+		const grad = backward(net, forward(net, indices), action)
+		for (let e = 0; e < NUM_ELEMENTS; e++) {
+			for (let d = 0; d < 2; d++) net.embed[e][d] -= grad.dEmbed[e][d] * gradScale
+		}
+		for (let i = 0; i < HIDDEN_DIM; i++) {
+			for (let j = 0; j < INPUT_DIM; j++) net.W1[i][j] -= grad.dW1[i][j] * gradScale
+			net.b1[i] -= grad.db1[i] * gradScale
+		}
+		for (let i = 0; i < OUTPUT_DIM; i++) {
+			for (let j = 0; j < HIDDEN_DIM; j++) net.W2[i][j] -= grad.dW2[i][j] * gradScale
+			net.b2[i] -= grad.db2[i] * gradScale
+		}
+	} else {
+		// 负向惩罚：减少 targetAction，同时增加其他动作
+		const fp = forward(net, indices)
+		for (let otherAction = 0; otherAction < OUTPUT_DIM; otherAction++) {
+			const grad = backward(net, fp, otherAction)
+			if (otherAction === action) {
+				// 惩罚坏动作
+				for (let e = 0; e < NUM_ELEMENTS; e++) {
+					for (let d = 0; d < 2; d++) net.embed[e][d] -= grad.dEmbed[e][d] * gradScale
+				}
+				for (let i = 0; i < HIDDEN_DIM; i++) {
+					for (let j = 0; j < INPUT_DIM; j++) net.W1[i][j] -= grad.dW1[i][j] * gradScale
+					net.b1[i] -= grad.db1[i] * gradScale
+				}
+				for (let i = 0; i < OUTPUT_DIM; i++) {
+					for (let j = 0; j < HIDDEN_DIM; j++) net.W2[i][j] -= grad.dW2[i][j] * gradScale
+					net.b2[i] -= grad.db2[i] * gradScale
+				}
+			} else {
+				// 奖励其他动作（分摊概率）
+				const redistributeScale = gradScale / (OUTPUT_DIM - 1) * 0.5
+				for (let e = 0; e < NUM_ELEMENTS; e++) {
+					for (let d = 0; d < 2; d++) net.embed[e][d] -= grad.dEmbed[e][d] * redistributeScale
+				}
+				for (let i = 0; i < HIDDEN_DIM; i++) {
+					for (let j = 0; j < INPUT_DIM; j++) net.W1[i][j] -= grad.dW1[i][j] * redistributeScale
+					net.b1[i] -= grad.db1[i] * redistributeScale
+				}
+				for (let i = 0; i < OUTPUT_DIM; i++) {
+					for (let j = 0; j < HIDDEN_DIM; j++) net.W2[i][j] -= grad.dW2[i][j] * redistributeScale
+					net.b2[i] -= grad.db2[i] * redistributeScale
+				}
+			}
+		}
+	}
+}
+
+// 动态探索率调整（参考 fox-jump）
+// 逻辑：合法率上升→降低探索率（更信任当前策略），合法率停滞→提高探索率
+function adjustEpsilon(validRate: number): number {
+	// 更新历史窗口
+	state.unsupervisedHistory.push(validRate)
+	if (state.unsupervisedHistory.length > UNSUPERVISED_CONFIG.epsilonWindowSize) {
+		state.unsupervisedHistory.shift()
+	}
+
+	// 窗口未满时保持当前探索率
+	if (state.unsupervisedHistory.length < UNSUPERVISED_CONFIG.epsilonWindowSize) {
+		return state.epsilon
+	}
+
+	// 计算平均合法率（去掉当前这次）
+	const currentAvg = state.unsupervisedHistory.slice(0, -1).reduce((a, b) => a + b, 0) / (UNSUPERVISED_CONFIG.epsilonWindowSize - 1)
+
+	// 细粒度调整（适合千步级训练）
+	if (validRate > currentAvg + UNSUPERVISED_CONFIG.epsilonImproveThreshold) {
+		// 进步明显：缓慢降低探索率（更贪心）
+		state.epsilon = Math.max(UNSUPERVISED_CONFIG.epsilonMin, state.epsilon - UNSUPERVISED_CONFIG.epsilonDecayStep)
+	} else if (validRate < currentAvg - UNSUPERVISED_CONFIG.epsilonImproveThreshold) {
+		// 退步明显：缓慢提高探索率（多探索）
+		state.epsilon = Math.min(UNSUPERVISED_CONFIG.epsilonMax, state.epsilon + UNSUPERVISED_CONFIG.epsilonGrowStep)
+	} else {
+		// 持平：极缓慢降低探索率（保底）
+		state.epsilon = Math.max(UNSUPERVISED_CONFIG.epsilonMin, state.epsilon - UNSUPERVISED_CONFIG.epsilonDecayIdle)
+	}
+
+	return state.epsilon
 }
 
 function recordSnapshotStats(snapshotIndex: number) {
@@ -544,6 +790,31 @@ function resetNet() {
 	drawObsessionCurve()
 	updateObsessionStatus("未设置观察样本", "wait")
 	updateCurriculumUI()
+	updateModeUI()
+}
+
+// ========== 学习模式切换 ==========
+
+function toggleLearningMode() {
+	state.learningMode = state.learningMode === "supervised" ? "unsupervised" : "supervised"
+	updateModeUI()
+	updateExam(`已切换到「${state.learningMode === "supervised" ? "监督学习" : "无监督学习"}」模式`, "wait")
+}
+
+function updateModeUI() {
+	const btn = document.getElementById("btn-mode") as HTMLButtonElement
+	const label = document.getElementById("mode-label")!
+	if (state.learningMode === "supervised") {
+		btn.textContent = "切换"
+		btn.className = "btn-primary"
+		label.textContent = "监督学习（有标签）"
+		label.style.color = "#8ab4f8"
+	} else {
+		btn.textContent = "切换"
+		btn.className = "btn-accent"
+		label.textContent = "无监督学习（自探索）"
+		label.style.color = "#f9ab00"
+	}
 }
 
 // ========== 课程学习 ==========
@@ -596,6 +867,20 @@ async function runCurriculum() {
 	state.selectedSnapshotIndex = 0
 	updateSnapshotSlider()
 
+	// 根据学习模式选择训练方式
+	if (state.learningMode === "supervised") {
+		await runCurriculumSupervised()
+	} else {
+		await runCurriculumUnsupervised()
+	}
+
+	curriculumRunning = false
+	updateCurriculumUI()
+	predict()
+}
+
+// 课程学习 - 监督学习模式
+async function runCurriculumSupervised() {
 	const targetAcc = 90
 	const maxTotalSteps = 3000
 	const batchSize = 32
@@ -657,9 +942,6 @@ async function runCurriculum() {
 		await new Promise(r => setTimeout(r, 1))
 	}
 
-	curriculumRunning = false
-	updateCurriculumUI()
-
 	if (achieved) {
 		updateExam(
 			`${CURRICULUM_STAGES[curriculumStageIdx].name} 训练完成！准确率 ≥ ${targetAcc}%，可进入下一阶段`,
@@ -671,8 +953,155 @@ async function runCurriculum() {
 			"bad"
 		)
 	}
+}
 
-	predict()
+// 课程学习 - 无监督学习模式
+async function runCurriculumUnsupervised() {
+	const targetValidRate = 70  // 无监督用合法率代替准确率
+	const maxTotalSteps = 3000
+	const batchSize = 32
+	const stepsPerBatch = 100
+	let achieved = false
+
+	while (state.trainSteps < maxTotalSteps) {
+		for (let s = 0; s < stepsPerBatch; s++) {
+			const gEmbed = zeroMat(NUM_ELEMENTS, 2)
+			const gW1 = zeroMat(HIDDEN_DIM, INPUT_DIM)
+			const gb1 = zeroVec(HIDDEN_DIM)
+			const gW2 = zeroMat(OUTPUT_DIM, HIDDEN_DIM)
+			const gb2 = zeroVec(OUTPUT_DIM)
+
+			for (let b = 0; b < batchSize; b++) {
+				const idx = Math.floor(Math.random() * state.dataset.length)
+				const sample = state.dataset[idx]
+				const fp = forward(state.net, sample.indices)
+
+				// ε-贪心选择动作（使用动态探索率）
+				let action: number
+				if (Math.random() < state.epsilon) {
+					action = Math.floor(Math.random() * OUTPUT_DIM)
+				} else {
+					action = fp.o.indexOf(Math.max(...fp.o))
+				}
+
+				// 检查动作合法性
+				const heroCol = findHeroCol(sample.t)
+				const checks = getActionChecks(sample.t, heroCol)
+				const isValid = isActionValidByChecks(checks, action)
+				const optimal = getLabel(sample.t)
+
+				// 计算奖励
+				let reward: number
+				let targetAction: number
+				if (isValid) {
+					if (action === optimal) {
+						reward = UNSUPERVISED_CONFIG.rewardOptimal
+					} else {
+						reward = UNSUPERVISED_CONFIG.rewardValid
+					}
+					targetAction = action
+				} else {
+					reward = UNSUPERVISED_CONFIG.rewardInvalid
+					targetAction = action
+				}
+
+				// 关键：无监督学习的梯度更新（概率重新分配）
+				const gradScale = Math.abs(reward) * 0.3
+
+				if (reward > 0) {
+					// 正向强化
+					const grad = backward(state.net, fp, targetAction)
+					for (let e = 0; e < NUM_ELEMENTS; e++) {
+						for (let d = 0; d < 2; d++) gEmbed[e][d] += grad.dEmbed[e][d] / batchSize * gradScale
+					}
+					for (let i = 0; i < HIDDEN_DIM; i++) {
+						for (let j = 0; j < INPUT_DIM; j++) gW1[i][j] += grad.dW1[i][j] / batchSize * gradScale
+						gb1[i] += grad.db1[i] / batchSize * gradScale
+					}
+					for (let i = 0; i < OUTPUT_DIM; i++) {
+						for (let j = 0; j < HIDDEN_DIM; j++) gW2[i][j] += grad.dW2[i][j] / batchSize * gradScale
+						gb2[i] += grad.db2[i] / batchSize * gradScale
+					}
+				} else {
+					// 负向惩罚：减少 targetAction，同时增加其他动作
+					for (let otherAction = 0; otherAction < OUTPUT_DIM; otherAction++) {
+						if (otherAction === targetAction) {
+							const grad = backward(state.net, fp, targetAction)
+							for (let e = 0; e < NUM_ELEMENTS; e++) {
+								for (let d = 0; d < 2; d++) gEmbed[e][d] -= grad.dEmbed[e][d] / batchSize * gradScale
+							}
+							for (let i = 0; i < HIDDEN_DIM; i++) {
+								for (let j = 0; j < INPUT_DIM; j++) gW1[i][j] -= grad.dW1[i][j] / batchSize * gradScale
+								gb1[i] -= grad.db1[i] / batchSize * gradScale
+							}
+							for (let i = 0; i < OUTPUT_DIM; i++) {
+								for (let j = 0; j < HIDDEN_DIM; j++) gW2[i][j] -= grad.dW2[i][j] / batchSize * gradScale
+								gb2[i] -= grad.db2[i] / batchSize * gradScale
+							}
+						} else {
+							const grad = backward(state.net, fp, otherAction)
+							const redistributeScale = gradScale / (OUTPUT_DIM - 1) * 0.5
+							for (let e = 0; e < NUM_ELEMENTS; e++) {
+								for (let d = 0; d < 2; d++) gEmbed[e][d] += grad.dEmbed[e][d] / batchSize * redistributeScale
+							}
+							for (let i = 0; i < HIDDEN_DIM; i++) {
+								for (let j = 0; j < INPUT_DIM; j++) gW1[i][j] += grad.dW1[i][j] / batchSize * redistributeScale
+								gb1[i] += grad.db1[i] / batchSize * redistributeScale
+							}
+							for (let i = 0; i < OUTPUT_DIM; i++) {
+								for (let j = 0; j < HIDDEN_DIM; j++) gW2[i][j] += grad.dW2[i][j] / batchSize * redistributeScale
+								gb2[i] += grad.db2[i] / batchSize * redistributeScale
+							}
+						}
+					}
+				}
+			}
+
+			updateNetwork(state.net, { dEmbed: gEmbed, dW1: gW1, db1: gb1, dW2: gW2, db2: gb2 }, 1)
+			state.trainSteps++
+		}
+
+		// 评估合法率
+		let validCount = 0
+		for (const sample of state.dataset) {
+			const fp = forward(state.net, sample.indices)
+			const action = fp.o.indexOf(Math.max(...fp.o))
+			const heroCol = findHeroCol(sample.t)
+			const checks = getActionChecks(sample.t, heroCol)
+			if (isActionValidByChecks(checks, action)) validCount++
+		}
+		const validRate = (validCount / state.dataset.length) * 100
+		// 动态调整探索率
+		const newEpsilon = adjustEpsilon(validRate)
+		console.log("[UNS]", `合法率:${validRate.toFixed(1)}% 探索率ε:${newEpsilon.toFixed(2)} 历史窗口:[${state.unsupervisedHistory.map(v => v.toFixed(0)).join(",")}]`)
+		updateMetricsUnsupervised(0, validRate, Math.min(state.trainSteps / maxTotalSteps, 1) * 100)
+
+		// 保存快照
+		state.snapshots.push({ step: state.trainSteps, net: cloneNet(state.net) })
+		recordSnapshotStats(state.snapshots.length - 1)
+		updateSnapshotSlider()
+		drawObsessionCurve()
+
+		// 检查是否达标
+		if (validRate >= targetValidRate) {
+			achieved = true
+			break
+		}
+
+		await new Promise(r => setTimeout(r, 1))
+	}
+
+	if (achieved) {
+		updateExam(
+			`${CURRICULUM_STAGES[curriculumStageIdx].name} 训练完成！合法率 ≥ ${targetValidRate}%，可进入下一阶段`,
+			"ok"
+		)
+	} else {
+		updateExam(
+			`${CURRICULUM_STAGES[curriculumStageIdx].name} 训练结束，未达到 ${targetValidRate}% 合法率（当前：${document.getElementById("acc-display")!.textContent}）。建议重置网络再试一次。`,
+			"bad"
+		)
+	}
 }
 
 function nextCurriculumStage() {
@@ -1190,6 +1619,7 @@ function init() {
 	;(window as any).onConfigChange = onConfigChange
 	;(window as any).runCurriculum = runCurriculum
 	;(window as any).nextCurriculumStage = nextCurriculumStage
+	;(window as any).toggleLearningMode = toggleLearningMode
 
 	// 初始化控制台
 	const consolePanel = new ConsolePanel("#console-mount", logger)

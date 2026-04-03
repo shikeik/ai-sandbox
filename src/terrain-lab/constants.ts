@@ -71,3 +71,20 @@ export const EMBED_SIZE_MAX = 2
 export const ACTIONS: ActionType[] = ["走", "跳", "远跳", "走A"]
 export const ROW_NAMES = ["天上", "地上", "地面"]
 export const LR = 0.05
+
+// ========== 无监督学习配置（在这里改数值）==========
+export const UNSUPERVISED_CONFIG = {
+	// 奖励值（细粒度，正负必须对称）
+	rewardOptimal: 0.05,     // 最优动作奖励
+	rewardValid: 0.02,       // 合法但非最优奖励  
+	rewardInvalid: -0.05,    // 非法动作惩罚（与 optimal 完全对称）
+
+	// 动态探索率
+	epsilonMin: 0.1,        // 最小探索率
+	epsilonMax: 0.4,        // 最大探索率
+	epsilonWindowSize: 5,   // 滑动窗口大小
+	epsilonImproveThreshold: 0.5,  // 进步阈值（百分比）
+	epsilonDecayStep: 0.015,  // 进步时降低量
+	epsilonGrowStep: 0.015,   // 退步时增加量
+	epsilonDecayIdle: 0.005,  // 持平时降低量
+}
