@@ -1,7 +1,9 @@
 import type { DatasetItem, ActionChecks } from "./types.js"
+import type { TerrainConfig } from "./constants.js"
 import {
-	ELEMENTS, LAYER_LIMITS, NUM_LAYERS, NUM_COLS,
-	ELEM_AIR, ELEM_HERO, ELEM_GROUND, ELEM_SLIME, ELEM_DEMON, ELEM_COIN
+	ELEMENTS, NUM_LAYERS, NUM_COLS,
+	ELEM_AIR, ELEM_HERO, ELEM_GROUND, ELEM_SLIME, ELEM_DEMON, ELEM_COIN,
+	DEFAULT_TERRAIN_CONFIG
 } from "./constants.js"
 
 // ========== 地形编码 ==========
@@ -26,8 +28,24 @@ export function findHeroCol(t: number[][]): number {
 
 // ========== 随机元素生成 ==========
 
-export function randElem(layer: number): number {
-	const pool = LAYER_LIMITS[layer]
+export function getLayerPool(layer: number, config: TerrainConfig): number[] {
+	if (layer === 2 && config.groundOnly) {
+		return [ELEM_GROUND]
+	}
+	const pool = [ELEM_AIR]
+	if (layer === 0) {
+		if (config.demon) pool.push(ELEM_DEMON)
+		if (config.coin) pool.push(ELEM_COIN)
+	} else if (layer === 1) {
+		if (config.slime) pool.push(ELEM_SLIME)
+		if (config.coin) pool.push(ELEM_COIN)
+	} else if (layer === 2) {
+		pool.push(ELEM_GROUND)
+	}
+	return pool
+}
+
+export function randElemFromPool(pool: number[]): number {
 	return pool[Math.floor(Math.random() * pool.length)]
 }
 
@@ -170,7 +188,7 @@ export function isValidTerrain(t: number[][]): boolean {
 
 // ========== 数据生成 ==========
 
-export function generateTerrainData(count: number): DatasetItem[] {
+export function generateTerrainData(count: number, config: TerrainConfig = DEFAULT_TERRAIN_CONFIG): DatasetItem[] {
 	const dataset: DatasetItem[] = []
 	let attempts = 0
 	let validCount = 0
@@ -178,12 +196,18 @@ export function generateTerrainData(count: number): DatasetItem[] {
 
 	console.log("DATA", "开始生成 " + count + " 条训练数据...")
 
+	const pools = [
+		getLayerPool(0, config),
+		getLayerPool(1, config),
+		getLayerPool(2, config),
+	]
+
 	while (dataset.length < count && attempts < 50000) {
 		const heroCol = Math.floor(Math.random() * NUM_COLS)
 		const t = [
-			Array.from({ length: NUM_COLS }, () => randElem(0)),
-			Array.from({ length: NUM_COLS }, () => randElem(1)),
-			Array.from({ length: NUM_COLS }, () => randElem(2)),
+			Array.from({ length: NUM_COLS }, () => randElemFromPool(pools[0])),
+			Array.from({ length: NUM_COLS }, () => randElemFromPool(pools[1])),
+			Array.from({ length: NUM_COLS }, () => randElemFromPool(pools[2])),
 		]
 		// 确保只有 heroCol 位置是狐狸，其他位置若随机到狐狸则替换为空气
 		for (let c = 0; c < NUM_COLS; c++) {
@@ -199,23 +223,29 @@ export function generateTerrainData(count: number): DatasetItem[] {
 	}
 
 	const duration = (performance.now() - startTime).toFixed(0)
-	console.log("DATA", `完成: ${dataset.length}条有效 / ${attempts}次尝试 / 通过率${(validCount / attempts * 100).toFixed(1)}% / ${duration}ms`)
+	console.log("DATA", `完成: ${dataset.length}条有效 / ${attempts}次尝试 / 通过率${(validCount / (attempts || 1) * 100).toFixed(1)}% / ${duration}ms`)
 
 	return dataset
 }
 
 // ========== 生成随机地形 ==========
 
-export function generateRandomTerrain(): number[][] {
+export function generateRandomTerrain(config: TerrainConfig = DEFAULT_TERRAIN_CONFIG): number[][] {
 	let attempts = 0
 	let terrain: number[][]
+
+	const pools = [
+		getLayerPool(0, config),
+		getLayerPool(1, config),
+		getLayerPool(2, config),
+	]
 
 	do {
 		const heroCol = Math.floor(Math.random() * NUM_COLS)
 		terrain = [
-			Array.from({ length: NUM_COLS }, () => randElem(0)), // 天上
-			Array.from({ length: NUM_COLS }, () => randElem(1)), // 地上
-			Array.from({ length: NUM_COLS }, () => randElem(2)), // 地面
+			Array.from({ length: NUM_COLS }, () => randElemFromPool(pools[0])),
+			Array.from({ length: NUM_COLS }, () => randElemFromPool(pools[1])),
+			Array.from({ length: NUM_COLS }, () => randElemFromPool(pools[2])),
 		]
 		// 确保只有 heroCol 位置是狐狸，其他位置若随机到狐狸则替换为空气
 		for (let c = 0; c < NUM_COLS; c++) {

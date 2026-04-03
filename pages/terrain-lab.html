@@ -203,6 +203,43 @@
             margin-top: 6px;
             min-height: 16px;
         }
+        .terrain-config {
+            background: #0b0c0f;
+            border: 1px solid #2c2f36;
+            border-radius: 8px;
+            padding: 10px;
+            font-size: 11px;
+        }
+        .stage-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+        .stage-row label { color: #9aa0a6; }
+        .stage-row select {
+            background: #16181d;
+            color: #e8eaed;
+            border: 1px solid #3c4043;
+            border-radius: 4px;
+            padding: 4px 6px;
+            font-size: 11px;
+        }
+        .switch-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .switch-row label {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            color: #bdc1c6;
+            cursor: pointer;
+        }
+        .switch-row input[type="checkbox"] {
+            accent-color: #8ab4f8;
+        }
         .prob-bars {
             margin-top: 10px;
             background: #0b0c0f;
@@ -292,6 +329,28 @@
             <div class="brush-panel">
                 <div class="brush-title">选中画笔后点击上方格子绘制</div>
                 <div class="brush-list" id="brush-list"></div>
+            </div>
+
+            <!-- 地形配置 -->
+            <div class="panel-title" style="margin-top:14px">地形配置</div>
+            <div class="terrain-config" id="terrain-config">
+                <div class="stage-row">
+                    <label>课程阶段</label>
+                    <select id="stage-select" onchange="onStageChange(this.value)">
+                        <option value="custom">自定义</option>
+                        <option value="0">阶段1：平地大道</option>
+                        <option value="1">阶段2：小心坑洞</option>
+                        <option value="2">阶段3：史莱姆出没</option>
+                        <option value="3">阶段4：天降恶魔</option>
+                        <option value="4">阶段5：金币干扰</option>
+                    </select>
+                </div>
+                <div class="switch-row">
+                    <label><input type="checkbox" id="sw-ground-only" onchange="onConfigChange()"> 地面只有平地（无坑）</label>
+                    <label><input type="checkbox" id="sw-slime" onchange="onConfigChange()"> 史莱姆</label>
+                    <label><input type="checkbox" id="sw-demon" onchange="onConfigChange()"> 恶魔</label>
+                    <label><input type="checkbox" id="sw-coin" onchange="onConfigChange()"> 金币</label>
+                </div>
             </div>
 
             <!-- 下：验收/考试区 -->

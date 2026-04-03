@@ -2,7 +2,8 @@ import type { ForwardResult, ActionType } from "./types.js"
 import type { AppState } from "./state.js"
 import {
 	NUM_COLS, NUM_LAYERS, NUM_ELEMENTS, HIDDEN_DIM, OUTPUT_DIM,
-	INPUT_DIM, ACTIONS, ELEM_AIR, ELEM_HERO, ELEM_GROUND, ELEM_SLIME, ELEM_DEMON, ELEM_COIN
+	INPUT_DIM, ACTIONS, ELEM_AIR, ELEM_HERO, ELEM_GROUND, ELEM_SLIME, ELEM_DEMON, ELEM_COIN,
+	CURRICULUM_STAGES
 } from "./constants.js"
 import { zeroMat, zeroVec, easeOutQuad } from "./utils.js"
 import { forward, backward, updateNetwork, cloneNet } from "./neural-network.js"
@@ -192,7 +193,7 @@ function evaluateAll() {
 // ========== 数据生成 ==========
 
 function generateData() {
-	state.dataset = generateTerrainData(6000)
+	state.dataset = generateTerrainData(6000, state.terrainConfig)
 	updateMetrics(0)
 	document.getElementById("data-count")!.textContent = String(state.dataset.length)
 	const btn = document.getElementById("btn-train") as HTMLButtonElement
@@ -431,8 +432,62 @@ function renderBrushes() {
 	})
 }
 
+function renderTerrainConfig() {
+	const stageSelect = document.getElementById("stage-select") as any
+	const swGroundOnly = document.getElementById("sw-ground-only") as HTMLInputElement
+	const swSlime = document.getElementById("sw-slime") as HTMLInputElement
+	const swDemon = document.getElementById("sw-demon") as HTMLInputElement
+	const swCoin = document.getElementById("sw-coin") as HTMLInputElement
+
+	const cfg = state.terrainConfig
+	let matchedStage = "custom"
+	for (let i = 0; i < CURRICULUM_STAGES.length; i++) {
+		const s = CURRICULUM_STAGES[i].config
+		if (
+			cfg.groundOnly === s.groundOnly &&
+			cfg.slime === s.slime &&
+			cfg.demon === s.demon &&
+			cfg.coin === s.coin
+		) {
+			matchedStage = String(i)
+			break
+		}
+	}
+	stageSelect.value = matchedStage
+	swGroundOnly.checked = cfg.groundOnly
+	swSlime.checked = cfg.slime
+	swDemon.checked = cfg.demon
+	swCoin.checked = cfg.coin
+}
+
+function onStageChange(value: string) {
+	if (value === "custom") return
+	const stageIdx = Number(value)
+	if (stageIdx >= 0 && stageIdx < CURRICULUM_STAGES.length) {
+		state.terrainConfig = { ...CURRICULUM_STAGES[stageIdx].config }
+		renderTerrainConfig()
+		updateTerrainStatus("wait", `已切换到「${CURRICULUM_STAGES[stageIdx].name}」，随机地形和生成数据将使用该配置`)
+	}
+}
+
+function onConfigChange() {
+	const swGroundOnly = document.getElementById("sw-ground-only") as HTMLInputElement
+	const swSlime = document.getElementById("sw-slime") as HTMLInputElement
+	const swDemon = document.getElementById("sw-demon") as HTMLInputElement
+	const swCoin = document.getElementById("sw-coin") as HTMLInputElement
+
+	state.terrainConfig = {
+		groundOnly: swGroundOnly.checked,
+		slime: swSlime.checked,
+		demon: swDemon.checked,
+		coin: swCoin.checked,
+	}
+	renderTerrainConfig()
+	updateTerrainStatus("wait", "地形配置已更新")
+}
+
 function randomTerrain() {
-	state.terrain = generateRandomTerrain()
+	state.terrain = generateRandomTerrain(state.terrainConfig)
 	stopAnimation(state)
 	drawEditor()
 	updateTerrainStatus("wait", "已随机生成新地形，点击「预测当前地形」查看 AI 判断")
@@ -868,6 +923,7 @@ function init() {
 	}
 
 	renderBrushes()
+	renderTerrainConfig()
 	drawEditor()
 	drawMLP(null)
 	drawEmbedding()
@@ -920,6 +976,8 @@ function init() {
 	}
 	;(window as any).setObservedFromTerrain = setObservedFromTerrain
 	;(window as any).setObservedRandom = setObservedRandom
+	;(window as any).onStageChange = onStageChange
+	;(window as any).onConfigChange = onConfigChange
 
 	// 初始化控制台
 	const consolePanel = new ConsolePanel("#console-mount", logger)
