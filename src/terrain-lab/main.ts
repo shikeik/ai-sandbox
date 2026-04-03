@@ -164,7 +164,7 @@ function validateTerrain() {
   if (validActions.length > 0) {
     lines.push(`✅ 可行动作：${validActions.join("、")}`)
   } else {
-    lines.push(`❌ 无可用动作（死局）`)
+    lines.push("❌ 无可用动作（死局）")
   }
   
   // 显示各动作详情
@@ -183,7 +183,7 @@ function validateTerrain() {
   } else {
     const jumpTarget = heroCol + 2
     if (jumpTarget >= NUM_COLS) {
-      actionDetails.push(`❌ 跳：超出地图边界`)
+      actionDetails.push("❌ 跳：超出地图边界")
     } else {
       actionDetails.push(`❌ 跳：${jump.reasons[0] || "无法跳跃"}`)
     }
@@ -195,7 +195,7 @@ function validateTerrain() {
   } else {
     const longJumpTarget = heroCol + 3
     if (longJumpTarget >= NUM_COLS) {
-      actionDetails.push(`❌ 远跳：超出地图边界`)
+      actionDetails.push("❌ 远跳：超出地图边界")
     } else {
       actionDetails.push(`❌ 远跳：${longJump.reasons[0] || "无法远跳"}`)
     }
@@ -208,7 +208,7 @@ function validateTerrain() {
   } else {
     const walkATarget = heroCol + 1
     if (walkATarget >= NUM_COLS) {
-      actionDetails.push(`❌ 走A：超出地图边界`)
+      actionDetails.push("❌ 走A：超出地图边界")
     } else {
       actionDetails.push(`❌ 走A：${wa.reasons[0] || "无法攻击"}`)
     }
@@ -600,11 +600,11 @@ function init() {
   mlpCanvas = document.getElementById("mlp-canvas") as HTMLCanvasElement
 
   // 动态更新HTML标题
-  const editorTitle = document.getElementById('editor-title')
+  const editorTitle = document.getElementById("editor-title")
   if (editorTitle) {
     editorTitle.textContent = `编辑预览视图 (${NUM_COLS}×${NUM_LAYERS}) — 点击绘制，狐狸可在任意列`
   }
-  const mlpTitle = document.getElementById('mlp-title')
+  const mlpTitle = document.getElementById("mlp-title")
   if (mlpTitle) {
     mlpTitle.textContent = `MLP 网络状态 (${INPUT_DIM} → ${HIDDEN_DIM} → ${OUTPUT_DIM})`
   }

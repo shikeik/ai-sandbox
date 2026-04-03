@@ -57,7 +57,7 @@ export interface CellPos { r: number; c: number }
 
 export function getEditorCellAt(
   mx: number, my: number, 
-  rect: DOMRect,
+  rect: { width: number; height: number; left: number; top: number },
   cellSize: number = 44,
   gap: number = 6
 ): CellPos | null {
