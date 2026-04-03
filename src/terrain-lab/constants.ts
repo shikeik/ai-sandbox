@@ -29,11 +29,12 @@ export const LAYER_LIMITS: number[][] = [
 export const NUM_LAYERS = 3        // 层数（天上、地上、地面）
 export const NUM_COLS = 5          // 列数（x0-x4）
 export const NUM_ELEMENTS = 6      // 元素种类数
+export const EMBED_DIM = 2         // 元素向量维度
 export const HIDDEN_DIM = 16       // 隐藏层神经元数
 export const OUTPUT_DIM = 4        // 输出层动作数
 
 // 派生常量
-export const INPUT_DIM = NUM_COLS * NUM_LAYERS * NUM_ELEMENTS  // 90 = 5×3×6
+export const INPUT_DIM = NUM_COLS * NUM_LAYERS * EMBED_DIM     // 30 = 5×3×2
 
 // ========== 其他常量 ==========
 export const ACTIONS: ActionType[] = ["走", "跳", "远跳", "走A"]
