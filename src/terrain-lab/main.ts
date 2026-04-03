@@ -4,7 +4,7 @@ import {
 	NUM_COLS, NUM_LAYERS, NUM_ELEMENTS, HIDDEN_DIM, OUTPUT_DIM,
 	INPUT_DIM, ACTIONS, ELEM_AIR, ELEM_HERO, ELEM_GROUND, ELEM_SLIME, ELEM_DEMON, ELEM_COIN,
 	CURRICULUM_STAGES, EMBED_SIZE_BASE, EMBED_SIZE_SENSITIVITY, EMBED_SIZE_OFFSET, EMBED_SIZE_MIN, EMBED_SIZE_MAX,
-	UNSUPERVISED_CONFIG
+	UNSUPERVISED_CONFIG, TRAIN_CONFIG
 } from "./constants.js"
 import { createGradientBuffer, accumulateGradients, calculateReward, type ActionEvaluation } from "./unsupervised.js"
 import { createGradientBuffer as createSuperBuffer, accumulateSupervisedGrad, evaluateModel } from "./supervised.js"
@@ -93,8 +93,7 @@ async function trainBatch() {
 
 // 监督学习：使用标签数据
 async function trainSupervised() {
-	const batchSize = 32
-	const steps = 100
+	const { batchSize, steps } = TRAIN_CONFIG.supervised
 
 	// 若快照为空，先保存初始状态（全局累积，不清空旧快照）
 	if (state.snapshots.length === 0) {
@@ -139,8 +138,7 @@ async function trainSupervised() {
 
 // 无监督学习：ε-贪心探索，根据结果给奖励
 async function trainUnsupervised() {
-	const batchSize = 32
-	const steps = 1000  // ← 增加步数到1000，给网络足够时间收敛
+	const { batchSize, steps } = TRAIN_CONFIG.unsupervised
 	// 使用动态探索率，初始值从 state.epsilon 获取
 
 	// 若快照为空，先保存初始状态

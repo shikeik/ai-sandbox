@@ -88,3 +88,15 @@ export const UNSUPERVISED_CONFIG = {
 	epsilonGrowStep: 0.015,   // 退步时增加量
 	epsilonDecayIdle: 0.005,  // 持平时降低量
 }
+
+// ========== 训练配置（统一入口）==========
+export const TRAIN_CONFIG = {
+	supervised: {
+		batchSize: 32,
+		steps: 100,
+	},
+	unsupervised: {
+		batchSize: 32,
+		steps: 1000,  // 无监督需要更多步数收敛
+	},
+}
