@@ -43,12 +43,12 @@
 
         .main-grid {
             display: grid;
-            grid-template-columns: 340px 1fr 300px;
+            grid-template-columns: 1fr 1fr;
             gap: 14px;
-            max-width: 1180px;
+            max-width: 960px;
             margin: 0 auto;
         }
-        @media (max-width: 960px) {
+        @media (max-width: 720px) {
             .main-grid { grid-template-columns: 1fr; }
         }
 
@@ -65,57 +65,19 @@
             text-align: center;
         }
 
-        /* 地形编辑器 */
-        .terrain-wrap {
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-        }
-        .terrain-row {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-        .row-label {
-            width: 36px;
-            font-size: 10px;
-            color: #9aa0a6;
-            text-align: right;
-        }
-        .terrain-cell {
-            width: 44px;
-            height: 44px;
-            border-radius: 8px;
-            border: 1px solid #3c4043;
+        /* 编辑器 canvas */
+        #editor-canvas {
+            width: 100%;
+            height: 220px;
             background: #0b0c0f;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 20px;
-            cursor: pointer;
-            user-select: none;
-            transition: transform .05s, border-color .15s;
-        }
-        .terrain-cell:hover { border-color: #8ab4f8; }
-        .terrain-cell:active { transform: scale(0.95); }
-        .col-labels {
-            display: flex;
-            gap: 6px;
-            padding-left: 42px;
-            margin-top: 2px;
-        }
-        .col-label {
-            width: 44px;
-            text-align: center;
-            font-size: 10px;
-            color: #5f6368;
+            border-radius: 8px;
+            display: block;
+            cursor: crosshair;
         }
 
         /* 画笔栏 */
         .brush-panel {
-            margin-top: 12px;
-            padding-top: 10px;
-            border-top: 1px solid #2c2f36;
+            margin-top: 10px;
         }
         .brush-title {
             font-size: 10px;
@@ -195,7 +157,7 @@
         /* MLP 可视化 */
         #mlp-canvas {
             width: 100%;
-            height: 260px;
+            height: 300px;
             background: #0b0c0f;
             border-radius: 8px;
             display: block;
@@ -226,12 +188,6 @@
         }
         .prob-val { width: 36px; text-align: right; color: #8ab4f8; }
 
-        /* 控制台 */
-        .control-area {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
         .metric {
             font-size: 11px;
             color: #9aa0a6;
@@ -252,7 +208,6 @@
             transition: width .2s;
         }
 
-        /* 考试区 + 动画 */
         .exam-result {
             margin-top: 10px;
             padding: 10px;
@@ -264,15 +219,6 @@
         .exam-result.ok { border: 1px solid #34a853; }
         .exam-result.bad { border: 1px solid #ea4335; }
         .exam-result.wait { border: 1px solid #2c2f36; }
-
-        #anim-canvas {
-            width: 100%;
-            height: 160px;
-            background: #0b0c0f;
-            border-radius: 8px;
-            display: block;
-            margin-top: 10px;
-        }
     </style>
 </head>
 <body>
@@ -281,17 +227,10 @@
     <p class="subtitle">监督学习：给定地形 → MLP 学习最优动作</p>
 
     <div class="main-grid">
-        <!-- 左侧：地形编辑器 -->
+        <!-- 左上：环境编辑器 -->
         <div class="panel">
-            <div class="panel-title">地形编辑器 (5×3) — x0为主角</div>
-            <div class="terrain-wrap" id="terrain-wrap"></div>
-            <div class="col-labels">
-                <div class="col-label" style="width:44px">主角</div>
-                <div class="col-label" style="width:44px">前1</div>
-                <div class="col-label" style="width:44px">前2</div>
-                <div class="col-label" style="width:44px">前3</div>
-                <div class="col-label" style="width:44px">前4</div>
-            </div>
+            <div class="panel-title">地形编辑器 (5×3) — 点击绘制，x0 列为主角</div>
+            <canvas id="editor-canvas"></canvas>
 
             <div class="brush-panel">
                 <div class="brush-title">选中画笔后点击上方格子绘制</div>
@@ -312,38 +251,24 @@
                 走：前1地面=平地 + 前1天上≠恶魔 + 前1地上≠史莱姆<br>
                 跳：前1天上≠恶魔 + <b>前2地面=平地</b> + 前2天上≠恶魔 + 前2地上≠史莱姆<br>
                 远跳：前1/前2天上≠恶魔 + <b>前3地面=平地</b> + 前3天上≠恶魔 + 前3地上≠史莱姆<br>
-                走A：前1地面=平地（击杀同层史莱姆，但对天上恶魔无效）<br>
+                走A：前1地面=平地（击杀同层史莱姆，对天上恶魔无效）<br>
                 优先级：走 → 跳 → 远跳 → 走A
             </div>
         </div>
 
-        <!-- 中间：MLP 可视化 -->
-        <div class="panel">
-            <div class="panel-title">MLP 网络状态 (60 → 16 → 4)</div>
-            <canvas id="mlp-canvas"></canvas>
-            <div class="prob-bars" id="prob-bars">
-                <div class="prob-row"><div class="prob-name">走</div><div class="prob-track"><div class="prob-fill" style="width:0%"></div></div><div class="prob-val">0%</div></div>
-                <div class="prob-row"><div class="prob-name">跳</div><div class="prob-track"><div class="prob-fill" style="width:0%"></div></div><div class="prob-val">0%</div></div>
-                <div class="prob-row"><div class="prob-name">远跳</div><div class="prob-track"><div class="prob-fill" style="width:0%"></div></div><div class="prob-val">0%</div></div>
-                <div class="prob-row"><div class="prob-name">走A</div><div class="prob-track"><div class="prob-fill" style="width:0%"></div></div><div class="prob-val">0%</div></div>
-            </div>
-        </div>
-
-        <!-- 右侧：训练控制 + 考试 + 动画 -->
+        <!-- 右上：训练控制 + 验收 -->
         <div class="panel">
             <div class="panel-title">训练控制台</div>
-            <div class="control-area">
-                <div class="btn-row">
-                    <button class="btn-primary" onclick="generateData()">生成数据</button>
-                    <button class="btn-accent" onclick="trainBatch()" id="btn-train" disabled>训练 100 步</button>
-                    <button class="btn-secondary" onclick="resetNet()">重置网络</button>
-                </div>
-                <div class="metric">数据集: <span id="data-count">0</span> 条</div>
-                <div class="metric">训练步数: <span id="step-count">0</span></div>
-                <div class="metric">准确率: <span id="acc-display">-</span></div>
-                <div class="metric">损失: <span id="loss-display">-</span></div>
-                <div class="progress-wrap"><div class="progress-bar" id="train-progress"></div></div>
+            <div class="btn-row">
+                <button class="btn-primary" onclick="generateData()">生成数据</button>
+                <button class="btn-accent" onclick="trainBatch()" id="btn-train" disabled>训练 100 步</button>
+                <button class="btn-secondary" onclick="resetNet()">重置网络</button>
             </div>
+            <div class="metric">数据集: <span id="data-count">0</span> 条</div>
+            <div class="metric">训练步数: <span id="step-count">0</span></div>
+            <div class="metric">准确率: <span id="acc-display">-</span></div>
+            <div class="metric">损失: <span id="loss-display">-</span></div>
+            <div class="progress-wrap"><div class="progress-bar" id="train-progress"></div></div>
 
             <div class="panel-title" style="margin-top:14px">验收 / 考试</div>
             <div class="btn-row">
@@ -352,8 +277,18 @@
             <div class="exam-result wait" id="exam-box">
                 点击"预测当前地形"开始验收
             </div>
+        </div>
 
-            <canvas id="anim-canvas"></canvas>
+        <!-- 下方全宽：MLP 可视化 -->
+        <div class="panel" style="grid-column: 1 / -1;">
+            <div class="panel-title">MLP 网络状态 (60 → 16 → 4)</div>
+            <canvas id="mlp-canvas"></canvas>
+            <div class="prob-bars" id="prob-bars">
+                <div class="prob-row"><div class="prob-name">走</div><div class="prob-track"><div class="prob-fill" style="width:0%"></div></div><div class="prob-val">0%</div></div>
+                <div class="prob-row"><div class="prob-name">跳</div><div class="prob-track"><div class="prob-fill" style="width:0%"></div></div><div class="prob-val">0%</div></div>
+                <div class="prob-row"><div class="prob-name">远跳</div><div class="prob-track"><div class="prob-fill" style="width:0%"></div></div><div class="prob-val">0%</div></div>
+                <div class="prob-row"><div class="prob-name">走A</div><div class="prob-track"><div class="prob-fill" style="width:0%"></div></div><div class="prob-val">0%</div></div>
+            </div>
         </div>
     </div>
 

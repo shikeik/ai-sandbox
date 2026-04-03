@@ -41,20 +41,16 @@ const LAYER_LIMITS: number[][] = [
 const ACTIONS: ActionType[] = ["走", "跳", "远跳", "走A"]
 const ROW_NAMES = ["天上", "地上", "地面"]
 const COLS = 5 // x0-x4
-const INTERACTIVE_START = 1 // x1 开始可交互
 const INPUT_DIM = 60 // 4列(x1-x4) * 3层 * 5元素
 const HIDDEN_DIM = 16
 const OUTPUT_DIM = 4
 const LR = 0.05
 
-// 主角固定状态 (x0列)
-const HERO_COL: number[] = [0, 0, 1] // 天上=空气, 地上=狐狸(用特殊处理), 地面=平地
-
 // ========== 状态 ==========
 let terrain: number[][] = [
   [0, 0, 0, 0, 0], // 天上
-  [0, 0, 0, 0, 0], // 地上 (y1=狐狸占位)
-  [1, 1, 0, 0, 0], // 地面 (x0=平地, x1=平地)
+  [0, 0, 0, 0, 0], // 地上
+  [1, 1, 0, 0, 0], // 地面
 ]
 let selectedBrush = 0
 let dataset: DatasetItem[] = []
@@ -66,6 +62,10 @@ let animId: number | null = null
 let animStartTime = 0
 let animAction: ActionType | null = null
 let animSlimeKilled = false
+
+// 统一 canvas
+let editorCanvas: HTMLCanvasElement
+let mlpCanvas: HTMLCanvasElement
 
 // ========== 工具函数 ==========
 function randn(): number {
@@ -212,9 +212,9 @@ function generateData() {
   let attempts = 0
   while (dataset.length < 6000 && attempts < 50000) {
     const t = [
-      [0, randElem(0), randElem(0), randElem(0), randElem(0)], // 天上 (x0=空气)
-      [0, randElem(1), randElem(1), randElem(1), randElem(1)], // 地上 (x0=狐狸占位)
-      [1, randElem(2), randElem(2), randElem(2), randElem(2)], // 地面 (x0=平地)
+      [0, randElem(0), randElem(0), randElem(0), randElem(0)],
+      [0, randElem(1), randElem(1), randElem(1), randElem(1)],
+      [1, randElem(2), randElem(2), randElem(2), randElem(2)],
     ]
     attempts++
     if (!isValidTerrain(t)) continue
@@ -411,43 +411,6 @@ function updateProbs(probs: number[]) {
   }
 }
 
-// ========== 编辑器 UI ==========
-function renderTerrain() {
-  const wrap = document.getElementById("terrain-wrap") as HTMLDivElement
-  wrap.innerHTML = ""
-  for (let r = 0; r < 3; r++) {
-    const rowDiv = document.createElement("div")
-    rowDiv.className = "terrain-row"
-    const label = document.createElement("div")
-    label.className = "row-label"
-    label.textContent = ROW_NAMES[r]
-    rowDiv.appendChild(label)
-    for (let c = 0; c < COLS; c++) {
-      const cell = document.createElement("div")
-      cell.className = "terrain-cell"
-      const id = terrain[r][c]
-      const el = ELEMENTS[id]
-      cell.textContent = el.emoji
-      cell.title = el.name
-
-      if (c === 0) {
-        // x0 主角区域：不可交互，但显示固定内容
-        cell.style.background = "#1a2332"
-        cell.style.borderColor = "#2c3e50"
-        cell.style.cursor = "default"
-        if (r === 1) {
-          cell.textContent = "🦊"
-          cell.title = "狐狸"
-        }
-      } else {
-        cell.onclick = () => paintCell(r, c)
-      }
-      rowDiv.appendChild(cell)
-    }
-    wrap.appendChild(rowDiv)
-  }
-}
-
 function renderBrushes() {
   const list = document.getElementById("brush-list") as HTMLDivElement
   list.innerHTML = ""
@@ -464,18 +427,6 @@ function renderBrushes() {
   })
 }
 
-function paintCell(r: number, c: number) {
-  if (c === 0) return
-  const allowed = LAYER_LIMITS[r]
-  if (!allowed.includes(selectedBrush)) {
-    updateTerrainStatus("bad", `❌ ${ELEMENTS[selectedBrush].name} 不能放在 ${ROW_NAMES[r]}层`)
-    return
-  }
-  terrain[r][c] = selectedBrush
-  renderTerrain()
-  updateTerrainStatus("wait", "地形已更新，点击「合法性检查」或「预测当前地形」查看结果")
-}
-
 function randomTerrain() {
   let attempts = 0
   do {
@@ -486,49 +437,183 @@ function randomTerrain() {
     ]
     attempts++
   } while (!isValidTerrain(terrain) && attempts < 1000)
-  renderTerrain()
+  stopAnimation()
+  drawEditor()
   updateTerrainStatus("wait", "已随机生成新地形，点击「预测当前地形」查看 AI 判断")
   drawMLP(null)
   updateProbs([0, 0, 0, 0])
-  stopAnimation()
+}
+
+// ========== 统一绘制函数 ==========
+interface DrawOptions {
+  cellW: number
+  cellH: number
+  gapX: number
+  gapY: number
+  startX: number
+  startY: number
+  showHero?: boolean
+  heroCol?: number
+  heroRow?: number
+  hideSlimeAt?: number | null
+  dimNonInteractive?: boolean
+}
+
+function drawTerrainGrid(
+  ctx: CanvasRenderingContext2D,
+  t: number[][],
+  opts: DrawOptions
+) {
+  const { cellW, cellH, gapX, gapY, startX, startY, showHero, heroCol, heroRow, hideSlimeAt, dimNonInteractive } = opts
+
+  for (let r = 0; r < 3; r++) {
+    for (let c = 0; c < COLS; c++) {
+      const x = startX + c * (cellW + gapX)
+      const y = startY + r * (cellH + gapY)
+      const isHeroCol = c === 0
+      const colors = ["#1a1a1a", "#2d4059", "#2f4f2f", "#4a1c1c", "#4a4a1c"]
+
+      if (isHeroCol) {
+        ctx.fillStyle = "#1a2332"
+      } else {
+        ctx.fillStyle = colors[t[r][c]]
+      }
+      ctx.fillRect(x, y, cellW, cellH)
+
+      ctx.strokeStyle = isHeroCol ? "#2c3e50" : "#3c4043"
+      ctx.lineWidth = 1
+      ctx.strokeRect(x, y, cellW, cellH)
+
+      if (dimNonInteractive && isHeroCol) {
+        // 淡化主角列以突出可交互区
+        ctx.fillStyle = "rgba(11,12,15,0.3)"
+        ctx.fillRect(x, y, cellW, cellH)
+      }
+
+      // 画元素
+      let emoji = ""
+      if (isHeroCol) {
+        if (r === 0) emoji = "⬜"
+        else if (r === 2) emoji = "🟩"
+        // r===1 是狐狸，在动画中单独画
+      } else {
+        if (r === 1 && c === (hideSlimeAt ?? -1)) {
+          // 史莱姆被击杀
+        } else {
+          emoji = ELEMENTS[t[r][c]].emoji
+        }
+      }
+      if (emoji) drawEmoji(ctx, emoji, x + cellW / 2, y + cellH / 2, Math.min(cellW, cellH) * 0.55)
+
+      // 画狐狸
+      if (showHero && heroCol === c && heroRow === r) {
+        drawEmoji(ctx, "🦊", x + cellW / 2, y + cellH / 2, Math.min(cellW, cellH) * 0.65)
+      }
+    }
+  }
+}
+
+function drawEditor() {
+  const ctx = editorCanvas.getContext("2d")!
+  const rect = editorCanvas.getBoundingClientRect()
+  const dpr = window.devicePixelRatio || 1
+  editorCanvas.width = Math.floor(rect.width * dpr)
+  editorCanvas.height = Math.floor(rect.height * dpr)
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+  ctx.clearRect(0, 0, rect.width, rect.height)
+
+  const cellW = 46
+  const cellH = 40
+  const gapX = 6
+  const gapY = 6
+  const gridW = COLS * cellW + (COLS - 1) * gapX
+  const gridH = 3 * cellH + 2 * gapY
+  const startX = (rect.width - gridW) / 2
+  const startY = (rect.height - gridH) / 2 + 10
+
+  // 标签
+  ctx.fillStyle = "#9aa0a6"
+  ctx.font = "10px sans-serif"
+  ctx.textAlign = "right"
+  for (let r = 0; r < 3; r++) {
+    ctx.fillText(ROW_NAMES[r], startX - 8, startY + r * (cellH + gapY) + cellH / 2 + 3)
+  }
+  ctx.textAlign = "center"
+  const labels = ["主角", "前1", "前2", "前3", "前4"]
+  for (let c = 0; c < COLS; c++) {
+    ctx.fillText(labels[c], startX + c * (cellW + gapX) + cellW / 2, startY - 8)
+  }
+
+  // 绘制网格
+  drawTerrainGrid(ctx, terrain, {
+    cellW, cellH, gapX, gapY, startX, startY,
+    showHero: animAction === null,
+    heroCol: 0,
+    heroRow: 1,
+    hideSlimeAt: null,
+    dimNonInteractive: false,
+  })
+}
+
+function getEditorCellAt(mx: number, my: number): { r: number; c: number } | null {
+  const rect = editorCanvas.getBoundingClientRect()
+  const cellW = 46
+  const cellH = 40
+  const gapX = 6
+  const gapY = 6
+  const gridW = COLS * cellW + (COLS - 1) * gapX
+  const gridH = 3 * cellH + 2 * gapY
+  const startX = (rect.width - gridW) / 2
+  const startY = (rect.height - gridH) / 2 + 10
+
+  const x = mx - startX
+  const y = my - startY
+  const c = Math.floor(x / (cellW + gapX))
+  const r = Math.floor(y / (cellH + gapY))
+
+  if (c < 0 || c >= COLS || r < 0 || r >= 3) return null
+  // 检查是否在格子内部（不在 gap 上）
+  const localX = x - c * (cellW + gapX)
+  const localY = y - r * (cellH + gapY)
+  if (localX < 0 || localX > cellW || localY < 0 || localY > cellH) return null
+  if (c === 0) return null // x0 不可交互
+  return { r, c }
+}
+
+function drawEmoji(ctx: CanvasRenderingContext2D, emoji: string, x: number, y: number, size: number) {
+  ctx.font = `${Math.floor(size)}px sans-serif`
+  ctx.textAlign = "center"
+  ctx.textBaseline = "middle"
+  ctx.fillText(emoji, x, y + 2)
 }
 
 // ========== MLP Canvas ==========
 function drawMLP(fp: ForwardResult | null) {
-  const canvas = document.getElementById("mlp-canvas") as HTMLCanvasElement
+  const canvas = mlpCanvas
+  const ctx = canvas.getContext("2d")!
   const rect = canvas.getBoundingClientRect()
   const dpr = window.devicePixelRatio || 1
   canvas.width = Math.floor(rect.width * dpr)
   canvas.height = Math.floor(rect.height * dpr)
-  const ctx = canvas.getContext("2d")!
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
   const W = rect.width, H = rect.height
   ctx.clearRect(0, 0, W, H)
 
-  // 左侧：只画 x1-x4 的 4x3 网格
+  // 左侧：5x3 环境网格
   const cellW = 28, cellH = 24, gapX = 4, gapY = 4
-  const gridW = 4 * cellW + 3 * gapX
+  const gridW = COLS * cellW + (COLS - 1) * gapX
   const gridH = 3 * cellH + 2 * gapY
   const startX = 10
   const startY = (H - gridH) / 2
 
-  for (let r = 0; r < 3; r++) {
-    for (let c = 1; c < 5; c++) {
-      const id = terrain[r][c]
-      const x = startX + (c - 1) * (cellW + gapX)
-      const y = startY + r * (cellH + gapY)
-      const colors = ["#1a1a1a", "#2d4059", "#2f4f2f", "#4a1c1c", "#4a4a1c"]
-      ctx.fillStyle = colors[id]
-      ctx.fillRect(x, y, cellW, cellH)
-      ctx.strokeStyle = "#3c4043"
-      ctx.lineWidth = 1
-      ctx.strokeRect(x, y, cellW, cellH)
-      ctx.fillStyle = "#e8eaed"
-      ctx.font = "12px sans-serif"
-      ctx.textAlign = "center"
-      ctx.fillText(ELEMENTS[id].emoji, x + cellW / 2, y + cellH / 2 + 4)
-    }
-  }
+  drawTerrainGrid(ctx, terrain, {
+    cellW, cellH, gapX, gapY, startX, startY,
+    showHero: true,
+    heroCol: 0,
+    heroRow: 1,
+    hideSlimeAt: null,
+    dimNonInteractive: true,
+  })
 
   // 隐藏层
   const hidX = W / 2
@@ -548,7 +633,7 @@ function drawMLP(fp: ForwardResult | null) {
   ctx.lineWidth = 0.5
   for (let r = 0; r < 3; r++) {
     for (let c = 1; c < 5; c++) {
-      const x1 = startX + (c - 1) * (cellW + gapX) + cellW / 2
+      const x1 = startX + c * (cellW + gapX) + cellW / 2
       const y1 = startY + r * (cellH + gapY) + cellH / 2
       for (let h = 0; h < 16; h++) {
         ctx.strokeStyle = "rgba(95,99,104,0.15)"
@@ -621,6 +706,7 @@ function stopAnimation() {
   }
   animAction = null
   animSlimeKilled = false
+  drawEditor()
 }
 
 function playAnimation(action: ActionType) {
@@ -632,60 +718,36 @@ function playAnimation(action: ActionType) {
 }
 
 function stepAnimation(now: number) {
-  const canvas = document.getElementById("anim-canvas") as HTMLCanvasElement
-  const ctx = canvas.getContext("2d")!
-  const rect = canvas.getBoundingClientRect()
-  const dpr = window.devicePixelRatio || 1
-  canvas.width = Math.floor(rect.width * dpr)
-  canvas.height = Math.floor(rect.height * dpr)
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-  const W = rect.width, H = rect.height
-  ctx.clearRect(0, 0, W, H)
+  if (!animAction) return
 
-  const cellW = 36
-  const cellH = 30
+  const ctx = editorCanvas.getContext("2d")!
+  const rect = editorCanvas.getBoundingClientRect()
+  const dpr = window.devicePixelRatio || 1
+  editorCanvas.width = Math.floor(rect.width * dpr)
+  editorCanvas.height = Math.floor(rect.height * dpr)
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+  ctx.clearRect(0, 0, rect.width, rect.height)
+
+  const cellW = 46
+  const cellH = 40
   const gapX = 6
   const gapY = 6
-  const gridW = 5 * cellW + 4 * gapX
-  const startX = (W - gridW) / 2
-  const startY = (H - 3 * cellH - 2 * gapY) / 2
+  const gridW = COLS * cellW + (COLS - 1) * gapX
+  const gridH = 3 * cellH + 2 * gapY
+  const startX = (rect.width - gridW) / 2
+  const startY = (rect.height - gridH) / 2 + 10
 
-  // 绘制背景格子
+  // 标签
+  ctx.fillStyle = "#9aa0a6"
+  ctx.font = "10px sans-serif"
+  ctx.textAlign = "right"
   for (let r = 0; r < 3; r++) {
-    for (let c = 0; c < 5; c++) {
-      const x = startX + c * (cellW + gapX)
-      const y = startY + r * (cellH + gapY)
-      if (c === 0) {
-        ctx.fillStyle = "#1a2332"
-        ctx.fillRect(x, y, cellW, cellH)
-        ctx.strokeStyle = "#2c3e50"
-      } else {
-        ctx.fillStyle = "#0b0c0f"
-        ctx.fillRect(x, y, cellW, cellH)
-        ctx.strokeStyle = "#3c4043"
-      }
-      ctx.lineWidth = 1
-      ctx.strokeRect(x, y, cellW, cellH)
-
-      // 绘制地形元素 (x0固定显示，或动态)
-      let showSlime = true
-      if (c === 1 && animSlimeKilled) showSlime = false
-
-      const id = terrain[r][c]
-      if (c === 0) {
-        if (r === 0) drawEmoji(ctx, "⬜", x + cellW / 2, y + cellH / 2)
-        else if (r === 1) {
-          // 狐狸在动画中会移动，所以这里不画静态狐狸
-        }
-        else if (r === 2) drawEmoji(ctx, "🟩", x + cellW / 2, y + cellH / 2)
-      } else {
-        if (r === 1 && c === 1 && !showSlime) {
-          // 史莱姆被击杀，不画
-        } else {
-          drawEmoji(ctx, ELEMENTS[id].emoji, x + cellW / 2, y + cellH / 2)
-        }
-      }
-    }
+    ctx.fillText(ROW_NAMES[r], startX - 8, startY + r * (cellH + gapY) + cellH / 2 + 3)
+  }
+  ctx.textAlign = "center"
+  const labels = ["主角", "前1", "前2", "前3", "前4"]
+  for (let c = 0; c < COLS; c++) {
+    ctx.fillText(labels[c], startX + c * (cellW + gapX) + cellW / 2, startY - 8)
   }
 
   // 计算进度
@@ -707,39 +769,36 @@ function stepAnimation(now: number) {
     if (animAction === "走A" && t > 0.5) animSlimeKilled = true
   } else if (animAction === "跳") {
     const targetX = startX + 2 * (cellW + gapX) + cellW / 2
-    const peakY = heroBaseY - cellH // 跳到前1格天上高度
     hx = heroBaseX + (targetX - heroBaseX) * t
-    // 抛物线：先上升到 peakY 再下降
     const parabola = 4 * t * (1 - t)
     hy = heroBaseY - parabola * (cellH + 10)
   } else if (animAction === "远跳") {
     const targetX = startX + 3 * (cellW + gapX) + cellW / 2
-    const peakY = heroBaseY - cellH - 15
     hx = heroBaseX + (targetX - heroBaseX) * t
     const parabola = 4 * t * (1 - t)
     hy = heroBaseY - parabola * (cellH + 25)
   }
 
-  // 画狐狸
-  drawFox(ctx, hx, hy)
+  // 列坐标 -> 网格列索引
+  const heroCol = Math.max(0, Math.min(4, Math.round((hx - startX) / (cellW + gapX))))
+  const heroRow = Math.round((hy - startY) / (cellH + gapY))
+  const clampedRow = Math.max(0, Math.min(2, heroRow))
+
+  drawTerrainGrid(ctx, terrain, {
+    cellW, cellH, gapX, gapY, startX, startY,
+    showHero: false,
+    heroCol: 0,
+    heroRow: 1,
+    hideSlimeAt: animSlimeKilled ? 1 : null,
+    dimNonInteractive: false,
+  })
+
+  // 单独画狐狸
+  drawEmoji(ctx, "🦊", hx, hy, Math.min(cellW, cellH) * 0.65)
 
   if (t < 1) {
     animId = requestAnimationFrame(stepAnimation)
   }
-}
-
-function drawEmoji(ctx: CanvasRenderingContext2D, emoji: string, x: number, y: number) {
-  ctx.font = "18px sans-serif"
-  ctx.textAlign = "center"
-  ctx.textBaseline = "middle"
-  ctx.fillText(emoji, x, y + 2)
-}
-
-function drawFox(ctx: CanvasRenderingContext2D, x: number, y: number) {
-  ctx.font = "20px sans-serif"
-  ctx.textAlign = "center"
-  ctx.textBaseline = "middle"
-  ctx.fillText("🦊", x, y + 2)
 }
 
 function easeOutQuad(t: number): number {
@@ -748,11 +807,25 @@ function easeOutQuad(t: number): number {
 
 // ========== 初始化 ==========
 function init() {
-  renderTerrain()
+  editorCanvas = document.getElementById("editor-canvas") as HTMLCanvasElement
+  mlpCanvas = document.getElementById("mlp-canvas") as HTMLCanvasElement
+
   renderBrushes()
+  drawEditor()
   drawMLP(null)
   updateProbs([0, 0, 0, 0])
-  window.addEventListener("resize", () => drawMLP(null))
+  window.addEventListener("resize", () => {
+    drawEditor()
+    drawMLP(null)
+  })
+
+  // canvas 点击绘制
+  editorCanvas.addEventListener("click", e => {
+    const rect = editorCanvas.getBoundingClientRect()
+    const cell = getEditorCellAt(e.clientX - rect.left, e.clientY - rect.top)
+    if (!cell) return
+    paintCell(cell.r, cell.c)
+  })
 
   // 绑定全局函数到 window 供 HTML 调用
   ;(window as any).generateData = generateData
@@ -761,6 +834,19 @@ function init() {
   ;(window as any).predict = predict
   ;(window as any).validateTerrain = validateTerrain
   ;(window as any).randomTerrain = randomTerrain
+}
+
+function paintCell(r: number, c: number) {
+  if (c === 0) return
+  const allowed = LAYER_LIMITS[r]
+  if (!allowed.includes(selectedBrush)) {
+    updateTerrainStatus("bad", `❌ ${ELEMENTS[selectedBrush].name} 不能放在 ${ROW_NAMES[r]}层`)
+    return
+  }
+  stopAnimation()
+  terrain[r][c] = selectedBrush
+  drawEditor()
+  updateTerrainStatus("wait", "地形已更新，点击「合法性检查」或「预测当前地形」查看结果")
 }
 
 init()
