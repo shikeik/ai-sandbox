@@ -1,6 +1,6 @@
 # 待办区
 
-
+- [x] npm run build:single 修复为支持多页面内联（fox-jump 80k / terrain-lab 30k / mlp-teaching 25k）
 
 
 
