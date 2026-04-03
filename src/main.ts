@@ -10,7 +10,8 @@ import { NeuralNetwork } from "@ai/NeuralNetwork.js"
 import { AIController, AI_CONFIG } from "@ai/AIController.js"
 import { PlayerBestStore } from "@ai/PlayerBestStore.js"
 import { NeuronAreaManager } from "@views/NeuronAreaManager.js"
-import { ConsolePanel } from "@views/ConsolePanel.js"
+import { globalLogger } from "./utils/GlobalLogger.js"
+import { ConsolePanel } from "./components/Console/ConsolePanel.js"
 import { UIManager } from "@managers/UIManager.js"
 import { InputManager } from "@managers/InputManager.js"
 import { GameEventBridge } from "@managers/GameEventBridge.js"
@@ -25,6 +26,7 @@ let transitionManager: TransitionManager | null = null
 let network: NeuralNetwork | null = null
 let playerBestStore: PlayerBestStore | null = null
 let viewManager: NeuronAreaManager | null = null
+
 let consolePanel: ConsolePanel | null = null
 let timerInterval: ReturnType<typeof setInterval> | null = null
 let aiController: AIController | null = null
@@ -37,9 +39,17 @@ const gameArea = document.getElementById("game-area")!
 
 // ========== 初始化 ==========
 function init(): void {
-	// 初始化控制台面板
-	consolePanel = new ConsolePanel()
+	// 全局日志拦截（纯逻辑，尽早初始化）
+	globalLogger.init()
+
+	// 初始化控制台视图
+	consolePanel = new ConsolePanel("#console-panel")
 	consolePanel.init()
+
+	// 暴露全局 console API
+	;(window as unknown as Record<string, unknown>).toggleConsole = () => consolePanel!.toggle()
+	;(window as unknown as Record<string, unknown>).clearConsole = () => consolePanel!.clear()
+	;(window as unknown as Record<string, unknown>).downloadConsole = () => consolePanel!.download()
 
 	EPS.init()
 	game = new JumpGame()

@@ -24,7 +24,7 @@ interface ForwardResult {
 
 // ========== 常量 ==========
 const ELEMENTS: { id: number; name: ElementType; emoji: string }[] = [
-  { id: 0, name: "空气", emoji: "⬜" },
+  { id: 0, name: "空气", emoji: "⬛" },
   { id: 1, name: "平地", emoji: "🟩" },
   { id: 2, name: "史莱姆", emoji: "🦠" },
   { id: 3, name: "恶魔", emoji: "👿" },
@@ -161,7 +161,7 @@ function getActionChecks(t: number[][], col = 1) {
 
   return {
     canWalk: {
-      ok: ground0 === "平地" && sky0 !== "恶魔" && mid0 !== "史莱姆",
+      ok: ground0 === "平地" && mid0 !== "史莱姆",
       reasons: [
         ground0 !== "平地" ? "前1地面不是平地" : null,
         sky0 === "恶魔" ? "前1天上有恶魔" : null,
@@ -509,7 +509,7 @@ function drawTerrainGrid(
       // 画元素
       let emoji = ""
       if (isHeroCol) {
-        if (r === 0) emoji = "⬜"
+        if (r === 0) emoji = "⬛"
         else if (r === 2) emoji = "🟩"
         // r===1 狐狸已单独画
       } else {
@@ -825,8 +825,14 @@ function easeOutQuad(t: number): number {
   return t * (2 - t)
 }
 
+import { globalLogger } from "./utils/GlobalLogger.js"
+import { ConsolePanel } from "./components/Console/ConsolePanel.js"
+
 // ========== 初始化 ==========
 function init() {
+  // 全局日志拦截（纯逻辑，与视图无关）
+  globalLogger.init()
+
   editorCanvas = document.getElementById("editor-canvas") as HTMLCanvasElement
   mlpCanvas = document.getElementById("mlp-canvas") as HTMLCanvasElement
 
@@ -836,7 +842,7 @@ function init() {
   updateProbs([0, 0, 0, 0])
   window.addEventListener("resize", () => {
     drawEditor()
-    drawMLP(null)
+    if (lastForwardResult) drawMLP(lastForwardResult)
   })
 
   // canvas 点击绘制
@@ -854,6 +860,15 @@ function init() {
   ;(window as any).predict = predict
   ;(window as any).validateTerrain = validateTerrain
   ;(window as any).randomTerrain = randomTerrain
+
+  // 初始化控制台视图
+  const consolePanel = new ConsolePanel("#console-mount")
+  consolePanel.init()
+
+  // 暴露全局 console API
+  ;(window as any).toggleConsole = () => consolePanel.toggle()
+  ;(window as any).clearConsole = () => consolePanel.clear()
+  ;(window as any).downloadConsole = () => consolePanel.download()
 }
 
 function paintCell(r: number, c: number) {
