@@ -205,13 +205,23 @@ async function trainUnsupervised() {
 
 		state.trainSteps++
 		if (s % 20 === 0 || s === steps - 1) {
-			// 无监督学习显示平均奖励和合法率
+			// 无监督学习显示平均奖励、合法率和准确率
 			const avgReward = totalReward / batchSize
 			const validRate = (validCount / batchSize) * 100
+			
+			// 计算准确率（与最优标签对比）
+			let correctCount = 0
+			for (const sample of state.dataset.slice(0, 100)) { // 采样100个计算准确率
+				const fp = forward(state.net, sample.indices)
+				const predicted = fp.o.indexOf(Math.max(...fp.o))
+				if (predicted === sample.y) correctCount++
+			}
+			const accuracy = (correctCount / 100) * 100
+			
 			// 动态调整探索率
 			const newEpsilon = adjustEpsilon(validRate)
-			console.log("[UNS]", `合法率:${validRate.toFixed(1)}% 探索率ε:${newEpsilon.toFixed(2)} 历史窗口:[${state.unsupervisedHistory.map(v => v.toFixed(0)).join(",")}]`)
-			updateMetricsUnsupervised(avgReward, validRate, ((s + 1) / steps) * 100)
+			console.log("[UNS]", `合法率:${validRate.toFixed(1)}% 准确率:${accuracy.toFixed(1)}% 探索率ε:${newEpsilon.toFixed(2)}`)
+			updateMetricsUnsupervised(avgReward, validRate, ((s + 1) / steps) * 100, accuracy)
 			// 保存快照
 			state.snapshots.push({ step: state.trainSteps, net: cloneNet(state.net) })
 			recordSnapshotStats(state.snapshots.length - 1)
@@ -221,10 +231,13 @@ async function trainUnsupervised() {
 }
 
 // 无监督学习指标更新
-function updateMetricsUnsupervised(avgReward: number, validRate: number, progress?: number) {
+function updateMetricsUnsupervised(avgReward: number, validRate: number, progress?: number, accuracy?: number) {
 	document.getElementById("step-count")!.textContent = String(state.trainSteps)
 	document.getElementById("loss-display")!.textContent = avgReward.toFixed(2)
-	document.getElementById("acc-display")!.textContent = validRate.toFixed(0) + "%"
+	document.getElementById("valid-display")!.textContent = validRate.toFixed(0) + "%"
+	if (accuracy !== undefined) {
+		document.getElementById("acc-display")!.textContent = accuracy.toFixed(0) + "%"
+	}
 	if (progress !== undefined) {
 		;(document.getElementById("train-progress") as HTMLDivElement).style.width = progress + "%"
 	}
@@ -685,16 +698,25 @@ function toggleLearningMode() {
 function updateModeUI() {
 	const btn = document.getElementById("btn-mode") as HTMLButtonElement
 	const label = document.getElementById("mode-label")!
+	const metricAcc = document.getElementById("metric-acc")!
+	const metricValid = document.getElementById("metric-valid")!
+	
 	if (state.learningMode === "supervised") {
 		btn.textContent = "切换"
 		btn.className = "btn-primary"
 		label.textContent = "监督学习（有标签）"
 		label.style.color = "#8ab4f8"
+		// 监督模式：显示准确率，隐藏合法率
+		metricAcc.style.display = "block"
+		metricValid.style.display = "none"
 	} else {
 		btn.textContent = "切换"
 		btn.className = "btn-accent"
 		label.textContent = "无监督学习（自探索）"
 		label.style.color = "#f9ab00"
+		// 无监督模式：显示合法率和准确率
+		metricAcc.style.display = "block"
+		metricValid.style.display = "block"
 	}
 }
 
