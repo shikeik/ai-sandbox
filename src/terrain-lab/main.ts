@@ -1,236 +1,31 @@
-type ElementType = "空气" | "平地" | "史莱姆" | "恶魔" | "金币"
-type ActionType = "走" | "跳" | "远跳" | "走A"
+import type { ForwardResult, ActionType } from "./types.js"
+import type { AppState } from "./state.js"
+import { 
+  NUM_COLS, NUM_LAYERS, NUM_ELEMENTS, HIDDEN_DIM, OUTPUT_DIM, 
+  INPUT_DIM, ACTIONS, LR, ELEM_AIR, ELEM_HERO, ELEM_GROUND, ELEM_SLIME, ELEM_DEMON, ELEM_COIN
+} from "./constants.js"
+import { zeroMat, zeroVec, easeOutQuad } from "./utils.js"
+import { createNet, forward, backward, updateNetwork } from "./neural-network.js"
+import { 
+  terrainToOneHot, findHeroCol, getActionChecks, getLabel, 
+  isValidTerrain, generateTerrainData, generateRandomTerrain, randElem 
+} from "./terrain.js"
+import { drawTerrainGrid, drawEmoji, getEditorCellAt } from "./renderer.js"
+import { calculateAnimationPath } from "./animation.js"
+import { createInitialState, resetState, setTerrainCell, stopAnimation } from "./state.js"
 
-interface DatasetItem {
-  t: number[][]
-  x: number[]
-  y: number
-}
+import { globalLogger } from "../engine/utils/GlobalLogger.js"
+import { ConsolePanel } from "../engine/console/ConsolePanel.js"
 
-interface NetParams {
-  W1: number[][]
-  b1: number[]
-  W2: number[][]
-  b2: number[]
-}
+// ========== 全局状态 ==========
+const state: AppState = createInitialState()
 
-interface ForwardResult {
-  x: number[]
-  z1: number[]
-  h: number[]
-  z2: number[]
-  o: number[]
-}
-
-// ========== 常量 ==========
-const ELEMENTS: { id: number; name: ElementType; emoji: string }[] = [
-  { id: 0, name: "空气", emoji: "⬛" },
-  { id: 1, name: "平地", emoji: "🟩" },
-  { id: 2, name: "史莱姆", emoji: "🦠" },
-  { id: 3, name: "恶魔", emoji: "👿" },
-  { id: 4, name: "金币", emoji: "🪙" },
-]
-
-// 层限制：0=天上，1=地上，2=地面
-const LAYER_LIMITS: number[][] = [
-  [0, 3, 4], // 天上: 空气, 恶魔, 金币
-  [0, 2, 4], // 地上: 空气, 史莱姆, 金币
-  [0, 1],    // 地面: 空气, 平地
-]
-
-const ACTIONS: ActionType[] = ["走", "跳", "远跳", "走A"]
-const ROW_NAMES = ["天上", "地上", "地面"]
-const COLS = 5 // x0-x4
-const INPUT_DIM = 60 // 4列(x1-x4) * 3层 * 5元素
-const HIDDEN_DIM = 16
-const OUTPUT_DIM = 4
-const LR = 0.05
-
-// ========== 状态 ==========
-let terrain: number[][] = [
-  [0, 0, 0, 0, 0], // 天上
-  [0, 0, 0, 0, 0], // 地上
-  [1, 1, 0, 0, 0], // 地面
-]
-let selectedBrush = 0
-let dataset: DatasetItem[] = []
-let trainSteps = 0
-let net: NetParams = createNet()
-
-// 动画状态
-let animId: number | null = null
-let animStartTime = 0
-let animAction: ActionType | null = null
-let animSlimeKilled = false
-
-// 缓存最后一次 forward 结果用于 resize 重绘
-let lastForwardResult: ForwardResult | null = null
-
-// 统一 canvas
+// DOM 元素
 let editorCanvas: HTMLCanvasElement
 let mlpCanvas: HTMLCanvasElement
 
-// ========== 工具函数 ==========
-function randn(): number {
-  let u = 0, v = 0
-  while (u === 0) u = Math.random()
-  while (v === 0) v = Math.random()
-  return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v)
-}
+// ========== 训练相关 ==========
 
-function createMat(rows: number, cols: number, scale = 1): number[][] {
-  return Array.from({ length: rows }, () => Array.from({ length: cols }, () => randn() * scale))
-}
-
-function zeroVec(n: number): number[] { return Array(n).fill(0) }
-function zeroMat(rows: number, cols: number): number[][] {
-  return Array.from({ length: rows }, () => Array(cols).fill(0))
-}
-
-function createNet(): NetParams {
-  return {
-    W1: createMat(HIDDEN_DIM, INPUT_DIM, Math.sqrt(2 / INPUT_DIM)),
-    b1: zeroVec(HIDDEN_DIM),
-    W2: createMat(OUTPUT_DIM, HIDDEN_DIM, Math.sqrt(2 / HIDDEN_DIM)),
-    b2: zeroVec(OUTPUT_DIM),
-  }
-}
-
-function relu(x: number[]): number[] { return x.map(v => Math.max(0, v)) }
-
-function softmax(z: number[]): number[] {
-  const max = Math.max(...z)
-  const exps = z.map(v => Math.exp(v - max))
-  const sum = exps.reduce((a, b) => a + b, 0)
-  return exps.map(v => v / sum)
-}
-
-function forward(net: NetParams, x: number[]): ForwardResult {
-  const z1 = net.W1.map((row, i) => row.reduce((s, w, j) => s + w * x[j], 0) + net.b1[i])
-  const h = relu(z1)
-  const z2 = net.W2.map((row, i) => row.reduce((s, w, j) => s + w * h[j], 0) + net.b2[i])
-  const o = softmax(z2)
-  return { x, z1, h, z2, o }
-}
-
-function backward(net: NetParams, fp: ForwardResult, target: number) {
-  const dz2 = fp.o.map((v, i) => v - (i === target ? 1 : 0))
-  const dW2 = dz2.map(dz => fp.h.map(v => dz * v))
-  const db2 = dz2.slice()
-
-  const dh = Array(HIDDEN_DIM).fill(0)
-  for (let j = 0; j < HIDDEN_DIM; j++) {
-    for (let i = 0; i < OUTPUT_DIM; i++) dh[j] += dz2[i] * net.W2[i][j]
-  }
-  const dz1 = dh.map((v, i) => (fp.z1[i] > 0 ? v : 0))
-  const dW1 = dz1.map(dz => fp.x.map(v => dz * v))
-  const db1 = dz1.slice()
-  return { dW1, db1, dW2, db2 }
-}
-
-// ========== 地形编码 ==========
-function terrainToOneHot(t: number[][]): number[] {
-  const vec = Array(INPUT_DIM).fill(0)
-  // 只编码 x1-x4 (列 1-4)
-  for (let r = 0; r < 3; r++) {
-    for (let c = 1; c < 5; c++) {
-      const id = t[r][c]
-      const idx = ((c - 1) * 3 + r) * 5 + id
-      vec[idx] = 1
-    }
-  }
-  return vec
-}
-
-function randElem(layer: number): number {
-  const pool = LAYER_LIMITS[layer]
-  return pool[Math.floor(Math.random() * pool.length)]
-}
-
-// ========== 规则判定 ==========
-function getActionChecks(t: number[][], col = 1) {
-  const sky0 = ELEMENTS[t[0][col]].name
-  const sky1 = ELEMENTS[t[0][col + 1]] ? ELEMENTS[t[0][col + 1]].name : "空气"
-  const sky2 = ELEMENTS[t[0][col + 2]] ? ELEMENTS[t[0][col + 2]].name : "空气"
-  const ground0 = ELEMENTS[t[2][col]].name
-  const ground1 = ELEMENTS[t[2][col + 1]] ? ELEMENTS[t[2][col + 1]].name : "空气"
-  const ground2 = ELEMENTS[t[2][col + 2]] ? ELEMENTS[t[2][col + 2]].name : "空气"
-  const mid0 = ELEMENTS[t[1][col]].name
-  const mid1 = ELEMENTS[t[1][col + 1]] ? ELEMENTS[t[1][col + 1]].name : "空气"
-  const mid2 = ELEMENTS[t[1][col + 2]] ? ELEMENTS[t[1][col + 2]].name : "空气"
-
-  return {
-    canWalk: {
-      ok: ground0 === "平地" && mid0 !== "史莱姆",
-      reasons: [
-        ground0 !== "平地" ? "前1地面不是平地" : null,
-        sky0 === "恶魔" ? "前1天上有恶魔" : null,
-        mid0 === "史莱姆" ? "前1地上有史莱姆" : null,
-      ].filter(Boolean) as string[],
-    },
-    canJump: {
-      ok: sky0 !== "恶魔" && ground1 === "平地" && sky1 !== "恶魔" && mid1 !== "史莱姆",
-      reasons: [
-        sky0 === "恶魔" ? "前1天上有恶魔" : null,
-        ground1 !== "平地" ? "前2(落点)地面不是平地" : null,
-        sky1 === "恶魔" ? "前2天上有恶魔" : null,
-        mid1 === "史莱姆" ? "前2地上有史莱姆" : null,
-      ].filter(Boolean) as string[],
-    },
-    canLongJump: {
-      ok: sky0 !== "恶魔" && sky1 !== "恶魔" && ground2 === "平地" && sky2 !== "恶魔" && mid2 !== "史莱姆",
-      reasons: [
-        sky0 === "恶魔" ? "前1天上有恶魔" : null,
-        sky1 === "恶魔" ? "前2天上有恶魔" : null,
-        ground2 !== "平地" ? "前3(落点)地面不是平地" : null,
-        sky2 === "恶魔" ? "前3天上有恶魔" : null,
-        mid2 === "史莱姆" ? "前3地上有史莱姆" : null,
-      ].filter(Boolean) as string[],
-    },
-    canWalkAttack: {
-      ok: ground0 === "平地",
-      reasons: [
-        ground0 !== "平地" ? "前1地面不是平地" : null,
-      ].filter(Boolean) as string[],
-    },
-  }
-}
-
-function getLabel(t: number[][]): number {
-  const checks = getActionChecks(t, 1)
-  if (checks.canWalk.ok) return 0
-  if (checks.canJump.ok) return 1
-  if (checks.canLongJump.ok) return 2
-  if (checks.canWalkAttack.ok) return 3
-  return -1
-}
-
-function isValidTerrain(t: number[][]): boolean {
-  return getLabel(t) !== -1
-}
-
-// ========== 数据生成 ==========
-function generateData() {
-  dataset = []
-  let attempts = 0
-  while (dataset.length < 6000 && attempts < 50000) {
-    const t = [
-      [0, randElem(0), randElem(0), randElem(0), randElem(0)],
-      [0, randElem(1), randElem(1), randElem(1), randElem(1)],
-      [1, randElem(2), randElem(2), randElem(2), randElem(2)],
-    ]
-    attempts++
-    if (!isValidTerrain(t)) continue
-    const y = getLabel(t)
-    dataset.push({ t, x: terrainToOneHot(t), y })
-  }
-  updateMetrics(0)
-  const btn = document.getElementById("btn-train") as HTMLButtonElement
-  btn.disabled = dataset.length === 0
-  updateExam(`已生成 ${dataset.length} 条合法训练数据`, "wait")
-}
-
-// ========== 训练 ==========
 async function trainBatch() {
   const btn = document.getElementById("btn-train") as HTMLButtonElement
   btn.disabled = true
@@ -247,10 +42,10 @@ async function trainBatch() {
     let correct = 0
 
     for (let b = 0; b < batchSize; b++) {
-      const idx = Math.floor(Math.random() * dataset.length)
-      const sample = dataset[idx]
-      const fp = forward(net, sample.x)
-      const grad = backward(net, fp, sample.y)
+      const idx = Math.floor(Math.random() * state.dataset.length)
+      const sample = state.dataset[idx]
+      const fp = forward(state.net, sample.x)
+      const grad = backward(state.net, fp, sample.y)
 
       for (let i = 0; i < HIDDEN_DIM; i++) {
         for (let j = 0; j < INPUT_DIM; j++) gW1[i][j] += grad.dW1[i][j] / batchSize
@@ -265,16 +60,9 @@ async function trainBatch() {
       if (fp.o.indexOf(Math.max(...fp.o)) === sample.y) correct++
     }
 
-    for (let i = 0; i < HIDDEN_DIM; i++) {
-      for (let j = 0; j < INPUT_DIM; j++) net.W1[i][j] -= LR * gW1[i][j]
-      net.b1[i] -= LR * gb1[i]
-    }
-    for (let i = 0; i < OUTPUT_DIM; i++) {
-      for (let j = 0; j < HIDDEN_DIM; j++) net.W2[i][j] -= LR * gW2[i][j]
-      net.b2[i] -= LR * gb2[i]
-    }
+    updateNetwork(state.net, { dW1: gW1, db1: gb1, dW2: gW2, db2: gb2 }, 1)
 
-    trainSteps++
+    state.trainSteps++
     if (s % 20 === 0) {
       updateMetrics(lossSum / batchSize, (correct / batchSize) * 100, ((s + 1) / steps) * 100)
       await new Promise(r => setTimeout(r, 1))
@@ -286,7 +74,7 @@ async function trainBatch() {
 }
 
 function updateMetrics(loss: number, acc?: number, progress?: number) {
-  document.getElementById("step-count")!.textContent = String(trainSteps)
+  document.getElementById("step-count")!.textContent = String(state.trainSteps)
   if (loss !== undefined && loss !== 0) {
     document.getElementById("loss-display")!.textContent = loss.toFixed(4)
   }
@@ -301,38 +89,35 @@ function updateMetrics(loss: number, acc?: number, progress?: number) {
 function evaluateAll() {
   let correct = 0
   let lossSum = 0
-  for (const sample of dataset) {
-    const fp = forward(net, sample.x)
+  for (const sample of state.dataset) {
+    const fp = forward(state.net, sample.x)
     if (fp.o.indexOf(Math.max(...fp.o)) === sample.y) correct++
     lossSum += -Math.log(Math.max(fp.o[sample.y], 1e-7))
   }
-  document.getElementById("step-count")!.textContent = String(trainSteps)
-  document.getElementById("acc-display")!.textContent = ((correct / dataset.length) * 100).toFixed(1) + "%"
-  document.getElementById("loss-display")!.textContent = (lossSum / dataset.length).toFixed(4)
+  document.getElementById("step-count")!.textContent = String(state.trainSteps)
+  document.getElementById("acc-display")!.textContent = ((correct / state.dataset.length) * 100).toFixed(1) + "%"
+  document.getElementById("loss-display")!.textContent = (lossSum / state.dataset.length).toFixed(4)
   ;(document.getElementById("train-progress") as HTMLDivElement).style.width = "100%"
 }
 
-function resetNet() {
-  net = createNet()
-  trainSteps = 0
-  dataset = []
-  document.getElementById("data-count")!.textContent = "0"
+// ========== 数据生成 ==========
+
+function generateData() {
+  state.dataset = generateTerrainData(6000)
   updateMetrics(0)
-  ;(document.getElementById("train-progress") as HTMLDivElement).style.width = "0%"
-  ;(document.getElementById("btn-train") as HTMLButtonElement).disabled = true
-  updateExam("网络已重置", "wait")
-  drawMLP(null)
-  updateProbs([0, 0, 0, 0])
-  stopAnimation()
+  const btn = document.getElementById("btn-train") as HTMLButtonElement
+  btn.disabled = state.dataset.length === 0
+  updateExam(`已生成 ${state.dataset.length} 条合法训练数据`, "wait")
 }
 
-// ========== 预测 / 考试 ==========
+// ========== 预测与验证 ==========
+
 function predict() {
-  const x = terrainToOneHot(terrain)
-  const fp = forward(net, x)
-  lastForwardResult = fp  // 缓存结果
+  const x = terrainToOneHot(state.terrain)
+  const fp = forward(state.net, x)
+  state.lastForwardResult = fp
   const pred = fp.o.indexOf(Math.max(...fp.o))
-  const correct = getLabel(terrain)
+  const correct = getLabel(state.terrain)
   if (correct === -1) {
     updateTerrainStatus(
       "bad",
@@ -340,7 +125,7 @@ function predict() {
     )
     drawMLP(fp)
     updateProbs(fp.o)
-    stopAnimation()
+    stopAnimation(state)
     return
   }
   const ok = pred === correct
@@ -355,32 +140,86 @@ function predict() {
 }
 
 function validateTerrain() {
-  const checks = getActionChecks(terrain, 1)
+  const heroCol = findHeroCol(state.terrain)
+  const checks = getActionChecks(state.terrain, heroCol)
   const walk = checks.canWalk
   const jump = checks.canJump
   const longJump = checks.canLongJump
   const wa = checks.canWalkAttack
 
-  const invalidReasons: string[] = []
-  if (!walk.ok) invalidReasons.push(`❌ 不可走：${walk.reasons.join("，")}`)
-  if (!jump.ok) invalidReasons.push(`❌ 不可跳：${jump.reasons.join("，")}`)
-  if (!longJump.ok) invalidReasons.push(`❌ 不可远跳：${longJump.reasons.join("，")}`)
-  if (!wa.ok) invalidReasons.push(`❌ 不可走A：${wa.reasons.join("，")}`)
+  // 统计可行动作数
+  const validActions: string[] = []
+  if (walk.ok) validActions.push("走")
+  if (jump.ok) validActions.push("跳")
+  if (longJump.ok) validActions.push("远跳")
+  if (wa.ok) validActions.push("走A")
 
-  const validReasons: string[] = []
-  if (walk.ok) validReasons.push("✅ 可走")
-  if (jump.ok) validReasons.push("✅ 可跳")
-  if (longJump.ok) validReasons.push("✅ 可远跳")
-  if (wa.ok) validReasons.push("✅ 可走A")
-
-  if (validReasons.length > 0) {
-    updateTerrainStatus("ok", validReasons.join("<br>") + (invalidReasons.length > 0 ? "<br><br>" + invalidReasons.join("<br>") : ""))
+  // 构建详细报告
+  const lines: string[] = []
+  lines.push(`<b>狐狸位置：x${heroCol}</b>`)
+  lines.push("")
+  
+  if (validActions.length > 0) {
+    lines.push(`✅ 可行动作：${validActions.join("、")}`)
   } else {
-    updateTerrainStatus("bad", invalidReasons.join("<br>"))
+    lines.push(`❌ 无可用动作（死局）`)
   }
+  
+  // 显示各动作详情
+  const actionDetails: string[] = []
+  
+  // 走
+  if (walk.ok) {
+    actionDetails.push(`✅ 走 → x${heroCol + 1}`)
+  } else {
+    actionDetails.push(`❌ 走：${walk.reasons[0] || "无法前行"}`)
+  }
+  
+  // 跳
+  if (jump.ok) {
+    actionDetails.push(`✅ 跳 → x${heroCol + 2}`)
+  } else {
+    const jumpTarget = heroCol + 2
+    if (jumpTarget >= NUM_COLS) {
+      actionDetails.push(`❌ 跳：超出地图边界`)
+    } else {
+      actionDetails.push(`❌ 跳：${jump.reasons[0] || "无法跳跃"}`)
+    }
+  }
+  
+  // 远跳
+  if (longJump.ok) {
+    actionDetails.push(`✅ 远跳 → x${heroCol + 3}`)
+  } else {
+    const longJumpTarget = heroCol + 3
+    if (longJumpTarget >= NUM_COLS) {
+      actionDetails.push(`❌ 远跳：超出地图边界`)
+    } else {
+      actionDetails.push(`❌ 远跳：${longJump.reasons[0] || "无法远跳"}`)
+    }
+  }
+  
+  // 走A
+  if (wa.ok) {
+    const hasSlime = state.terrain[1][heroCol + 1] === ELEM_SLIME
+    actionDetails.push(`✅ 走A → x${heroCol + 1}${hasSlime ? "（击杀史莱姆）" : ""}`)
+  } else {
+    const walkATarget = heroCol + 1
+    if (walkATarget >= NUM_COLS) {
+      actionDetails.push(`❌ 走A：超出地图边界`)
+    } else {
+      actionDetails.push(`❌ 走A：${wa.reasons[0] || "无法攻击"}`)
+    }
+  }
+  
+  lines.push("")
+  lines.push(actionDetails.join("<br>"))
+  
+  updateTerrainStatus(validActions.length > 0 ? "ok" : "bad", lines.join("<br>"))
 }
 
 // ========== UI 辅助 ==========
+
 function updateExam(html: string, cls: "ok" | "bad" | "wait") {
   const box = document.getElementById("exam-box") as HTMLDivElement
   box.innerHTML = html
@@ -414,15 +253,25 @@ function updateProbs(probs: number[]) {
   }
 }
 
+// ========== 渲染器 ==========
+
 function renderBrushes() {
   const list = document.getElementById("brush-list") as HTMLDivElement
   list.innerHTML = ""
-  ELEMENTS.forEach((el, i) => {
+  const elements = [
+    { id: ELEM_AIR, name: "空气", emoji: "⬛" },
+    { id: ELEM_HERO, name: "狐狸", emoji: "🦊" },
+    { id: ELEM_GROUND, name: "平地", emoji: "🟩" },
+    { id: 3, name: "史莱姆", emoji: "🦠" },
+    { id: 4, name: "恶魔", emoji: "👿" },
+    { id: 5, name: "金币", emoji: "🪙" },
+  ]
+  elements.forEach((el) => {
     const item = document.createElement("div")
-    item.className = "brush-item" + (i === selectedBrush ? " active" : "")
+    item.className = "brush-item" + (el.id === state.selectedBrush ? " active" : "")
     item.innerHTML = `<div class="brush-emoji">${el.emoji}</div><div class="brush-name">${el.name}</div>`
     item.onclick = () => {
-      selectedBrush = i
+      state.selectedBrush = el.id
       renderBrushes()
       updateTerrainStatus("wait", "已选择 " + el.name + "，点击上方格子绘制")
     }
@@ -431,96 +280,26 @@ function renderBrushes() {
 }
 
 function randomTerrain() {
-  let attempts = 0
-  do {
-    terrain = [
-      [0, randElem(0), randElem(0), randElem(0), randElem(0)],
-      [0, randElem(1), randElem(1), randElem(1), randElem(1)],
-      [1, randElem(2), randElem(2), randElem(2), randElem(2)],
-    ]
-    attempts++
-  } while (!isValidTerrain(terrain) && attempts < 1000)
-  stopAnimation()
+  state.terrain = generateRandomTerrain()
+  stopAnimation(state)
   drawEditor()
   updateTerrainStatus("wait", "已随机生成新地形，点击「预测当前地形」查看 AI 判断")
   drawMLP(null)
   updateProbs([0, 0, 0, 0])
 }
 
-// ========== 统一绘制函数 ==========
-interface DrawOptions {
-  cellW: number
-  cellH: number
-  gapX: number
-  gapY: number
-  startX: number
-  startY: number
-  showHero?: boolean
-  heroCol?: number
-  heroRow?: number
-  hideSlimeAt?: number | null
-  dimNonInteractive?: boolean
+function resetNet() {
+  resetState(state)
+  document.getElementById("data-count")!.textContent = "0"
+  updateMetrics(0)
+  ;(document.getElementById("train-progress") as HTMLDivElement).style.width = "0%"
+  ;(document.getElementById("btn-train") as HTMLButtonElement).disabled = true
+  updateExam("网络已重置", "wait")
+  drawMLP(null)
+  updateProbs([0, 0, 0, 0])
 }
 
-function drawTerrainGrid(
-  ctx: CanvasRenderingContext2D,
-  t: number[][],
-  opts: DrawOptions
-) {
-  const { cellW, cellH, gapX, gapY, startX, startY, showHero, heroCol, heroRow, hideSlimeAt, dimNonInteractive } = opts
-
-  for (let r = 0; r < 3; r++) {
-    for (let c = 0; c < COLS; c++) {
-      const x = startX + c * (cellW + gapX)
-      const y = startY + r * (cellH + gapY)
-      const isHeroCol = c === 0
-
-      // x0列无线框，其他列画线框
-      if (!isHeroCol) {
-        ctx.strokeStyle = "#3c4043"
-        ctx.lineWidth = 1
-        ctx.strokeRect(x, y, cellW, cellH)
-      }
-
-      if (dimNonInteractive && isHeroCol) {
-        // 淡化主角列以突出可交互区
-        ctx.fillStyle = "rgba(11,12,15,0.3)"
-        ctx.fillRect(x, y, cellW, cellH)
-      }
-    }
-  }
-
-  // 先画狐狸（层级低，会被后续元素遮挡）
-  if (showHero && heroCol !== undefined && heroRow !== undefined) {
-    const x = startX + heroCol * (cellW + gapX)
-    const y = startY + heroRow * (cellH + gapY)
-    drawEmoji(ctx, "🦊", x + cellW / 2, y + cellH / 2, Math.min(cellW, cellH) * 0.65)
-  }
-
-  // 再画其他元素（层级高，遮挡狐狸）
-  for (let r = 0; r < 3; r++) {
-    for (let c = 0; c < COLS; c++) {
-      const x = startX + c * (cellW + gapX)
-      const y = startY + r * (cellH + gapY)
-      const isHeroCol = c === 0
-
-      // 画元素
-      let emoji = ""
-      if (isHeroCol) {
-        if (r === 0) emoji = "⬛"
-        else if (r === 2) emoji = "🟩"
-        // r===1 狐狸已单独画
-      } else {
-        if (r === 1 && c === (hideSlimeAt ?? -1)) {
-          // 史莱姆被击杀
-        } else {
-          emoji = ELEMENTS[t[r][c]].emoji
-        }
-      }
-      if (emoji) drawEmoji(ctx, emoji, x + cellW / 2, y + cellH / 2, Math.min(cellW, cellH) * 0.55)
-    }
-  }
-}
+// ========== 编辑器绘制 ==========
 
 function drawEditor() {
   drawEditorWithState()
@@ -540,8 +319,8 @@ function drawEditorWithState() {
   const cellH = cellSize
   const gapX = 6
   const gapY = 6
-  const gridW = COLS * cellW + (COLS - 1) * gapX
-  const gridH = 3 * cellH + 2 * gapY
+  const gridW = NUM_COLS * cellW + (NUM_COLS - 1) * gapX
+  const gridH = NUM_LAYERS * cellH + (NUM_LAYERS - 1) * gapY
   const startX = (rect.width - gridW) / 2
   const startY = (rect.height - gridH) / 2 + 10
 
@@ -549,79 +328,59 @@ function drawEditorWithState() {
   ctx.fillStyle = "#9aa0a6"
   ctx.font = "10px sans-serif"
   ctx.textAlign = "right"
-  for (let r = 0; r < 3; r++) {
-    ctx.fillText(ROW_NAMES[r], startX - 8, startY + r * (cellH + gapY) + cellH / 2 + 3)
+  for (let r = 0; r < NUM_LAYERS; r++) {
+    ctx.fillText(["天上", "地上", "地面"][r], startX - 8, startY + r * (cellH + gapY) + cellH / 2 + 3)
   }
   ctx.textAlign = "center"
-  const labels = ["主角", "前1", "前2", "前3", "前4"]
-  for (let c = 0; c < COLS; c++) {
+  const labels = Array.from({ length: NUM_COLS }, (_, i) => `x${i}`)
+  for (let c = 0; c < NUM_COLS; c++) {
     ctx.fillText(labels[c], startX + c * (cellW + gapX) + cellW / 2, startY - 8)
   }
 
-  // 计算狐狸显示位置
-  let showHeroInGrid = true
-  let heroFinalX: number | null = null
-  let heroFinalY: number | null = null
-  if (animAction !== null) {
-    showHeroInGrid = false
-    let finalCol = 0
-    if (animAction === "走" || animAction === "走A") finalCol = 1
-    else if (animAction === "跳") finalCol = 2
-    else if (animAction === "远跳") finalCol = 3
-    heroFinalX = startX + finalCol * (cellW + gapX) + cellW / 2
-    heroFinalY = startY + 1 * (cellH + gapY) + cellH / 2
+  // 找到狐狸当前位置
+  const heroCol = findHeroCol(state.terrain)
+  
+  // 动画状态
+  let animHeroX: number | null = null
+  let animHeroY: number | null = null
+  
+  if (state.animation.animAction !== null) {
+    const heroBaseX = startX + heroCol * (cellW + gapX) + cellW / 2
+    const heroBaseY = startY + 1 * (cellH + gapY) + cellH / 2
+    
+    const path = calculateAnimationPath(heroCol, state.animation.animAction)
+    const targetX = startX + path.targetCol * (cellW + gapX) + cellW / 2
+    
+    const duration = path.duration
+    let t = (performance.now() - state.animation.animStartTime) / duration
+    if (t > 1) t = 1
+    
+    animHeroX = heroBaseX + (targetX - heroBaseX) * t
+    
+    if (path.isJump) {
+      const parabola = 4 * t * (1 - t)
+      animHeroY = heroBaseY - parabola * (cellH + path.jumpHeight)
+    } else {
+      animHeroY = heroBaseY
+    }
   }
 
-  // 绘制网格 - 考虑动画状态和史莱姆击杀状态
-  drawTerrainGrid(ctx, terrain, {
+  // 绘制网格
+  drawTerrainGrid(ctx, state.terrain, {
     cellW, cellH, gapX, gapY, startX, startY,
-    showHero: showHeroInGrid,
-    heroCol: 0,
-    heroRow: 1,
-    hideSlimeAt: animSlimeKilled ? 1 : null,
+    hideSlimeAt: state.animation.animSlimeKilled ? (heroCol + 1 < NUM_COLS ? heroCol + 1 : null) : null,
+    hideHeroAtCol: state.animation.animAction !== null ? heroCol : null,
     dimNonInteractive: false,
   })
-
-  // 动画结束状态：单独绘制狐狸在最终位置
-  if (heroFinalX !== null && heroFinalY !== null) {
-    drawEmoji(ctx, "🦊", heroFinalX, heroFinalY, Math.min(cellW, cellH) * 0.65)
+  
+  // 动画时单独绘制移动的狐狸
+  if (animHeroX !== null && animHeroY !== null) {
+    drawEmoji(ctx, "🦊", animHeroX, animHeroY, Math.min(cellW, cellH) * 0.65)
   }
 }
 
-function getEditorCellAt(mx: number, my: number): { r: number; c: number } | null {
-  const rect = editorCanvas.getBoundingClientRect()
-  const cellSize = 44
-  const cellW = cellSize
-  const cellH = cellSize
-  const gapX = 6
-  const gapY = 6
-  const gridW = COLS * cellW + (COLS - 1) * gapX
-  const gridH = 3 * cellH + 2 * gapY
-  const startX = (rect.width - gridW) / 2
-  const startY = (rect.height - gridH) / 2 + 10
+// ========== MLP 绘制 ==========
 
-  const x = mx - startX
-  const y = my - startY
-  const c = Math.floor(x / (cellW + gapX))
-  const r = Math.floor(y / (cellH + gapY))
-
-  if (c < 0 || c >= COLS || r < 0 || r >= 3) return null
-  // 检查是否在格子内部（不在 gap 上）
-  const localX = x - c * (cellW + gapX)
-  const localY = y - r * (cellH + gapY)
-  if (localX < 0 || localX > cellW || localY < 0 || localY > cellH) return null
-  if (c === 0) return null // x0 不可交互
-  return { r, c }
-}
-
-function drawEmoji(ctx: CanvasRenderingContext2D, emoji: string, x: number, y: number, size: number) {
-  ctx.font = `${Math.floor(size)}px sans-serif`
-  ctx.textAlign = "center"
-  ctx.textBaseline = "middle"
-  ctx.fillText(emoji, x, y)
-}
-
-// ========== MLP Canvas ==========
 function drawMLP(fp: ForwardResult | null) {
   const canvas = mlpCanvas
   const ctx = canvas.getContext("2d")!
@@ -637,41 +396,38 @@ function drawMLP(fp: ForwardResult | null) {
   const cellSize = 28, gapX = 4, gapY = 4
   const cellW = cellSize
   const cellH = cellSize
-  const gridW = COLS * cellW + (COLS - 1) * gapX
-  const gridH = 3 * cellH + 2 * gapY
+  const gridW = NUM_COLS * cellW + (NUM_COLS - 1) * gapX
+  const gridH = NUM_LAYERS * cellH + (NUM_LAYERS - 1) * gapY
   const startX = 10
   const startY = (H - gridH) / 2
 
-  drawTerrainGrid(ctx, terrain, {
+  drawTerrainGrid(ctx, state.terrain, {
     cellW, cellH, gapX, gapY, startX, startY,
-    showHero: true,
-    heroCol: 0,
-    heroRow: 1,
     hideSlimeAt: null,
     dimNonInteractive: true,
   })
 
   // 隐藏层
   const hidX = W / 2
-  const hidY = Array.from({ length: 16 }, (_, i) => {
-    const gap = H / (16 + 1)
+  const hidY = Array.from({ length: HIDDEN_DIM }, (_, i) => {
+    const gap = H / (HIDDEN_DIM + 1)
     return gap * (i + 1)
   })
 
   // 输出层
   const outX = W - 50
-  const outY = Array.from({ length: 4 }, (_, i) => {
-    const gap = H / (4 + 1)
+  const outY = Array.from({ length: OUTPUT_DIM }, (_, i) => {
+    const gap = H / (OUTPUT_DIM + 1)
     return gap * (i + 1)
   })
 
   // 输入->隐藏连线
   ctx.lineWidth = 0.5
-  for (let r = 0; r < 3; r++) {
-    for (let c = 1; c < 5; c++) {
+  for (let r = 0; r < NUM_LAYERS; r++) {
+    for (let c = 0; c < NUM_COLS; c++) {
       const x1 = startX + c * (cellW + gapX) + cellW / 2
       const y1 = startY + r * (cellH + gapY) + cellH / 2
-      for (let h = 0; h < 16; h++) {
+      for (let h = 0; h < HIDDEN_DIM; h++) {
         ctx.strokeStyle = "rgba(95,99,104,0.15)"
         ctx.beginPath()
         ctx.moveTo(x1, y1)
@@ -682,10 +438,10 @@ function drawMLP(fp: ForwardResult | null) {
   }
 
   // 隐藏->输出连线
-  for (let h = 0; h < 16; h++) {
-    for (let o = 0; o < 4; o++) {
+  for (let h = 0; h < HIDDEN_DIM; h++) {
+    for (let o = 0; o < OUTPUT_DIM; o++) {
       let w = 0
-      if (fp) w = net.W2[o][h]
+      if (fp) w = state.net.W2[o][h]
       const alpha = Math.min(Math.abs(w) * 2, 1)
       ctx.strokeStyle = w > 0 ? `rgba(138,180,248,${alpha})` : `rgba(249,171,0,${alpha})`
       ctx.lineWidth = Math.max(0.5, Math.abs(w) * 2)
@@ -698,7 +454,7 @@ function drawMLP(fp: ForwardResult | null) {
   ctx.lineWidth = 1
 
   // 隐藏层节点
-  for (let h = 0; h < 16; h++) {
+  for (let h = 0; h < HIDDEN_DIM; h++) {
     ctx.beginPath()
     ctx.arc(hidX, hidY[h], 6, 0, Math.PI * 2)
     ctx.fillStyle = "#16181d"
@@ -714,7 +470,7 @@ function drawMLP(fp: ForwardResult | null) {
   }
 
   // 输出层节点
-  for (let o = 0; o < 4; o++) {
+  for (let o = 0; o < OUTPUT_DIM; o++) {
     ctx.beginPath()
     ctx.arc(outX, outY[o], 10, 0, Math.PI * 2)
     ctx.fillStyle = "#16181d"
@@ -735,34 +491,17 @@ function drawMLP(fp: ForwardResult | null) {
 }
 
 // ========== 动画 ==========
-function stopAnimation() {
-  if (animId !== null) {
-    cancelAnimationFrame(animId)
-    animId = null
-  }
-  animAction = null
-  animSlimeKilled = false
-  drawEditor()
-}
-
-function finishAnimation() {
-  if (animId !== null) {
-    cancelAnimationFrame(animId)
-    animId = null
-  }
-  drawEditor()
-}
 
 function playAnimation(action: ActionType) {
-  stopAnimation()
-  animAction = action
-  animStartTime = performance.now()
-  animSlimeKilled = false
-  animId = requestAnimationFrame(stepAnimation)
+  stopAnimation(state)
+  state.animation.animAction = action
+  state.animation.animStartTime = performance.now()
+  state.animation.animSlimeKilled = false
+  state.animation.animId = requestAnimationFrame(stepAnimation)
 }
 
 function stepAnimation(now: number) {
-  if (!animAction) return
+  if (!state.animation.animAction) return
 
   const ctx = editorCanvas.getContext("2d")!
   const rect = editorCanvas.getBoundingClientRect()
@@ -777,8 +516,8 @@ function stepAnimation(now: number) {
   const cellH = cellSize
   const gapX = 6
   const gapY = 6
-  const gridW = COLS * cellW + (COLS - 1) * gapX
-  const gridH = 3 * cellH + 2 * gapY
+  const gridW = NUM_COLS * cellW + (NUM_COLS - 1) * gapX
+  const gridH = NUM_LAYERS * cellH + (NUM_LAYERS - 1) * gapY
   const startX = (rect.width - gridW) / 2
   const startY = (rect.height - gridH) / 2 + 10
 
@@ -786,102 +525,100 @@ function stepAnimation(now: number) {
   ctx.fillStyle = "#9aa0a6"
   ctx.font = "10px sans-serif"
   ctx.textAlign = "right"
-  for (let r = 0; r < 3; r++) {
-    ctx.fillText(ROW_NAMES[r], startX - 8, startY + r * (cellH + gapY) + cellH / 2 + 3)
+  for (let r = 0; r < NUM_LAYERS; r++) {
+    ctx.fillText(["天上", "地上", "地面"][r], startX - 8, startY + r * (cellH + gapY) + cellH / 2 + 3)
   }
   ctx.textAlign = "center"
-  const labels = ["主角", "前1", "前2", "前3", "前4"]
-  for (let c = 0; c < COLS; c++) {
+  const labels = Array.from({ length: NUM_COLS }, (_, i) => `x${i}`)
+  for (let c = 0; c < NUM_COLS; c++) {
     ctx.fillText(labels[c], startX + c * (cellW + gapX) + cellW / 2, startY - 8)
   }
 
+  // 找到狐狸起始位置
+  const startHeroCol = findHeroCol(state.terrain)
+  
   // 计算进度
-  const duration = animAction === "远跳" ? 900 : (animAction === "跳" ? 600 : 400)
-  let t = (now - animStartTime) / duration
+  const path = calculateAnimationPath(startHeroCol, state.animation.animAction)
+  const duration = path.duration
+  let t = (now - state.animation.animStartTime) / duration
   if (t > 1) t = 1
 
-  // 狐狸路径
-  const heroBaseX = startX + cellW / 2
-  const heroBaseY = startY + 1 * (cellH + gapY) + cellH / 2 // y1 中心
+  // 狐狸起始位置
+  const heroBaseX = startX + startHeroCol * (cellW + gapX) + cellW / 2
+  const heroBaseY = startY + 1 * (cellH + gapY) + cellH / 2
 
   let hx = heroBaseX
   let hy = heroBaseY
+  
+  const targetX = startX + path.targetCol * (cellW + gapX) + cellW / 2
 
-  if (animAction === "走" || animAction === "走A") {
-    const targetX = startX + 1 * (cellW + gapX) + cellW / 2
+  if (!path.isJump) {
     hx = heroBaseX + (targetX - heroBaseX) * easeOutQuad(t)
     hy = heroBaseY
-    if (animAction === "走A" && t > 0.5) animSlimeKilled = true
-  } else if (animAction === "跳") {
-    const targetX = startX + 2 * (cellW + gapX) + cellW / 2
+    if (state.animation.animAction === "走A" && t > 0.5) state.animation.animSlimeKilled = true
+  } else {
     hx = heroBaseX + (targetX - heroBaseX) * t
     const parabola = 4 * t * (1 - t)
-    hy = heroBaseY - parabola * (cellH + 10)
-  } else if (animAction === "远跳") {
-    const targetX = startX + 3 * (cellW + gapX) + cellW / 2
-    hx = heroBaseX + (targetX - heroBaseX) * t
-    const parabola = 4 * t * (1 - t)
-    hy = heroBaseY - parabola * (cellH + 25)
+    hy = heroBaseY - parabola * (cellH + path.jumpHeight)
   }
 
-  // 列坐标 -> 网格列索引
-  const heroCol = Math.max(0, Math.min(4, Math.round((hx - startX) / (cellW + gapX))))
-  const heroRow = Math.round((hy - startY) / (cellH + gapY))
-  const clampedRow = Math.max(0, Math.min(2, heroRow))
-
-  drawTerrainGrid(ctx, terrain, {
+  // 绘制地形（隐藏原位置的狐狸）
+  drawTerrainGrid(ctx, state.terrain, {
     cellW, cellH, gapX, gapY, startX, startY,
-    showHero: false,
-    heroCol: 0,
-    heroRow: 1,
-    hideSlimeAt: animSlimeKilled ? 1 : null,
+    hideSlimeAt: null,
+    hideHeroAtCol: startHeroCol,
     dimNonInteractive: false,
   })
 
-  // 单独画狐狸
+  // 单独画移动的狐狸
   drawEmoji(ctx, "🦊", hx, hy, Math.min(cellW, cellH) * 0.65)
 
   if (t < 1) {
-    animId = requestAnimationFrame(stepAnimation)
+    state.animation.animId = requestAnimationFrame(stepAnimation)
   } else {
     finishAnimation()
   }
 }
 
-function easeOutQuad(t: number): number {
-  return t * (2 - t)
+function finishAnimation() {
+  if (state.animation.animId !== null) {
+    cancelAnimationFrame(state.animation.animId)
+    state.animation.animId = null
+  }
+  drawEditor()
 }
 
-import { globalLogger } from "../engine/utils/GlobalLogger.js"
-import { ConsolePanel } from "../engine/console/ConsolePanel.js"
-
 // ========== 初始化 ==========
+
 function init() {
-  // 全局日志拦截（纯逻辑，与视图无关）
+  // 全局日志拦截
   globalLogger.init()
 
   editorCanvas = document.getElementById("editor-canvas") as HTMLCanvasElement
   mlpCanvas = document.getElementById("mlp-canvas") as HTMLCanvasElement
 
+  // 动态更新HTML标题
+  const editorTitle = document.getElementById('editor-title')
+  if (editorTitle) {
+    editorTitle.textContent = `编辑预览视图 (${NUM_COLS}×${NUM_LAYERS}) — 点击绘制，狐狸可在任意列`
+  }
+  const mlpTitle = document.getElementById('mlp-title')
+  if (mlpTitle) {
+    mlpTitle.textContent = `MLP 网络状态 (${INPUT_DIM} → ${HIDDEN_DIM} → ${OUTPUT_DIM})`
+  }
+
   renderBrushes()
   drawEditor()
   drawMLP(null)
   updateProbs([0, 0, 0, 0])
+  
   const ro = new ResizeObserver((entries) => {
     for (const entry of entries) {
       const target = entry.target as HTMLCanvasElement
-      console.log(
-        "[RESIZE]",
-        target.id,
-        `size=${Math.round(entry.contentRect.width)}x${Math.round(entry.contentRect.height)}`,
-        `animAction=${animAction}`,
-        `animSlimeKilled=${animSlimeKilled}`,
-        `lastForwardResult=${!!lastForwardResult}`
-      )
       if (target === editorCanvas) {
         drawEditor()
-      } else if (target === mlpCanvas && lastForwardResult) {
-        drawMLP(lastForwardResult)
+      } else if (target === mlpCanvas && state.lastForwardResult) {
+        drawMLP(state.lastForwardResult)
       }
     }
   })
@@ -891,23 +628,24 @@ function init() {
   // canvas 点击绘制
   editorCanvas.addEventListener("click", e => {
     const rect = editorCanvas.getBoundingClientRect()
-    const cell = getEditorCellAt(e.clientX - rect.left, e.clientY - rect.top)
+    const cell = getEditorCellAt(e.clientX - rect.left, e.clientY - rect.top, rect)
     if (!cell) return
     paintCell(cell.r, cell.c)
   })
 
-  // 绑定全局函数到 window 供 HTML 调用
+  // 绑定全局函数
   ;(window as any).generateData = generateData
   ;(window as any).trainBatch = trainBatch
   ;(window as any).resetNet = resetNet
   ;(window as any).predict = predict
   ;(window as any).validateTerrain = validateTerrain
   ;(window as any).randomTerrain = randomTerrain
-  ;(window as any).resetView = () => stopAnimation()
+  ;(window as any).resetView = () => stopAnimation(state)
 
-  // 初始化控制台视图
+  // 初始化控制台
   const consolePanel = new ConsolePanel("#console-mount")
   consolePanel.init()
+  console.log("TERRAIN-LAB", "控制台初始化完成")
 
   // 暴露全局 console API
   ;(window as any).toggleConsole = () => consolePanel.toggle()
@@ -916,14 +654,17 @@ function init() {
 }
 
 function paintCell(r: number, c: number) {
-  if (c === 0) return
-  const allowed = LAYER_LIMITS[r]
-  if (!allowed.includes(selectedBrush)) {
-    updateTerrainStatus("bad", `❌ ${ELEMENTS[selectedBrush].name} 不能放在 ${ROW_NAMES[r]}层`)
+  const allowed = [
+    [ELEM_AIR, ELEM_DEMON, ELEM_COIN],
+    [ELEM_AIR, ELEM_HERO, 3, ELEM_COIN],
+    [ELEM_AIR, ELEM_GROUND],
+  ][r]
+  if (!allowed.includes(state.selectedBrush)) {
+    updateTerrainStatus("bad", `❌ 该元素不能放在 ${["天上", "地上", "地面"][r]}层`)
     return
   }
-  stopAnimation()
-  terrain[r][c] = selectedBrush
+  stopAnimation(state)
+  setTerrainCell(state, r, c, state.selectedBrush)
   drawEditor()
   updateTerrainStatus("wait", "地形已更新，点击「合法性检查」或「预测当前地形」查看结果")
 }

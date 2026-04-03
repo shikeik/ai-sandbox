@@ -90,19 +90,19 @@ export class AIController {
 				this.isAIMode = false
 				this.isAITrainMode = false
 				this.stop()
-				console.log("[UI]", "切换到玩家模式")
+				console.log("UI", "切换到玩家模式")
 				break
 			case "ai":
 				this.isAIMode = true
 				this.isAITrainMode = false
 				this.start()
-				console.log("[AI]", "切换到AI模式")
+				console.log("AI", "切换到AI模式")
 				break
 			case "train":
 				this.isAIMode = true
 				this.isAITrainMode = true
 				this.start()
-				console.log("[AI]", "切换到AI训练模式（自动循环并更新权重）")
+				console.log("AI", "切换到AI训练模式（自动循环并更新权重）")
 				break
 		}
 	}
@@ -112,14 +112,14 @@ export class AIController {
 			this.isStepMode = true
 			this.aiSpeed = AI_CONFIG.SPEEDS.NORMAL
 			this.pendingAIDecision = null
-			console.log("[AI]", "切换到单步模式")
+			console.log("AI", "切换到单步模式")
 		} else {
 			this.isStepMode = false
 			this.aiSpeed = speedId
 			const speedName = speedId === AI_CONFIG.SPEEDS.SLOW ? "慢速" :
 				speedId === AI_CONFIG.SPEEDS.NORMAL ? "中速" :
 					speedId === AI_CONFIG.SPEEDS.FAST ? "快速" : "极速"
-			console.log("[AI]", `切换到${speedName}`)
+			console.log("AI", `切换到${speedName}`)
 		}
 
 		if (this.isAIMode && (this.aiInterval || this.fastLoopId || this.isStepMode)) {
@@ -129,7 +129,7 @@ export class AIController {
 
 	start(): void {
 		if (!this.isAIMode) return
-		console.log("[AI]", `启动 | 模式=${this.isAITrainMode ? "训练" : "观察"} | 速度=${this.aiSpeed}ms | 单步=${this.isStepMode}`)
+		console.log("AI", `启动 | 模式=${this.isAITrainMode ? "训练" : "观察"} | 速度=${this.aiSpeed}ms | 单步=${this.isStepMode}`)
 		if (this.game.gameStatus === GAME_STATUS.READY) {
 			this.game.startGame()
 		}
@@ -137,17 +137,17 @@ export class AIController {
 	}
 
 	stop(): void {
-		console.log("[AI]", "停止")
+		console.log("AI", "停止")
 		this._stopInterval()
 	}
 
 	step(): void {
 		if (!this.isAIMode || !this.isStepMode) return
 		if (this.pendingAIDecision) {
-			console.log("[AI]", "单步: 执行缓存决策")
+			console.log("AI", "单步: 执行缓存决策")
 			this._executePendingDecision()
 		} else {
-			console.log("[AI]", "单步: 生成新决策")
+			console.log("AI", "单步: 生成新决策")
 			this._makeDecisionPreview()
 		}
 	}
@@ -176,7 +176,7 @@ export class AIController {
 			}
 
 			const epsilon = this.network.getEpsilon()
-			console.log("[AI]", `窗口平均:${currentAvg.toFixed(1)} | 本局:${steps} | 探索率(ε):${epsilon.toFixed(2)} | 模式:${this.network.exploreMode}`)
+			console.log("AI", `窗口平均:${currentAvg.toFixed(1)} | 本局:${steps} | 探索率(ε):${epsilon.toFixed(2)} | 模式:${this.network.exploreMode}`)
 		}
 	}
 
@@ -197,14 +197,14 @@ export class AIController {
 	private _startInterval(): void {
 		this._stopInterval()
 		if (this.isStepMode) {
-			console.log("[AI]", "区间: 单步模式，不启动自动循环")
+			console.log("AI", "区间: 单步模式，不启动自动循环")
 			return
 		}
 		if (this.aiSpeed === AI_CONFIG.SPEEDS.MAX) {
-			console.log("[AI]", "区间: 启动极速循环 (requestAnimationFrame)")
+			console.log("AI", "区间: 启动极速循环 (requestAnimationFrame)")
 			this._runFastLoop()
 		} else {
-			console.log("[AI]", `区间: 启动定时器 ${this.aiSpeed}ms`)
+			console.log("AI", `区间: 启动定时器 ${this.aiSpeed}ms`)
 			this.aiInterval = setInterval(() => {
 				if (this._canMakeDecision()) this._makeDecision()
 			}, this.aiSpeed as number)
@@ -213,12 +213,12 @@ export class AIController {
 
 	private _stopInterval(): void {
 		if (this.aiInterval) {
-			console.log("[AI]", "区间: 清除定时器")
+			console.log("AI", "区间: 清除定时器")
 			clearInterval(this.aiInterval)
 			this.aiInterval = null
 		}
 		if (this.fastLoopId) {
-			console.log("[AI]", "区间: 取消极速循环")
+			console.log("AI", "区间: 取消极速循环")
 			cancelAnimationFrame(this.fastLoopId)
 			this.fastLoopId = null
 		}
@@ -226,7 +226,7 @@ export class AIController {
 
 	private _runFastLoop(): void {
 		if (!this.isAIMode || this.isStepMode || this.aiSpeed !== AI_CONFIG.SPEEDS.MAX) {
-			console.log("[AI]", "极速循环: 条件不满足，退出")
+			console.log("AI", "极速循环: 条件不满足，退出")
 			return
 		}
 		if (this._canMakeDecision()) {
@@ -253,10 +253,10 @@ export class AIController {
 		this._logPrediction(action, willDie)
 		
 		const { changes } = this.network.previewTrain(previewReward, action, inputs)
-		console.log("[AI]", `决策预览 | reward=${previewReward} changes=${changes ? "有" : "无"} 变化量总数=${changes ? changes[0].flat().length : 0}`)
+		console.log("AI", `决策预览 | reward=${previewReward} changes=${changes ? "有" : "无"} 变化量总数=${changes ? changes[0].flat().length : 0}`)
 
 		if (this.onRenderView) {
-			console.log("[AI]", `调用 onRenderView | isPreview=true changes=${changes ? "有" : "无"}`)
+			console.log("AI", `调用 onRenderView | isPreview=true changes=${changes ? "有" : "无"}`)
 			this.onRenderView(inputs, action, true, changes)
 		}
 	}
@@ -275,14 +275,14 @@ export class AIController {
 		const actionNames = ["移动", "跳跃", "远跳"]
 		const scoreLog = `移动:${scores[0].toFixed(2)} 跳跃:${scores[1].toFixed(2)} 远跳:${scores[2].toFixed(2)}`
 		const chosen = actionNames[action] || "未知"
-		console.log("[AI]", `决策完成 | ${scoreLog} | 选中=[${chosen}] | 探索=${this.network.isExploring ? "是" : "否"}`)
+		console.log("AI", `决策完成 | ${scoreLog} | 选中=[${chosen}] | 探索=${this.network.isExploring ? "是" : "否"}`)
 	}
 
 	private _logPrediction(action: number, willDie: boolean): void {
 		if (willDie) {
-			console.log("[AI]", `决策预览预测 | 动作=${action} 预测结果=死亡 使用DEATH_REWARD`)
+			console.log("AI", `决策预览预测 | 动作=${action} 预测结果=死亡 使用DEATH_REWARD`)
 		} else {
-			console.log("[AI]", `决策预览预测 | 动作=${action} 预测结果=存活 使用STEP_REWARD`)
+			console.log("AI", `决策预览预测 | 动作=${action} 预测结果=存活 使用STEP_REWARD`)
 		}
 	}
 
@@ -294,7 +294,7 @@ export class AIController {
 		const result = this.game.execute(actionType)
 		if (result) {
 			const actionNames = ["移动", "跳跃", "远跳"]
-			console.log("[AI]", `执行动作 | 动作=${actionNames[action] || actionType}`)
+			console.log("AI", `执行动作 | 动作=${actionNames[action] || actionType}`)
 		}
 
 		this.pendingAIDecision = null
@@ -313,7 +313,7 @@ export class AIController {
 		const action = this.network.decide(inputs)
 		const actionType = this._actionIndexToType(action)
 
-		console.log("[AI]", `自动执行 | 动作=${actionType} | 输入=[${inputs.join(",")}]`)
+		console.log("AI", `自动执行 | 动作=${actionType} | 输入=[${inputs.join(",")}]`)
 		this.game.execute(actionType)
 	}
 

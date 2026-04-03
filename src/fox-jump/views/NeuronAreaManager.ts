@@ -129,7 +129,7 @@ export class NeuronAreaManager {
 		menuContainer.appendChild(menu)
 
 		menu.style.display = "none"
-		console.log("[NEURON_UI]", "菜单初始化完成 | 默认状态=隐藏")
+		console.log("NEURON_UI", "菜单初始化完成 | 默认状态=隐藏")
 	}
 
 	private _createMenuElements(): { btn: HTMLButtonElement, menu: HTMLDivElement } {
@@ -167,12 +167,12 @@ export class NeuronAreaManager {
 			this.modeItems.push(el)
 			modeRow.appendChild(el)
 		})
-		console.log("[NEURON_UI]", `创建模式按钮 | 数量=${MENU_CONFIG.modes.length} 默认=${this.currentMode}`)
+		console.log("NEURON_UI", `创建模式按钮 | 数量=${MENU_CONFIG.modes.length} 默认=${this.currentMode}`)
 		return modeRow
 	}
 
 	private _handleModeChange(newMode: string): void {
-		console.log("[NEURON_UI]", `模式切换 | 旧=${this.currentMode} → 新=${newMode}`)
+		console.log("NEURON_UI", `模式切换 | 旧=${this.currentMode} → 新=${newMode}`)
 		this.currentMode = newMode
 		this.updateModeHighlight()
 		if (this.onModeChange) this.onModeChange(newMode as "player" | "ai" | "train")
@@ -197,7 +197,7 @@ export class NeuronAreaManager {
 	}
 
 	private _handleSpeedChange(newSpeed: string): void {
-		console.log("[NEURON_UI]", `速度切换 | ${this.currentSpeed} → ${newSpeed}`)
+		console.log("NEURON_UI", `速度切换 | ${this.currentSpeed} → ${newSpeed}`)
 		this.currentSpeed = newSpeed
 		this.updateSpeedHighlight()
 		if (this.onSpeedChange) this.onSpeedChange(newSpeed)
@@ -218,12 +218,12 @@ export class NeuronAreaManager {
 			this.exploreItems.push(el)
 			exploreRow.appendChild(el)
 		})
-		console.log("[NEURON_UI]", `创建探索模式按钮 | 数量=${MENU_CONFIG.explores.length} 默认=${this.currentExploreMode}`)
+		console.log("NEURON_UI", `创建探索模式按钮 | 数量=${MENU_CONFIG.explores.length} 默认=${this.currentExploreMode}`)
 		return exploreRow
 	}
 
 	private _handleExploreChange(newMode: string): void {
-		console.log("[NEURON_UI]", `探索模式切换 | 旧=${this.currentExploreMode} → 新=${newMode}`)
+		console.log("NEURON_UI", `探索模式切换 | 旧=${this.currentExploreMode} → 新=${newMode}`)
 		this.currentExploreMode = newMode
 		this.updateExploreHighlight()
 		if (this.onExploreModeChange) this.onExploreModeChange(newMode as "none" | "fixed" | "dynamic")
@@ -278,7 +278,7 @@ export class NeuronAreaManager {
 		diceBtn.addEventListener("click", () => this._randomizeSeed())
 		seedRow.appendChild(diceBtn)
 
-		console.log("[NEURON_UI]", "创建种子控制行")
+		console.log("NEURON_UI", "创建种子控制行")
 		return seedRow
 	}
 
@@ -292,7 +292,7 @@ export class NeuronAreaManager {
 	private _toggleSeedLock(): void {
 		this.isSeedLocked = !this.isSeedLocked
 		this._updateLockBtn()
-		console.log("[NEURON_UI]", `种子锁定切换 | ${this.isSeedLocked ? "锁定" : "解锁"}`)
+		console.log("NEURON_UI", `种子锁定切换 | ${this.isSeedLocked ? "锁定" : "解锁"}`)
 		if (this.onSeedLockChange) this.onSeedLockChange(this.isSeedLocked)
 	}
 
@@ -301,11 +301,11 @@ export class NeuronAreaManager {
 		const value = this.seedInputEl.value.trim()
 		const seed = value ? parseInt(value, 10) : null
 		if (seed === null || isNaN(seed)) {
-			console.warn("[NEURON_UI]", `无效种子输入 | "${value}"`)
+			console.warn("NEURON_UI", `无效种子输入 | "${value}"`)
 			return
 		}
 		this.currentSeed = seed
-		console.log("[NEURON_UI]", `手动设置种子 | ${seed}`)
+		console.log("NEURON_UI", `手动设置种子 | ${seed}`)
 		if (this.onSeedChange) this.onSeedChange(seed)
 	}
 
@@ -315,7 +315,7 @@ export class NeuronAreaManager {
 		if (this.seedInputEl) {
 			this.seedInputEl.value = String(newSeed)
 		}
-		console.log("[NEURON_UI]", `随机生成种子 | ${newSeed}`)
+		console.log("NEURON_UI", `随机生成种子 | ${newSeed}`)
 		if (this.onSeedChange) this.onSeedChange(newSeed)
 	}
 
@@ -355,7 +355,7 @@ export class NeuronAreaManager {
 			container.appendChild(this._createWeightRow(el))
 		})
 
-		console.log("[NEURON_UI]", "创建权重控制面板")
+		console.log("NEURON_UI", "创建权重控制面板")
 		return container
 	}
 
@@ -427,14 +427,14 @@ export class NeuronAreaManager {
 	}
 
 	private _handleWeightChange(key: string, value: number): void {
-		console.log("[NEURON_UI]", `权重调整 | ${key}=${value}`)
+		console.log("NEURON_UI", `权重调整 | ${key}=${value}`)
 		if (this.onWeightChange) {
 			this.onWeightChange(key, value)
 		}
 	}
 
 	private _handleWeightToggle(key: string, enabled: boolean): void {
-		console.log("[NEURON_UI]", `元素开关 | ${key}=${enabled ? "开启" : "关闭"}`)
+		console.log("NEURON_UI", `元素开关 | ${key}=${enabled ? "开启" : "关闭"}`)
 		if (this.weightSliders[key]) {
 			this.weightSliders[key].disabled = !enabled
 			this.weightSliders[key].style.opacity = enabled ? "1" : "0.3"
@@ -514,7 +514,7 @@ export class NeuronAreaManager {
 		isResize: boolean = false, 
 		weightChanges: number[][][] | null = null
 	): void {
-		console.log("[NEURON_UI]", `render | isPreview=${isPreview} isResize=${isResize} weightChanges=${weightChanges ? "有" : "无"}`)
+		console.log("NEURON_UI", `render | isPreview=${isPreview} isResize=${isResize} weightChanges=${weightChanges ? "有" : "无"}`)
 		if (this.currentView) {
 			this.currentView.render(network, inputs, action, isPreview, isResize, weightChanges)
 		}
@@ -538,7 +538,7 @@ export class NeuronAreaManager {
 			const isActive = (el.dataset as Record<string, string>)[datasetKey] === currentValue
 			this._applyButtonStyle(el, isActive, datasetKey)
 		})
-		console.log("[NEURON_UI]", `高亮更新 | 类型=${datasetKey} 当前值=${currentValue}`)
+		console.log("NEURON_UI", `高亮更新 | 类型=${datasetKey} 当前值=${currentValue}`)
 	}
 
 	private _applyButtonStyle(el: HTMLElement, isActive: boolean, type: string): void {

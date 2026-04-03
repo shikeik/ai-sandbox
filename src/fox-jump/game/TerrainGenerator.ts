@@ -107,11 +107,11 @@ export class TerrainGenerator {
 		const totalWeight = Object.values(effectiveWeights).reduce((a, b) => a + b, 0)
 		
 		if (totalWeight === 0) {
-			console.warn("[TERRAIN]", "所有元素权重为0，使用默认配置")
+			console.warn("TERRAIN", "所有元素权重为0，使用默认配置")
 			effectiveWeights.ground = 1
 		}
 
-		console.log("[TERRAIN]", `开始生成地形 | 种子=${seed} 权重=`, effectiveWeights)
+		console.log("TERRAIN", `开始生成地形 | 种子=${seed} 权重=`, effectiveWeights)
 
 		const terrain: { type: string, startGrid: number, length: number }[] = []
 		let currentGrid = 0
@@ -167,7 +167,7 @@ export class TerrainGenerator {
 		const finalLen = Math.max(CONFIG.WORLD_LENGTH + 5 - currentGrid, 1)
 		terrain.push({ type: TERRAIN.GROUND, startGrid: currentGrid, length: finalLen })
 
-		console.log("[TERRAIN]", `地形生成完成 | 种子=${seed} 统计=`, stats)
+		console.log("TERRAIN", `地形生成完成 | 种子=${seed} 统计=`, stats)
 
 		return {
 			terrain: this._toPxFormat(terrain),

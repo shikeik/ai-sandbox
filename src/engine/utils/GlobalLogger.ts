@@ -84,14 +84,14 @@ class GlobalLogger {
 
 	private _bindGlobalErrors(): void {
 		window.addEventListener("error", (e) => {
-			console.error("[EXCEPTION]", `未捕获的错误: ${e.message}`, "\n源文件:", e.filename, "\n行号:", e.lineno, "\n列号:", e.colno, "\n", e.error || "")
+			console.error("EXCEPTION", `未捕获的错误: ${e.message}`, "\n源文件:", e.filename, "\n行号:", e.lineno, "\n列号:", e.colno, "\n", e.error || "")
 		})
 		window.addEventListener("unhandledrejection", (e) => {
 			const reason = e.reason
 			if (reason instanceof Error) {
-				console.error("[UNHANDLED]", `未处理的 Promise 拒绝: ${reason.message}`, reason)
+				console.error("UNHANDLED", `未处理的 Promise 拒绝: ${reason.message}`, reason)
 			} else {
-				console.error("[UNHANDLED]", "未处理的 Promise 拒绝:", reason)
+				console.error("UNHANDLED", "未处理的 Promise 拒绝:", reason)
 			}
 		})
 	}

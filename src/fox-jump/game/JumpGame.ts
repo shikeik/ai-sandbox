@@ -248,7 +248,7 @@ export class JumpGame {
 		const fromX = this.player.x
 		const fromY = this.player.y
 		const isJump = action === ACTION.JUMP || action === ACTION.LONG_JUMP
-		console.log("[GAME]", `execute debug | action=${action} isJump=${isJump}`)
+		console.log("GAME", `execute debug | action=${action} isJump=${isJump}`)
 
 		let targetX: number
 		if (action === ACTION.RIGHT) {
@@ -258,10 +258,10 @@ export class JumpGame {
 		} else if (action === ACTION.LONG_JUMP) {
 			targetX = fromX + CONFIG.toPx(3)
 		} else {
-			console.log("[GAME]", `execute rejected | unknown action=${action}`)
+			console.log("GAME", `execute rejected | unknown action=${action}`)
 			return null
 		}
-		console.log("[GAME]", `execute target | targetX=${targetX} fromX=${fromX}`)
+		console.log("GAME", `execute target | targetX=${targetX} fromX=${fromX}`)
 
 		this.player.x = targetX
 		this.player.y = CONFIG.toPx(CONFIG.GROUND_HEIGHT)
@@ -347,7 +347,7 @@ export class JumpGame {
 		const pendingKey = type === "death" ? "_pendingDeath" : "_pendingWin"
 		const self = this as unknown as Record<string, boolean>
 		if (!self[pendingKey]) return
-		console.log("[GAME]", `触发结束 | type=${type} | 格子=${this.player.grid}`)
+		console.log("GAME", `触发结束 | type=${type} | 格子=${this.player.grid}`)
 		self[pendingKey] = false
 
 		this.gameStatus = GAME_STATUS.FINISHED
@@ -376,7 +376,7 @@ export class JumpGame {
 
 	private _executeRespawn(): void {
 		this.generation++
-		console.log("[GAME]", `转场中点: 重生 | 新世代=${this.generation}`)
+		console.log("GAME", `转场中点: 重生 | 新世代=${this.generation}`)
 		this.init()
 		this.gameStatus = GAME_STATUS.TRANSITIONING
 
@@ -386,7 +386,7 @@ export class JumpGame {
 	}
 
 	private _onRespawnComplete(): void {
-		console.log("[GAME]", "转场结束: 开始新一局")
+		console.log("GAME", "转场结束: 开始新一局")
 		if (this.onTransitionEnd) {
 			this.onTransitionEnd()
 		}
@@ -423,12 +423,12 @@ export class JumpGame {
 
 	setTerrainConfig(config: Partial<TerrainConfig>): void {
 		Object.assign(this.terrainConfig, config)
-		console.log("[GAME]", `地形配置更新 | 锁定=${this.terrainConfig.isSeedLocked} 种子=${this.terrainConfig.seed}`)
+		console.log("GAME", `地形配置更新 | 锁定=${this.terrainConfig.isSeedLocked} 种子=${this.terrainConfig.seed}`)
 	}
 
 	randomizeSeed(): void {
 		this.terrainConfig.seed = Date.now()
-		console.log("[GAME]", `随机生成种子 | ${this.terrainConfig.seed}`)
+		console.log("GAME", `随机生成种子 | ${this.terrainConfig.seed}`)
 	}
 
 	// ========== 碰撞检测 ==========

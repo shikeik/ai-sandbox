@@ -1,0 +1,75 @@
+import type { NetParams, ForwardResult, DatasetItem } from "./types.js"
+import type { AnimationState } from "./animation.js"
+import { createNet } from "./neural-network.js"
+import { createAnimationState } from "./animation.js"
+import { NUM_COLS, NUM_LAYERS, ELEM_AIR, ELEM_HERO, ELEM_GROUND } from "./constants.js"
+
+// ========== 应用状态 ==========
+
+export interface AppState {
+  // 地形
+  terrain: number[][]
+  selectedBrush: number
+  
+  // 数据集
+  dataset: DatasetItem[]
+  trainSteps: number
+  
+  // 神经网络
+  net: NetParams
+  lastForwardResult: ForwardResult | null
+  
+  // 动画
+  animation: AnimationState
+}
+
+export function createInitialState(): AppState {
+  return {
+    terrain: [
+      Array(NUM_COLS).fill(ELEM_AIR),                    // 天上: 全空气
+      [ELEM_HERO, ...Array(NUM_COLS - 1).fill(ELEM_AIR)], // 地上: 狐狸在x0
+      [ELEM_GROUND, ELEM_GROUND, ...Array(NUM_COLS - 2).fill(ELEM_AIR)], // 地面
+    ],
+    selectedBrush: ELEM_AIR,
+    dataset: [],
+    trainSteps: 0,
+    net: createNet(),
+    lastForwardResult: null,
+    animation: createAnimationState(),
+  }
+}
+
+// ========== 状态更新辅助函数 ==========
+
+export function resetState(state: AppState): void {
+  state.terrain = [
+    Array(NUM_COLS).fill(ELEM_AIR),
+    [ELEM_HERO, ...Array(NUM_COLS - 1).fill(ELEM_AIR)],
+    [ELEM_GROUND, ELEM_GROUND, ...Array(NUM_COLS - 2).fill(ELEM_AIR)],
+  ]
+  state.selectedBrush = ELEM_AIR
+  state.dataset = []
+  state.trainSteps = 0
+  state.net = createNet()
+  state.lastForwardResult = null
+  stopAnimation(state)
+}
+
+export function stopAnimation(state: AppState): void {
+  if (state.animation.animId !== null) {
+    cancelAnimationFrame(state.animation.animId)
+    state.animation.animId = null
+  }
+  state.animation.animAction = null
+  state.animation.animSlimeKilled = false
+}
+
+export function setTerrainCell(state: AppState, r: number, c: number, brush: number): void {
+  // 如果放置狐狸，清除之前位置的狐狸
+  if (brush === 1) {
+    for (let col = 0; col < NUM_COLS; col++) {
+      if (state.terrain[1][col] === 1) state.terrain[1][col] = 0
+    }
+  }
+  state.terrain[r][c] = brush
+}

@@ -227,7 +227,7 @@
     </style>
 </head>
 <body>
-    <div class="back-nav"><a href="../index.html">← 返回导航</a></div>
+    <div class="back-nav"><a href="/index.html">← 返回导航</a></div>
     <h1>🧮 向量化参数演示</h1>
     <p class="subtitle">监督学习：给定地形 → MLP 学习最优动作</p>
 
@@ -235,7 +235,7 @@
         <!-- 左栏：环境编辑器区域 -->
         <div class="panel">
             <!-- 上：编辑预览视图 -->
-            <div class="panel-title">编辑预览视图 (5×3) — 点击绘制，x0 列为主角</div>
+            <div class="panel-title" id="editor-title">编辑预览视图 — 点击绘制，狐狸可在任意列</div>
             <canvas id="editor-canvas"></canvas>
 
             <!-- 中：规则答案说明 -->
@@ -270,7 +270,7 @@
         <!-- 右栏：MLP网络区域 -->
         <div class="panel">
             <!-- 上：MLP网络图 -->
-            <div class="panel-title">MLP 网络状态 (60 → 16 → 4)</div>
+            <div class="panel-title" id="mlp-title">MLP 网络状态</div>
             <canvas id="mlp-canvas"></canvas>
 
             <!-- 中：概率条 -->

@@ -14,7 +14,7 @@ export class SeededRandom {
 	constructor(seed: number = Date.now()) {
 		this.seed = seed
 		this.initialSeed = seed
-		console.log("[SEED]", `初始化随机生成器 | 种子=${seed}`)
+		console.log("SEED", `初始化随机生成器 | 种子=${seed}`)
 	}
 
 	/**
@@ -22,7 +22,7 @@ export class SeededRandom {
 	 */
 	reset(): void {
 		this.seed = this.initialSeed
-		console.log("[SEED]", `重置随机状态 | 种子=${this.seed}`)
+		console.log("SEED", `重置随机状态 | 种子=${this.seed}`)
 	}
 
 	/**
@@ -31,7 +31,7 @@ export class SeededRandom {
 	setSeed(newSeed: number): void {
 		this.seed = newSeed
 		this.initialSeed = newSeed
-		console.log("[SEED]", `设置新种子 | 种子=${newSeed}`)
+		console.log("SEED", `设置新种子 | 种子=${newSeed}`)
 	}
 
 	/**
