@@ -93,7 +93,7 @@ async function trainBatch() {
 
 // 监督学习：使用标签数据
 async function trainSupervised() {
-	const batchSize = 32
+	const batchSize = 128
 	const steps = 100
 
 	// 若快照为空，先保存初始状态（全局累积，不清空旧快照）
@@ -139,7 +139,7 @@ async function trainSupervised() {
 
 // 无监督学习：ε-贪心探索，根据结果给奖励
 async function trainUnsupervised() {
-	const batchSize = 32
+	const batchSize = 128
 	const steps = 100
 	// 使用动态探索率，初始值从 state.epsilon 获取
 
@@ -206,8 +206,11 @@ async function trainUnsupervised() {
 				}
 				accumulateGradients(unsuperBuffer, state.net, sample.indices, evaluation, batchSize)
 				hasUnsuperUpdate = true
+			} else {
+				// 选中次优但合法 → 轻微向最优动作引导（权重0.3）
+				accumulateSupervisedGrad(superBuffer, state.net, sample.indices, optimal, batchSize * 3)
+				hasSuperUpdate = true
 			}
-			// 选中次优但合法 → 跳过（避免噪声）
 		}
 
 		// 应用更新
@@ -808,7 +811,7 @@ async function runCurriculum() {
 async function runCurriculumSupervised() {
 	const targetAcc = 90
 	const maxTotalSteps = 3000
-	const batchSize = 32
+	const batchSize = 128
 	const stepsPerBatch = 100
 	let achieved = false
 
@@ -862,7 +865,7 @@ async function runCurriculumSupervised() {
 async function runCurriculumUnsupervised() {
 	const targetValidRate = 70  // 无监督用合法率代替准确率
 	const maxTotalSteps = 3000
-	const batchSize = 32
+	const batchSize = 128
 	const stepsPerBatch = 100
 	let achieved = false
 
