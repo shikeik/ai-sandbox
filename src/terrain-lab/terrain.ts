@@ -186,6 +186,15 @@ export function isValidTerrain(t: number[][]): boolean {
 	return getLabel(t) !== -1
 }
 
+// 根据 actionChecks 判断某个动作索引是否合法（与 validateTerrain 使用同一数据源）
+export function isActionValidByChecks(checks: ActionChecks, actionIdx: number): boolean {
+	if (actionIdx === 0) return checks.canWalk.ok
+	if (actionIdx === 1) return checks.canJump.ok
+	if (actionIdx === 2) return checks.canLongJump.ok
+	if (actionIdx === 3) return checks.canWalkAttack.ok
+	return false
+}
+
 // ========== 数据生成 ==========
 
 function configLabel(config: TerrainConfig): string {

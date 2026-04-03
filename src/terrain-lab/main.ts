@@ -9,7 +9,7 @@ import { zeroMat, zeroVec, easeOutQuad } from "./utils.js"
 import { forward, backward, updateNetwork, cloneNet } from "./neural-network.js"
 import {
 	terrainToIndices, findHeroCol, getActionChecks, getLabel,
-	generateTerrainData, generateRandomTerrain
+	isActionValidByChecks, generateTerrainData, generateRandomTerrain
 } from "./terrain.js"
 import { drawTerrainGrid, drawEmoji, getEditorCellAt } from "./renderer.js"
 import { calculateAnimationPath } from "./animation.js"
@@ -293,30 +293,23 @@ function predict() {
 		return
 	}
 
-	// 判断预测动作是否合法
-	const isValid =
-		(pred === 0 && checks.canWalk.ok) ||
-		(pred === 1 && checks.canJump.ok) ||
-		(pred === 2 && checks.canLongJump.ok) ||
-		(pred === 3 && checks.canWalkAttack.ok)
+	// 统一使用与合法性检查同一数据源的判定函数
+	const isValid = isActionValidByChecks(checks, pred)
+	const lines: string[] = []
+	lines.push(`AI 预测: <b>${ACTIONS[pred]}</b> (置信度 ${conf}%)`)
+	lines.push(`规则答案: <b>${ACTIONS[correct]}</b>`)
 
 	if (isValid) {
 		if (pred === correct) {
-			updateTerrainStatus(
-				"ok",
-				`AI 预测: <b>${ACTIONS[pred]}</b> (置信度 ${conf}%)<br>规则答案: <b>${ACTIONS[correct]}</b> ✅ 最优`
-			)
+			lines.push("<span style='color:#34a853'>✅ 最优</span>")
+			updateTerrainStatus("ok", lines.join("<br>"))
 		} else {
-			updateTerrainStatus(
-				"ok",
-				`AI 预测: <b>${ACTIONS[pred]}</b> (置信度 ${conf}%)<br>规则答案: <b>${ACTIONS[correct]}</b> ✅ 合法（但非最优）`
-			)
+			lines.push("<span style='color:#f9ab00'>✅ 合法（但非最优）</span>")
+			updateTerrainStatus("ok", lines.join("<br>"))
 		}
 	} else {
-		updateTerrainStatus(
-			"bad",
-			`AI 预测: <b>${ACTIONS[pred]}</b> (置信度 ${conf}%)<br>规则答案: <b>${ACTIONS[correct]}</b> ❌ 非法`
-		)
+		lines.push("<span style='color:#ea4335'>❌ 非法</span>")
+		updateTerrainStatus("bad", lines.join("<br>"))
 	}
 
 	drawMLP(fp)
@@ -469,14 +462,14 @@ function renderBrushes() {
 }
 
 function renderTerrainConfig() {
-	const stageSelect = document.getElementById("stage-select") as any
+	const stageTabs = document.getElementById("stage-tabs")!
 	const swGroundOnly = document.getElementById("sw-ground-only") as HTMLInputElement
 	const swSlime = document.getElementById("sw-slime") as HTMLInputElement
 	const swDemon = document.getElementById("sw-demon") as HTMLInputElement
 	const swCoin = document.getElementById("sw-coin") as HTMLInputElement
 
 	const cfg = state.terrainConfig
-	let matchedStage = "custom"
+	let matchedStage = -1
 	for (let i = 0; i < CURRICULUM_STAGES.length; i++) {
 		const s = CURRICULUM_STAGES[i].config
 		if (
@@ -485,26 +478,29 @@ function renderTerrainConfig() {
 			cfg.demon === s.demon &&
 			cfg.coin === s.coin
 		) {
-			matchedStage = String(i)
+			matchedStage = i
 			break
 		}
 	}
-	stageSelect.value = matchedStage
+
+	stageTabs.innerHTML = ""
+	for (let i = 0; i < CURRICULUM_STAGES.length; i++) {
+		const btn = document.createElement("div")
+		btn.className = "stage-tab" + (i === matchedStage ? " active" : "")
+		btn.textContent = CURRICULUM_STAGES[i].name
+		btn.onclick = () => {
+			state.terrainConfig = { ...CURRICULUM_STAGES[i].config }
+			renderTerrainConfig()
+			renderBrushes()
+			updateTerrainStatus("wait", `已切换到「${CURRICULUM_STAGES[i].name}」，随机地形和生成数据将使用该配置`)
+		}
+		stageTabs.appendChild(btn)
+	}
+
 	swGroundOnly.checked = cfg.groundOnly
 	swSlime.checked = cfg.slime
 	swDemon.checked = cfg.demon
 	swCoin.checked = cfg.coin
-}
-
-function onStageChange(value: string) {
-	if (value === "custom") return
-	const stageIdx = Number(value)
-	if (stageIdx >= 0 && stageIdx < CURRICULUM_STAGES.length) {
-		state.terrainConfig = { ...CURRICULUM_STAGES[stageIdx].config }
-		renderTerrainConfig()
-		renderBrushes()
-		updateTerrainStatus("wait", `已切换到「${CURRICULUM_STAGES[stageIdx].name}」，随机地形和生成数据将使用该配置`)
-	}
 }
 
 function onConfigChange() {
@@ -1156,7 +1152,6 @@ function init() {
 	}
 	;(window as any).setObservedFromTerrain = setObservedFromTerrain
 	;(window as any).setObservedRandom = setObservedRandom
-	;(window as any).onStageChange = onStageChange
 	;(window as any).onConfigChange = onConfigChange
 	;(window as any).runCurriculum = runCurriculum
 	;(window as any).nextCurriculumStage = nextCurriculumStage
