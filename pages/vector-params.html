@@ -293,11 +293,11 @@
             </div>
 
             <div class="terrain-status" id="terrain-status" style="margin-top:10px;padding:10px;border-radius:8px;background:#0b0c0f;border:1px solid #2c2f36;font-size:12px;line-height:1.6;min-height:40px;display:flex;align-items:center;justify-content:center;color:#9aa0a6;">
-                点击下方按钮检查当前地形合法性或随机生成地形
+                点击「合法性检查」查看当前地形是否可解
             </div>
 
             <div class="btn-row" style="margin-top:10px;justify-content:center;">
-                <button class="btn-secondary" onclick="checkValidity()">合法性检查</button>
+                <button class="btn-secondary" onclick="validateTerrain()">合法性检查</button>
                 <button class="btn-secondary" onclick="randomTerrain()">随机地形</button>
             </div>
 
@@ -611,7 +611,7 @@
             updateProbs(fp.o);
         }
 
-        function checkValidity() {
+        function validateTerrain() {
             const valid = isValidTerrain(terrain);
             const checks = getActionChecks(terrain, 0);
             let reasons = [];
