@@ -26,7 +26,7 @@ if (dataset.length === 0) {
 }
 
 // 统一评估函数（与 terrain-lab 一致）
-function evaluateModel(currentNet: typeof net, data: DatasetItem[]) {
+function evaluateModel(currentNet: ReturnType<typeof createNet>, data: DatasetItem[]) {
 	let correct = 0      // 与最优标签一致
 	let validCount = 0   // 动作合法
 	let lossSum = 0

@@ -20,7 +20,7 @@ console.log("\n生成数据集...")
 const dataset = generateTerrainData(DATASET_SIZE, DEFAULT_TERRAIN_CONFIG)
 console.log(`数据集: ${dataset.length} 条`)
 
-function evaluateModel(currentNet: typeof net, data: DatasetItem[]) {
+function evaluateModel(currentNet: ReturnType<typeof createNet>, data: DatasetItem[]) {
 	let correct = 0
 	let validCount = 0
 	

@@ -71,13 +71,16 @@ export function accumulateGradients(
 		_addGradient(buffer, net, indices, targetAction, gradScale)
 	} else {
 		// 负向惩罚：减少 targetAction，同时增加其他动作
+		// 关键：惩罚总量 = 奖励总量，保持概率质量守恒
+		const otherActionCount = OUTPUT_DIM - 1
+		const redistributeScale = gradScale / otherActionCount  // 平均分摊，不额外缩放
+		
 		for (let otherAction = 0; otherAction < OUTPUT_DIM; otherAction++) {
 			if (otherAction === targetAction) {
 				// 惩罚坏动作
 				_addGradient(buffer, net, indices, targetAction, -gradScale)
 			} else {
-				// 奖励其他动作（分摊概率）
-				const redistributeScale = gradScale / (OUTPUT_DIM - 1) * 0.5
+				// 奖励其他动作（平均分摊拿走的概率）
 				_addGradient(buffer, net, indices, otherAction, redistributeScale)
 			}
 		}
