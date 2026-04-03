@@ -10,6 +10,8 @@ export interface Snapshot {
 	step: number
 	net: NetParams
 	observedProbs?: number[]
+	acc?: number
+	loss?: number
 }
 
 export interface AppState {

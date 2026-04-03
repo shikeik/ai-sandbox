@@ -80,7 +80,7 @@ async function trainBatch() {
 	// 若快照为空，先保存初始状态（全局累积，不清空旧快照）
 	if (state.snapshots.length === 0) {
 		state.snapshots.push({ step: state.trainSteps, net: cloneNet(state.net) })
-		recordSnapshotProbs(0)
+		recordSnapshotStats(0)
 		state.selectedSnapshotIndex = 0
 	}
 
@@ -123,7 +123,7 @@ async function trainBatch() {
 			updateMetrics(lossSum / batchSize, (correct / batchSize) * 100, ((s + 1) / steps) * 100)
 			// 保存快照
 			state.snapshots.push({ step: state.trainSteps, net: cloneNet(state.net) })
-			recordSnapshotProbs(state.snapshots.length - 1)
+			recordSnapshotStats(state.snapshots.length - 1)
 			await new Promise(r => setTimeout(r, 1))
 		}
 	}
@@ -135,11 +135,28 @@ async function trainBatch() {
 	btn.disabled = false
 }
 
-function recordSnapshotProbs(snapshotIndex: number) {
-	if (!state.observedSample || snapshotIndex < 0 || snapshotIndex >= state.snapshots.length) return
+function recordSnapshotStats(snapshotIndex: number) {
+	if (snapshotIndex < 0 || snapshotIndex >= state.snapshots.length) return
 	const snap = state.snapshots[snapshotIndex]
-	const fp = forward(snap.net, state.observedSample.indices)
-	state.snapshots[snapshotIndex].observedProbs = fp.o.slice()
+
+	// 执念曲线概率
+	if (state.observedSample) {
+		const fp = forward(snap.net, state.observedSample.indices)
+		snap.observedProbs = fp.o.slice()
+	}
+
+	// 准确率与损失
+	if (state.dataset.length > 0) {
+		let correct = 0
+		let lossSum = 0
+		for (const sample of state.dataset) {
+			const fp = forward(snap.net, sample.indices)
+			if (fp.o.indexOf(Math.max(...fp.o)) === sample.y) correct++
+			lossSum += -Math.log(Math.max(fp.o[sample.y], 1e-7))
+		}
+		snap.acc = (correct / state.dataset.length) * 100
+		snap.loss = lossSum / state.dataset.length
+	}
 }
 
 function updateSnapshotSlider() {
@@ -157,8 +174,16 @@ function applySnapshot(index: number) {
 	if (index < 0 || index >= state.snapshots.length) return
 	state.selectedSnapshotIndex = index
 	state.net = cloneNet(state.snapshots[index].net)
+	const snap = state.snapshots[index]
 	const label = document.getElementById("snapshot-label")!
-	label.textContent = `步数 ${state.snapshots[index].step}`
+	label.textContent = `步数 ${snap.step}`
+	document.getElementById("step-count")!.textContent = String(snap.step)
+	if (snap.acc !== undefined) {
+		document.getElementById("acc-display")!.textContent = snap.acc.toFixed(1) + "%"
+	}
+	if (snap.loss !== undefined) {
+		document.getElementById("loss-display")!.textContent = snap.loss.toFixed(4)
+	}
 	predict()
 	drawObsessionCurve()
 }
@@ -218,7 +243,7 @@ function setObservedFromTerrain() {
 	updateObsessionStatus(`观察样本：当前地形 | 规则答案：${ACTIONS[label]}`, "ok")
 	// 若有快照，重新计算所有快照对该样本的概率
 	for (let i = 0; i < state.snapshots.length; i++) {
-		recordSnapshotProbs(i)
+		recordSnapshotStats(i)
 	}
 	drawObsessionCurve()
 }
@@ -232,7 +257,7 @@ function setObservedRandom() {
 	state.observedSample = sample
 	updateObsessionStatus(`观察样本：数据集第 ${state.dataset.indexOf(sample) + 1} 条 | 规则答案：${ACTIONS[sample.y]}`, "ok")
 	for (let i = 0; i < state.snapshots.length; i++) {
-		recordSnapshotProbs(i)
+		recordSnapshotStats(i)
 	}
 	drawObsessionCurve()
 }
@@ -416,10 +441,21 @@ function updateProbs(probs: number[]) {
 
 // ========== 渲染器 ==========
 
+function getAllowedElementsForBrush(): number[] {
+	const cfg = state.terrainConfig
+	const allowed = [ELEM_AIR, ELEM_HERO, ELEM_GROUND]
+	if (cfg.slime) allowed.push(ELEM_SLIME)
+	if (cfg.demon) allowed.push(ELEM_DEMON)
+	if (cfg.coin) allowed.push(ELEM_COIN)
+	return allowed
+}
+
 function renderBrushes() {
 	const list = document.getElementById("brush-list") as HTMLDivElement
 	list.innerHTML = ""
+	const allowed = getAllowedElementsForBrush()
 	UI_ELEMENTS.forEach((el) => {
+		if (!allowed.includes(el.id)) return
 		const item = document.createElement("div")
 		item.className = "brush-item" + (el.id === state.selectedBrush ? " active" : "")
 		item.innerHTML = `<div class="brush-emoji">${el.emoji}</div><div class="brush-name">${el.name}</div>`
@@ -466,6 +502,7 @@ function onStageChange(value: string) {
 	if (stageIdx >= 0 && stageIdx < CURRICULUM_STAGES.length) {
 		state.terrainConfig = { ...CURRICULUM_STAGES[stageIdx].config }
 		renderTerrainConfig()
+		renderBrushes()
 		updateTerrainStatus("wait", `已切换到「${CURRICULUM_STAGES[stageIdx].name}」，随机地形和生成数据将使用该配置`)
 	}
 }
@@ -483,6 +520,7 @@ function onConfigChange() {
 		coin: swCoin.checked,
 	}
 	renderTerrainConfig()
+	renderBrushes()
 	updateTerrainStatus("wait", "地形配置已更新")
 }
 
@@ -548,6 +586,7 @@ async function runCurriculum() {
 	// 应用当前阶段配置
 	state.terrainConfig = { ...CURRICULUM_STAGES[curriculumStageIdx].config }
 	renderTerrainConfig()
+	renderBrushes()
 
 	// 生成数据
 	state.dataset = generateTerrainData(6000, state.terrainConfig)
@@ -557,7 +596,7 @@ async function runCurriculum() {
 
 	// 清空旧快照，保留初始状态
 	state.snapshots = [{ step: state.trainSteps, net: cloneNet(state.net) }]
-	recordSnapshotProbs(0)
+	recordSnapshotStats(0)
 	state.selectedSnapshotIndex = 0
 	updateSnapshotSlider()
 
@@ -609,7 +648,7 @@ async function runCurriculum() {
 
 		// 保存快照
 		state.snapshots.push({ step: state.trainSteps, net: cloneNet(state.net) })
-		recordSnapshotProbs(state.snapshots.length - 1)
+		recordSnapshotStats(state.snapshots.length - 1)
 		updateSnapshotSlider()
 		drawObsessionCurve()
 
@@ -643,6 +682,9 @@ async function runCurriculum() {
 function nextCurriculumStage() {
 	if (curriculumStageIdx < CURRICULUM_STAGES.length - 1) {
 		curriculumStageIdx++
+		state.terrainConfig = { ...CURRICULUM_STAGES[curriculumStageIdx].config }
+		renderTerrainConfig()
+		renderBrushes()
 		updateCurriculumUI()
 		updateExam(`已进入 ${CURRICULUM_STAGES[curriculumStageIdx].name}，点击「开始课程训练」生成数据并训练`, "wait")
 	}
@@ -1130,12 +1172,24 @@ function init() {
 	;(window as any).downloadConsole = () => consolePanel.download()
 }
 
+function getAllowedElementsForLayer(layer: number): number[] {
+	const cfg = state.terrainConfig
+	const pool = [ELEM_AIR]
+	if (layer === 0) {
+		if (cfg.demon) pool.push(ELEM_DEMON)
+		if (cfg.coin) pool.push(ELEM_COIN)
+	} else if (layer === 1) {
+		pool.push(ELEM_HERO)
+		if (cfg.slime) pool.push(ELEM_SLIME)
+		if (cfg.coin) pool.push(ELEM_COIN)
+	} else if (layer === 2) {
+		pool.push(ELEM_GROUND)
+	}
+	return pool
+}
+
 function paintCell(r: number, c: number) {
-	const allowed = [
-		[ELEM_AIR, ELEM_DEMON, ELEM_COIN],
-		[ELEM_AIR, ELEM_HERO, 3, ELEM_COIN],
-		[ELEM_AIR, ELEM_GROUND],
-	][r]
+	const allowed = getAllowedElementsForLayer(r)
 	if (!allowed.includes(state.selectedBrush)) {
 		updateTerrainStatus("bad", `❌ 该元素不能放在 ${["天上", "地上", "地面"][r]}层`)
 		return
