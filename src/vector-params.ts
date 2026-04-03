@@ -63,6 +63,9 @@ let animStartTime = 0
 let animAction: ActionType | null = null
 let animSlimeKilled = false
 
+// 缓存最后一次 forward 结果用于 resize 重绘
+let lastForwardResult: ForwardResult | null = null
+
 // 统一 canvas
 let editorCanvas: HTMLCanvasElement
 let mlpCanvas: HTMLCanvasElement
@@ -280,7 +283,8 @@ async function trainBatch() {
 
   evaluateAll()
   btn.disabled = false
-  predict()
+  // 训练完成后自动预测，但不在这里调用，让按钮行为更明确
+  // predict() 被移除，用户需手动点击预测
 }
 
 function updateMetrics(loss: number, acc?: number, progress?: number) {
@@ -328,6 +332,7 @@ function resetNet() {
 function predict() {
   const x = terrainToOneHot(terrain)
   const fp = forward(net, x)
+  lastForwardResult = fp  // 缓存结果
   const pred = fp.o.indexOf(Math.max(...fp.o))
   const correct = getLabel(terrain)
   if (correct === -1) {
@@ -520,6 +525,10 @@ function drawTerrainGrid(
 }
 
 function drawEditor() {
+  drawEditorWithState()
+}
+
+function drawEditorWithState() {
   const ctx = editorCanvas.getContext("2d")!
   const rect = editorCanvas.getBoundingClientRect()
   const dpr = window.devicePixelRatio || 1
@@ -551,13 +560,13 @@ function drawEditor() {
     ctx.fillText(labels[c], startX + c * (cellW + gapX) + cellW / 2, startY - 8)
   }
 
-  // 绘制网格
+  // 绘制网格 - 考虑动画状态和史莱姆击杀状态
   drawTerrainGrid(ctx, terrain, {
     cellW, cellH, gapX, gapY, startX, startY,
     showHero: animAction === null,
     heroCol: 0,
     heroRow: 1,
-    hideSlimeAt: null,
+    hideSlimeAt: animSlimeKilled ? 1 : null,
     dimNonInteractive: false,
   })
 }
