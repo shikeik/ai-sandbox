@@ -107,6 +107,7 @@ async function trainSupervised() {
 		const buffer = createSupervisedBuffer()
 		let lossSum = 0
 		let correct = 0
+		let validCount = 0
 
 		for (let b = 0; b < batchSize; b++) {
 			const idx = Math.floor(Math.random() * state.dataset.length)
@@ -114,13 +115,20 @@ async function trainSupervised() {
 			const { loss, isCorrect } = accumulateSupervisedGrad(buffer, state.net, sample.indices, sample.y, batchSize)
 			lossSum += loss
 			if (isCorrect) correct++
+			
+			// 计算合法率
+			const fp = forward(state.net, sample.indices)
+			const predictedAction = fp.o.indexOf(Math.max(...fp.o))
+			const heroCol = findHeroCol(sample.t)
+			const checks = getActionChecks(sample.t, heroCol)
+			if (isActionValidByChecks(checks, predictedAction)) validCount++
 		}
 
 		updateNetwork(state.net, buffer, 1)
 
 		state.trainSteps++
 		if (s % 20 === 0 || s === steps - 1) {
-			updateMetrics(lossSum / batchSize, (correct / batchSize) * 100, ((s + 1) / steps) * 100)
+			updateMetrics(lossSum / batchSize, (correct / batchSize) * 100, ((s + 1) / steps) * 100, (validCount / batchSize) * 100)
 			// 保存快照
 			state.snapshots.push({ step: state.trainSteps, net: cloneNet(state.net) })
 			recordSnapshotStats(state.snapshots.length - 1)
@@ -328,13 +336,16 @@ function applySnapshot(index: number) {
 	drawObsessionCurve()
 }
 
-function updateMetrics(loss: number, acc?: number, progress?: number) {
+function updateMetrics(loss: number, acc?: number, progress?: number, validRate?: number) {
 	document.getElementById("step-count")!.textContent = String(state.trainSteps)
 	if (loss !== undefined && loss !== 0) {
 		document.getElementById("loss-display")!.textContent = loss.toFixed(4)
 	}
 	if (acc !== undefined) {
 		document.getElementById("acc-display")!.textContent = acc.toFixed(0) + "%"
+	}
+	if (validRate !== undefined) {
+		document.getElementById("valid-display")!.textContent = validRate.toFixed(0) + "%"
 	}
 	if (progress !== undefined) {
 		;(document.getElementById("train-progress") as HTMLDivElement).style.width = progress + "%"
@@ -343,14 +354,23 @@ function updateMetrics(loss: number, acc?: number, progress?: number) {
 
 function evaluateAll() {
 	let correct = 0
+	let validCount = 0
 	let lossSum = 0
 	for (const sample of state.dataset) {
 		const fp = forward(state.net, sample.indices)
-		if (fp.o.indexOf(Math.max(...fp.o)) === sample.y) correct++
+		const predictedAction = fp.o.indexOf(Math.max(...fp.o))
+		if (predictedAction === sample.y) correct++
+		
+		// 计算合法率
+		const heroCol = findHeroCol(sample.t)
+		const checks = getActionChecks(sample.t, heroCol)
+		if (isActionValidByChecks(checks, predictedAction)) validCount++
+		
 		lossSum += -Math.log(Math.max(fp.o[sample.y], 1e-7))
 	}
 	document.getElementById("step-count")!.textContent = String(state.trainSteps)
 	document.getElementById("acc-display")!.textContent = ((correct / state.dataset.length) * 100).toFixed(1) + "%"
+	document.getElementById("valid-display")!.textContent = ((validCount / state.dataset.length) * 100).toFixed(1) + "%"
 	document.getElementById("loss-display")!.textContent = (lossSum / state.dataset.length).toFixed(4)
 	;(document.getElementById("train-progress") as HTMLDivElement).style.width = "100%"
 }
@@ -698,7 +718,6 @@ function toggleLearningMode() {
 function updateModeUI() {
 	const btn = document.getElementById("btn-mode") as HTMLButtonElement
 	const label = document.getElementById("mode-label")!
-	const metricAcc = document.getElementById("metric-acc")!
 	const metricValid = document.getElementById("metric-valid")!
 	
 	if (state.learningMode === "supervised") {
@@ -706,18 +725,14 @@ function updateModeUI() {
 		btn.className = "btn-primary"
 		label.textContent = "监督学习（有标签）"
 		label.style.color = "#8ab4f8"
-		// 监督模式：显示准确率，隐藏合法率
-		metricAcc.style.display = "block"
-		metricValid.style.display = "none"
 	} else {
 		btn.textContent = "切换"
 		btn.className = "btn-accent"
 		label.textContent = "无监督学习（自探索）"
 		label.style.color = "#f9ab00"
-		// 无监督模式：显示合法率和准确率
-		metricAcc.style.display = "block"
-		metricValid.style.display = "block"
 	}
+	// 两种模式都显示准确率和合法率
+	metricValid.style.display = "block"
 }
 
 // ========== 课程学习 ==========
