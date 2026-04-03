@@ -182,9 +182,13 @@ export function generateTerrainData(count: number): DatasetItem[] {
 		const heroCol = Math.floor(Math.random() * NUM_COLS)
 		const t = [
 			Array.from({ length: NUM_COLS }, () => randElem(0)),
-			Array(NUM_COLS).fill(ELEM_AIR),
+			Array.from({ length: NUM_COLS }, () => randElem(1)),
 			Array.from({ length: NUM_COLS }, () => randElem(2)),
 		]
+		// 确保只有 heroCol 位置是狐狸，其他位置若随机到狐狸则替换为空气
+		for (let c = 0; c < NUM_COLS; c++) {
+			if (c !== heroCol && t[1][c] === ELEM_HERO) t[1][c] = ELEM_AIR
+		}
 		t[1][heroCol] = ELEM_HERO
 
 		attempts++
@@ -210,9 +214,13 @@ export function generateRandomTerrain(): number[][] {
 		const heroCol = Math.floor(Math.random() * NUM_COLS)
 		terrain = [
 			Array.from({ length: NUM_COLS }, () => randElem(0)), // 天上
-			Array(NUM_COLS).fill(ELEM_AIR), // 地上
+			Array.from({ length: NUM_COLS }, () => randElem(1)), // 地上
 			Array.from({ length: NUM_COLS }, () => randElem(2)), // 地面
 		]
+		// 确保只有 heroCol 位置是狐狸，其他位置若随机到狐狸则替换为空气
+		for (let c = 0; c < NUM_COLS; c++) {
+			if (c !== heroCol && terrain[1][c] === ELEM_HERO) terrain[1][c] = ELEM_AIR
+		}
 		// 放置狐狸
 		terrain[1][heroCol] = ELEM_HERO
 		attempts++
