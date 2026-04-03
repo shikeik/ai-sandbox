@@ -262,6 +262,7 @@
         .exam-result.ok { border: 1px solid #34a853; }
         .exam-result.bad { border: 1px solid #ea4335; }
         .exam-result.wait { border: 1px solid #2c2f36; }
+        .log-highlight { color: #f9ab00; }
     </style>
 </head>
 <body>
@@ -332,6 +333,7 @@
             <div class="panel-title" style="margin-top:14px">验收 / 考试</div>
             <div class="btn-row">
                 <button class="btn-primary" onclick="predict()">预测当前地形</button>
+                <button class="btn-secondary" onclick="checkValidity()">合法性检查</button>
                 <button class="btn-secondary" onclick="randomTerrain()">随机地形</button>
             </div>
             <div class="exam-result wait" id="exam-box">
@@ -438,22 +440,31 @@
             return vec;
         }
 
+        function getActionChecks(t, col = 0) {
+            const sky0   = ELEMENTS[t[0][col]].name;
+            const sky1   = ELEMENTS[t[0][col + 1]] ? ELEMENTS[t[0][col + 1]].name : '空气';
+            const ground0 = ELEMENTS[t[2][col]].name;
+            const mid0   = ELEMENTS[t[1][col]].name;
+
+            return {
+                canWalk:  ground0 === '平地' && sky0 !== '恶魔' && mid0 !== '史莱姆',
+                canJump:  sky0 !== '恶魔',
+                canLongJump: sky0 !== '恶魔' && sky1 !== '恶魔',
+                canCrouch: ground0 === '平地' && mid0 !== '史莱姆'
+            };
+        }
+
         function getLabel(t) {
-            const sky0   = ELEMENTS[t[0][0]].name;
-            const sky1   = ELEMENTS[t[0][1]].name;
-            const ground0 = ELEMENTS[t[2][0]].name;
-            const mid0   = ELEMENTS[t[1][0]].name;
+            const checks = getActionChecks(t, 0);
+            if (checks.canWalk) return 0;
+            if (checks.canJump) return 1;
+            if (checks.canLongJump) return 2;
+            if (checks.canCrouch) return 3;
+            return -1; // 无解
+        }
 
-            const canWalk  = ground0 === '平地' && sky0 !== '恶魔' && mid0 !== '史莱姆';
-            const canJump  = sky0 !== '恶魔';
-            const canLongJump = sky0 !== '恶魔' && sky1 !== '恶魔';
-            const canCrouch = ground0 === '平地' && mid0 !== '史莱姆';
-
-            if (canWalk) return 0;
-            if (canJump) return 1;
-            if (canLongJump) return 2;
-            if (canCrouch) return 3;
-            return 0; // 默认走（等死）
+        function isValidTerrain(t) {
+            return getLabel(t) !== -1;
         }
 
         function randElem(layer) {
@@ -463,18 +474,21 @@
 
         function generateData() {
             dataset = [];
-            for (let i = 0; i < 6000; i++) {
+            let attempts = 0;
+            while (dataset.length < 6000 && attempts < 50000) {
                 const t = [
                     [randElem(0), randElem(0), randElem(0), randElem(0)],
                     [randElem(1), randElem(1), randElem(1), randElem(1)],
                     [randElem(2), randElem(2), randElem(2), randElem(2)]
                 ];
+                attempts++;
+                if (!isValidTerrain(t)) continue;
                 const y = getLabel(t);
                 dataset.push({ t, x: terrainToOneHot(t), y });
             }
             document.getElementById('data-count').textContent = dataset.length;
-            document.getElementById('btn-train').disabled = false;
-            updateExam('已生成 6000 条训练数据，点击「训练 100 步」开始训练', 'wait');
+            document.getElementById('btn-train').disabled = dataset.length === 0;
+            updateExam(`已生成 ${dataset.length} 条合法训练数据 (过滤了无解地形)，点击「训练 100 步」开始训练`, 'wait');
         }
 
         // ========== 训练 ==========
@@ -571,6 +585,15 @@
             const fp = forward(net, x);
             const pred = fp.o.indexOf(Math.max(...fp.o));
             const correct = getLabel(terrain);
+            if (correct === -1) {
+                updateExam(
+                    `AI 预测: <b>${ACTIONS[pred]}</b> (置信度 ${(fp.o[pred]*100).toFixed(1)}%)<br>规则答案: <b class="log-highlight">此地形无解（死局）</b>`,
+                    'bad'
+                );
+                drawMLP(fp);
+                updateProbs(fp.o);
+                return;
+            }
             const ok = pred === correct;
             const conf = (fp.o[pred] * 100).toFixed(1);
             updateExam(
@@ -579,6 +602,22 @@
             );
             drawMLP(fp);
             updateProbs(fp.o);
+        }
+
+        function checkValidity() {
+            const valid = isValidTerrain(terrain);
+            const checks = getActionChecks(terrain, 0);
+            let reasons = [];
+            if (checks.canWalk) reasons.push('可走');
+            if (checks.canJump) reasons.push('可跳');
+            if (checks.canLongJump) reasons.push('可远跳');
+            if (checks.canCrouch) reasons.push('可下蹲');
+
+            if (valid) {
+                updateExam(`✅ 当前地形合法<br>可选动作: ${reasons.join(' / ')}`, 'ok');
+            } else {
+                updateExam(`❌ 当前地形无解（死局）<br>前1格: 天上${ELEMENTS[terrain[0][0]].name} + 地上${ELEMENTS[terrain[1][0]].name} + 地面${ELEMENTS[terrain[2][0]].name}<br>走/跳/远跳/下蹲 全部不满足安全条件`, 'bad');
+            }
         }
 
         function updateExam(html, cls) {
