@@ -93,7 +93,7 @@ async function trainBatch() {
 
 // 监督学习：使用标签数据
 async function trainSupervised() {
-	const batchSize = 128
+	const batchSize = 32
 	const steps = 100
 
 	// 若快照为空，先保存初始状态（全局累积，不清空旧快照）
@@ -139,8 +139,8 @@ async function trainSupervised() {
 
 // 无监督学习：ε-贪心探索，根据结果给奖励
 async function trainUnsupervised() {
-	const batchSize = 128
-	const steps = 100
+	const batchSize = 32
+	const steps = 1000  // ← 增加步数到1000，给网络足够时间收敛
 	// 使用动态探索率，初始值从 state.epsilon 获取
 
 	// 若快照为空，先保存初始状态
