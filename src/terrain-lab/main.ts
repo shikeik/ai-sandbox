@@ -509,6 +509,143 @@ function resetNet() {
 	updateSnapshotSlider()
 	drawObsessionCurve()
 	updateObsessionStatus("未设置观察样本", "wait")
+	updateCurriculumUI()
+}
+
+// ========== 课程学习 ==========
+
+let curriculumStageIdx = 0
+let curriculumRunning = false
+
+function updateCurriculumUI() {
+	const status = document.getElementById("curriculum-status")!
+	const btnCurriculum = document.getElementById("btn-curriculum") as HTMLButtonElement
+	const btnNext = document.getElementById("btn-next-stage") as HTMLButtonElement
+
+	if (curriculumRunning) {
+		status.textContent = `当前阶段：${CURRICULUM_STAGES[curriculumStageIdx].name}（训练中…）`
+		btnCurriculum.disabled = true
+		btnNext.disabled = true
+		return
+	}
+
+	const stageName = CURRICULUM_STAGES[curriculumStageIdx]?.name ?? "已完成全部阶段"
+	status.textContent = `当前阶段：${stageName}`
+	btnCurriculum.disabled = false
+	btnNext.disabled = curriculumStageIdx >= CURRICULUM_STAGES.length - 1
+}
+
+async function runCurriculum() {
+	if (curriculumRunning) return
+	if (curriculumStageIdx >= CURRICULUM_STAGES.length) {
+		updateExam("已完成全部课程阶段！", "ok")
+		return
+	}
+
+	curriculumRunning = true
+	updateCurriculumUI()
+
+	// 应用当前阶段配置
+	state.terrainConfig = { ...CURRICULUM_STAGES[curriculumStageIdx].config }
+	renderTerrainConfig()
+
+	// 生成数据
+	state.dataset = generateTerrainData(6000, state.terrainConfig)
+	document.getElementById("data-count")!.textContent = String(state.dataset.length)
+	const btnTrain = document.getElementById("btn-train") as HTMLButtonElement
+	btnTrain.disabled = state.dataset.length === 0
+
+	// 清空旧快照，保留初始状态
+	state.snapshots = [{ step: state.trainSteps, net: cloneNet(state.net) }]
+	recordSnapshotProbs(0)
+	state.selectedSnapshotIndex = 0
+	updateSnapshotSlider()
+
+	const targetAcc = 90
+	const maxTotalSteps = 3000
+	const batchSize = 32
+	const stepsPerBatch = 100
+	let achieved = false
+
+	while (state.trainSteps < maxTotalSteps) {
+		for (let s = 0; s < stepsPerBatch; s++) {
+			const gEmbed = zeroMat(NUM_ELEMENTS, 2)
+			const gW1 = zeroMat(HIDDEN_DIM, INPUT_DIM)
+			const gb1 = zeroVec(HIDDEN_DIM)
+			const gW2 = zeroMat(OUTPUT_DIM, HIDDEN_DIM)
+			const gb2 = zeroVec(OUTPUT_DIM)
+
+			for (let b = 0; b < batchSize; b++) {
+				const idx = Math.floor(Math.random() * state.dataset.length)
+				const sample = state.dataset[idx]
+				const fp = forward(state.net, sample.indices)
+				const grad = backward(state.net, fp, sample.y)
+
+				for (let e = 0; e < NUM_ELEMENTS; e++) {
+					for (let d = 0; d < 2; d++) gEmbed[e][d] += grad.dEmbed[e][d] / batchSize
+				}
+				for (let i = 0; i < HIDDEN_DIM; i++) {
+					for (let j = 0; j < INPUT_DIM; j++) gW1[i][j] += grad.dW1[i][j] / batchSize
+					gb1[i] += grad.db1[i] / batchSize
+				}
+				for (let i = 0; i < OUTPUT_DIM; i++) {
+					for (let j = 0; j < HIDDEN_DIM; j++) gW2[i][j] += grad.dW2[i][j] / batchSize
+					gb2[i] += grad.db2[i] / batchSize
+				}
+			}
+
+			updateNetwork(state.net, { dEmbed: gEmbed, dW1: gW1, db1: gb1, dW2: gW2, db2: gb2 }, 1)
+			state.trainSteps++
+		}
+
+		// 评估
+		let evalCorrect = 0
+		for (const sample of state.dataset) {
+			const fp = forward(state.net, sample.indices)
+			if (fp.o.indexOf(Math.max(...fp.o)) === sample.y) evalCorrect++
+		}
+		const acc = (evalCorrect / state.dataset.length) * 100
+		updateMetrics(0, acc, Math.min(state.trainSteps / maxTotalSteps, 1) * 100)
+
+		// 保存快照
+		state.snapshots.push({ step: state.trainSteps, net: cloneNet(state.net) })
+		recordSnapshotProbs(state.snapshots.length - 1)
+		updateSnapshotSlider()
+		drawObsessionCurve()
+
+		// 检查是否达标
+		if (acc >= targetAcc) {
+			achieved = true
+			break
+		}
+
+		await new Promise(r => setTimeout(r, 1))
+	}
+
+	curriculumRunning = false
+	updateCurriculumUI()
+
+	if (achieved) {
+		updateExam(
+			`${CURRICULUM_STAGES[curriculumStageIdx].name} 训练完成！准确率 ≥ ${targetAcc}%，可进入下一阶段`,
+			"ok"
+		)
+	} else {
+		updateExam(
+			`${CURRICULUM_STAGES[curriculumStageIdx].name} 训练结束，未达到 ${targetAcc}% 准确率（当前：${document.getElementById("acc-display")!.textContent}）。建议重置网络再试一次。`,
+			"bad"
+		)
+	}
+
+	predict()
+}
+
+function nextCurriculumStage() {
+	if (curriculumStageIdx < CURRICULUM_STAGES.length - 1) {
+		curriculumStageIdx++
+		updateCurriculumUI()
+		updateExam(`已进入 ${CURRICULUM_STAGES[curriculumStageIdx].name}，点击「开始课程训练」生成数据并训练`, "wait")
+	}
 }
 
 // ========== 编辑器绘制 ==========
@@ -924,6 +1061,7 @@ function init() {
 
 	renderBrushes()
 	renderTerrainConfig()
+	updateCurriculumUI()
 	drawEditor()
 	drawMLP(null)
 	drawEmbedding()
@@ -978,6 +1116,8 @@ function init() {
 	;(window as any).setObservedRandom = setObservedRandom
 	;(window as any).onStageChange = onStageChange
 	;(window as any).onConfigChange = onConfigChange
+	;(window as any).runCurriculum = runCurriculum
+	;(window as any).nextCurriculumStage = nextCurriculumStage
 
 	// 初始化控制台
 	const consolePanel = new ConsolePanel("#console-mount", logger)

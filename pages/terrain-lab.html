@@ -240,6 +240,17 @@
         .switch-row input[type="checkbox"] {
             accent-color: #8ab4f8;
         }
+        .curriculum-box {
+            background: #0b0c0f;
+            border: 1px solid #2c2f36;
+            border-radius: 8px;
+            padding: 10px;
+            font-size: 11px;
+        }
+        .curriculum-status {
+            color: #9aa0a6;
+            line-height: 1.6;
+        }
         .prob-bars {
             margin-top: 10px;
             background: #0b0c0f;
@@ -414,6 +425,16 @@
             <div class="progress-wrap"><div class="progress-bar" id="train-progress"></div></div>
             <div class="exam-result wait" id="exam-box" style="margin-top:10px;">
                 点击「生成数据」开始生成训练集
+            </div>
+
+            <!-- 课程学习 -->
+            <div class="panel-title" style="margin-top:14px">课程学习</div>
+            <div class="curriculum-box">
+                <div class="curriculum-status" id="curriculum-status">当前阶段：未开始</div>
+                <div class="btn-row" style="margin-top:8px">
+                    <button class="btn-accent" onclick="runCurriculum()" id="btn-curriculum">开始课程训练</button>
+                    <button class="btn-primary" onclick="nextCurriculumStage()" id="btn-next-stage" disabled>进入下一阶段</button>
+                </div>
             </div>
         </div>
     </div>
