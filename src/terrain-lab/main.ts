@@ -70,6 +70,7 @@ async function trainBatch() {
   }
 
   evaluateAll()
+  predict()
   btn.disabled = false
 }
 
