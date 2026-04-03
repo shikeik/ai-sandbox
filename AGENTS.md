@@ -7,6 +7,7 @@
 ## 1. 项目概述
 
 **项目名称**：`ai-sandbox`（AI 神经元训练沙盘）  
+**版本**：1.0.0  
 **类型**：纯前端网页应用 —— 一套结合"游戏化演示"与"实时神经网络可视化训练"的交互式教学沙盘。
 
 **核心体验**：
@@ -18,15 +19,15 @@
 
 ## 2. 技术栈
 
-| 技术 | 说明 |
-|------|------|
-| **语言** | TypeScript（ES Modules，`"type": "module"`） |
-| **构建工具** | Vite 5（多页面入口配置） |
-| **前端框架** | **无**。所有逻辑均为手写 Vanilla JS/TS |
-| **样式** | 纯 CSS（无预处理器），含大量自定义 CSS 动画与 WAAPI（Web Animations API） |
-| **绘图** | Canvas 2D（神经网络可视化、地形编辑） |
-| **持久化** | `localStorage`（保存玩家最佳通关纪录） |
-| **Node 脚本** | 原生 `fs` + `child_process` 实现单文件打包 |
+| 技术 | 版本 | 说明 |
+|------|------|------|
+| **语言** | TypeScript 6.0.2 | ES Modules，`"type": "module"` |
+| **构建工具** | Vite 5.0.0 | 多页面入口配置，开发服务器端口 4000 |
+| **前端框架** | 无 | 手写 Vanilla JS/TS，无 React/Vue 等框架 |
+| **样式** | 纯 CSS | 无预处理器，含大量自定义 CSS 动画与 WAAPI |
+| **绘图** | Canvas 2D | 神经网络可视化、地形编辑 |
+| **持久化** | localStorage | 保存玩家最佳通关纪录 |
+| **Node 脚本** | ES Module | 原生 `fs` + `child_process` 实现单文件打包 |
 
 ---
 
@@ -34,51 +35,51 @@
 
 ```
 ├── index.html                      # 导航入口页（选择三个演示模块）
-├── package.json
+├── package.json                    # npm 配置，脚本定义
 ├── vite.config.js                  # 多页面 Rollup 配置 + 路径别名
 ├── tsconfig.json                   # TypeScript 严格模式、ES2020
+├── tsconfig.node.json              # Node 配置引用
 ├── eslint.config.js                # ESLint 规则（双引号、无分号、禁止 var）
-├── tsconfig.node.json
-├── deploy.sh                       # 一键部署脚本
 ├── TODO.md                         # 项目待办与已知问题
+├── deploy.sh                       # 腾讯云服务器部署脚本
 ├── scripts/
-│   └── build-single-file.mjs       # 将 Vite 构建产物中的全部 HTML 页面内联为各自独立的单文件
+│   └── build-single-file.mjs       # 将 Vite 构建产物内联为单文件 HTML
 ├── pages/                          # 多页面 HTML 入口
 │   ├── fox-jump.html               # 狐狸跳跃游戏页
 │   ├── terrain-lab.html            # 地形实验室页
 │   └── mlp-teaching.html           # MLP 教学页
 ├── src/
 │   ├── types.d.ts                  # 全局类型声明（CSS 导入、Vite HMR）
-│   ├── engine/                     # 共享引擎层（被多个页面复用）
+│   ├── engine/                     # 共享引擎层
 │   │   ├── eps.ts                  # EPS 恒竖布局系统
-│   │   ├── utils/
-│   │   │   └── Logger.ts           # 带标签的日志系统（支持订阅、下载）
-│   │   └── console/
-│   │       ├── index.ts
-│   │       ├── ConsolePanel.ts     # 可折叠控制台面板（标签筛选、自动滚动）
-│   │       └── console.css         # 控制台样式
-│   ├── fox-jump/                   # 狐狸跳跃游戏（原主项目）
+│   │   ├── console/
+│   │   │   ├── index.ts            # 控制台面板入口
+│   │   │   ├── ConsolePanel.ts     # 可折叠控制台面板
+│   │   │   └── console.css         # 控制台样式
+│   │   └── utils/
+│   │       └── Logger.ts           # 带标签的日志系统
+│   ├── fox-jump/                   # 狐狸跳跃游戏
 │   │   ├── main.ts                 # 游戏入口
 │   │   ├── style.css               # 全局样式、布局、UI 控件
-│   │   ├── style-fox.css           # 狐狸纯 CSS 绘制与动画状态
+│   │   ├── style-fox.css           # 狐狸纯 CSS 绘制与动画
 │   │   ├── game/
-│   │   │   ├── JumpGame.ts         # 游戏核心逻辑（地形生成、碰撞检测、状态机）
+│   │   │   ├── JumpGame.ts         # 游戏核心逻辑（地形、碰撞、状态机）
 │   │   │   └── TerrainGenerator.ts # 种子化地形生成器（Mulberry32）
 │   │   ├── render/
-│   │   │   ├── FoxAnimator.ts      # 狐狸动画状态机（CSS class + WAAPI）
+│   │   │   ├── FoxAnimator.ts      # 狐狸动画状态机（CSS + WAAPI）
 │   │   │   ├── GameRenderer.ts     # DOM 渲染器 + Tween 补间
-│   │   │   └── TransitionManager.ts # 死亡/胜利黑屏转场
+│   │   │   └── TransitionManager.ts # 死亡/胜利转场
 │   │   ├── ai/
-│   │   │   ├── AIController.ts     # AI 控制器（模式切换、速度控制、训练循环）
-│   │   │   ├── NeuralNetwork.ts    # 单层神经网络（4 输入 → 3 输出）+ ε-贪心
+│   │   │   ├── AIController.ts     # AI 控制器（模式/速度/训练循环）
+│   │   │   ├── NeuralNetwork.ts    # 单层神经网络（4输入→3输出）+ ε-贪心
 │   │   │   └── PlayerBestStore.ts  # 玩家最佳时间记录（localStorage）
 │   │   ├── views/
 │   │   │   ├── NetworkView.ts      # Canvas 绘制网络拓扑图
-│   │   │   └── NeuronAreaManager.ts # 神经元区域菜单（模式/速度/探索模式/种子控制）
+│   │   │   └── NeuronAreaManager.ts # 神经元区域菜单
 │   │   ├── managers/
 │   │   │   ├── GameEventBridge.ts  # 游戏事件桥接器
 │   │   │   ├── InputManager.ts     # 键盘、触摸、窗口调整
-│   │   │   └── UIManager.ts        # UI 管理器（控制面板、游戏信息）
+│   │   │   └── UIManager.ts        # UI 管理器
 │   │   └── utils/
 │   │       ├── SeededRandom.ts     # Mulberry32 种子化随机数
 │   │       └── timeUtils.ts        # 时间格式化
@@ -91,7 +92,7 @@
 │       ├── terrain.ts              # 地形编码、合法性检查、数据集生成
 │       ├── renderer.ts             # Canvas 绘制（地形网格、Emoji）
 │       ├── animation.ts            # 狐狸动作动画路径计算
-│       └── utils.ts                # 数学工具（zeroMat、randn、easeOutQuad）
+│       └── utils.ts                # 数学工具
 └── dist/                           # Vite 构建输出目录
 ```
 
@@ -110,7 +111,7 @@
 '@managers'   -> src/fox-jump/managers
 ```
 
-> 注意：`engine/` 下的模块目前在 `fox-jump` 和 `terrain-lab` 中通过相对路径 `../engine/...` 导入，未配置独立别名。
+> 注意：`engine/` 下的模块在页面中通过相对路径 `../engine/...` 导入。
 
 ---
 
@@ -132,7 +133,7 @@ npm run lint:fix
 # 标准构建 -> dist/
 npm run build
 
-# 构建并打包成单文件 dist/game.html
+# 构建并打包成单文件 dist/fox-jump.html 等
 npm run build:single
 
 # 预览构建产物
@@ -147,20 +148,27 @@ npm run preview
 ./deploy.sh
 ```
 
+部署流程：
+1. 本地执行 `npm run build`
+2. 打包 `dist/` 目录并通过 SSH 上传到服务器
+3. 重启服务器 Nginx
+
 ---
 
 ## 6. 代码风格规范
 
 项目使用 ESLint 约束，**修改代码时必须遵守**以下约定：
 
-| 规则 | 说明 |
+| 规则 | 配置 |
 |------|------|
 | **缩进** | **Tab**（非空格） |
-| **分号** | **禁止分号** (`semi: never`) |
-| **引号** | **强制双引号** (`quotes: double`) |
+| **分号** | **禁止分号** (`semi: "never"`) |
+| **引号** | **强制双引号** (`quotes: "double"`) |
 | **变量声明** | 禁止 `var`，优先 `const`，必要时 `let` |
-| **注释语言** | **中文**（函数 JSDoc、模块说明、行内解释均使用中文）|
-| **区块分隔** | 常用 `// ========== 标题 ==========` 风格进行大段分隔 |
+| **未使用变量** | 警告级别，支持 `_` 前缀忽略 |
+| **console** | 允许（游戏需要大量日志） |
+| **注释语言** | **中文**（函数 JSDoc、模块说明、行内解释） |
+| **区块分隔** | 常用 `// ========== 标题 ==========` 风格 |
 
 > 提交前建议运行 `npx eslint src/` 检查风格问题。
 
@@ -176,7 +184,6 @@ npm run preview
 - `[EPS]` — 恒竖布局系统
 - `[MAIN]` — 主入口
 - `[HMR]` — 热更新
-- `fox-jump` / `terrain-lab` — Logger 实例命名空间
 
 ---
 
@@ -185,15 +192,15 @@ npm run preview
 ### 7.1 共享引擎层（`src/engine/`）
 
 **EPS 恒竖布局系统**（`eps.ts`）：
-- 当设备物理横屏时，通过 CSS `transform: rotate(-90deg)` 将游戏容器强制显示为竖屏。
-- 计算硬件安全区域（`env(safe-area-inset-*)`）与软件 UI 内边距（`visualViewport`）。
-- 动态更新 CSS 变量 `--ep-avail-width` / `--ep-avail-height`。
-- 提供坐标转换方法（屏幕坐标 ↔ 逻辑坐标）与事件包装器 `EPS.on()`。
+- 当设备物理横屏时，通过 CSS `transform: rotate(-90deg)` 强制内容竖屏显示
+- 计算硬件安全区域（`env(safe-area-inset-*)`）与软件 UI 内边距
+- 动态更新 CSS 变量 `--ep-avail-width` / `--ep-avail-height`
+- 提供坐标转换方法（屏幕坐标 ↔ 逻辑坐标）与事件包装器 `EPS.on()`
 
-**Logger + ConsolePanel**（`utils/Logger.ts`、`console/`）：
-- `Logger` 支持按命名空间存储带标签日志，可订阅、清空、下载。
-- `ConsolePanel` 挂载到指定 DOM 节点，提供可折叠面板、标签筛选、自动滚动、清空、下载日志功能。
-- 各页面（`fox-jump`、`terrain-lab`）均独立实例化自己的 `Logger` 与 `ConsolePanel`。
+**Logger + ConsolePanel**：
+- `Logger` 支持按命名空间存储带标签日志，可订阅、清空、下载
+- `ConsolePanel` 提供可折叠面板、标签筛选、自动滚动、日志下载
+- 各页面独立实例化自己的 `Logger` 与 `ConsolePanel`
 
 ### 7.2 狐狸跳跃（`fox-jump`）
 
@@ -208,91 +215,102 @@ npm run preview
 - `GAME_STATUS`：生命周期状态（`READY` / `RUNNING` / `TRANSITIONING` / `FINISHED`）
 - `PLAYER_ACTION`：人物动画状态（`IDLE` / `MOVING` / `JUMPING`）
 
-**AI 系统**：单层 4→3 神经网络 + ε-贪心策略。
-- 输入：前方第 1/2/3/4 格是否为坑（`terrainAhead` 数组）
+**AI 系统**：单层 4→3 神经网络 + ε-贪心策略
+- 输入：前方第 1/2/3/4 格是否为坑
 - 输出：移动 / 跳跃 / 远跳
-- 探索模式：`none`（默认纯利用）、`fixed`（固定 50%）、`dynamic`（动态调整）
+- 探索模式：`none`（默认）、`fixed`（50%）、`dynamic`（动态调整）
 - 训练奖励：存活 +0.02/步，死亡 -1，胜利 +1
 
 **三种运行模式**：
-- `player`：玩家手动操作，底部显示按钮，计时并记录最佳时间
+- `player`：玩家手动操作，计时并记录最佳时间
 - `ai`：AI 自动闯关，只观察不训练
 - `train`：AI 自动闯关并实时更新权重，支持 5 档速度
 
 ### 7.3 地形实验室（`terrain-lab`）
 
-这是一个独立的**监督学习**演示页面：
-- **地形编辑器**：5 列 × 3 层网格，支持放置空气、狐狸、平地、史莱姆、恶魔、金币。
-- **MLP 网络结构**：90 维输入（5×3×6 One-Hot 编码）→ 16 维隐藏层（ReLU）→ 4 维输出（Softmax）。
-- **动作空间**：走、跳、远跳、走A（共 4 种）。
+**监督学习演示页面**：
+- **地形编辑器**：5 列 × 3 层网格，支持放置空气、狐狸、平地、史莱姆、恶魔、金币
+- **MLP 网络结构**：30 维输入（5×3×2 Embedding）→ 16 维隐藏层（ReLU）→ 4 维输出（Softmax）
+- **动作空间**：走、跳、远跳、走A（共 4 种）
 - **训练流程**：
-  1. 自动生成 6000 条合法训练数据（`generateTerrainData`）
-  2. 批量训练：32 条/批次，100 步，使用交叉熵损失 + 反向传播
-  3. 实时更新 Loss 与准确率，并绘制 MLP 权重连线与激活值
-- **动画演示**：根据 AI 预测的动作，在编辑器中播放狐狸移动/跳跃的动画。
+  1. 自动生成 6000 条合法训练数据
+  2. 批量训练：32 条/批次，交叉熵损失 + 反向传播
+  3. 实时更新 Loss、准确率、Embedding 可视化
+  4. 支持训练快照与执念曲线（单样本概率演变）
+- **课程学习**：5 阶段渐进解锁（平地大道→坑洞→史莱姆→恶魔→金币）
 
 ### 7.4 MLP 教学（`mlp-teaching`）
 
-独立 HTML 页面，专注于**前向传播与反向传播的可视化教学**，不依赖 `fox-jump` 或 `terrain-lab` 的逻辑。
+独立 HTML 页面，专注于**前向传播与反向传播的可视化教学**：
+- 网络结构：2 输入 → 2 隐藏（ReLU）→ 1 输出
+- 可交互设置输入值、目标输出、学习率
+- 实时显示计算过程与权重更新
 
 ---
 
 ## 8. 多页面入口与导航
 
-Vite 配置中通过 `rollupOptions.input` 定义了 4 个入口：
+Vite 配置中通过 `rollupOptions.input` 定义 4 个入口：
 
-| 入口 | 对应 HTML | 说明 |
-|------|-----------|------|
+| 入口 | HTML | 说明 |
+|------|------|------|
 | `index` | `index.html` | 导航首页 |
 | `fox-jump` | `pages/fox-jump.html` | 单层感知机演示 |
 | `terrain-lab` | `pages/terrain-lab.html` | 地形实验室 |
 | `mlp-teaching` | `pages/mlp-teaching.html` | MLP 教学 |
 
-`npm run build` 会在 `dist/` 中生成对应的多页面资源。
+`npm run build` 在 `dist/` 中生成对应的多页面资源。
 
 ---
 
-## 9. 已知问题与注意事项
+## 9. 单文件打包
 
-### 9.1 `build:single` 已支持多页面单文件打包
+`scripts/build-single-file.mjs` 功能：
+1. 先执行标准 Vite 构建
+2. 递归查找 `dist/` 下所有 HTML 文件
+3. 将 CSS 和 JS 内联到 HTML 中
+4. 移除 modulepreload 链接
+5. 输出到 `dist/` 根目录（去除 `pages/` 前缀）
 
-`scripts/build-single-file.mjs` 已重写，现在会递归处理 `dist/` 下所有 HTML 文件，将各自引用的 CSS 和 JS 内联为独立的单文件：
+输出文件：
 
-| 输出文件 | 大小 | 说明 |
-|---|---|---|
-| `dist/index.html` | ~2.82 KB | 导航首页（本身无外部资源） |
-| `dist/fox-jump.html` | ~80 KB | 狐狸跳跃游戏（可直接双击打开） |
-| `dist/game.html` | ~80 KB | `fox-jump.html` 的兼容别名 |
-| `dist/terrain-lab.html` | ~30 KB | 地形实验室（可直接双击打开） |
-| `dist/mlp-teaching.html` | ~25 KB | MLP 教学演示（可直接双击打开） |
-
-### 9.2 修改 `eps.ts` 时的兼容性
-
-`eps.ts` 与 `fox-jump/managers/InputManager.ts` 存在联动。修改尺寸/坐标相关代码时，需两边同时考虑，否则横屏旋转后可能出现坐标或相机偏移错误。
-
-### 9.3 AI 训练逻辑精简
-
-`fox-jump/ai/NeuralNetwork.ts` 中的权重更新逻辑非常精简。若改动 `train()`，务必在 AI 训练模式下观察多局，确认学习行为未退化。
-
-### 9.4 狐狸动画冲突
-
-狐狸动画同时涉及 CSS 动画、CSS transition 和 WAAPI。修改尾巴或肢体动画时，留意 `transition: none !important` 的覆盖规则，防止动画冲突。
-
-### 9.5 `localStorage` 仅用于本地数据
-
-现有存储仅用于本地玩家最佳时间（`PlayerBestStore`），**不要**在其中存储敏感信息。
+| 文件 | 大小 | 说明 |
+|------|------|------|
+| `dist/index.html` | ~3 KB | 导航首页 |
+| `dist/fox-jump.html` | ~80 KB | 狐狸跳跃游戏 |
+| `dist/game.html` | ~80 KB | fox-jump 兼容别名 |
+| `dist/terrain-lab.html` | ~30 KB | 地形实验室 |
+| `dist/mlp-teaching.html` | ~25 KB | MLP 教学 |
 
 ---
 
-## 10. 待办事项（来自 `TODO.md`）
+## 10. 已知问题与注意事项
 
-- [x] `npm run build:single` 已修复为支持多页面内联（fox-jump ~80k / terrain-lab ~30k / mlp-teaching ~25k）
-- [x] 代码完全 TypeScript 化来获得完整编译检查
-- [ ] AI 增加中间隐藏层，让 AI 获得组合信息的学习能力
-- [ ] AI 环境信息从二元化转为多元化，输入信息向量化来使 AI 获得对不同元素的辨认能力
+### 10.1 修改 `eps.ts` 时的兼容性
 
-> 后两项在 `terrain-lab` 中已经部分实现（MLP + One-Hot 输入），`fox-jump` 仍为单层感知机 + 二元输入。
+`eps.ts` 与 `fox-jump/managers/InputManager.ts` 存在联动。修改尺寸/坐标相关代码时，需两边同时考虑。
+
+### 10.2 AI 训练逻辑
+
+`fox-jump/ai/NeuralNetwork.ts` 中的权重更新逻辑精简。改动后需在 AI 训练模式下观察多局，确认学习行为未退化。
+
+### 10.3 狐狸动画冲突
+
+狐狸动画同时涉及 CSS 动画、CSS transition 和 WAAPI。修改时留意 `transition: none !important` 的覆盖规则。
+
+### 10.4 localStorage 使用
+
+仅用于本地玩家最佳时间（`PlayerBestStore`），**不要**存储敏感信息。
 
 ---
 
-*最后更新：2026-04-03*
+## 11. 待办事项
+
+详见 `TODO.md`，主要方向：
+- terrain-lab Tab 拆分
+- 课程学习自动递进
+- 验证 Embedding 监督学习收敛表现
+
+---
+
+*最后更新：2026-04-04*
