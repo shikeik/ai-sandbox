@@ -22,6 +22,7 @@ import {
 	stepAnimation as rendererStepAnimation,
 	drawEditorWithState
 } from "./renderer.js"
+import { UIManager, type MetricsData } from "./ui-manager.js"
 import { calculateAnimationPath } from "./animation.js"
 import { createInitialState, resetState, setTerrainCell, stopAnimation } from "./state.js"
 
@@ -30,6 +31,7 @@ import { ConsolePanel } from "../engine/console/ConsolePanel.js"
 
 // ========== 全局状态 ==========
 const state: AppState = createInitialState()
+const uiManager = new UIManager(state)
 
 // DOM 元素
 let editorCanvas: HTMLCanvasElement
@@ -51,7 +53,7 @@ async function trainBatch() {
 		await trainUnsupervised()
 	}
 
-	updateSnapshotSlider()
+	uiManager.updateSnapshotSlider()
 	evaluateAll()
 	predict()
 	drawObsessionCurve()
@@ -96,7 +98,7 @@ async function trainSupervised() {
 		if (s % 20 === 0 || s === steps - 1) {
 			// 统一使用 evaluateDataset 进行采样评估
 			const { accuracy, validRate, loss } = evaluateDataset(state.dataset, state.net, EVAL_SAMPLE_SIZE)
-			updateMetrics({ loss, acc: accuracy, validRate, progress: ((s + 1) / steps) * 100 })
+			uiManager.updateMetrics({ loss, acc: accuracy, validRate, progress: ((s + 1) / steps) * 100 })
 			// 保存快照
 			state.snapshots.push({ step: state.trainSteps, net: cloneNet(state.net) })
 			recordSnapshotStats(state.snapshots.length - 1)
@@ -201,7 +203,7 @@ async function trainUnsupervised() {
 			// 动态调整探索率
 			const newEpsilon = adjustEpsilon(validRate)
 			console.log("[UNS]", `合法率:${validRate.toFixed(1)}% 准确率:${accuracy.toFixed(1)}% 探索率ε:${newEpsilon.toFixed(2)}`)
-			updateMetrics({ reward: totalReward / batchSize, validRate, acc: accuracy, epsilon: newEpsilon, progress: ((s + 1) / steps) * 100 })
+			uiManager.updateMetrics({ reward: totalReward / batchSize, validRate, acc: accuracy, epsilon: newEpsilon, progress: ((s + 1) / steps) * 100 })
 			// 保存快照
 			state.snapshots.push({ step: state.trainSteps, net: cloneNet(state.net) })
 			recordSnapshotStats(state.snapshots.length - 1)
@@ -272,59 +274,14 @@ function recordSnapshotStats(snapshotIndex: number) {
 	}
 }
 
-function updateSnapshotSlider() {
-	const slider = document.getElementById("snapshot-slider") as HTMLInputElement
-	const label = document.getElementById("snapshot-label")!
-	slider.max = String(state.snapshots.length - 1)
-	slider.value = String(state.snapshots.length - 1)
-	slider.disabled = state.snapshots.length <= 1
-	state.selectedSnapshotIndex = state.snapshots.length - 1
-	const step = state.snapshots[state.selectedSnapshotIndex]?.step ?? 0
-	label.textContent = `步数 ${step}`
-}
-
 function applySnapshot(index: number) {
 	if (index < 0 || index >= state.snapshots.length) return
 	state.selectedSnapshotIndex = index
 	state.net = cloneNet(state.snapshots[index].net)
 	const snap = state.snapshots[index]
-	const label = document.getElementById("snapshot-label")!
-	label.textContent = `步数 ${snap.step}`
-	document.getElementById("step-count")!.textContent = String(snap.step)
-	if (snap.acc !== undefined) {
-		document.getElementById("acc-display")!.textContent = snap.acc.toFixed(1) + "%"
-	}
-	if (snap.loss !== undefined) {
-		document.getElementById("loss-display")!.textContent = snap.loss.toFixed(4)
-	}
+	uiManager.applySnapshotLabel(snap.step, snap.acc, snap.loss)
 	predict()
 	drawObsessionCurve()
-}
-
-// 统一指标更新（所有训练模式共用）
-// 参数为0或undefined时显示默认值
-function updateMetrics(params: {
-	loss?: number        // 交叉熵损失
-	reward?: number      // 平均奖励
-	acc?: number         // 准确率
-	validRate?: number   // 合法率
-	epsilon?: number     // 探索率
-	progress?: number    // 进度
-}) {
-	const { loss = 0, reward = 0, acc = 0, validRate = 0, epsilon = 0, progress = 0 } = params
-	
-	document.getElementById("step-count")!.textContent = String(state.trainSteps)
-	document.getElementById("loss-display")!.textContent = loss > 0 ? loss.toFixed(4) : "-"
-	document.getElementById("reward-display")!.textContent = reward !== 0 ? reward.toFixed(3) : "-"
-	document.getElementById("acc-display")!.textContent = acc > 0 ? acc.toFixed(1) + "%" : "-"
-	document.getElementById("valid-display")!.textContent = validRate > 0 ? validRate.toFixed(1) + "%" : "-"
-	document.getElementById("epsilon-display")!.textContent = epsilon > 0 ? epsilon.toFixed(2) : "0.00"
-	
-	// 探索率统一显示（监督学习时显示0.00）
-	
-	if (progress > 0) {
-		;(document.getElementById("train-progress") as HTMLDivElement).style.width = progress + "%"
-	}
 }
 
 // 统一评估函数（4种训练模式共用）
@@ -355,22 +312,17 @@ function evaluateDataset(dataset: typeof state.dataset, net: typeof state.net, l
 // 更新最终评估UI
 function evaluateAll() {
 	const { accuracy, validRate, loss } = evaluateDataset(state.dataset, state.net)
-	document.getElementById("step-count")!.textContent = String(state.trainSteps)
-	document.getElementById("acc-display")!.textContent = accuracy.toFixed(1) + "%"
-	document.getElementById("valid-display")!.textContent = validRate.toFixed(1) + "%"
-	document.getElementById("loss-display")!.textContent = loss.toFixed(4)
-	;(document.getElementById("train-progress") as HTMLDivElement).style.width = "100%"
+	uiManager.updateFinalMetrics(state.trainSteps, accuracy, validRate, loss)
 }
 
 // ========== 数据生成 ==========
 
 function generateData() {
 	state.dataset = generateTerrainData(DATASET_SIZE, state.terrainConfig)  // 修复：使用常量
-	updateMetrics({})
-	document.getElementById("data-count")!.textContent = String(state.dataset.length)
-	const btn = document.getElementById("btn-train") as HTMLButtonElement
-	btn.disabled = state.dataset.length === 0
-	updateExam(`已生成 ${state.dataset.length} 条合法训练数据`, "wait")
+	uiManager.updateMetrics({})
+	uiManager.updateDataCount(state.dataset.length)
+	uiManager.setTrainButtonDisabled(state.dataset.length === 0)
+	uiManager.updateExam(`已生成 ${state.dataset.length} 条合法训练数据`, "wait")
 	// 默认随机选一个观察样本
 	if (state.dataset.length > 0 && !state.observedSample) {
 		setObservedRandom()
@@ -383,11 +335,11 @@ function setObservedFromTerrain() {
 	const indices = terrainToIndices(state.terrain)
 	const label = getLabel(state.terrain)
 	if (label === -1) {
-		updateObsessionStatus("当前地形为死局，无法设为观察样本", "bad")
+		uiManager.updateObsessionStatus("当前地形为死局，无法设为观察样本", "bad")
 		return
 	}
 	state.observedSample = { t: state.terrain.map(row => row.slice()), indices, y: label }
-	updateObsessionStatus(`观察样本：当前地形 | 规则答案：${ACTIONS[label]}`, "ok")
+	uiManager.updateObsessionStatus(`观察样本：当前地形 | 规则答案：${ACTIONS[label]}`, "ok")
 	// 若有快照，重新计算所有快照对该样本的概率
 	for (let i = 0; i < state.snapshots.length; i++) {
 		recordSnapshotStats(i)
@@ -397,22 +349,16 @@ function setObservedFromTerrain() {
 
 function setObservedRandom() {
 	if (state.dataset.length === 0) {
-		updateObsessionStatus("数据集为空，无法抽取样本", "bad")
+		uiManager.updateObsessionStatus("数据集为空，无法抽取样本", "bad")
 		return
 	}
 	const sample = state.dataset[Math.floor(Math.random() * state.dataset.length)]
 	state.observedSample = sample
-	updateObsessionStatus(`观察样本：数据集第 ${state.dataset.indexOf(sample) + 1} 条 | 规则答案：${ACTIONS[sample.y]}`, "ok")
+	uiManager.updateObsessionStatus(`观察样本：数据集第 ${state.dataset.indexOf(sample) + 1} 条 | 规则答案：${ACTIONS[sample.y]}`, "ok")
 	for (let i = 0; i < state.snapshots.length; i++) {
 		recordSnapshotStats(i)
 	}
 	drawObsessionCurve()
-}
-
-function updateObsessionStatus(text: string, cls: "ok" | "bad" | "wait") {
-	const box = document.getElementById("obsession-status")!
-	box.textContent = text
-	box.style.color = cls === "ok" ? "#34a853" : cls === "bad" ? "#ea4335" : "#9aa0a6"
 }
 
 // ========== 预测与验证 ==========
@@ -434,13 +380,13 @@ function predict() {
 	const conf = (fp.o[pred] * 100).toFixed(1)
 
 	if (correct === -1) {
-		updateTerrainStatus(
+		uiManager.updateTerrainStatus(
 			"bad",
 			`AI 预测: <b>${ACTIONS[pred]}</b> (置信度 ${conf}%)<br>规则答案: <b style="color:#f9ab00">此地形无解（死局）</b>`
 		)
 		drawMLP(fp)
 		drawEmbedding()
-		updateProbs(fp.o)
+		uiManager.updateProbs(fp.o)
 		stopAnimation(state)
 		return
 	}
@@ -454,19 +400,19 @@ function predict() {
 	if (isValid) {
 		if (pred === correct) {
 			lines.push("<span style='color:#34a853'>✅ 最优</span>")
-			updateTerrainStatus("ok", lines.join("<br>"))
+			uiManager.updateTerrainStatus("ok", lines.join("<br>"))
 		} else {
 			lines.push("<span style='color:#f9ab00'>✅ 合法（但非最优）</span>")
-			updateTerrainStatus("ok", lines.join("<br>"))
+			uiManager.updateTerrainStatus("ok", lines.join("<br>"))
 		}
 	} else {
 		lines.push("<span style='color:#ea4335'>❌ 非法</span>")
-		updateTerrainStatus("bad", lines.join("<br>"))
+		uiManager.updateTerrainStatus("bad", lines.join("<br>"))
 	}
 
 	drawMLP(fp)
 	drawEmbedding()
-	updateProbs(fp.o)
+	uiManager.updateProbs(fp.o)
 	playAnimation(ACTIONS[pred])
 }
 
@@ -546,82 +492,23 @@ function validateTerrain() {
 	lines.push("")
 	lines.push(actionDetails.join("<br>"))
 
-	updateTerrainStatus(validActions.length > 0 ? "ok" : "bad", lines.join("<br>"))
+	uiManager.updateTerrainStatus(validActions.length > 0 ? "ok" : "bad", lines.join("<br>"))
 }
 
 // ========== UI 辅助 ==========
 
-function updateExam(html: string, cls: "ok" | "bad" | "wait") {
-	const box = document.getElementById("exam-box") as HTMLDivElement
-	box.innerHTML = html
-	box.className = "exam-result " + cls
-}
-
-function updateTerrainStatus(cls: "ok" | "bad" | "wait", html: string) {
-	const box = document.getElementById("terrain-status") as HTMLDivElement
-	box.innerHTML = html
-	if (cls === "ok") {
-		box.style.color = "#e8eaed"
-		box.style.borderColor = "#34a853"
-		box.style.background = "#0d1f12"
-	} else if (cls === "bad") {
-		box.style.color = "#e8eaed"
-		box.style.borderColor = "#ea4335"
-		box.style.background = "#1f0d0d"
-	} else {
-		box.style.color = "#9aa0a6"
-		box.style.borderColor = "#2c2f36"
-		box.style.background = "#0b0c0f"
-	}
-}
-
-function updateProbs(probs: number[]) {
-	const rows = document.querySelectorAll(".prob-row")
-	for (let i = 0; i < 4; i++) {
-		const p = probs[i] * 100
-		rows[i].querySelector(".prob-fill")!.setAttribute("style", `width:${p}%`)
-		rows[i].querySelector(".prob-val")!.textContent = p.toFixed(1) + "%"
-	}
-}
-
 // ========== 渲染器 ==========
 
-function getAllowedElementsForBrush(): number[] {
-	const cfg = state.terrainConfig
-	const allowed = [ELEM_AIR, ELEM_HERO, ELEM_GROUND]
-	if (cfg.slime) allowed.push(ELEM_SLIME)
-	if (cfg.demon) allowed.push(ELEM_DEMON)
-	if (cfg.coin) allowed.push(ELEM_COIN)
-	return allowed
-}
-
-function renderBrushes() {
-	const list = document.getElementById("brush-list") as HTMLDivElement
-	list.innerHTML = ""
-	const allowed = getAllowedElementsForBrush()
-	ELEMENTS.forEach((el) => {
-		if (!allowed.includes(el.id)) return
-		const item = document.createElement("div")
-		item.className = "brush-item" + (el.id === state.selectedBrush ? " active" : "")
-		item.innerHTML = `<div class="brush-emoji">${el.emoji}</div><div class="brush-name">${el.name}</div>`
-		item.onclick = () => {
-			state.selectedBrush = el.id
-			renderBrushes()
-			updateTerrainStatus("wait", "已选择 " + el.name + "，点击上方格子绘制")
-		}
-		list.appendChild(item)
+function renderBrushesWithCallback(): void {
+	uiManager.renderBrushes(state.selectedBrush, (id) => {
+		state.selectedBrush = id
+		renderBrushesWithCallback()
+		uiManager.updateTerrainStatus("wait", "已选择 " + ELEMENTS[id].name + "，点击上方格子绘制")
 	})
 }
 
-function renderTerrainConfig() {
-	const stageTabs = document.getElementById("stage-tabs")!
-	const swGroundOnly = document.getElementById("sw-ground-only") as HTMLInputElement
-	const swSlime = document.getElementById("sw-slime") as HTMLInputElement
-	const swDemon = document.getElementById("sw-demon") as HTMLInputElement
-	const swCoin = document.getElementById("sw-coin") as HTMLInputElement
-
+function findCurrentStageIndex(): number {
 	const cfg = state.terrainConfig
-	let matchedStage = -1
 	for (let i = 0; i < CURRICULUM_STAGES.length; i++) {
 		const s = CURRICULUM_STAGES[i].config
 		if (
@@ -630,29 +517,24 @@ function renderTerrainConfig() {
 			cfg.demon === s.demon &&
 			cfg.coin === s.coin
 		) {
-			matchedStage = i
-			break
+			return i
 		}
 	}
+	return -1
+}
 
-	stageTabs.innerHTML = ""
-	for (let i = 0; i < CURRICULUM_STAGES.length; i++) {
-		const btn = document.createElement("div")
-		btn.className = "stage-tab" + (i === matchedStage ? " active" : "")
-		btn.textContent = CURRICULUM_STAGES[i].name
-		btn.onclick = () => {
-			state.terrainConfig = { ...CURRICULUM_STAGES[i].config }
-			renderTerrainConfig()
-			renderBrushes()
-			updateTerrainStatus("wait", `已切换到「${CURRICULUM_STAGES[i].name}」，随机地形和生成数据将使用该配置`)
-		}
-		stageTabs.appendChild(btn)
-	}
-
-	swGroundOnly.checked = cfg.groundOnly
-	swSlime.checked = cfg.slime
-	swDemon.checked = cfg.demon
-	swCoin.checked = cfg.coin
+function renderTerrainConfigWithCallback(): void {
+	const currentStageIdx = findCurrentStageIndex()
+	uiManager.renderTerrainConfig(
+		currentStageIdx,
+		(idx) => {
+			state.terrainConfig = { ...CURRICULUM_STAGES[idx].config }
+			renderTerrainConfigWithCallback()
+			renderBrushesWithCallback()
+			uiManager.updateTerrainStatus("wait", `已切换到「${CURRICULUM_STAGES[idx].name}」，随机地形和生成数据将使用该配置`)
+		},
+		onConfigChange
+	)
 }
 
 function onConfigChange() {
@@ -667,70 +549,42 @@ function onConfigChange() {
 		demon: swDemon.checked,
 		coin: swCoin.checked,
 	}
-	renderTerrainConfig()
-	renderBrushes()
-	updateTerrainStatus("wait", "地形配置已更新")
+	renderTerrainConfigWithCallback()
+	renderBrushesWithCallback()
+	uiManager.updateTerrainStatus("wait", "地形配置已更新")
 }
 
 function randomTerrain() {
 	state.terrain = generateRandomTerrain(state.terrainConfig)
 	stopAnimation(state)
 	drawEditor()
-	updateTerrainStatus("wait", "已随机生成新地形，点击「预测当前地形」查看 AI 判断")
+	uiManager.updateTerrainStatus("wait", "已随机生成新地形，点击「预测当前地形」查看 AI 判断")
 	drawMLP(null)
 	drawEmbedding()
-	updateProbs([0, 0, 0, 0])
+	uiManager.resetProbs()
 }
 
 function resetNet() {
 	resetState(state)
 	// 重置所有数据显示
-	document.getElementById("data-count")!.textContent = "0"
-	document.getElementById("step-count")!.textContent = "0"
-	document.getElementById("loss-display")!.textContent = "-"
-	document.getElementById("reward-display")!.textContent = "-"
-	document.getElementById("acc-display")!.textContent = "-"
-	document.getElementById("valid-display")!.textContent = "-"
-	document.getElementById("epsilon-display")!.textContent = "-"
-	;(document.getElementById("train-progress") as HTMLDivElement).style.width = "0%"
-	;(document.getElementById("btn-train") as HTMLButtonElement).disabled = true
-	updateExam("网络已重置", "wait")
+	uiManager.resetNetworkUI()
+	uiManager.updateExam("网络已重置", "wait")
 	drawMLP(null)
 	drawEmbedding()
-	updateProbs([0, 0, 0, 0])
-	updateSnapshotSlider()
+	uiManager.resetProbs()
+	uiManager.updateSnapshotSlider()
 	drawObsessionCurve()
-	updateObsessionStatus("未设置观察样本", "wait")
-	updateCurriculumUI()
-	updateModeUI()
+	uiManager.updateObsessionStatus("未设置观察样本", "wait")
+	uiManager.updateCurriculumUI(curriculumStageIdx, curriculumRunning, state.learningMode)
+	uiManager.updateModeUI(state.learningMode)
 }
 
 // ========== 学习模式切换 ==========
 
 function toggleLearningMode() {
 	state.learningMode = state.learningMode === "supervised" ? "unsupervised" : "supervised"
-	updateModeUI()
-	updateExam(`已切换到「${state.learningMode === "supervised" ? "监督学习" : "无监督学习"}」模式`, "wait")
-}
-
-function updateModeUI() {
-	const btn = document.getElementById("btn-mode") as HTMLButtonElement
-	const label = document.getElementById("mode-label")!
-	const metricValid = document.getElementById("metric-valid")!
-	
-	if (state.learningMode === "supervised") {
-		btn.textContent = "切换"
-		btn.className = "btn-primary"
-		label.textContent = "监督学习（有标签）"
-		label.style.color = "#8ab4f8"
-	} else {
-		btn.textContent = "切换"
-		btn.className = "btn-accent"
-		label.textContent = "无监督学习（自探索）"
-		label.style.color = "#f9ab00"
-	}
-	// 两种模式都显示准确率和合法率
-	metricValid.style.display = "block"
+	uiManager.updateModeUI(state.learningMode)
+	uiManager.updateExam(`已切换到「${state.learningMode === "supervised" ? "监督学习" : "无监督学习"}」模式`, "wait")
 }
 
 // ========== 课程学习 ==========
@@ -738,39 +592,20 @@ function updateModeUI() {
 let curriculumStageIdx = 0
 let curriculumRunning = false
 
-function updateCurriculumUI() {
-	const status = document.getElementById("curriculum-status")!
-	const btnCurriculum = document.getElementById("btn-curriculum") as HTMLButtonElement
-	const btnNext = document.getElementById("btn-next-stage") as HTMLButtonElement
-	const modeText = state.learningMode === "supervised" ? "监督" : "无监督"
-
-	if (curriculumRunning) {
-		status.textContent = `当前阶段：${CURRICULUM_STAGES[curriculumStageIdx].name}（${modeText}训练中…）`
-		btnCurriculum.disabled = true
-		btnNext.disabled = true
-		return
-	}
-
-	const stageName = CURRICULUM_STAGES[curriculumStageIdx]?.name ?? "已完成全部阶段"
-	status.textContent = `当前阶段：${stageName} | ${modeText}学习`
-	btnCurriculum.disabled = false
-	btnNext.disabled = curriculumStageIdx >= CURRICULUM_STAGES.length - 1
-}
-
 async function runCurriculum() {
 	if (curriculumRunning) return
 	if (curriculumStageIdx >= CURRICULUM_STAGES.length) {
-		updateExam("已完成全部课程阶段！", "ok")
+		uiManager.updateExam("已完成全部课程阶段！", "ok")
 		return
 	}
 
 	curriculumRunning = true
-	updateCurriculumUI()
+	uiManager.updateCurriculumUI(curriculumStageIdx, curriculumRunning, state.learningMode)
 
 	// 应用当前阶段配置
 	state.terrainConfig = { ...CURRICULUM_STAGES[curriculumStageIdx].config }
-	renderTerrainConfig()
-	renderBrushes()
+	renderTerrainConfigWithCallback()
+	renderBrushesWithCallback()
 
 	// 生成数据
 	state.dataset = generateTerrainData(DATASET_SIZE, state.terrainConfig)  // 修复：使用常量
@@ -782,7 +617,7 @@ async function runCurriculum() {
 	state.snapshots = [{ step: state.trainSteps, net: cloneNet(state.net) }]
 	recordSnapshotStats(0)
 	state.selectedSnapshotIndex = 0
-	updateSnapshotSlider()
+	uiManager.updateSnapshotSlider()
 
 	// 根据学习模式选择训练方式
 	if (state.learningMode === "supervised") {
@@ -792,7 +627,7 @@ async function runCurriculum() {
 	}
 
 	curriculumRunning = false
-	updateCurriculumUI()
+	uiManager.updateCurriculumUI(curriculumStageIdx, curriculumRunning, state.learningMode)
 	predict()
 }
 
@@ -820,13 +655,13 @@ async function runCurriculumSupervised() {
 
 		// 评估（统一使用 evaluateDataset，完整数据集）
 		const { accuracy: acc, validRate, loss } = evaluateDataset(state.dataset, state.net)
-		updateMetrics({ loss, acc, validRate, progress: Math.min(state.trainSteps / maxTotalSteps, 1) * 100 })
+		uiManager.updateMetrics({ loss, acc, validRate, progress: Math.min(state.trainSteps / maxTotalSteps, 1) * 100 })
 		console.log("[SUP]", `合法率:${validRate.toFixed(1)}% 准确率:${acc.toFixed(1)}% 损失:${loss.toFixed(4)}`)
 
 		// 保存快照
 		state.snapshots.push({ step: state.trainSteps, net: cloneNet(state.net) })
 		recordSnapshotStats(state.snapshots.length - 1)
-		updateSnapshotSlider()
+		uiManager.updateSnapshotSlider()
 		drawObsessionCurve()
 
 		// 检查是否达标
@@ -839,12 +674,12 @@ async function runCurriculumSupervised() {
 	}
 
 	if (achieved) {
-		updateExam(
+		uiManager.updateExam(
 			`${CURRICULUM_STAGES[curriculumStageIdx].name} 训练完成！准确率 ≥ ${targetAcc}%，可进入下一阶段`,
 			"ok"
 		)
 	} else {
-		updateExam(
+		uiManager.updateExam(
 			`${CURRICULUM_STAGES[curriculumStageIdx].name} 训练结束，未达到 ${targetAcc}% 准确率（当前：${document.getElementById("acc-display")!.textContent}）。建议重置网络再试一次。`,
 			"bad"
 		)
@@ -904,12 +739,12 @@ async function runCurriculumUnsupervised() {
 		const newEpsilon = adjustEpsilon(validRate)
 		console.log("[UNS]", `合法率:${validRate.toFixed(1)}% 准确率:${accuracy.toFixed(1)}% 损失:${loss.toFixed(4)} 探索率ε:${newEpsilon.toFixed(2)}`)
 		// 统一使用 updateMetrics 显示所有指标
-		updateMetrics({ loss, acc: accuracy, validRate, epsilon: newEpsilon, progress: Math.min(state.trainSteps / maxTotalSteps, 1) * 100 })
+		uiManager.updateMetrics({ loss, acc: accuracy, validRate, epsilon: newEpsilon, progress: Math.min(state.trainSteps / maxTotalSteps, 1) * 100 })
 
 		// 保存快照
 		state.snapshots.push({ step: state.trainSteps, net: cloneNet(state.net) })
 		recordSnapshotStats(state.snapshots.length - 1)
-		updateSnapshotSlider()
+		uiManager.updateSnapshotSlider()
 		drawObsessionCurve()
 
 		// 检查是否达标
@@ -922,12 +757,12 @@ async function runCurriculumUnsupervised() {
 	}
 
 	if (achieved) {
-		updateExam(
+		uiManager.updateExam(
 			`${CURRICULUM_STAGES[curriculumStageIdx].name} 训练完成！合法率 ≥ ${targetValidRate}%，可进入下一阶段`,
 			"ok"
 		)
 	} else {
-		updateExam(
+		uiManager.updateExam(
 			`${CURRICULUM_STAGES[curriculumStageIdx].name} 训练结束，未达到 ${targetValidRate}% 合法率（当前：${document.getElementById("acc-display")!.textContent}）。建议重置网络再试一次。`,
 			"bad"
 		)
@@ -938,10 +773,10 @@ function nextCurriculumStage() {
 	if (curriculumStageIdx < CURRICULUM_STAGES.length - 1) {
 		curriculumStageIdx++
 		state.terrainConfig = { ...CURRICULUM_STAGES[curriculumStageIdx].config }
-		renderTerrainConfig()
-		renderBrushes()
-		updateCurriculumUI()
-		updateExam(`已进入 ${CURRICULUM_STAGES[curriculumStageIdx].name}，点击「开始课程训练」生成数据并训练`, "wait")
+		renderTerrainConfigWithCallback()
+		renderBrushesWithCallback()
+		uiManager.updateCurriculumUI(curriculumStageIdx, curriculumRunning, state.learningMode)
+		uiManager.updateExam(`已进入 ${CURRICULUM_STAGES[curriculumStageIdx].name}，点击「开始课程训练」生成数据并训练`, "wait")
 	}
 }
 
@@ -1025,14 +860,14 @@ function init() {
 		btnTrain.textContent = `训练${TRAIN_CONFIG.steps}步+预测`
 	}
 
-	renderBrushes()
-	renderTerrainConfig()
-	updateCurriculumUI()
+	renderBrushesWithCallback()
+	renderTerrainConfigWithCallback()
+	uiManager.updateCurriculumUI(curriculumStageIdx, curriculumRunning, state.learningMode)
 	drawEditor()
 	drawMLP(null)
 	drawEmbedding()
 	drawObsessionCurve()
-	updateProbs([0, 0, 0, 0])
+	uiManager.resetProbs()
 
 	const ro = new ResizeObserver((entries) => {
 		for (const entry of entries) {
@@ -1115,13 +950,13 @@ function getAllowedElementsForLayer(layer: number): number[] {
 function paintCell(r: number, c: number) {
 	const allowed = getAllowedElementsForLayer(r)
 	if (!allowed.includes(state.selectedBrush)) {
-		updateTerrainStatus("bad", `❌ 该元素不能放在 ${["天上", "地上", "地面"][r]}层`)
+		uiManager.updateTerrainStatus("bad", `❌ 该元素不能放在 ${["天上", "地上", "地面"][r]}层`)
 		return
 	}
 	stopAnimation(state)
 	setTerrainCell(state, r, c, state.selectedBrush)
 	drawEditor()
-	updateTerrainStatus("wait", "地形已更新，点击「合法性检查」或「预测当前地形」查看结果")
+	uiManager.updateTerrainStatus("wait", "地形已更新，点击「合法性检查」或「预测当前地形」查看结果")
 }
 
 init()
