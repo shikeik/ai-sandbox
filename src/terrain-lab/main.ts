@@ -7,7 +7,7 @@ import {
 	UNSUPERVISED_CONFIG, TRAIN_CONFIG, DATASET_SIZE, EVAL_SAMPLE_SIZE
 } from "./constants.js"
 import { createGradientBuffer, accumulateGradients, calculateReward, type ActionEvaluation } from "./unsupervised.js"
-import { createGradientBuffer as createSuperBuffer, accumulateSupervisedGrad, evaluateModel } from "./supervised.js"
+import { createGradientBuffer as createSuperBuffer, accumulateSupervisedGrad } from "./supervised.js"
 import { zeroMat, zeroVec, easeOutQuad } from "./utils.js"
 import { forward, backward, updateNetwork, cloneNet } from "./neural-network.js"
 import {
@@ -119,7 +119,9 @@ async function trainSupervised() {
 
 		state.trainSteps++
 		if (s % 20 === 0 || s === steps - 1) {
-			updateMetrics(lossSum / batchSize, (correct / batchSize) * 100, ((s + 1) / steps) * 100, (validCount / batchSize) * 100)
+			// 统一使用 evaluateDataset 进行采样评估
+			const { accuracy, validRate, loss } = evaluateDataset(state.dataset, state.net, EVAL_SAMPLE_SIZE)
+			updateMetrics(loss, accuracy, ((s + 1) / steps) * 100, validRate)
 			// 保存快照
 			state.snapshots.push({ step: state.trainSteps, net: cloneNet(state.net) })
 			recordSnapshotStats(state.snapshots.length - 1)
@@ -218,21 +220,8 @@ async function trainUnsupervised() {
 
 		state.trainSteps++
 		if (s % 20 === 0 || s === steps - 1) {
-			// 计算准确率和合法率（基于预测动作，不是探索动作）
-			let correctCount = 0
-			let predValidCount = 0
-			for (const sample of state.dataset.slice(0, EVAL_SAMPLE_SIZE)) { // 修复：使用常量
-				const fp = forward(state.net, sample.indices)
-				const predicted = fp.o.indexOf(Math.max(...fp.o))
-				if (predicted === sample.y) correctCount++
-				
-				// 计算预测动作的合法率
-				const heroCol = findHeroCol(sample.t)
-				const checks = getActionChecks(sample.t, heroCol)
-				if (isActionValidByChecks(checks, predicted)) predValidCount++
-			}
-			const accuracy = (correctCount / EVAL_SAMPLE_SIZE) * 100
-			const validRate = (predValidCount / EVAL_SAMPLE_SIZE) * 100  // 基于预测动作的合法率
+			// 统一使用 evaluateDataset 进行采样评估
+			const { accuracy, validRate } = evaluateDataset(state.dataset, state.net, EVAL_SAMPLE_SIZE)
 			
 			// 动态调整探索率
 			const newEpsilon = adjustEpsilon(validRate)
@@ -360,26 +349,38 @@ function updateMetrics(loss: number, acc?: number, progress?: number, validRate?
 	}
 }
 
-function evaluateAll() {
+// 统一评估函数（4种训练模式共用）
+// limit: 限制评估样本数（0=全部）
+function evaluateDataset(dataset: typeof state.dataset, net: typeof state.net, limit = 0) {
+	const samples = limit > 0 ? dataset.slice(0, limit) : dataset
 	let correct = 0
 	let validCount = 0
 	let lossSum = 0
-	for (const sample of state.dataset) {
-		const fp = forward(state.net, sample.indices)
+	for (const sample of samples) {
+		const fp = forward(net, sample.indices)
 		const predictedAction = fp.o.indexOf(Math.max(...fp.o))
 		if (predictedAction === sample.y) correct++
 		
-		// 计算合法率
 		const heroCol = findHeroCol(sample.t)
 		const checks = getActionChecks(sample.t, heroCol)
 		if (isActionValidByChecks(checks, predictedAction)) validCount++
 		
 		lossSum += -Math.log(Math.max(fp.o[sample.y], 1e-7))
 	}
+	const total = samples.length
+	const accuracy = (correct / total) * 100
+	const validRate = (validCount / total) * 100
+	const loss = lossSum / total
+	return { accuracy, validRate, loss }
+}
+
+// 更新最终评估UI
+function evaluateAll() {
+	const { accuracy, validRate, loss } = evaluateDataset(state.dataset, state.net)
 	document.getElementById("step-count")!.textContent = String(state.trainSteps)
-	document.getElementById("acc-display")!.textContent = ((correct / state.dataset.length) * 100).toFixed(1) + "%"
-	document.getElementById("valid-display")!.textContent = ((validCount / state.dataset.length) * 100).toFixed(1) + "%"
-	document.getElementById("loss-display")!.textContent = (lossSum / state.dataset.length).toFixed(4)
+	document.getElementById("acc-display")!.textContent = accuracy.toFixed(1) + "%"
+	document.getElementById("valid-display")!.textContent = validRate.toFixed(1) + "%"
+	document.getElementById("loss-display")!.textContent = loss.toFixed(4)
 	;(document.getElementById("train-progress") as HTMLDivElement).style.width = "100%"
 }
 
@@ -837,17 +838,8 @@ async function runCurriculumSupervised() {
 			state.trainSteps++
 		}
 
-		// 评估（统一：准确率、合法率、损失）
-		const { accuracy: acc, avgLoss: loss } = evaluateModel(state.net, state.dataset)
-		let validCount = 0
-		for (const sample of state.dataset) {
-			const fp = forward(state.net, sample.indices)
-			const action = fp.o.indexOf(Math.max(...fp.o))
-			const heroCol = findHeroCol(sample.t)
-			const checks = getActionChecks(sample.t, heroCol)
-			if (isActionValidByChecks(checks, action)) validCount++
-		}
-		const validRate = (validCount / state.dataset.length) * 100
+		// 评估（统一使用 evaluateDataset，完整数据集）
+		const { accuracy: acc, validRate, loss } = evaluateDataset(state.dataset, state.net)
 		updateMetrics(loss, acc, Math.min(state.trainSteps / maxTotalSteps, 1) * 100, validRate)
 		console.log("[SUP]", `合法率:${validRate.toFixed(1)}% 准确率:${acc.toFixed(1)}% 损失:${loss.toFixed(4)}`)
 
@@ -926,31 +918,13 @@ async function runCurriculumUnsupervised() {
 			state.trainSteps++
 		}
 
-		// 评估合法率和准确率（修复：添加准确率评估）
-		let validCount = 0
-		let correctCount = 0
-		for (const sample of state.dataset) {
-			const fp = forward(state.net, sample.indices)
-			const action = fp.o.indexOf(Math.max(...fp.o))
-			if (action === sample.y) correctCount++
-			const heroCol = findHeroCol(sample.t)
-			const checks = getActionChecks(sample.t, heroCol)
-			if (isActionValidByChecks(checks, action)) validCount++
-		}
-		const validRate = (validCount / state.dataset.length) * 100
-		const accuracy = (correctCount / state.dataset.length) * 100
-		// 计算损失
-		let lossSum = 0
-		for (const sample of state.dataset) {
-			const fp = forward(state.net, sample.indices)
-			lossSum += -Math.log(Math.max(fp.o[sample.y], 1e-7))
-		}
-		const avgLoss = lossSum / state.dataset.length
+		// 评估（统一使用 evaluateDataset，完整数据集）
+		const { accuracy, validRate, loss } = evaluateDataset(state.dataset, state.net)
 		// 动态调整探索率
 		const newEpsilon = adjustEpsilon(validRate)
-		console.log("[UNS]", `合法率:${validRate.toFixed(1)}% 准确率:${accuracy.toFixed(1)}% 损失:${avgLoss.toFixed(4)} 探索率ε:${newEpsilon.toFixed(2)}`)
+		console.log("[UNS]", `合法率:${validRate.toFixed(1)}% 准确率:${accuracy.toFixed(1)}% 损失:${loss.toFixed(4)} 探索率ε:${newEpsilon.toFixed(2)}`)
 		// 统一使用 updateMetrics 显示所有指标
-		updateMetrics(avgLoss, accuracy, Math.min(state.trainSteps / maxTotalSteps, 1) * 100, validRate)
+		updateMetrics(loss, accuracy, Math.min(state.trainSteps / maxTotalSteps, 1) * 100, validRate)
 
 		// 保存快照
 		state.snapshots.push({ step: state.trainSteps, net: cloneNet(state.net) })
