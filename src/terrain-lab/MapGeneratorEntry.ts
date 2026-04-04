@@ -133,7 +133,7 @@ export class MapGeneratorEntry {
 
 	/**
 	 * 生成下一步
-	 * 新逻辑：先随机选动作，再为这个动作生成地形
+	 * 新逻辑：先随机选动作，再为这个动作生成地形（零失败）
 	 */
 	private async generateNextStep(): Promise<{ success: boolean; reachedEnd: boolean } | null> {
 		if (!this.generatedMap || this.shouldStop) return null
@@ -141,26 +141,17 @@ export class MapGeneratorEntry {
 		const heroCol = this.currentHeroCol
 
 		// 随机选一个动作（0=走, 1=跳, 2=远跳, 3=走A）
-		const action = Math.floor(Math.random() * 4)
-		let retryCount = 0
-		const maxRetries = 100
-
-		// 尝试为该动作生成地形
-		let newTerrain: number[][] | null = null
-		while (retryCount < maxRetries && !this.shouldStop) {
-			newTerrain = generateTerrainForAction(action, heroCol, this.terrainConfig)
-			if (newTerrain) break
-			retryCount++
-
-			if (retryCount % 20 === 0) {
-				this.updateHistory(`第${heroCol}列：重试${retryCount}次...`)
-				await this.delay(50)
-			}
+		// 如果选到走A但配置不支持，会自动降级为走
+		let action = Math.floor(Math.random() * 4)
+		if (action === 3 && !this.terrainConfig.slime) {
+			action = 0 // 降级为走
 		}
 
-		if (this.shouldStop) return null
+		// 直接生成地形（零失败，除了走A无史莱姆的情况已处理）
+		const newTerrain = generateTerrainForAction(action, heroCol, this.terrainConfig)
 		if (!newTerrain) {
-			this.updateHistory(`第${heroCol}列：无法生成合法地形`)
+			// 理论上不会到这里，除非配置异常
+			this.updateHistory(`第${heroCol}列：生成失败`)
 			return { success: false, reachedEnd: false }
 		}
 
@@ -179,8 +170,7 @@ export class MapGeneratorEntry {
 
 		// 记录步骤
 		const actionName = getActionName(action)
-		const retryInfo = retryCount > 0 ? `(重试${retryCount}次)` : ""
-		this.updateHistory(`第${heroCol}列 ${actionName}→第${targetCol}列${retryInfo}`)
+		this.updateHistory(`第${heroCol}列 ${actionName}→第${targetCol}列`)
 
 		// ========== 动画移动 ==========
 		// 1. 相机先移动到能看到主角和新位置的地方

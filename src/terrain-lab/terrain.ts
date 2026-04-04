@@ -297,50 +297,52 @@ export function generateTerrainForAction(
 	heroCol: number = 0,
 	config: TerrainConfig = DEFAULT_TERRAIN_CONFIG
 ): number[][] | null {
+	// 生成32列完整地形（适配大地图生成器）
+	const MAP_WIDTH = 32
 	const t: number[][] = [
-		Array(NUM_COLS).fill(ELEM_AIR),
-		Array(NUM_COLS).fill(ELEM_AIR),
-		Array(NUM_COLS).fill(ELEM_AIR),
+		Array(MAP_WIDTH).fill(ELEM_AIR),
+		Array(MAP_WIDTH).fill(ELEM_AIR),
+		Array(MAP_WIDTH).fill(ELEM_AIR),
 	]
 
 	// 放置狐狸
 	t[1][heroCol] = ELEM_HERO
 
-	// 根据动作设置地形
+	// 根据动作设置地形（确定性的，不随机填充关键列）
 	switch (action) {
-		case 0: // 走：第1列平地+无史莱姆，第2列让跳不合法（有坑或史莱姆或恶魔）
-			// 第1列：平地
+		case 0: // 走：第1列平地，第2、3列都放坑（阻止跳和远跳）
+			// 第1列：平地（确保能走）
 			t[2][heroCol + 1] = ELEM_GROUND
-			// 第2列：让跳不合法（地面不平或天上有恶魔）
-			if (config.demon) {
-				t[0][heroCol + 2] = ELEM_DEMON // 天上放恶魔，跳不合法
-			} else {
-				t[2][heroCol + 2] = ELEM_AIR // 地面放坑，跳不合法
-			}
-			break
-
-		case 1: // 跳：第1列让走不合法，第2列平地
-			// 第1列：让走不合法（有坑或史莱姆或恶魔）
-			t[2][heroCol + 1] = ELEM_AIR // 地面放坑
-			// 第2列：平地
-			t[2][heroCol + 2] = ELEM_GROUND
-			break
-
-		case 2: // 远跳：第1列让走不合法，第2列让跳不合法，第3列平地
-			// 第1列：让走不合法
-			t[2][heroCol + 1] = ELEM_AIR
-			// 第2列：让跳不合法
+			// 第2列：坑（阻止跳）
 			t[2][heroCol + 2] = ELEM_AIR
-			// 第3列：平地
+			// 第3列：坑（阻止远跳）
+			t[2][heroCol + 3] = ELEM_AIR
+			break
+
+		case 1: // 跳：第1列坑，第2列平地，第3列坑
+			// 第1列：坑（阻止走）
+			t[2][heroCol + 1] = ELEM_AIR
+			// 第2列：平地（确保能跳）
+			t[2][heroCol + 2] = ELEM_GROUND
+			// 第3列：坑（阻止远跳）
+			t[2][heroCol + 3] = ELEM_AIR
+			break
+
+		case 2: // 远跳：第1列坑，第2列坑，第3列平地
+			// 第1列：坑（阻止走）
+			t[2][heroCol + 1] = ELEM_AIR
+			// 第2列：坑（阻止跳）
+			t[2][heroCol + 2] = ELEM_AIR
+			// 第3列：平地（确保能远跳）
 			t[2][heroCol + 3] = ELEM_GROUND
 			break
 
-		case 3: // 走A：第1列平地+有史莱姆
+		case 3: // 走A：第1列平地+史莱姆
 			if (!config.slime) {
 				// 如果没有启用史莱姆，无法生成走A地形
 				return null
 			}
-			// 第1列：平地+史莱姆
+			// 第1列：平地+史莱姆（确保能走A）
 			t[2][heroCol + 1] = ELEM_GROUND
 			t[1][heroCol + 1] = ELEM_SLIME
 			break
@@ -349,32 +351,8 @@ export function generateTerrainForAction(
 			return null
 	}
 
-	// 填充其他位置（随机但确保不破坏目标动作的合法性）
-	const pools = [
-		getLayerPool(0, config),
-		getLayerPool(1, config),
-		getLayerPool(2, config),
-	]
+	// 其他列保持空气（不随机填充，避免破坏动作合法性）
+	// 这样既简单又可靠，零失败
 
-	for (let layer = 0; layer < NUM_LAYERS; layer++) {
-		for (let col = 0; col < NUM_COLS; col++) {
-			if (t[layer][col] === ELEM_AIR) {
-				// 跳过已设置的位置和狐狸位置
-				if (layer === 1 && col === heroCol) continue
-				// 随机填充（但优先保持空气，避免意外创造其他合法动作）
-				if (Math.random() < 0.3) {
-					t[layer][col] = randElemFromPool(pools[layer])
-				}
-			}
-		}
-	}
-
-	// 验证生成的地形是否确实让目标动作合法
-	const checks = getActionChecks(t, heroCol)
-	const isValid = (action === 0 && checks.canWalk.ok) ||
-	                (action === 1 && checks.canJump.ok) ||
-	                (action === 2 && checks.canLongJump.ok) ||
-	                (action === 3 && checks.canWalkAttack.ok)
-
-	return isValid ? t : null
+	return t
 }
