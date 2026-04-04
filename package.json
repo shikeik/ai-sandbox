@@ -12,8 +12,9 @@
     "type-check": "node node_modules/typescript/bin/tsc --noEmit",
     "lint": "eslint src/",
     "lint:fix": "eslint src/ --fix",
-    "test": "tsx --test 'src/**/*.test.ts'",
-		"test:single": "tsx --test"
+    "test": "node scripts/test.mjs",
+		"test:all": "TEST_COMMAND=test:all node scripts/test.mjs",
+		"test:dir": "TEST_COMMAND=test:dir node scripts/test.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

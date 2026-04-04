@@ -1,10 +1,10 @@
 import { describe, it } from "node:test"
 import { strict as assert } from "node:assert"
-import { createNet, forward, updateNetwork } from "./neural-network.js"
-import { createGradientBuffer, accumulateGradients, type ActionEvaluation } from "./unsupervised.js"
-import { createGradientBuffer as createSuperBuffer, accumulateSupervisedGrad } from "./supervised.js"
-import { UNSUPERVISED_CONFIG, DEFAULT_TERRAIN_CONFIG } from "./constants.js"
-import { generateTerrainData, getLabel, findHeroCol, getActionChecks, isActionValidByChecks } from "./terrain.js"
+import { createNet, forward, updateNetwork } from "../neural-network.js"
+import { createGradientBuffer, accumulateGradients, type ActionEvaluation } from "../unsupervised.js"
+import { createGradientBuffer as createSuperBuffer, accumulateSupervisedGrad } from "../supervised.js"
+import { UNSUPERVISED_CONFIG, DEFAULT_TERRAIN_CONFIG } from "../constants.js"
+import { generateTerrainData, getLabel, findHeroCol, getActionChecks, isActionValidByChecks } from "../terrain.js"
 
 const dataset = generateTerrainData(6000, DEFAULT_TERRAIN_CONFIG)
 

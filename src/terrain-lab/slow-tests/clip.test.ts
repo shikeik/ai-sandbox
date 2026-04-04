@@ -2,11 +2,11 @@
 
 import { describe, it } from "node:test"
 import { strict as assert } from "node:assert"
-import { createNet, forward, backward } from "./neural-network.js"
-import { createGradientBuffer as createUnsupervisedBuffer, calculateReward } from "./unsupervised.js"
-import { UNSUPERVISED_CONFIG, DEFAULT_TERRAIN_CONFIG, LR, HIDDEN_DIM, INPUT_DIM, OUTPUT_DIM, NUM_ELEMENTS, EMBED_DIM } from "./constants.js"
-import { generateTerrainData, getLabel, findHeroCol, getActionChecks, isActionValidByChecks } from "./terrain.js"
-import type { DatasetItem, NetParams } from "./types.js"
+import { createNet, forward, backward } from "../neural-network.js"
+import { createGradientBuffer as createUnsupervisedBuffer, calculateReward } from "../unsupervised.js"
+import { UNSUPERVISED_CONFIG, DEFAULT_TERRAIN_CONFIG, LR, HIDDEN_DIM, INPUT_DIM, OUTPUT_DIM, NUM_ELEMENTS, EMBED_DIM } from "../constants.js"
+import { generateTerrainData, getLabel, findHeroCol, getActionChecks, isActionValidByChecks } from "../terrain.js"
+import type { DatasetItem, NetParams } from "../types.js"
 
 const DATASET_SIZE = 6000
 const TRAIN_STEPS = 5000
