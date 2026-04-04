@@ -837,9 +837,19 @@ async function runCurriculumSupervised() {
 			state.trainSteps++
 		}
 
-		// 评估
-		const { accuracy: acc } = evaluateModel(state.net, state.dataset)
-		updateMetrics(0, acc, Math.min(state.trainSteps / maxTotalSteps, 1) * 100)
+		// 评估（统一：准确率、合法率、损失）
+		const { accuracy: acc, avgLoss: loss } = evaluateModel(state.net, state.dataset)
+		let validCount = 0
+		for (const sample of state.dataset) {
+			const fp = forward(state.net, sample.indices)
+			const action = fp.o.indexOf(Math.max(...fp.o))
+			const heroCol = findHeroCol(sample.t)
+			const checks = getActionChecks(sample.t, heroCol)
+			if (isActionValidByChecks(checks, action)) validCount++
+		}
+		const validRate = (validCount / state.dataset.length) * 100
+		updateMetrics(loss, acc, Math.min(state.trainSteps / maxTotalSteps, 1) * 100, validRate)
+		console.log("[SUP]", `合法率:${validRate.toFixed(1)}% 准确率:${acc.toFixed(1)}% 损失:${loss.toFixed(4)}`)
 
 		// 保存快照
 		state.snapshots.push({ step: state.trainSteps, net: cloneNet(state.net) })
@@ -929,10 +939,18 @@ async function runCurriculumUnsupervised() {
 		}
 		const validRate = (validCount / state.dataset.length) * 100
 		const accuracy = (correctCount / state.dataset.length) * 100
+		// 计算损失
+		let lossSum = 0
+		for (const sample of state.dataset) {
+			const fp = forward(state.net, sample.indices)
+			lossSum += -Math.log(Math.max(fp.o[sample.y], 1e-7))
+		}
+		const avgLoss = lossSum / state.dataset.length
 		// 动态调整探索率
 		const newEpsilon = adjustEpsilon(validRate)
-		console.log("[UNS]", `合法率:${validRate.toFixed(1)}% 探索率ε:${newEpsilon.toFixed(2)} 历史窗口:[${state.unsupervisedHistory.map(v => v.toFixed(0)).join(",")}]`)
-		updateMetricsUnsupervised(0, validRate, Math.min(state.trainSteps / maxTotalSteps, 1) * 100)
+		console.log("[UNS]", `合法率:${validRate.toFixed(1)}% 准确率:${accuracy.toFixed(1)}% 损失:${avgLoss.toFixed(4)} 探索率ε:${newEpsilon.toFixed(2)}`)
+		// 统一使用 updateMetrics 显示所有指标
+		updateMetrics(avgLoss, accuracy, Math.min(state.trainSteps / maxTotalSteps, 1) * 100, validRate)
 
 		// 保存快照
 		state.snapshots.push({ step: state.trainSteps, net: cloneNet(state.net) })

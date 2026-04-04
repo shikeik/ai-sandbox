@@ -85,7 +85,7 @@ export function resetState(state: AppState): void {
 	state.snapshots = []
 	state.selectedSnapshotIndex = -1
 	state.observedSample = null
-	state.learningMode = "supervised"
+	// 注意：不重置 learningMode，保留用户选择
 	state.unsupervisedHistory = []
 	state.epsilon = 0.5
 	stopAnimation(state)
