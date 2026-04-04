@@ -168,67 +168,27 @@ function initChallenge(): void {
 		}
 	}
 
-	// 渲染挑战动画帧 - 复用 renderer.ts 的绘制逻辑
+	// 渲染挑战动画帧 - 统一使用 challengeUIManager.drawViewport
 	const renderChallengeAnimationFrame = (progress: number) => {
-		if (!challengeAnimState || !challengeCanvas) return
+		if (!challengeAnimState || !challengeController || !challengeUIManager) return
 
-		const { ctx, rect } = setupCanvas(challengeCanvas)
-		const { cellW, cellH, gapX, gapY, startX, startY } = getEditorLayout(rect)
-
-		// 绘制标签
-		drawEditorLabels(ctx, startX, startY, cellW, cellH, gapX, gapY)
-
-		// 狐狸在视野中的位置始终是0列
-		const heroCol = 0
+		const terrain = challengeController.getCurrentTerrain()
+		const heroCol = challengeController.getHeroCol()
 		const { path } = challengeAnimState
 
-		const heroBaseX = startX + heroCol * (cellW + gapX) + cellW / 2
-		const heroBaseY = startY + 1 * (cellH + gapY) + cellH / 2
-		const targetX = startX + path.targetCol * (cellW + gapX) + cellW / 2
-
-		// 计算狐狸位置 - 复用 animation.ts 的逻辑
-		let hx = heroBaseX
-		let hy = heroBaseY
-		const t = progress
-
-		if (!path.isJump) {
-			// 走或走A：使用缓动
-			hx = heroBaseX + (targetX - heroBaseX) * easeOutQuad(t)
-			hy = heroBaseY
-			// 走A：在进度超过50%时击杀史莱姆
-			if (path.duration === 400 && t > 0.5) {
-				challengeAnimState.slimeKilled = true
-			}
-		} else {
-			// 跳跃：抛物线
-			hx = heroBaseX + (targetX - heroBaseX) * t
-			const parabola = 4 * t * (1 - t)
-			hy = heroBaseY - parabola * (cellH + path.jumpHeight)
+		// 走A击杀逻辑
+		if (!path.isJump && path.duration === 400 && progress > 0.5) {
+			challengeAnimState.slimeKilled = true
 		}
 
-		// 绘制地形网格（使用当前挑战控制器的地形）
-		if (challengeController) {
-			const terrain = challengeController.getCurrentTerrain()
-			const actualHeroCol = challengeController.getHeroCol()
-			if (terrain) {
-				drawTerrainGrid(ctx, terrain, {
-					cellW, cellH, gapX, gapY, startX, startY,
-					hideSlimeAt: challengeAnimState.slimeKilled ? (heroCol + 1 < NUM_COLS ? heroCol + 1 : null) : null,
-					hideHeroAtCol: heroCol,
-					dimNonInteractive: false,
-				})
-				// 绘制坐标信息（左下角）
-				const gridH = NUM_LAYERS * cellH + (NUM_LAYERS - 1) * gapY
-				const bottomY = startY + gridH + 16
-				ctx.fillStyle = "#8ab4f8"
-				ctx.font = "11px sans-serif"
-				ctx.textAlign = "left"
-				ctx.fillText(`位置: ${actualHeroCol}-${Math.min(actualHeroCol + 4, 31)} / 0-31`, startX, bottomY)
-			}
-		}
-
-		// 绘制动画中的狐狸
-		drawEmoji(ctx, "🦊", hx, hy, Math.min(cellW, cellH) * 0.65)
+		// 使用统一的绘制函数
+		challengeUIManager.drawViewport(terrain, heroCol, 32, {
+			progress,
+			targetCol: path.targetCol,
+			isJump: path.isJump,
+			jumpHeight: path.jumpHeight,
+			slimeKilled: challengeAnimState.slimeKilled,
+		})
 	}
 
 	// 完成挑战动画

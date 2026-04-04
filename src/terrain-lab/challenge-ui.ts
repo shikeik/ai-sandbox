@@ -238,9 +238,20 @@ export class ChallengeUIManager {
 	// ========== Canvas 绘制 ==========
 
 	/**
-	 * 绘制当前视野地形（5×3窗口）
+	 * 统一的视野绘制函数（支持静态显示和动画）
 	 */
-	drawTerrain(terrain: number[][] | null, heroCol: number = 0, fullMapLength: number = 32): void {
+	drawViewport(
+		terrain: number[][] | null,
+		heroCol: number = 0,
+		fullMapLength: number = 32,
+		animState?: {
+			progress: number
+			targetCol: number
+			isJump: boolean
+			jumpHeight: number
+			slimeKilled: boolean
+		} | null
+	): void {
 		if (!terrain) {
 			const { ctx, width, height } = setupCanvas(this.challengeCanvas)
 			ctx.fillStyle = "#5f6368"
@@ -266,12 +277,48 @@ export class ChallengeUIManager {
 		ctx.textAlign = "left"
 		ctx.fillText(`位置: ${heroCol}-${Math.min(heroCol + 4, fullMapLength - 1)} / 0-31`, startX, bottomY)
 
+		// 动画状态处理
+		let hideHeroAtCol: number | null = null
+		let hideSlimeAt: number | null = null
+
+		if (animState) {
+			hideHeroAtCol = 0 // 动画时隐藏原位置狐狸
+			if (animState.slimeKilled) {
+				hideSlimeAt = 1 // 击杀了第1列的史莱姆
+			}
+		}
+
 		// 绘制视野窗口
 		drawTerrainGrid(ctx, terrain, {
 			cellW, cellH, gapX, gapY, startX, startY,
-			hideSlimeAt: null,
+			hideSlimeAt,
+			hideHeroAtCol,
 			dimNonInteractive: false,
 		})
+
+		// 如果有动画状态，绘制动画中的狐狸
+		if (animState) {
+			const heroBaseX = startX + 0 * (cellW + gapX) + cellW / 2
+			const heroBaseY = startY + 1 * (cellH + gapY) + cellH / 2
+			const targetX = startX + animState.targetCol * (cellW + gapX) + cellW / 2
+
+			let hx = heroBaseX
+			let hy = heroBaseY
+			const t = animState.progress
+
+			if (!animState.isJump) {
+				// 走或走A：缓动
+				hx = heroBaseX + (targetX - heroBaseX) * this.easeOutQuad(t)
+				hy = heroBaseY
+			} else {
+				// 跳跃：抛物线
+				hx = heroBaseX + (targetX - heroBaseX) * t
+				const parabola = 4 * t * (1 - t)
+				hy = heroBaseY - parabola * (cellH + animState.jumpHeight)
+			}
+
+			drawEmoji(ctx, "🦊", hx, hy, Math.min(cellW, cellH) * 0.65)
+		}
 
 		// 绘制终点标记（如果在视野内）
 		const endCol = 31
@@ -284,6 +331,20 @@ export class ChallengeUIManager {
 			ctx.textAlign = "center"
 			ctx.fillText("🏁终点", x + cellW / 2, y)
 		}
+	}
+
+	/**
+	 * 缓动函数
+	 */
+	private easeOutQuad(t: number): number {
+		return t * (2 - t)
+	}
+
+	/**
+	 * 绘制当前视野地形（5×3窗口）- 兼容旧接口
+	 */
+	drawTerrain(terrain: number[][] | null, heroCol: number = 0, fullMapLength: number = 32): void {
+		this.drawViewport(terrain, heroCol, fullMapLength, null)
 	}
 
 	/**
