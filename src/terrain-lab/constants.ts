@@ -95,12 +95,6 @@ export const EVAL_SAMPLE_SIZE = 100
 
 // ========== 训练配置（统一入口）==========
 export const TRAIN_CONFIG = {
-	supervised: {
-		batchSize: 32,
-		steps: 200,  // 统一为200步
-	},
-	unsupervised: {
-		batchSize: 32,
-		steps: 200,  // 统一为200步
-	},
+	steps: 200,      // 统一训练步数
+	batchSize: 32,   // 统一批次大小
 }

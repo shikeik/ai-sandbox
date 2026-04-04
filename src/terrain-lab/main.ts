@@ -85,7 +85,7 @@ async function trainBatch() {
 
 // 监督学习：使用标签数据
 async function trainSupervised() {
-	const { batchSize, steps } = TRAIN_CONFIG.supervised
+	const { batchSize, steps } = TRAIN_CONFIG
 
 	// 若快照为空，先保存初始状态（全局累积，不清空旧快照）
 	if (state.snapshots.length === 0) {
@@ -132,7 +132,7 @@ async function trainSupervised() {
 
 // 无监督学习：ε-贪心探索，根据结果给奖励
 async function trainUnsupervised() {
-	const { batchSize, steps } = TRAIN_CONFIG.unsupervised
+	const { batchSize, steps } = TRAIN_CONFIG
 	// 使用动态探索率，初始值从 state.epsilon 获取
 
 	// 若快照为空，先保存初始状态
@@ -820,7 +820,7 @@ async function runCurriculum() {
 async function runCurriculumSupervised() {
 	const targetAcc = 90
 	const maxTotalSteps = 3000
-	const { batchSize } = TRAIN_CONFIG.supervised  // 修复：使用 TRAIN_CONFIG
+	const { batchSize } = TRAIN_CONFIG  // 课程学习使用统一配置
 	const stepsPerBatch = 100
 	let achieved = false
 
@@ -876,7 +876,7 @@ async function runCurriculumUnsupervised() {
 	const targetValidRate = 70  // 无监督用合法率代替准确率
 	const targetAcc = 50        // 添加：准确率目标
 	const maxTotalSteps = 3000
-	const { batchSize } = TRAIN_CONFIG.unsupervised  // 修复：使用 TRAIN_CONFIG
+	const { batchSize } = TRAIN_CONFIG  // 课程学习使用统一配置
 	const stepsPerBatch = 100
 	let achieved = false
 
@@ -1409,6 +1409,11 @@ function init() {
 	const mlpTitle = document.getElementById("mlp-title")
 	if (mlpTitle) {
 		mlpTitle.textContent = `MLP 网络状态 (${INPUT_DIM} → ${HIDDEN_DIM} → ${OUTPUT_DIM})`
+	}
+	// 动态更新训练按钮文字（根据 TRAIN_CONFIG）
+	const btnTrain = document.getElementById("btn-train") as HTMLButtonElement
+	if (btnTrain) {
+		btnTrain.textContent = `训练${TRAIN_CONFIG.steps}步+预测`
 	}
 
 	renderBrushes()
