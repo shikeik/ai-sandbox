@@ -310,6 +310,10 @@ function resetChallenge(): void {
 	challengeUIManager?.drawMLP(null)
 }
 
+function setChallengeMode(mode: "play" | "train"): void {
+	challengeController?.setMode(mode)
+}
+
 // ========== 训练相关 ==========
 
 async function trainBatch() {
@@ -651,6 +655,7 @@ function init() {
 	;(window as any).pauseChallenge = pauseChallenge
 	;(window as any).stepChallenge = stepChallenge
 	;(window as any).resetChallenge = resetChallenge
+	;(window as any).setChallengeMode = setChallengeMode
 
 	// 初始化 Predictor（需要在 drawMLP/drawEmbedding/playAnimation 定义之后）
 	predictor = new Predictor(state, uiManager, drawMLP, drawEmbedding, (action) => playAnimation(action as ActionType))
