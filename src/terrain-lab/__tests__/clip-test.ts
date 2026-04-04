@@ -2,7 +2,7 @@
 
 import { createNet, forward, backward } from "../neural-network.js"
 import { createGradientBuffer as createUnsupervisedBuffer, calculateReward } from "../unsupervised.js"
-import { UNSUPERVISED_CONFIG, DEFAULT_TERRAIN_CONFIG, LR } from "../constants.js"
+import { UNSUPERVISED_CONFIG, DEFAULT_TERRAIN_CONFIG, LR, HIDDEN_DIM, INPUT_DIM, OUTPUT_DIM, NUM_ELEMENTS, EMBED_DIM } from "../constants.js"
 import { generateTerrainData, getLabel, findHeroCol, getActionChecks, isActionValidByChecks } from "../terrain.js"
 import type { DatasetItem, NetParams } from "../types.js"
 import { printTestSuite } from "./test-utils.js"
@@ -39,8 +39,8 @@ function updateNetworkWithClip(net: NetParams, grads: ReturnType<typeof createUn
 			}
 		}
 	}
-	for (let i = 0; i < 16; i++) {
-		for (let j = 0; j < 30; j++) {
+	for (let i = 0; i < HIDDEN_DIM; i++) {
+		for (let j = 0; j < INPUT_DIM; j++) {
 			net.W1[i][j] -= LR * grads.dW1[i][j] / batchSize
 			if (clipValue !== null) {
 				net.W1[i][j] = Math.max(-clipValue, Math.min(clipValue, net.W1[i][j]))
@@ -51,8 +51,8 @@ function updateNetworkWithClip(net: NetParams, grads: ReturnType<typeof createUn
 			net.b1[i] = Math.max(-clipValue, Math.min(clipValue, net.b1[i]))
 		}
 	}
-	for (let i = 0; i < 4; i++) {
-		for (let j = 0; j < 16; j++) {
+	for (let i = 0; i < OUTPUT_DIM; i++) {
+		for (let j = 0; j < HIDDEN_DIM; j++) {
 			net.W2[i][j] -= LR * grads.dW2[i][j] / batchSize
 			if (clipValue !== null) {
 				net.W2[i][j] = Math.max(-clipValue, Math.min(clipValue, net.W2[i][j]))
@@ -73,13 +73,13 @@ function accumulateGradSimple(net: NetParams, buffer: ReturnType<typeof createUn
 	if (reward > 0) {
 		// 正向
 		const grad = backward(net, fp, targetAction)
-		for (let e = 0; e < 6; e++) for (let d = 0; d < 2; d++) buffer.dEmbed[e][d] += grad.dEmbed[e][d] * gradScale
-		for (let i = 0; i < 16; i++) {
-			for (let j = 0; j < 30; j++) buffer.dW1[i][j] += grad.dW1[i][j] * gradScale
+		for (let e = 0; e < NUM_ELEMENTS; e++) for (let d = 0; d < EMBED_DIM; d++) buffer.dEmbed[e][d] += grad.dEmbed[e][d] * gradScale
+		for (let i = 0; i < HIDDEN_DIM; i++) {
+			for (let j = 0; j < INPUT_DIM; j++) buffer.dW1[i][j] += grad.dW1[i][j] * gradScale
 			buffer.db1[i] += grad.db1[i] * gradScale
 		}
-		for (let i = 0; i < 4; i++) {
-			for (let j = 0; j < 16; j++) buffer.dW2[i][j] += grad.dW2[i][j] * gradScale
+		for (let i = 0; i < OUTPUT_DIM; i++) {
+			for (let j = 0; j < HIDDEN_DIM; j++) buffer.dW2[i][j] += grad.dW2[i][j] * gradScale
 			buffer.db2[i] += grad.db2[i] * gradScale
 		}
 	} else {
@@ -90,7 +90,7 @@ function accumulateGradSimple(net: NetParams, buffer: ReturnType<typeof createUn
 		for (let otherAction = 0; otherAction < 4; otherAction++) {
 			const grad = backward(net, fp, otherAction)
 			if (otherAction === targetAction) {
-				for (let e = 0; e < 6; e++) for (let d = 0; d < 2; d++) buffer.dEmbed[e][d] -= grad.dEmbed[e][d] * gradScale
+				for (let e = 0; e < NUM_ELEMENTS; e++) for (let d = 0; d < EMBED_DIM; d++) buffer.dEmbed[e][d] -= grad.dEmbed[e][d] * gradScale
 				for (let i = 0; i < 16; i++) {
 					for (let j = 0; j < 30; j++) buffer.dW1[i][j] -= grad.dW1[i][j] * gradScale
 					buffer.db1[i] -= grad.db1[i] * gradScale
@@ -100,7 +100,7 @@ function accumulateGradSimple(net: NetParams, buffer: ReturnType<typeof createUn
 					buffer.db2[i] -= grad.db2[i] * gradScale
 				}
 			} else {
-				for (let e = 0; e < 6; e++) for (let d = 0; d < 2; d++) buffer.dEmbed[e][d] += grad.dEmbed[e][d] * redistributeScale
+				for (let e = 0; e < NUM_ELEMENTS; e++) for (let d = 0; d < EMBED_DIM; d++) buffer.dEmbed[e][d] += grad.dEmbed[e][d] * redistributeScale
 				for (let i = 0; i < 16; i++) {
 					for (let j = 0; j < 30; j++) buffer.dW1[i][j] += grad.dW1[i][j] * redistributeScale
 					buffer.db1[i] += grad.db1[i] * redistributeScale
