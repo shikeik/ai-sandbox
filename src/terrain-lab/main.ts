@@ -163,26 +163,31 @@ async function trainUnsupervised() {
 			const idx = Math.floor(Math.random() * state.dataset.length)
 			const sample = state.dataset[idx]
 			const fp = forward(state.net, sample.indices)
+			
+			// 预测动作（用于评估合法率）
+			const predicted = fp.o.indexOf(Math.max(...fp.o))
 
-			// ε-贪心选择动作（使用动态探索率）
+			// ε-贪心选择动作（用于探索和学习）
 			let action: number
 			if (Math.random() < state.epsilon) {
 				action = Math.floor(Math.random() * OUTPUT_DIM)
 			} else {
-				action = fp.o.indexOf(Math.max(...fp.o))
+				action = predicted
 			}
 
-			// 检查动作是否合法
+			// 检查预测动作的合法率（用于统计）
 			const heroCol = findHeroCol(sample.t)
 			const checks = getActionChecks(sample.t, heroCol)
+			if (isActionValidByChecks(checks, predicted)) validCount++
+
+			// 检查探索动作的合法性和最优性（用于学习）
 			const isValid = isActionValidByChecks(checks, action)
 			const optimal = getLabel(sample.t)
 			const isOptimal = (action === optimal)
 
-			// 计算奖励（用于统计）
+			// 计算奖励（用于学习）
 			let reward: number
 			if (isValid) {
-				validCount++
 				reward = isOptimal ? UNSUPERVISED_CONFIG.rewardOptimal : UNSUPERVISED_CONFIG.rewardValid
 			} else {
 				reward = UNSUPERVISED_CONFIG.rewardInvalid
