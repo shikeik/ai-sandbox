@@ -2,7 +2,7 @@
 // 职责：管理连续挑战界面的DOM操作和渲染
 
 import type { ChallengeState, ChallengeResult } from "./challenge-controller.js"
-import { ACTIONS } from "./constants.js"
+import { ACTIONS, NUM_LAYERS } from "./constants.js"
 import { forward } from "./neural-network.js"
 import { terrainToIndices } from "./terrain.js"
 import type { AppState } from "./state.js"
@@ -256,11 +256,15 @@ export class ChallengeUIManager {
 		// 绘制标签
 		drawEditorLabels(ctx, startX, startY, cellW, cellH, gapX, gapY)
 
-		// 绘制进度指示（显示当前在32格地图中的位置）
+		// 计算绘制区域高度
+		const gridH = NUM_LAYERS * cellH + (NUM_LAYERS - 1) * gapY
+		const bottomY = startY + gridH + 16
+
+		// 绘制坐标信息（左下角，避免和上方文字重叠）
 		ctx.fillStyle = "#8ab4f8"
-		ctx.font = "12px sans-serif"
+		ctx.font = "11px sans-serif"
 		ctx.textAlign = "left"
-		ctx.fillText(`视野位置: ${heroCol}-${Math.min(heroCol + 4, fullMapLength - 1)} / 0-31`, startX, startY - 10)
+		ctx.fillText(`位置: ${heroCol}-${Math.min(heroCol + 4, fullMapLength - 1)} / 0-31`, startX, bottomY)
 
 		// 绘制视野窗口
 		drawTerrainGrid(ctx, terrain, {
