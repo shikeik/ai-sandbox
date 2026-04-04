@@ -265,16 +265,22 @@ function adjustEpsilon(validRate: number): number {
 	// 计算平均合法率（去掉当前这次）
 	const currentAvg = state.unsupervisedHistory.slice(0, -1).reduce((a, b) => a + b, 0) / (UNSUPERVISED_CONFIG.epsilonWindowSize - 1)
 
-	// 细粒度调整（适合千步级训练）
-	if (validRate > currentAvg + UNSUPERVISED_CONFIG.epsilonImproveThreshold) {
-		// 进步明显：缓慢降低探索率（更贪心）
-		state.epsilon = Math.max(UNSUPERVISED_CONFIG.epsilonMin, state.epsilon - UNSUPERVISED_CONFIG.epsilonDecayStep)
-	} else if (validRate < currentAvg - UNSUPERVISED_CONFIG.epsilonImproveThreshold) {
-		// 退步明显：缓慢提高探索率（多探索）
-		state.epsilon = Math.min(UNSUPERVISED_CONFIG.epsilonMax, state.epsilon + UNSUPERVISED_CONFIG.epsilonGrowStep)
+	// 探索率调整策略：
+	// 1. 合法率未饱和（<95%）：基于合法率改进调整
+	// 2. 合法率已饱和（>=95%）：基于准确率改进调整，更快收敛
+	if (validRate < 95) {
+		// 阶段1：基于合法率调整
+		if (validRate > currentAvg + UNSUPERVISED_CONFIG.epsilonImproveThreshold) {
+			state.epsilon = Math.max(UNSUPERVISED_CONFIG.epsilonMin, state.epsilon - UNSUPERVISED_CONFIG.epsilonDecayStep)
+		} else if (validRate < currentAvg - UNSUPERVISED_CONFIG.epsilonImproveThreshold) {
+			state.epsilon = Math.min(UNSUPERVISED_CONFIG.epsilonMax, state.epsilon + UNSUPERVISED_CONFIG.epsilonGrowStep)
+		} else {
+			state.epsilon = Math.max(UNSUPERVISED_CONFIG.epsilonMin, state.epsilon - UNSUPERVISED_CONFIG.epsilonDecayIdle)
+		}
 	} else {
-		// 持平：极缓慢降低探索率（保底）
-		state.epsilon = Math.max(UNSUPERVISED_CONFIG.epsilonMin, state.epsilon - UNSUPERVISED_CONFIG.epsilonDecayIdle)
+		// 阶段2：合法率已饱和（>=95%），持续降低探索率直到最小值
+		// 此时网络已学会合法动作，应更信任策略，减少探索
+		state.epsilon = Math.max(UNSUPERVISED_CONFIG.epsilonMin, state.epsilon - UNSUPERVISED_CONFIG.epsilonDecayStep * 2)
 	}
 
 	return state.epsilon
