@@ -70,7 +70,7 @@ export const EMBED_SIZE_MAX = 2
 // ========== 其他常量 ==========
 export const ACTIONS: ActionType[] = ["走", "跳", "远跳", "走A"]
 export const ROW_NAMES = ["天上", "地上", "地面"]
-export const LR = 0.05
+export const LR = 0.1   // hidden=32 需要更大学习率
 
 // ========== 无监督学习配置（在这里改数值）==========
 export const UNSUPERVISED_CONFIG = {
