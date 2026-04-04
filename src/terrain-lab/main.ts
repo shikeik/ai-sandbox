@@ -23,6 +23,7 @@ import {
 import { UIManager } from "./ui-manager.js"
 import { TrainingEngine } from "./training-engine.js"
 import { SnapshotManager } from "./snapshot-manager.js"
+import { CurriculumController } from "./curriculum-controller.js"
 import { zeroMat, zeroVec } from "./utils.js"
 
 // 课程学习内部使用的评估函数（将在批次6中进一步重构）
@@ -40,6 +41,7 @@ import { ConsolePanel } from "../engine/console/ConsolePanel.js"
 const state: AppState = createInitialState()
 const uiManager = new UIManager(state)
 const snapshotManager = new SnapshotManager(state, uiManager)
+const curriculumController = new CurriculumController(state, uiManager, snapshotManager)
 
 // DOM 元素
 let editorCanvas: HTMLCanvasElement
@@ -364,7 +366,7 @@ function resetNet() {
 	uiManager.updateSnapshotSlider()
 	drawObsessionCurve()
 	uiManager.updateObsessionStatus("未设置观察样本", "wait")
-	uiManager.updateCurriculumUI(curriculumStageIdx, curriculumRunning, state.learningMode)
+	uiManager.updateCurriculumUI(curriculumController.getStageIdx(), curriculumController.isCurriculumRunning(), state.learningMode)
 	uiManager.updateModeUI(state.learningMode)
 }
 
@@ -376,195 +378,26 @@ function toggleLearningMode() {
 	uiManager.updateExam(`已切换到「${state.learningMode === "supervised" ? "监督学习" : "无监督学习"}」模式`, "wait")
 }
 
-// ========== 课程学习 ==========
-
-let curriculumStageIdx = 0
-let curriculumRunning = false
-
 async function runCurriculum() {
-	console.log("MAIN", "开始课程学习")
-	if (curriculumRunning) return
-	if (curriculumStageIdx >= CURRICULUM_STAGES.length) {
-		uiManager.updateExam("已完成全部课程阶段！", "ok")
-		return
-	}
-
-	curriculumRunning = true
-	uiManager.updateCurriculumUI(curriculumStageIdx, curriculumRunning, state.learningMode)
-
-	// 应用当前阶段配置
-	state.terrainConfig = { ...CURRICULUM_STAGES[curriculumStageIdx].config }
-	renderTerrainConfigWithCallback()
-	renderBrushesWithCallback()
-
-	// 生成数据
-	state.dataset = generateTerrainData(DATASET_SIZE, state.terrainConfig)  // 修复：使用常量
-	document.getElementById("data-count")!.textContent = String(state.dataset.length)
-	const btnTrain = document.getElementById("btn-train") as HTMLButtonElement
-	btnTrain.disabled = state.dataset.length === 0
-
-	// 清空旧快照，保留初始状态
-	snapshotManager.resetSnapshots()
-	uiManager.updateSnapshotSlider()
-
-	// 根据学习模式选择训练方式
-	if (state.learningMode === "supervised") {
-		await runCurriculumSupervised()
-	} else {
-		await runCurriculumUnsupervised()
-	}
-
-	curriculumRunning = false
-	uiManager.updateCurriculumUI(curriculumStageIdx, curriculumRunning, state.learningMode)
-	predict()
-}
-
-// 课程学习 - 监督学习模式
-async function runCurriculumSupervised() {
-	const targetAcc = 90
-	const maxTotalSteps = 3000
-	const { batchSize } = TRAIN_CONFIG  // 课程学习使用统一配置
-	const stepsPerBatch = 100
-	let achieved = false
-
-	while (state.trainSteps < maxTotalSteps) {
-		for (let s = 0; s < stepsPerBatch; s++) {
-			const buffer = createSuperBuffer()
-
-			for (let b = 0; b < batchSize; b++) {
-				const idx = Math.floor(Math.random() * state.dataset.length)
-				const sample = state.dataset[idx]
-				accumulateSupervisedGrad(buffer, state.net, sample.indices, sample.y, batchSize)
-			}
-
-			updateNetwork(state.net, buffer, 1)
-			state.trainSteps++
+	await curriculumController.runCurriculum(
+		() => {
+			// 生成数据回调
+			state.dataset = generateTerrainData(DATASET_SIZE, state.terrainConfig)
+			uiManager.updateDataCount(state.dataset.length)
+			uiManager.setTrainButtonDisabled(state.dataset.length === 0)
+		},
+		() => {
+			// 完成回调
+			predict()
 		}
-
-		// 评估（统一使用 evaluateDataset，完整数据集）
-		const { accuracy: acc, validRate, loss } = evaluateDatasetForCurriculum()
-		uiManager.updateMetrics({ loss, acc, validRate, progress: Math.min(state.trainSteps / maxTotalSteps, 1) * 100 })
-		console.log("SUP", `合法率:${validRate.toFixed(1)}% 准确率:${acc.toFixed(1)}% 损失:${loss.toFixed(4)}`)
-
-		// 保存快照
-		snapshotManager.addSnapshot()
-		uiManager.updateSnapshotSlider()
-		drawObsessionCurve()
-
-		// 检查是否达标
-		if (acc >= targetAcc) {
-			achieved = true
-			break
-		}
-
-		await new Promise(r => setTimeout(r, 1))
-	}
-
-	if (achieved) {
-		uiManager.updateExam(
-			`${CURRICULUM_STAGES[curriculumStageIdx].name} 训练完成！准确率 ≥ ${targetAcc}%，可进入下一阶段`,
-			"ok"
-		)
-	} else {
-		uiManager.updateExam(
-			`${CURRICULUM_STAGES[curriculumStageIdx].name} 训练结束，未达到 ${targetAcc}% 准确率（当前：${document.getElementById("acc-display")!.textContent}）。建议重置网络再试一次。`,
-			"bad"
-		)
-	}
-}
-
-// 课程学习 - 无监督学习模式
-async function runCurriculumUnsupervised() {
-	const targetValidRate = 70  // 无监督用合法率代替准确率
-	const targetAcc = 50        // 添加：准确率目标
-	const maxTotalSteps = 3000
-	const { batchSize } = TRAIN_CONFIG  // 课程学习使用统一配置
-	const stepsPerBatch = 100
-	let achieved = false
-
-	while (state.trainSteps < maxTotalSteps) {
-		for (let s = 0; s < stepsPerBatch; s++) {
-			const gEmbed = zeroMat(NUM_ELEMENTS, EMBED_DIM)  // 修复：使用 EMBED_DIM 常量
-			const gW1 = zeroMat(HIDDEN_DIM, INPUT_DIM)
-			const gb1 = zeroVec(HIDDEN_DIM)
-			const gW2 = zeroMat(OUTPUT_DIM, HIDDEN_DIM)
-			const gb2 = zeroVec(OUTPUT_DIM)
-
-			for (let b = 0; b < batchSize; b++) {
-				const idx = Math.floor(Math.random() * state.dataset.length)
-				const sample = state.dataset[idx]
-				const fp = forward(state.net, sample.indices)
-
-				// ε-贪心选择动作（使用动态探索率）
-				let action: number
-				if (Math.random() < state.epsilon) {
-					action = Math.floor(Math.random() * OUTPUT_DIM)
-				} else {
-					action = fp.o.indexOf(Math.max(...fp.o))
-				}
-
-				// 检查动作合法性
-				const heroCol = findHeroCol(sample.t)
-				const checks = getActionChecks(sample.t, heroCol)
-				const isValid = isActionValidByChecks(checks, action)
-				const optimal = getLabel(sample.t)
-
-				// 计算奖励
-				const evaluation = calculateReward(action, isValid, action === optimal, UNSUPERVISED_CONFIG)
-
-				// 无监督学习梯度累积
-				accumulateGradients({ dEmbed: gEmbed, dW1: gW1, db1: gb1, dW2: gW2, db2: gb2 }, state.net, sample.indices, evaluation, batchSize)
-			}
-
-			updateNetwork(state.net, { dEmbed: gEmbed, dW1: gW1, db1: gb1, dW2: gW2, db2: gb2 }, 1)
-			state.trainSteps++
-		}
-
-		// 评估（统一使用 evaluateDataset，完整数据集）
-		const { accuracy, validRate, loss } = evaluateDatasetForCurriculum()
-		// 动态调整探索率
-		const engine = new TrainingEngine(state, async () => {})
-		const newEpsilon = engine.adjustEpsilon(validRate)
-		console.log("UNS", `合法率:${validRate.toFixed(1)}% 准确率:${accuracy.toFixed(1)}% 损失:${loss.toFixed(4)} 探索率ε:${newEpsilon.toFixed(2)}`)
-		// 统一使用 updateMetrics 显示所有指标
-		uiManager.updateMetrics({ loss, acc: accuracy, validRate, epsilon: newEpsilon, progress: Math.min(state.trainSteps / maxTotalSteps, 1) * 100 })
-
-		// 保存快照
-		snapshotManager.addSnapshot()
-		uiManager.updateSnapshotSlider()
-		drawObsessionCurve()
-
-		// 检查是否达标
-		if (validRate >= targetValidRate) {
-			achieved = true
-			break
-		}
-
-		await new Promise(r => setTimeout(r, 1))
-	}
-
-	if (achieved) {
-		uiManager.updateExam(
-			`${CURRICULUM_STAGES[curriculumStageIdx].name} 训练完成！合法率 ≥ ${targetValidRate}%，可进入下一阶段`,
-			"ok"
-		)
-	} else {
-		uiManager.updateExam(
-			`${CURRICULUM_STAGES[curriculumStageIdx].name} 训练结束，未达到 ${targetValidRate}% 合法率（当前：${document.getElementById("acc-display")!.textContent}）。建议重置网络再试一次。`,
-			"bad"
-		)
-	}
+	)
 }
 
 function nextCurriculumStage() {
-	if (curriculumStageIdx < CURRICULUM_STAGES.length - 1) {
-		curriculumStageIdx++
-		state.terrainConfig = { ...CURRICULUM_STAGES[curriculumStageIdx].config }
+	curriculumController.nextStage(() => {
 		renderTerrainConfigWithCallback()
 		renderBrushesWithCallback()
-		uiManager.updateCurriculumUI(curriculumStageIdx, curriculumRunning, state.learningMode)
-		uiManager.updateExam(`已进入 ${CURRICULUM_STAGES[curriculumStageIdx].name}，点击「开始课程训练」生成数据并训练`, "wait")
-	}
+	})
 }
 
 // ========== 编辑器绘制 ==========
@@ -649,7 +482,7 @@ function init() {
 
 	renderBrushesWithCallback()
 	renderTerrainConfigWithCallback()
-	uiManager.updateCurriculumUI(curriculumStageIdx, curriculumRunning, state.learningMode)
+	uiManager.updateCurriculumUI(curriculumController.getStageIdx(), curriculumController.isCurriculumRunning(), state.learningMode)
 	drawEditor()
 	drawMLP(null)
 	drawEmbedding()
