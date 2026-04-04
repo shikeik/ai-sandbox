@@ -14,6 +14,8 @@
 - **🦊 单层感知机演示**（`fox-jump`）：玩家控制一只纯 CSS 绘制的狐狸，在 32 格横版地形中右移或跳跃躲避坑洞。可切换为 AI 控制/AI 训练模式，实时观察一个 4→3 单层神经网络的权重变化。
 - **📐 地形实验室**（`terrain-lab`）：监督学习与无监督学习演示。支持地形编辑、带隐藏层的 MLP（多层感知机）动作预测、批量训练、课程学习与可视化（含 Embedding 空间、训练快照、执念曲线）。
 - **🧮 MLP 神经网络教学**（`mlp-teaching`）：前向传播与反向传播的可视化教学页面。该页面为独立的单文件 HTML，无 TypeScript 源码，所有逻辑与样式均内联在 `pages/mlp-teaching.html` 中。
+- **📊 指标仪表盘**（`metrics-dashboard`）：实时训练监控，展示损失曲线、准确率、动作分布可视化等训练指标。
+- **⚖️ 模型对比**（`model-comparison`）：双模型并排对比，支持时间轴播放、双Y轴图表、差异分析。
 
 ---
 
@@ -34,7 +36,7 @@
 ## 3. 目录结构
 
 ```
-├── index.html                      # 导航入口页（选择三个演示模块）
+├── index.html                      # 导航入口页（选择五个演示模块）
 ├── package.json                    # npm 配置，脚本定义
 ├── vite.config.js                  # 多页面 Rollup 配置 + 路径别名
 ├── tsconfig.json                   # TypeScript 严格模式、ES2020
@@ -47,7 +49,9 @@
 ├── pages/                          # 多页面 HTML 入口
 │   ├── fox-jump.html               # 狐狸跳跃游戏页
 │   ├── terrain-lab.html            # 地形实验室页
-│   └── mlp-teaching.html           # MLP 教学页（独立内联页面，无 TS 源码）
+│   ├── mlp-teaching.html           # MLP 教学页（独立内联页面，无 TS 源码）
+│   ├── metrics-dashboard.html      # 指标仪表盘页
+│   └── model-comparison.html       # 模型对比页
 ├── src/
 │   ├── types.d.ts                  # 全局类型声明（CSS 导入、Vite HMR）
 │   ├── engine/                     # 共享引擎层
@@ -83,23 +87,48 @@
 │   │   └── utils/
 │   │       ├── SeededRandom.ts     # Mulberry32 种子化随机数
 │   │       └── timeUtils.ts        # 时间格式化
-│   └── terrain-lab/                # 地形实验室（监督/无监督学习 + MLP）
-│       ├── main.ts                 # 地形实验室入口
-│       ├── state.ts                # 全局状态管理
-│       ├── constants.ts            # 网络维度、元素类型、动作常量、课程阶段
-│       ├── types.ts                # 类型定义
-│       ├── neural-network.ts       # MLP 实现（Embedding + ReLU + Softmax）
-│       ├── supervised.ts           # 监督学习梯度累积
-│       ├── unsupervised.ts         # 无监督学习梯度累积与奖励计算
-│       ├── terrain.ts              # 地形编码、合法性检查、数据集生成
-│       ├── renderer.ts             # Canvas 绘制（地形网格、Emoji、MLP 图）
-│       ├── animation.ts            # 狐狸动作动画路径计算
-│       ├── utils.ts                # 数学工具
-│       └── __tests__/              # 收敛性/裁剪/过滤式学习测试
-│           ├── test-utils.ts       # 自定义断言与测试套件
-│           ├── convergence-test.ts # 监督与无监督收敛测试
-│           ├── clip-test.ts        # 权重裁剪影响测试
-│           └── filtered-supervised-test.ts # 过滤式监督学习测试
+│   ├── terrain-lab/                # 地形实验室（监督/无监督学习 + MLP）
+│   │   ├── main.ts                 # 地形实验室入口
+│   │   ├── state.ts                # 全局状态管理
+│   │   ├── constants.ts            # 网络维度、元素类型、动作常量、课程阶段
+│   │   ├── types.ts                # 类型定义
+│   │   ├── neural-network.ts       # MLP 实现（Embedding + ReLU + Softmax）
+│   │   ├── supervised.ts           # 监督学习梯度累积
+│   │   ├── unsupervised.ts         # 无监督学习梯度累积与奖励计算
+│   │   ├── terrain.ts              # 地形编码、合法性检查、数据集生成
+│   │   ├── renderer.ts             # Canvas 绘制（地形网格、Emoji、MLP 图）
+│   │   ├── animation.ts            # 狐狸动作动画路径计算
+│   │   ├── utils.ts                # 数学工具
+│   │   ├── training-engine.ts      # 训练引擎核心
+│   │   ├── snapshot-manager.ts     # 训练快照管理
+│   │   ├── obsession-manager.ts    # 执念曲线管理
+│   │   ├── curriculum-controller.ts # 课程学习控制器
+│   │   ├── challenge-controller.ts # 连续挑战控制器
+│   │   ├── challenge-ui.ts         # 挑战模式 UI
+│   │   ├── predictor.ts            # 预测器
+│   │   ├── terrain-validator.ts    # 地形合法性验证
+│   │   ├── ui-manager.ts           # UI 管理器
+│   │   ├── gradients.ts            # 梯度计算
+│   │   ├── clip.test.ts            # 权重裁剪影响测试
+│   │   ├── convergence.test.ts     # 收敛性测试
+│   │   └── filtered-supervised.test.ts # 过滤式监督学习测试
+│   ├── metrics-dashboard/          # 指标仪表盘
+│   │   ├── main.ts                 # 入口
+│   │   ├── metrics-store.ts        # 指标数据存储
+│   │   ├── ui-manager.ts           # UI 管理器
+│   │   ├── constants.ts            # 常量配置
+│   │   ├── types.ts                # 类型定义
+│   │   ├── components/             # UI 组件
+│   │   │   ├── MetricCard.ts
+│   │   │   └── LoadingButton.ts
+│   │   ├── charts/                 # 图表组件
+│   │   │   └── line-chart.ts
+│   │   └── utils/                  # 工具函数
+│   │       └── data-formatter.ts
+│   └── model-comparison/           # 模型对比
+│       ├── main.ts                 # 入口
+│       ├── timeline-controller.ts  # 时间轴控制器
+│       └── ui-manager.ts           # UI 管理器
 └── dist/                           # Vite 构建输出目录
 ```
 
@@ -145,6 +174,9 @@ npm run build:single
 
 # 预览构建产物
 npm run preview
+
+# 运行测试
+npm test
 ```
 
 ### 部署
@@ -159,6 +191,8 @@ npm run preview
 1. 本地执行 `npm run build`
 2. 打包 `dist/` 目录并通过 SSH 上传到服务器 `/home/ubuntu/ai-sandbox`
 3. 重启服务器 Nginx
+
+服务器地址：`http://162.14.79.120:4000`
 
 ---
 
@@ -192,12 +226,14 @@ npm run preview
 - `[MAIN]` — 主入口
 - `[HMR]` — 热更新
 - `[SUP]` / `[UNS]` / `[PREDICT]` — terrain-lab 训练与预测
+- `[METRICS]` — 指标仪表盘
+- `[MODEL-COMP]` — 模型对比
 
 ---
 
 ## 7. 测试策略
 
-本项目使用 **Vitest** 作为标准测试框架，与 Vite + TypeScript 深度集成。
+本项目使用 **Node.js 内置测试框架** (`node:test`) 进行测试。
 
 ### 测试文件位置
 
@@ -214,10 +250,9 @@ npm run preview
 ```bash
 # 运行所有测试
 npm test
-
-# 开发模式（监听变更）
-npx vitest
 ```
+
+测试使用 `tsx` 直接执行 TypeScript 文件，无需预编译。
 
 ---
 
@@ -272,6 +307,7 @@ npx vitest
   3. 实时更新 Loss、准确率、合法率、Embedding 可视化
   4. 支持训练快照滑块与执念曲线（单样本概率演变）
 - **课程学习**：5 阶段渐进解锁（平地大道→坑洞→史莱姆→恶魔→金币），每阶段 6000 条数据，支持监督/无监督两种模式
+- **连续挑战**：扩展的地图挑战模式，支持动画播放
 
 ### 8.4 MLP 教学（`mlp-teaching`）
 
@@ -280,11 +316,25 @@ npx vitest
 - 可交互设置输入值、目标输出、学习率
 - 实时显示计算过程与权重更新
 
+### 8.5 指标仪表盘（`metrics-dashboard`）
+
+- 实时展示训练指标：Loss、准确率、合法率、Epsilon
+- 支持时间范围切换（1/10/100 步）
+- 折线图可视化
+- 模拟数据生成功能
+
+### 8.6 模型对比（`model-comparison`）
+
+- 双模型（Model A / Model B）并排对比
+- 时间轴播放控制（播放/暂停/步进/重置）
+- 双Y轴图表展示
+- 差异分析面板
+
 ---
 
 ## 9. 多页面入口与导航
 
-Vite 配置中通过 `rollupOptions.input` 定义 4 个入口：
+Vite 配置中通过 `rollupOptions.input` 定义 6 个入口：
 
 | 入口 | HTML | 说明 |
 |------|------|------|
@@ -292,6 +342,8 @@ Vite 配置中通过 `rollupOptions.input` 定义 4 个入口：
 | `fox-jump` | `pages/fox-jump.html` | 单层感知机演示 |
 | `terrain-lab` | `pages/terrain-lab.html` | 地形实验室 |
 | `mlp-teaching` | `pages/mlp-teaching.html` | MLP 教学 |
+| `metrics-dashboard` | `pages/metrics-dashboard.html` | 指标仪表盘 |
+| `model-comparison` | `pages/model-comparison.html` | 模型对比 |
 
 `npm run build` 在 `dist/` 中生成对应的多页面资源。
 
@@ -314,7 +366,9 @@ Vite 配置中通过 `rollupOptions.input` 定义 4 个入口：
 | `dist/fox-jump.html` | 狐狸跳跃游戏 |
 | `dist/game.html` | fox-jump 兼容别名 |
 | `dist/terrain-lab.html` | 地形实验室 |
-| `dist/mlp-teaching.html` | MLP 教学（本身已是单文件，再次复制） |
+| `dist/mlp-teaching.html` | MLP 教学（本身已是单文件，再次复制）|
+| `dist/metrics-dashboard.html` | 指标仪表盘 |
+| `dist/model-comparison.html` | 模型对比 |
 
 ---
 
@@ -340,12 +394,16 @@ Vite 配置中通过 `rollupOptions.input` 定义 4 个入口：
 
 该页面没有对应的 `src/` 源码，所有修改直接在 `pages/mlp-teaching.html` 中进行。构建时无需额外处理。
 
+### 11.6 测试文件的特殊性
+
+测试文件使用 `.test.ts` 后缀，被 `tsconfig.json` 明确排除（`"exclude": ["src/**/*.test.ts"]`）。测试直接使用 Node.js 内置的 `node:test` 模块，通过 `tsx` 执行。
+
 ---
 
 ## 12. 待办事项
 
 详见 `TODO.md`，主要方向：
-- terrain-lab Tab 拆分：监督学习页 + 连续挑战页
+- terrain-lab Tab 拆分：监督学习页 + 连续挑战页（已完成）
 
 ---
 
