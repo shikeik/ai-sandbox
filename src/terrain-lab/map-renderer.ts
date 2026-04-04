@@ -219,6 +219,7 @@ export class MapRenderer {
 
 	/**
 	 * 立即绘制（支持丝滑滚动）
+	 * 绘制顺序：背景 -> 网格/元素 -> 标签/覆盖层
 	 */
 	private drawImmediate(map: number[][], heroCol: number): void {
 		this.calculateLayout()
@@ -233,12 +234,6 @@ export class MapRenderer {
 		// 计算丝滑滚动偏移量
 		const scrollOffset = this.getScrollOffset()
 
-		// 绘制列标签（x0, x1, x2...）带丝滑滚动
-		this.drawColumnLabels(scrollOffset)
-
-		// 绘制层标签（固定，不随滚动）
-		this.drawLayerLabels()
-
 		// 动画状态处理
 		let hideHeroAtCol: number | null = null
 		let hideSlimeAt: number | null = null
@@ -250,23 +245,26 @@ export class MapRenderer {
 			}
 		}
 
-		// 绘制地形（带丝滑滚动偏移）
+		// 1. 先绘制地形（网格 + emoji）
 		this.drawTerrainGridSmooth(viewport, scrollOffset, hideSlimeAt, hideHeroAtCol)
 
-		// 动画狐狸
+		// 2. 动画狐狸
 		if (this.animState) {
 			this.drawAnimatedHero(scrollOffset)
 		}
 
-		// 位置信息
-		this.drawPositionInfo(heroCol)
+		// 3. 再绘制标签（在地图之上）
+		this.drawColumnLabels(scrollOffset)
+		this.drawLayerLabels()
 
-		// 滚动指示器
+		// 4. 最后绘制 UI 覆盖层
+		this.drawPositionInfo(heroCol)
 		this.drawScrollIndicator()
 	}
 
 	/**
 	 * 绘制地形网格（支持丝滑滚动偏移）
+	 * 不裁剪：地图只有32列，全部绘制开销可忽略
 	 */
 	private drawTerrainGridSmooth(
 		viewport: number[][],
@@ -283,9 +281,6 @@ export class MapRenderer {
 				const x = effectiveStartX + c * (this.cellW + this.gapX)
 				const y = this.startY + r * (this.cellH + this.gapY)
 
-				// 跳过完全在视野外的格子（左右边界检查）
-				if (x + this.cellW < 0 || x > this.canvas.width / (window.devicePixelRatio || 1)) continue
-
 				this.ctx.strokeStyle = "#3c4043"
 				this.ctx.lineWidth = 1
 				this.ctx.strokeRect(x, y, this.cellW, this.cellH)
@@ -297,9 +292,6 @@ export class MapRenderer {
 			for (let c = 0; c < colsToRender; c++) {
 				const x = effectiveStartX + c * (this.cellW + this.gapX)
 				const y = this.startY + r * (this.cellH + this.gapY)
-
-				// 跳过完全在视野外的格子
-				if (x + this.cellW < 0 || x > this.canvas.width / (window.devicePixelRatio || 1)) continue
 
 				const elemId = viewport[r][c]
 
