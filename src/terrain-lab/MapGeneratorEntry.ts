@@ -50,11 +50,14 @@ export class MapGeneratorEntry {
 			})
 		}
 
-		// ResizeObserver
+		// ResizeObserver - 使用 requestAnimationFrame 避免循环
 		const ro = new ResizeObserver(() => {
-			if (this.generatedMap) {
-				this.renderer.draw(this.generatedMap, this.currentHeroCol)
-			}
+			// 延迟到下一帧执行，避免修改 canvas 高度时触发循环
+			requestAnimationFrame(() => {
+				if (this.generatedMap) {
+					this.renderer.draw(this.generatedMap, this.currentHeroCol)
+				}
+			})
 		})
 		ro.observe(this.mapCanvas)
 	}

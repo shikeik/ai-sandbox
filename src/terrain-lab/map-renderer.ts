@@ -156,6 +156,7 @@ export class MapRenderer {
 	// 缓存 canvas 尺寸避免重复重置
 	private lastCanvasWidth = 0
 	private lastCanvasHeight = 0
+	private isCalculatingLayout = false  // 防止递归
 
 	// 内边距配置（根据内容动态计算）
 	private readonly PADDING_X = 20  // 水平内边距
@@ -168,38 +169,46 @@ export class MapRenderer {
 	 * 计算布局 - 根据内容自适应，避免空间浪费
 	 */
 	private calculateLayout(): void {
-		const rect = this.canvas.getBoundingClientRect()
-		const dpr = window.devicePixelRatio || 1
+		// 防止递归调用（ResizeObserver 触发 draw -> calculateLayout -> 修改高度 -> 触发 ResizeObserver）
+		if (this.isCalculatingLayout) return
+		this.isCalculatingLayout = true
 
-		// 1. 先计算格子大小（基于容器宽度）
-		const availableWidth = rect.width - this.PADDING_X * 2 - this.LABEL_LEFT_W
-		this.cellW = Math.floor((availableWidth - (this.viewportCols - 1) * this.gapX) / this.viewportCols)
-		this.cellH = this.cellW  // 正方形格子
-		this.gapX = 4
-		this.gapY = 4
+		try {
+			const rect = this.canvas.getBoundingClientRect()
+			const dpr = window.devicePixelRatio || 1
 
-		// 2. 计算实际需要的内容高度
-		const contentHeight = this.LABEL_TOP_H + NUM_LAYERS * this.cellH + (NUM_LAYERS - 1) * this.gapY + this.INFO_BOTTOM_H
-		const totalHeight = contentHeight + this.PADDING_Y * 2
+			// 1. 先计算格子大小（基于容器宽度）
+			const availableWidth = rect.width - this.PADDING_X * 2 - this.LABEL_LEFT_W
+			this.cellW = Math.floor((availableWidth - (this.viewportCols - 1) * this.gapX) / this.viewportCols)
+			this.cellH = this.cellW  // 正方形格子
+			this.gapX = 4
+			this.gapY = 4
 
-		// 3. 设置 canvas 高度为实际需要的高度（不浪费空间）
-		this.canvas.style.height = `${totalHeight}px`
+			// 2. 计算实际需要的内容高度
+			const contentHeight = this.LABEL_TOP_H + NUM_LAYERS * this.cellH + (NUM_LAYERS - 1) * this.gapY + this.INFO_BOTTOM_H
+			const totalHeight = contentHeight + this.PADDING_Y * 2
 
-		// 4. 只在尺寸变化时才重置 canvas 内部尺寸
-		const needReset = Math.floor(rect.width * dpr) !== this.lastCanvasWidth ||
-		                  Math.floor(totalHeight * dpr) !== this.lastCanvasHeight
+			// 3. 设置 canvas 高度为实际需要的高度（不浪费空间）
+			this.canvas.style.height = `${totalHeight}px`
 
-		if (needReset) {
-			this.canvas.width = Math.floor(rect.width * dpr)
-			this.canvas.height = Math.floor(totalHeight * dpr)
-			this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-			this.lastCanvasWidth = this.canvas.width
-			this.lastCanvasHeight = this.canvas.height
+			// 4. 只在尺寸变化时才重置 canvas 内部尺寸
+			const needReset = Math.floor(rect.width * dpr) !== this.lastCanvasWidth ||
+			                  Math.floor(totalHeight * dpr) !== this.lastCanvasHeight
+
+			if (needReset) {
+				this.canvas.width = Math.floor(rect.width * dpr)
+				this.canvas.height = Math.floor(totalHeight * dpr)
+				this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+				this.lastCanvasWidth = this.canvas.width
+				this.lastCanvasHeight = this.canvas.height
+			}
+
+			// 5. 计算起始位置（考虑标签空间）
+			this.startX = this.PADDING_X + this.LABEL_LEFT_W
+			this.startY = this.PADDING_Y + this.LABEL_TOP_H
+		} finally {
+			this.isCalculatingLayout = false
 		}
-
-		// 5. 计算起始位置（考虑标签空间）
-		this.startX = this.PADDING_X + this.LABEL_LEFT_W
-		this.startY = this.PADDING_Y + this.LABEL_TOP_H
 	}
 
 	/**
