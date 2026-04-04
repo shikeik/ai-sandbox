@@ -450,14 +450,14 @@
                 <button class="btn-accent" onclick="trainBatch()" id="btn-train" disabled>训练+预测</button>
                 <button class="btn-secondary" onclick="resetNet()">重置网络</button>
             </div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 16px;margin-top:10px;">
+            <div style="display:grid;grid-template-columns:1fr 1fr;grid-template-rows:repeat(4,auto);grid-auto-flow:column;gap:8px 16px;margin-top:10px;">
                 <div class="metric">数据集: <span id="data-count">0</span> 条</div>
                 <div class="metric">训练步数: <span id="step-count">0</span></div>
                 <div class="metric" id="metric-acc">准确率: <span id="acc-display">-</span></div>
                 <div class="metric" id="metric-valid">合法率: <span id="valid-display">-</span></div>
+                <div class="metric" id="metric-epsilon">探索率ε: <span id="epsilon-display">-</span></div>
                 <div class="metric" id="metric-loss">交叉熵损失: <span id="loss-display">-</span></div>
                 <div class="metric" id="metric-reward">平均奖励: <span id="reward-display">-</span></div>
-                <div class="metric" id="metric-epsilon">探索率ε: <span id="epsilon-display">-</span></div>
             </div>
             <div class="progress-wrap"><div class="progress-bar" id="train-progress"></div></div>
             <div class="exam-result wait" id="exam-box" style="margin-top:10px;">
