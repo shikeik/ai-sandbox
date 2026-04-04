@@ -197,29 +197,27 @@ npm run preview
 
 ## 7. 测试策略
 
-本项目**没有配置 Jest/Vitest 等测试框架**，测试采用**自定义轻量测试套件**，直接通过 `tsx` 在 Node 环境下运行。
+本项目使用 **Vitest** 作为标准测试框架，与 Vite + TypeScript 深度集成。
 
 ### 测试文件位置
 
-`src/terrain-lab/__tests__/` 下：
+`src/terrain-lab/` 下以 `.test.ts` 结尾的文件：
 
 | 文件 | 用途 |
 |------|------|
-| `test-utils.ts` | 提供 `assertEqual`、`assertTrue`、`assertClose`、`describe`、`it` 等自定义断言 |
-| `convergence-test.ts` | 验证监督学习与无监督学习在默认地形配置下能否收敛到目标指标 |
-| `clip-test.ts` | 验证不同权重裁剪值对无监督学习合法率的影响 |
-| `filtered-supervised-test.ts` | 验证"只有选中最优动作时才监督更新"的过滤式策略效果 |
+| `convergence.test.ts` | 验证监督学习与无监督学习在默认地形配置下能否收敛到目标指标 |
+| `clip.test.ts` | 验证不同权重裁剪值对无监督学习合法率的影响 |
+| `filtered-supervised.test.ts` | 验证"只有选中最优动作时才监督更新"的过滤式策略效果 |
 
 ### 运行方式
 
 ```bash
-# 需要安装 tsx（若未安装则先执行 npm install -g tsx）
-npx tsx src/terrain-lab/__tests__/convergence-test.ts
-npx tsx src/terrain-lab/__tests__/clip-test.ts
-npx tsx src/terrain-lab/__tests__/filtered-supervised-test.ts
-```
+# 运行所有测试
+npm test
 
-> 注意：`package.json` 中**没有**定义 `test` 脚本，不要尝试运行 `npm test`。
+# 开发模式（监听变更）
+npx vitest
+```
 
 ---
 
