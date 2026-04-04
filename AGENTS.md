@@ -12,8 +12,8 @@
 
 **核心体验**：
 - **🦊 单层感知机演示**（`fox-jump`）：玩家控制一只纯 CSS 绘制的狐狸，在 32 格横版地形中右移或跳跃躲避坑洞。可切换为 AI 控制/AI 训练模式，实时观察一个 4→3 单层神经网络的权重变化。
-- **📐 地形实验室**（`terrain-lab`）：监督学习演示。支持地形编辑、带隐藏层的 MLP（多层感知机）动作预测、批量训练与可视化。
-- **🧮 MLP 神经网络教学**（`mlp-teaching`）：前向传播与反向传播的可视化教学页面。
+- **📐 地形实验室**（`terrain-lab`）：监督学习与无监督学习演示。支持地形编辑、带隐藏层的 MLP（多层感知机）动作预测、批量训练、课程学习与可视化（含 Embedding 空间、训练快照、执念曲线）。
+- **🧮 MLP 神经网络教学**（`mlp-teaching`）：前向传播与反向传播的可视化教学页面。该页面为独立的单文件 HTML，无 TypeScript 源码，所有逻辑与样式均内联在 `pages/mlp-teaching.html` 中。
 
 ---
 
@@ -47,7 +47,7 @@
 ├── pages/                          # 多页面 HTML 入口
 │   ├── fox-jump.html               # 狐狸跳跃游戏页
 │   ├── terrain-lab.html            # 地形实验室页
-│   └── mlp-teaching.html           # MLP 教学页
+│   └── mlp-teaching.html           # MLP 教学页（独立内联页面，无 TS 源码）
 ├── src/
 │   ├── types.d.ts                  # 全局类型声明（CSS 导入、Vite HMR）
 │   ├── engine/                     # 共享引擎层
@@ -83,16 +83,23 @@
 │   │   └── utils/
 │   │       ├── SeededRandom.ts     # Mulberry32 种子化随机数
 │   │       └── timeUtils.ts        # 时间格式化
-│   └── terrain-lab/                # 地形实验室（监督学习 + MLP）
+│   └── terrain-lab/                # 地形实验室（监督/无监督学习 + MLP）
 │       ├── main.ts                 # 地形实验室入口
 │       ├── state.ts                # 全局状态管理
-│       ├── constants.ts            # 网络维度、元素类型、动作常量
+│       ├── constants.ts            # 网络维度、元素类型、动作常量、课程阶段
 │       ├── types.ts                # 类型定义
-│       ├── neural-network.ts       # MLP 实现（ReLU + Softmax + 反向传播）
+│       ├── neural-network.ts       # MLP 实现（Embedding + ReLU + Softmax）
+│       ├── supervised.ts           # 监督学习梯度累积
+│       ├── unsupervised.ts         # 无监督学习梯度累积与奖励计算
 │       ├── terrain.ts              # 地形编码、合法性检查、数据集生成
-│       ├── renderer.ts             # Canvas 绘制（地形网格、Emoji）
+│       ├── renderer.ts             # Canvas 绘制（地形网格、Emoji、MLP 图）
 │       ├── animation.ts            # 狐狸动作动画路径计算
-│       └── utils.ts                # 数学工具
+│       ├── utils.ts                # 数学工具
+│       └── __tests__/              # 收敛性/裁剪/过滤式学习测试
+│           ├── test-utils.ts       # 自定义断言与测试套件
+│           ├── convergence-test.ts # 监督与无监督收敛测试
+│           ├── clip-test.ts        # 权重裁剪影响测试
+│           └── filtered-supervised-test.ts # 过滤式监督学习测试
 └── dist/                           # Vite 构建输出目录
 ```
 
@@ -150,7 +157,7 @@ npm run preview
 
 部署流程：
 1. 本地执行 `npm run build`
-2. 打包 `dist/` 目录并通过 SSH 上传到服务器
+2. 打包 `dist/` 目录并通过 SSH 上传到服务器 `/home/ubuntu/ai-sandbox`
 3. 重启服务器 Nginx
 
 ---
@@ -184,12 +191,41 @@ npm run preview
 - `[EPS]` — 恒竖布局系统
 - `[MAIN]` — 主入口
 - `[HMR]` — 热更新
+- `[SUP]` / `[UNS]` / `[PREDICT]` — terrain-lab 训练与预测
 
 ---
 
-## 7. 核心架构
+## 7. 测试策略
 
-### 7.1 共享引擎层（`src/engine/`）
+本项目**没有配置 Jest/Vitest 等测试框架**，测试采用**自定义轻量测试套件**，直接通过 `tsx` 在 Node 环境下运行。
+
+### 测试文件位置
+
+`src/terrain-lab/__tests__/` 下：
+
+| 文件 | 用途 |
+|------|------|
+| `test-utils.ts` | 提供 `assertEqual`、`assertTrue`、`assertClose`、`describe`、`it` 等自定义断言 |
+| `convergence-test.ts` | 验证监督学习与无监督学习在默认地形配置下能否收敛到目标指标 |
+| `clip-test.ts` | 验证不同权重裁剪值对无监督学习合法率的影响 |
+| `filtered-supervised-test.ts` | 验证"只有选中最优动作时才监督更新"的过滤式策略效果 |
+
+### 运行方式
+
+```bash
+# 需要安装 tsx（若未安装则先执行 npm install -g tsx）
+npx tsx src/terrain-lab/__tests__/convergence-test.ts
+npx tsx src/terrain-lab/__tests__/clip-test.ts
+npx tsx src/terrain-lab/__tests__/filtered-supervised-test.ts
+```
+
+> 注意：`package.json` 中**没有**定义 `test` 脚本，不要尝试运行 `npm test`。
+
+---
+
+## 8. 核心架构
+
+### 8.1 共享引擎层（`src/engine/`）
 
 **EPS 恒竖布局系统**（`eps.ts`）：
 - 当设备物理横屏时，通过 CSS `transform: rotate(-90deg)` 强制内容竖屏显示
@@ -202,7 +238,7 @@ npm run preview
 - `ConsolePanel` 提供可折叠面板、标签筛选、自动滚动、日志下载
 - 各页面独立实例化自己的 `Logger` 与 `ConsolePanel`
 
-### 7.2 狐狸跳跃（`fox-jump`）
+### 8.2 狐狸跳跃（`fox-jump`）
 
 **世界**：32 格横版地图，随机生成平地(`ground`)与坑(`pit`)。起点固定为 2 格地面。
 
@@ -226,29 +262,29 @@ npm run preview
 - `ai`：AI 自动闯关，只观察不训练
 - `train`：AI 自动闯关并实时更新权重，支持 5 档速度
 
-### 7.3 地形实验室（`terrain-lab`）
+### 8.3 地形实验室（`terrain-lab`）
 
-**监督学习演示页面**：
+**监督学习 + 无监督学习演示页面**：
 - **地形编辑器**：5 列 × 3 层网格，支持放置空气、狐狸、平地、史莱姆、恶魔、金币
-- **MLP 网络结构**：30 维输入（5×3×2 Embedding）→ 16 维隐藏层（ReLU）→ 4 维输出（Softmax）
+- **MLP 网络结构**：30 维输入（5×3×2 Embedding）→ 32 维隐藏层（ReLU）→ 4 维输出（Softmax）
 - **动作空间**：走、跳、远跳、走A（共 4 种）
 - **训练流程**：
   1. 自动生成 6000 条合法训练数据
   2. 批量训练：32 条/批次，交叉熵损失 + 反向传播
-  3. 实时更新 Loss、准确率、Embedding 可视化
-  4. 支持训练快照与执念曲线（单样本概率演变）
-- **课程学习**：5 阶段渐进解锁（平地大道→坑洞→史莱姆→恶魔→金币）
+  3. 实时更新 Loss、准确率、合法率、Embedding 可视化
+  4. 支持训练快照滑块与执念曲线（单样本概率演变）
+- **课程学习**：5 阶段渐进解锁（平地大道→坑洞→史莱姆→恶魔→金币），每阶段 6000 条数据，支持监督/无监督两种模式
 
-### 7.4 MLP 教学（`mlp-teaching`）
+### 8.4 MLP 教学（`mlp-teaching`）
 
-独立 HTML 页面，专注于**前向传播与反向传播的可视化教学**：
+独立 HTML 页面（`pages/mlp-teaching.html`），**无构建步骤**，所有 CSS 与 JavaScript 均内联：
 - 网络结构：2 输入 → 2 隐藏（ReLU）→ 1 输出
 - 可交互设置输入值、目标输出、学习率
 - 实时显示计算过程与权重更新
 
 ---
 
-## 8. 多页面入口与导航
+## 9. 多页面入口与导航
 
 Vite 配置中通过 `rollupOptions.input` 定义 4 个入口：
 
@@ -263,7 +299,7 @@ Vite 配置中通过 `rollupOptions.input` 定义 4 个入口：
 
 ---
 
-## 9. 单文件打包
+## 10. 单文件打包
 
 `scripts/build-single-file.mjs` 功能：
 1. 先执行标准 Vite 构建
@@ -274,43 +310,45 @@ Vite 配置中通过 `rollupOptions.input` 定义 4 个入口：
 
 输出文件：
 
-| 文件 | 大小 | 说明 |
-|------|------|------|
-| `dist/index.html` | ~3 KB | 导航首页 |
-| `dist/fox-jump.html` | ~80 KB | 狐狸跳跃游戏 |
-| `dist/game.html` | ~80 KB | fox-jump 兼容别名 |
-| `dist/terrain-lab.html` | ~30 KB | 地形实验室 |
-| `dist/mlp-teaching.html` | ~25 KB | MLP 教学 |
+| 文件 | 说明 |
+|------|------|
+| `dist/index.html` | 导航首页 |
+| `dist/fox-jump.html` | 狐狸跳跃游戏 |
+| `dist/game.html` | fox-jump 兼容别名 |
+| `dist/terrain-lab.html` | 地形实验室 |
+| `dist/mlp-teaching.html` | MLP 教学（本身已是单文件，再次复制） |
 
 ---
 
-## 10. 已知问题与注意事项
+## 11. 已知问题与注意事项
 
-### 10.1 修改 `eps.ts` 时的兼容性
+### 11.1 修改 `eps.ts` 时的兼容性
 
 `eps.ts` 与 `fox-jump/managers/InputManager.ts` 存在联动。修改尺寸/坐标相关代码时，需两边同时考虑。
 
-### 10.2 AI 训练逻辑
+### 11.2 AI 训练逻辑
 
 `fox-jump/ai/NeuralNetwork.ts` 中的权重更新逻辑精简。改动后需在 AI 训练模式下观察多局，确认学习行为未退化。
 
-### 10.3 狐狸动画冲突
+### 11.3 狐狸动画冲突
 
 狐狸动画同时涉及 CSS 动画、CSS transition 和 WAAPI。修改时留意 `transition: none !important` 的覆盖规则。
 
-### 10.4 localStorage 使用
+### 11.4 localStorage 使用
 
 仅用于本地玩家最佳时间（`PlayerBestStore`），**不要**存储敏感信息。
 
+### 11.5 `mlp-teaching.html` 的特殊性
+
+该页面没有对应的 `src/` 源码，所有修改直接在 `pages/mlp-teaching.html` 中进行。构建时无需额外处理。
+
 ---
 
-## 11. 待办事项
+## 12. 待办事项
 
 详见 `TODO.md`，主要方向：
-- terrain-lab Tab 拆分
-- 课程学习自动递进
-- 验证 Embedding 监督学习收敛表现
+- terrain-lab Tab 拆分：监督学习页 + 连续挑战页
 
 ---
 
-*最后更新：2026-04-04 · Commit: `05ba24b`*
+*最后更新：2026-04-04*
