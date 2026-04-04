@@ -1,10 +1,10 @@
 import type { ForwardResult, ActionType } from "./types.js"
 import type { AppState } from "./state.js"
 import {
-	NUM_COLS, NUM_LAYERS, NUM_ELEMENTS, HIDDEN_DIM, OUTPUT_DIM,
+	NUM_COLS, NUM_LAYERS, NUM_ELEMENTS, HIDDEN_DIM, OUTPUT_DIM, EMBED_DIM,
 	INPUT_DIM, ACTIONS, ELEM_AIR, ELEM_HERO, ELEM_GROUND, ELEM_SLIME, ELEM_DEMON, ELEM_COIN,
-	CURRICULUM_STAGES, EMBED_SIZE_BASE, EMBED_SIZE_SENSITIVITY, EMBED_SIZE_OFFSET, EMBED_SIZE_MIN, EMBED_SIZE_MAX,
-	UNSUPERVISED_CONFIG, TRAIN_CONFIG
+	CURRICULUM_STAGES, ELEMENTS, EMBED_SIZE_BASE, EMBED_SIZE_SENSITIVITY, EMBED_SIZE_OFFSET, EMBED_SIZE_MIN, EMBED_SIZE_MAX,
+	UNSUPERVISED_CONFIG, TRAIN_CONFIG, DATASET_SIZE, EVAL_SAMPLE_SIZE
 } from "./constants.js"
 import { createGradientBuffer, accumulateGradients, calculateReward, type ActionEvaluation } from "./unsupervised.js"
 import { createGradientBuffer as createSuperBuffer, accumulateSupervisedGrad, evaluateModel } from "./supervised.js"
@@ -30,15 +30,7 @@ let mlpCanvas: HTMLCanvasElement
 let embeddingCanvas: HTMLCanvasElement
 let obsessionCanvas: HTMLCanvasElement
 
-// UI 元素定义（多处复用）
-const UI_ELEMENTS = [
-	{ id: ELEM_AIR, name: "空气", emoji: "⬛" },
-	{ id: ELEM_HERO, name: "狐狸", emoji: "🦊" },
-	{ id: ELEM_GROUND, name: "平地", emoji: "🟩" },
-	{ id: ELEM_SLIME, name: "史莱姆", emoji: "🦠" },
-	{ id: ELEM_DEMON, name: "恶魔", emoji: "👿" },
-	{ id: ELEM_COIN, name: "金币", emoji: "🪙" },
-]
+// 注意：UI 元素定义现在使用从 constants.ts 导入的 ELEMENTS
 
 // 编辑器布局计算（抽离重复逻辑）
 function getEditorLayout(rect: { width: number; height: number }) {
@@ -229,7 +221,7 @@ async function trainUnsupervised() {
 			// 计算准确率和合法率（基于预测动作，不是探索动作）
 			let correctCount = 0
 			let predValidCount = 0
-			for (const sample of state.dataset.slice(0, 100)) { // 采样100个计算
+			for (const sample of state.dataset.slice(0, EVAL_SAMPLE_SIZE)) { // 修复：使用常量
 				const fp = forward(state.net, sample.indices)
 				const predicted = fp.o.indexOf(Math.max(...fp.o))
 				if (predicted === sample.y) correctCount++
@@ -239,8 +231,8 @@ async function trainUnsupervised() {
 				const checks = getActionChecks(sample.t, heroCol)
 				if (isActionValidByChecks(checks, predicted)) predValidCount++
 			}
-			const accuracy = (correctCount / 100) * 100
-			const validRate = (predValidCount / 100) * 100  // 基于预测动作的合法率
+			const accuracy = (correctCount / EVAL_SAMPLE_SIZE) * 100
+			const validRate = (predValidCount / EVAL_SAMPLE_SIZE) * 100  // 基于预测动作的合法率
 			
 			// 动态调整探索率
 			const newEpsilon = adjustEpsilon(validRate)
@@ -394,7 +386,7 @@ function evaluateAll() {
 // ========== 数据生成 ==========
 
 function generateData() {
-	state.dataset = generateTerrainData(6000, state.terrainConfig)
+	state.dataset = generateTerrainData(DATASET_SIZE, state.terrainConfig)  // 修复：使用常量
 	updateMetrics(0)
 	document.getElementById("data-count")!.textContent = String(state.dataset.length)
 	const btn = document.getElementById("btn-train") as HTMLButtonElement
@@ -628,7 +620,7 @@ function renderBrushes() {
 	const list = document.getElementById("brush-list") as HTMLDivElement
 	list.innerHTML = ""
 	const allowed = getAllowedElementsForBrush()
-	UI_ELEMENTS.forEach((el) => {
+	ELEMENTS.forEach((el) => {
 		if (!allowed.includes(el.id)) return
 		const item = document.createElement("div")
 		item.className = "brush-item" + (el.id === state.selectedBrush ? " active" : "")
@@ -795,7 +787,7 @@ async function runCurriculum() {
 	renderBrushes()
 
 	// 生成数据
-	state.dataset = generateTerrainData(6000, state.terrainConfig)
+	state.dataset = generateTerrainData(DATASET_SIZE, state.terrainConfig)  // 修复：使用常量
 	document.getElementById("data-count")!.textContent = String(state.dataset.length)
 	const btnTrain = document.getElementById("btn-train") as HTMLButtonElement
 	btnTrain.disabled = state.dataset.length === 0
@@ -822,7 +814,7 @@ async function runCurriculum() {
 async function runCurriculumSupervised() {
 	const targetAcc = 90
 	const maxTotalSteps = 3000
-	const batchSize = 128
+	const { batchSize } = TRAIN_CONFIG.supervised  // 修复：使用 TRAIN_CONFIG
 	const stepsPerBatch = 100
 	let achieved = false
 
@@ -875,14 +867,15 @@ async function runCurriculumSupervised() {
 // 课程学习 - 无监督学习模式
 async function runCurriculumUnsupervised() {
 	const targetValidRate = 70  // 无监督用合法率代替准确率
+	const targetAcc = 50        // 添加：准确率目标
 	const maxTotalSteps = 3000
-	const batchSize = 128
+	const { batchSize } = TRAIN_CONFIG.unsupervised  // 修复：使用 TRAIN_CONFIG
 	const stepsPerBatch = 100
 	let achieved = false
 
 	while (state.trainSteps < maxTotalSteps) {
 		for (let s = 0; s < stepsPerBatch; s++) {
-			const gEmbed = zeroMat(NUM_ELEMENTS, 2)
+			const gEmbed = zeroMat(NUM_ELEMENTS, EMBED_DIM)  // 修复：使用 EMBED_DIM 常量
 			const gW1 = zeroMat(HIDDEN_DIM, INPUT_DIM)
 			const gb1 = zeroVec(HIDDEN_DIM)
 			const gW2 = zeroMat(OUTPUT_DIM, HIDDEN_DIM)
@@ -918,16 +911,19 @@ async function runCurriculumUnsupervised() {
 			state.trainSteps++
 		}
 
-		// 评估合法率
+		// 评估合法率和准确率（修复：添加准确率评估）
 		let validCount = 0
+		let correctCount = 0
 		for (const sample of state.dataset) {
 			const fp = forward(state.net, sample.indices)
 			const action = fp.o.indexOf(Math.max(...fp.o))
+			if (action === sample.y) correctCount++
 			const heroCol = findHeroCol(sample.t)
 			const checks = getActionChecks(sample.t, heroCol)
 			if (isActionValidByChecks(checks, action)) validCount++
 		}
 		const validRate = (validCount / state.dataset.length) * 100
+		const accuracy = (correctCount / state.dataset.length) * 100
 		// 动态调整探索率
 		const newEpsilon = adjustEpsilon(validRate)
 		console.log("[UNS]", `合法率:${validRate.toFixed(1)}% 探索率ε:${newEpsilon.toFixed(2)} 历史窗口:[${state.unsupervisedHistory.map(v => v.toFixed(0)).join(",")}]`)
@@ -1156,7 +1152,7 @@ function drawEmbedding() {
 
 	// 动态计算缩放因子，确保所有元素都在画布内
 	let maxAbs = 0
-	for (const el of UI_ELEMENTS) {
+	for (const el of ELEMENTS) {
 		maxAbs = Math.max(maxAbs, Math.abs(state.net.embed[el.id][0]), Math.abs(state.net.embed[el.id][1]))
 	}
 	maxAbs = Math.max(maxAbs, 0.5) // 防止初始全在0附近时scale过大
@@ -1199,7 +1195,7 @@ function drawEmbedding() {
 	)
 
 	// 元素点
-	for (const el of UI_ELEMENTS) {
+	for (const el of ELEMENTS) {
 		const ex = state.net.embed[el.id][0]
 		const ey = state.net.embed[el.id][1]
 		const px = cx + ex * scale

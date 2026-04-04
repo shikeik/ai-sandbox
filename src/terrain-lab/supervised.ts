@@ -1,7 +1,7 @@
 // ========== 监督学习核心逻辑（可测试封装）==========
 
 import type { NetParams, ForwardResult } from "./types.js"
-import { NUM_ELEMENTS, HIDDEN_DIM, INPUT_DIM, OUTPUT_DIM } from "./constants.js"
+import { NUM_ELEMENTS, HIDDEN_DIM, INPUT_DIM, OUTPUT_DIM, EMBED_DIM } from "./constants.js"
 import { forward, backward } from "./neural-network.js"
 
 // 梯度容器（与 Gradients 接口兼容）
@@ -22,7 +22,7 @@ export interface TrainingStats {
 // 创建空梯度容器
 export function createGradientBuffer(): GradientBuffer {
 	return {
-		dEmbed: Array(NUM_ELEMENTS).fill(null).map(() => Array(2).fill(0)),
+		dEmbed: Array(NUM_ELEMENTS).fill(null).map(() => Array(EMBED_DIM).fill(0)),
 		dW1: Array(HIDDEN_DIM).fill(null).map(() => Array(INPUT_DIM).fill(0)),
 		db1: Array(HIDDEN_DIM).fill(0),
 		dW2: Array(OUTPUT_DIM).fill(null).map(() => Array(HIDDEN_DIM).fill(0)),

@@ -89,6 +89,10 @@ export const UNSUPERVISED_CONFIG = {
 	epsilonDecayIdle: 0.005,  // 持平时降低量
 }
 
+// ========== 数据与评估配置 ==========
+export const DATASET_SIZE = 6000
+export const EVAL_SAMPLE_SIZE = 100
+
 // ========== 训练配置（统一入口）==========
 export const TRAIN_CONFIG = {
 	supervised: {
