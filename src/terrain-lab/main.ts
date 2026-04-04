@@ -18,7 +18,8 @@ import {
 	drawMLP as rendererDrawMLP, drawEmbedding as rendererDrawEmbedding,
 	drawObsessionCurve as rendererDrawObsessionCurve,
 	stepAnimation as rendererStepAnimation,
-	drawEditorWithState
+	drawEditorWithState,
+	setupCanvas, getEditorLayout, drawEditorLabels, drawTerrainGrid, drawEmoji
 } from "./renderer.js"
 import { UIManager } from "./ui-manager.js"
 import { TrainingEngine } from "./training-engine.js"
@@ -30,7 +31,7 @@ import { ObsessionManager } from "./obsession-manager.js"
 import { zeroMat, zeroVec } from "./utils.js"
 
 // 课程学习内部使用的评估函数（将在批次6中进一步重构）
-import { calculateAnimationPath } from "./animation.js"
+import { calculateAnimationPath, type AnimationPath } from "./animation.js"
 import { createInitialState, resetState, setTerrainCell, stopAnimation } from "./state.js"
 
 // ========== 连续挑战模块 ==========
@@ -51,6 +52,18 @@ const obsessionManager = new ObsessionManager(state, uiManager, snapshotManager)
 // 连续挑战控制器
 let challengeController: ChallengeController | null = null
 let challengeUIManager: ChallengeUIManager | null = null
+
+// 挑战动画状态
+interface ChallengeAnimState {
+	action: ActionType
+	startTime: number
+	duration: number
+	path: AnimationPath
+	resolve: () => void
+	slimeKilled: boolean
+}
+let challengeAnimState: ChallengeAnimState | null = null
+let challengeAnimFrameId: number | null = null
 
 // Predictor 需要等 drawMLP/drawEmbedding/playAnimation 定义后再创建
 let predictor: Predictor
@@ -92,6 +105,134 @@ function switchTab(tabName: string): void {
 function initChallenge(): void {
 	challengeUIManager = new ChallengeUIManager(state)
 
+	// 获取挑战画布
+	const challengeCanvas = document.getElementById("challenge-canvas") as HTMLCanvasElement
+
+	// 缓动函数 - 复用自 renderer.ts
+	const easeOutQuad = (t: number): number => t * (2 - t)
+
+	// 动画播放回调 - 复用已有的动画系统
+	const playChallengeAnimation = (action: ActionType, speed: ChallengeSpeed): Promise<void> => {
+		if (!challengeCanvas) {
+			return Promise.resolve()
+		}
+
+		// 停止任何正在进行的动画
+		stopChallengeAnimation()
+
+		// 获取动画路径信息以计算持续时间
+		const heroCol = findHeroCol(state.terrain)
+		const path = calculateAnimationPath(heroCol, action)
+
+		// 根据速度调整动画持续时间
+		const adjustedDuration = path.duration / speed
+
+		return new Promise((resolve) => {
+			// 设置动画状态
+			challengeAnimState = {
+				action,
+				startTime: performance.now(),
+				duration: adjustedDuration,
+				path,
+				resolve,
+				slimeKilled: false,
+			}
+
+			// 开始动画循环
+			challengeAnimFrameId = requestAnimationFrame(stepChallengeAnimation)
+		})
+	}
+
+	// 动画帧步进 - 复用 renderer.ts 的 stepAnimation 逻辑
+	const stepChallengeAnimation = (now: number) => {
+		if (!challengeAnimState || !challengeCanvas) return
+
+		const { action, startTime, duration, resolve } = challengeAnimState
+
+		// 计算进度
+		let t = (now - startTime) / duration
+		if (t > 1) t = 1
+
+		// 使用 renderer.ts 的 stepAnimation 绘制当前帧
+		// 注意：这里我们使用挑战画布，而不是编辑器画布
+		renderChallengeAnimationFrame(t)
+
+		if (t < 1) {
+			challengeAnimFrameId = requestAnimationFrame(stepChallengeAnimation)
+		} else {
+			// 动画完成
+			finishChallengeAnimation()
+			resolve()
+		}
+	}
+
+	// 渲染挑战动画帧 - 复用 renderer.ts 的绘制逻辑
+	const renderChallengeAnimationFrame = (progress: number) => {
+		if (!challengeAnimState || !challengeCanvas) return
+
+		const { ctx, rect } = setupCanvas(challengeCanvas)
+		const { cellW, cellH, gapX, gapY, startX, startY } = getEditorLayout(rect)
+
+		// 绘制标签
+		drawEditorLabels(ctx, startX, startY, cellW, cellH, gapX, gapY)
+
+		const heroCol = findHeroCol(state.terrain)
+		const { path } = challengeAnimState
+
+		const heroBaseX = startX + heroCol * (cellW + gapX) + cellW / 2
+		const heroBaseY = startY + 1 * (cellH + gapY) + cellH / 2
+		const targetX = startX + path.targetCol * (cellW + gapX) + cellW / 2
+
+		// 计算狐狸位置 - 复用 animation.ts 的逻辑
+		let hx = heroBaseX
+		let hy = heroBaseY
+		const t = progress
+
+		if (!path.isJump) {
+			// 走或走A：使用缓动
+			hx = heroBaseX + (targetX - heroBaseX) * easeOutQuad(t)
+			hy = heroBaseY
+			// 走A：在进度超过50%时击杀史莱姆
+			if (path.duration === 400 && t > 0.5) {
+				challengeAnimState.slimeKilled = true
+			}
+		} else {
+			// 跳跃：抛物线
+			hx = heroBaseX + (targetX - heroBaseX) * t
+			const parabola = 4 * t * (1 - t)
+			hy = heroBaseY - parabola * (cellH + path.jumpHeight)
+		}
+
+		// 绘制地形网格
+		drawTerrainGrid(ctx, state.terrain, {
+			cellW, cellH, gapX, gapY, startX, startY,
+			hideSlimeAt: challengeAnimState.slimeKilled ? (heroCol + 1 < NUM_COLS ? heroCol + 1 : null) : null,
+			hideHeroAtCol: heroCol,
+			dimNonInteractive: false,
+		})
+
+		// 绘制动画中的狐狸
+		drawEmoji(ctx, "🦊", hx, hy, Math.min(cellW, cellH) * 0.65)
+	}
+
+	// 完成挑战动画
+	const finishChallengeAnimation = () => {
+		if (challengeAnimFrameId !== null) {
+			cancelAnimationFrame(challengeAnimFrameId)
+			challengeAnimFrameId = null
+		}
+		challengeAnimState = null
+	}
+
+	// 停止挑战动画
+	const stopChallengeAnimation = () => {
+		if (challengeAnimFrameId !== null) {
+			cancelAnimationFrame(challengeAnimFrameId)
+			challengeAnimFrameId = null
+		}
+		challengeAnimState = null
+	}
+
 	challengeController = new ChallengeController(
 		state,
 		(challengeState: ChallengeState) => {
@@ -104,9 +245,10 @@ function initChallenge(): void {
 			// 关卡完成回调
 			challengeUIManager?.updateResult(result)
 			challengeUIManager?.updateProbs(result.probabilities)
-			challengeUIManager?.drawTerrain(result.terrain)
-			challengeUIManager?.drawMLP(result.terrain)
-		}
+			// 注意：这里不立即绘制地形，等待动画渲染
+		},
+		playChallengeAnimation,
+		challengeCanvas
 	)
 
 	// 初始化挑战 UI

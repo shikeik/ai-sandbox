@@ -52,15 +52,28 @@ export class ChallengeController {
 	private challengeTimer: number | null = null
 	private onUpdate: (state: ChallengeState) => void
 	private onLevelComplete: (result: ChallengeResult) => void
+	private onPlayAnimation: (action: ActionType, speed: ChallengeSpeed) => Promise<void>
+	private canvas: HTMLCanvasElement | null = null
+
+	// 动画状态
+	private animId: number | null = null
+	private animStartTime: number = 0
+	private animAction: ActionType | null = null
+	private animSlimeKilled: boolean = false
+	private animResolve: (() => void) | null = null
 
 	constructor(
 		state: AppState,
 		onUpdate: (state: ChallengeState) => void,
-		onLevelComplete: (result: ChallengeResult) => void
+		onLevelComplete: (result: ChallengeResult) => void,
+		onPlayAnimation: (action: ActionType, speed: ChallengeSpeed) => Promise<void>,
+		canvas?: HTMLCanvasElement
 	) {
 		this.state = state
 		this.onUpdate = onUpdate
 		this.onLevelComplete = onLevelComplete
+		this.onPlayAnimation = onPlayAnimation
+		this.canvas = canvas ?? null
 		this.challengeState = this.createInitialChallengeState()
 	}
 
@@ -163,14 +176,36 @@ export class ChallengeController {
 			clearTimeout(this.challengeTimer)
 			this.challengeTimer = null
 		}
+		// 停止动画
+		this.stopAnimation()
 		this.challengeState.isRunning = false
 		this.challengeState.isPaused = false
 	}
 
 	/**
+	 * 设置画布（用于动画渲染）
+	 */
+	setCanvas(canvas: HTMLCanvasElement): void {
+		this.canvas = canvas
+	}
+
+	/**
+	 * 停止当前动画
+	 */
+	private stopAnimation(): void {
+		if (this.animId !== null) {
+			cancelAnimationFrame(this.animId)
+			this.animId = null
+		}
+		this.animAction = null
+		this.animSlimeKilled = false
+		this.animResolve = null
+	}
+
+	/**
 	 * 执行下一关
 	 */
-	private runNextLevel(): void {
+	private async runNextLevel(): Promise<void> {
 		if (!this.challengeState.isRunning || this.challengeState.isPaused) return
 
 		// 生成新地形
@@ -201,11 +236,23 @@ export class ChallengeController {
 		this.onUpdate(this.challengeState)
 		this.onLevelComplete(result)
 
-		// 延迟进入下一关
+		// 播放动作动画（无论是否合法都播放，展示AI决策）
+		const actionName = result.predictedActionName as ActionType
+		await this.playLevelAnimation(actionName)
+
+		// 动画完成后，延迟进入下一关
 		const delay = this.calculateDelay()
 		this.challengeTimer = window.setTimeout(() => {
 			this.runNextLevel()
 		}, delay)
+	}
+
+	/**
+	 * 播放关卡动画
+	 */
+	private playLevelAnimation(action: ActionType): Promise<void> {
+		// 使用回调方式播放动画（由 main.ts 提供具体实现）
+		return this.onPlayAnimation(action, this.speed)
 	}
 
 	/**
@@ -243,10 +290,10 @@ export class ChallengeController {
 	}
 
 	/**
-	 * 计算关卡间隔延迟
+	 * 计算关卡间隔延迟（动画后延迟）
 	 */
 	private calculateDelay(): number {
-		const baseDelay = 1500  // 基础延迟 1.5秒
+		const baseDelay = 500  // 基础延迟 0.5秒（动画已展示足够时间）
 		return baseDelay / this.speed
 	}
 
