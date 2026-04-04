@@ -177,28 +177,11 @@ export class MapRenderer {
 	}
 
 	/**
-	 * 获取视野内的地图数据（支持丝滑滚动，多取三列防止边缘裁剪）
+	 * 获取完整地图数据（32列全部取，简单可靠）
 	 */
 	private getViewport(map: number[][]): number[][] {
-		const viewport: number[][] = [[], [], []]
-		// 始终从 cameraCol 的前一列开始取，确保丝滑滚动时左边界有数据
-		const startCol = Math.floor(this.cameraCol) - 1
-
-		// 多取三列：左边界一列 + 丝滑滚动一列 + 右边界缓冲一列
-		const colsToRender = this.viewportCols + 3
-
-		for (let layer = 0; layer < NUM_LAYERS; layer++) {
-			for (let i = 0; i < colsToRender; i++) {
-				const mapCol = startCol + i
-				if (mapCol >= 0 && mapCol < this.mapWidth) {
-					viewport[layer][i] = map[layer][mapCol]
-				} else {
-					viewport[layer][i] = ELEM_AIR
-				}
-			}
-		}
-
-		return viewport
+		// 直接返回完整地图，全部绘制
+		return map
 	}
 
 	/**
@@ -235,14 +218,14 @@ export class MapRenderer {
 		// 计算丝滑滚动偏移量
 		const scrollOffset = this.getScrollOffset()
 
-		// 动画状态处理（索引+1，因为viewport从cameraCol-1开始取）
+		// 动画状态处理（viewport现在是完整地图，直接用实际列索引）
 		let hideHeroAtCol: number | null = null
 		let hideSlimeAt: number | null = null
 
 		if (this.animState) {
-			hideHeroAtCol = 1  // viewport[1] 对应 cameraCol
+			hideHeroAtCol = this.currentHeroCol
 			if (this.animState.slimeKilled) {
-				hideSlimeAt = 2  // 史莱姆在 heroCol+1，对应 viewport[2]
+				hideSlimeAt = this.currentHeroCol + 1
 			}
 		}
 
@@ -318,17 +301,11 @@ export class MapRenderer {
 		this.ctx.font = "12px sans-serif"
 		this.ctx.textAlign = "center"
 
-		// 从 cameraCol-1 开始绘制，与 viewport 一致
-		const startCol = Math.floor(this.cameraCol) - 1
 		const effectiveStartX = this.startX - scrollOffset
 
-		// 多绘制两列标签用于丝滑滚动显示
-		for (let i = 0; i <= this.viewportCols + 1; i++) {
-			const col = startCol + i
-			if (col < 0) continue
-			if (col >= this.mapWidth) break
-
-			const x = effectiveStartX + i * (this.cellW + this.gapX) + this.cellW / 2
+		// 绘制所有列的标签（32列全部画，在视野外的会被自然裁剪）
+		for (let col = 0; col < this.mapWidth; col++) {
+			const x = effectiveStartX + col * (this.cellW + this.gapX) + this.cellW / 2
 			const y = this.startY - 12
 			this.ctx.fillText(`x${col}`, x, y)
 		}
