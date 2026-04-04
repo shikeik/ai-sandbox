@@ -153,35 +153,78 @@ export class MapRenderer {
 		this.canvas.addEventListener("touchend", onEnd)
 	}
 
+	// 缓存 canvas 尺寸避免重复重置
+	private lastCanvasWidth = 0
+	private lastCanvasHeight = 0
+
+	// 内边距配置（根据内容动态计算）
+	private readonly PADDING_X = 20  // 水平内边距
+	private readonly PADDING_Y = 12  // 垂直内边距
+	private readonly LABEL_TOP_H = 20  // 顶部列标签高度
+	private readonly LABEL_LEFT_W = 40  // 左侧层标签宽度
+	private readonly INFO_BOTTOM_H = 25  // 底部信息高度
+
 	/**
-	 * 计算布局 - 让格子占满宽度，支持高清屏
+	 * 计算布局 - 根据内容自适应，避免空间浪费
 	 */
 	private calculateLayout(): void {
-		// 使用公共函数设置高清渲染
-		const { width, height } = setupHighDPICanvas(this.canvas)
+		const rect = this.canvas.getBoundingClientRect()
+		const dpr = window.devicePixelRatio || 1
 
-		// 边距更小，让格子更大
-		const paddingX = 30
-		const availableWidth = width - paddingX * 2
-
-		// 计算单元格大小 - 让格子填满可用宽度
-		this.cellW = Math.floor((availableWidth - (this.viewportCols - 1) * 4) / this.viewportCols)
-		this.cellH = Math.min(this.cellW, Math.floor((height - 100) / 3))
+		// 1. 先计算格子大小（基于容器宽度）
+		const availableWidth = rect.width - this.PADDING_X * 2 - this.LABEL_LEFT_W
+		this.cellW = Math.floor((availableWidth - (this.viewportCols - 1) * this.gapX) / this.viewportCols)
+		this.cellH = this.cellW  // 正方形格子
 		this.gapX = 4
-		this.gapY = 8
+		this.gapY = 4
 
-		// 居中
-		const totalWidth = this.cellW * this.viewportCols + this.gapX * (this.viewportCols - 1)
-		this.startX = Math.floor((width - totalWidth) / 2)
-		this.startY = 50
+		// 2. 计算实际需要的内容高度
+		const contentHeight = this.LABEL_TOP_H + NUM_LAYERS * this.cellH + (NUM_LAYERS - 1) * this.gapY + this.INFO_BOTTOM_H
+		const totalHeight = contentHeight + this.PADDING_Y * 2
+
+		// 3. 设置 canvas 高度为实际需要的高度（不浪费空间）
+		this.canvas.style.height = `${totalHeight}px`
+
+		// 4. 只在尺寸变化时才重置 canvas 内部尺寸
+		const needReset = Math.floor(rect.width * dpr) !== this.lastCanvasWidth ||
+		                  Math.floor(totalHeight * dpr) !== this.lastCanvasHeight
+
+		if (needReset) {
+			this.canvas.width = Math.floor(rect.width * dpr)
+			this.canvas.height = Math.floor(totalHeight * dpr)
+			this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+			this.lastCanvasWidth = this.canvas.width
+			this.lastCanvasHeight = this.canvas.height
+		}
+
+		// 5. 计算起始位置（考虑标签空间）
+		this.startX = this.PADDING_X + this.LABEL_LEFT_W
+		this.startY = this.PADDING_Y + this.LABEL_TOP_H
 	}
 
 	/**
-	 * 获取完整地图数据（32列全部取，简单可靠）
+	 * 获取视野内的地图数据（支持丝滑滚动，多取三列防止边缘裁剪）
 	 */
 	private getViewport(map: number[][]): number[][] {
-		// 直接返回完整地图，全部绘制
-		return map
+		const viewport: number[][] = [[], [], []]
+		// 始终从 cameraCol 的前一列开始取，确保丝滑滚动时左边界有数据
+		const startCol = Math.floor(this.cameraCol) - 1
+
+		// 多取三列：左边界一列 + 丝滑滚动一列 + 右边界缓冲一列
+		const colsToRender = this.viewportCols + 3
+
+		for (let layer = 0; layer < NUM_LAYERS; layer++) {
+			for (let i = 0; i < colsToRender; i++) {
+				const mapCol = startCol + i
+				if (mapCol >= 0 && mapCol < this.mapWidth) {
+					viewport[layer][i] = map[layer][mapCol]
+				} else {
+					viewport[layer][i] = ELEM_AIR
+				}
+			}
+		}
+
+		return viewport
 	}
 
 	/**
@@ -218,19 +261,19 @@ export class MapRenderer {
 		// 计算丝滑滚动偏移量
 		const scrollOffset = this.getScrollOffset()
 
-		// 动画状态处理（viewport现在是完整地图，直接用实际列索引）
-		let hideHeroAtCol: number | null = null
-		let hideSlimeAt: number | null = null
+		// 动画状态处理（使用实际地图列号）
+		let hideHeroAtMapCol: number | null = null
+		let hideSlimeAtMapCol: number | null = null
 
 		if (this.animState) {
-			hideHeroAtCol = this.currentHeroCol
+			hideHeroAtMapCol = this.currentHeroCol
 			if (this.animState.slimeKilled) {
-				hideSlimeAt = this.currentHeroCol + 1
+				hideSlimeAtMapCol = this.currentHeroCol + 1
 			}
 		}
 
 		// 1. 先绘制地形（网格 + emoji）
-		this.drawTerrainGridSmooth(viewport, scrollOffset, hideSlimeAt, hideHeroAtCol)
+		this.drawTerrainGridSmooth(viewport, scrollOffset, hideSlimeAtMapCol, hideHeroAtMapCol)
 
 		// 2. 动画狐狸
 		if (this.animState) {
@@ -253,10 +296,11 @@ export class MapRenderer {
 	private drawTerrainGridSmooth(
 		viewport: number[][],
 		scrollOffset: number,
-		hideSlimeAt: number | null,
-		hideHeroAtCol: number | null
+		hideSlimeAtMapCol: number | null,
+		hideHeroAtMapCol: number | null
 	): void {
 		const effectiveStartX = this.startX - scrollOffset
+		const startCol = Math.floor(this.cameraCol) - 1
 		const colsToRender = viewport[0].length
 
 		// 绘制网格线框
@@ -278,12 +322,13 @@ export class MapRenderer {
 				const y = this.startY + r * (this.cellH + this.gapY)
 
 				const elemId = viewport[r][c]
+				const mapCol = startCol + c  // 计算当前格子对应的实际地图列号
 
 				// 跳过被击杀的史莱姆
-				if (r === 1 && c === (hideSlimeAt ?? -1)) continue
+				if (r === 1 && mapCol === hideSlimeAtMapCol) continue
 
 				// 动画时跳过原位置的狐狸（显示空气）
-				if (r === 1 && c === (hideHeroAtCol ?? -1) && elemId === 1) {
+				if (r === 1 && mapCol === hideHeroAtMapCol && elemId === 1) {
 					drawEmoji(this.ctx, " ", x + this.cellW / 2, y + this.cellH / 2, Math.min(this.cellW, this.cellH) * 0.55)
 					continue
 				}
@@ -301,28 +346,36 @@ export class MapRenderer {
 		this.ctx.font = "12px sans-serif"
 		this.ctx.textAlign = "center"
 
+		// 从 cameraCol-1 开始绘制，与 viewport 一致
+		const startCol = Math.floor(this.cameraCol) - 1
 		const effectiveStartX = this.startX - scrollOffset
 
-		// 绘制所有列的标签（32列全部画，在视野外的会被自然裁剪）
-		for (let col = 0; col < this.mapWidth; col++) {
-			const x = effectiveStartX + col * (this.cellW + this.gapX) + this.cellW / 2
+		// 多绘制两列标签用于丝滑滚动显示
+		for (let i = 0; i <= this.viewportCols + 1; i++) {
+			const col = startCol + i
+			if (col < 0) continue
+			if (col >= this.mapWidth) break
+
+			const x = effectiveStartX + i * (this.cellW + this.gapX) + this.cellW / 2
 			const y = this.startY - 12
 			this.ctx.fillText(`x${col}`, x, y)
 		}
 	}
 
 	/**
-	 * 绘制层标签
+	 * 绘制层标签（在左侧预留空间内）
 	 */
 	private drawLayerLabels(): void {
 		const layerNames = ["天上", "地上", "地面"]
 		this.ctx.fillStyle = "#9aa0a6"
 		this.ctx.font = "12px sans-serif"
-		this.ctx.textAlign = "right"
+		this.ctx.textAlign = "center"
 
 		for (let r = 0; r < NUM_LAYERS; r++) {
 			const y = this.startY + r * (this.cellH + this.gapY) + this.cellH / 2 + 4
-			this.ctx.fillText(layerNames[r], this.startX - 10, y)
+			// 在左侧预留空间居中绘制
+			const x = this.PADDING_X + this.LABEL_LEFT_W / 2
+			this.ctx.fillText(layerNames[r], x, y)
 		}
 	}
 
@@ -359,21 +412,22 @@ export class MapRenderer {
 	}
 
 	/**
-	 * 绘制位置信息
+	 * 绘制位置信息（在底部 padding 区域）
 	 */
 	private drawPositionInfo(heroCol: number): void {
 		const gridH = NUM_LAYERS * this.cellH + (NUM_LAYERS - 1) * this.gapY
-		const bottomY = this.startY + gridH + 25
+		// 在底部 padding 区域居中
+		const bottomY = this.startY + gridH + this.INFO_BOTTOM_H / 2 + 4
 
 		this.ctx.fillStyle = "#8ab4f8"
-		this.ctx.font = "13px sans-serif"
+		this.ctx.font = "12px sans-serif"
 		this.ctx.textAlign = "center"
 
 		const startCol = Math.floor(this.cameraCol)
 		const endCol = Math.min(startCol + this.viewportCols - 1, this.mapWidth - 1)
 		const cameraPrecise = this.cameraCol.toFixed(1)
 		const text = `视野: ${startCol}-${endCol} / 0-${this.mapWidth - 1} | 相机: ${cameraPrecise} | 狐狸位置: ${heroCol}`
-		this.ctx.fillText(text, this.canvas.width / 2, bottomY)
+		this.ctx.fillText(text, this.canvas.width / (window.devicePixelRatio || 1) / 2, bottomY)
 	}
 
 	/**
