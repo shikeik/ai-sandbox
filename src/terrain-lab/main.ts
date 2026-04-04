@@ -24,13 +24,12 @@ import { UIManager } from "./ui-manager.js"
 import { TrainingEngine } from "./training-engine.js"
 import { SnapshotManager } from "./snapshot-manager.js"
 import { CurriculumController } from "./curriculum-controller.js"
+import { TerrainValidator } from "./terrain-validator.js"
+import { Predictor } from "./predictor.js"
+import { ObsessionManager } from "./obsession-manager.js"
 import { zeroMat, zeroVec } from "./utils.js"
 
 // 课程学习内部使用的评估函数（将在批次6中进一步重构）
-function evaluateDatasetForCurriculum() {
-	const engine = new TrainingEngine(state, async () => {})
-	return engine.evaluateDataset()
-}
 import { calculateAnimationPath } from "./animation.js"
 import { createInitialState, resetState, setTerrainCell, stopAnimation } from "./state.js"
 
@@ -42,6 +41,11 @@ const state: AppState = createInitialState()
 const uiManager = new UIManager(state)
 const snapshotManager = new SnapshotManager(state, uiManager)
 const curriculumController = new CurriculumController(state, uiManager, snapshotManager)
+const terrainValidator = new TerrainValidator(state, uiManager)
+const obsessionManager = new ObsessionManager(state, uiManager, snapshotManager)
+
+// Predictor 需要等 drawMLP/drawEmbedding/playAnimation 定义后再创建
+let predictor: Predictor
 
 // DOM 元素
 let editorCanvas: HTMLCanvasElement
@@ -123,167 +127,21 @@ function generateData() {
 // ========== 观察样本设置 ==========
 
 function setObservedFromTerrain() {
-	const indices = terrainToIndices(state.terrain)
-	const label = getLabel(state.terrain)
-	if (label === -1) {
-		uiManager.updateObsessionStatus("当前地形为死局，无法设为观察样本", "bad")
-		return
-	}
-	state.observedSample = { t: state.terrain.map(row => row.slice()), indices, y: label }
-	uiManager.updateObsessionStatus(`观察样本：当前地形 | 规则答案：${ACTIONS[label]}`, "ok")
-	// 若有快照，重新计算所有快照对该样本的概率
-	for (let i = 0; i < state.snapshots.length; i++) {
-		snapshotManager.recordStats(i)
-	}
-	drawObsessionCurve()
+	obsessionManager.setFromTerrain(() => drawObsessionCurve())
 }
 
 function setObservedRandom() {
-	if (state.dataset.length === 0) {
-		uiManager.updateObsessionStatus("数据集为空，无法抽取样本", "bad")
-		return
-	}
-	const sample = state.dataset[Math.floor(Math.random() * state.dataset.length)]
-	state.observedSample = sample
-	uiManager.updateObsessionStatus(`观察样本：数据集第 ${state.dataset.indexOf(sample) + 1} 条 | 规则答案：${ACTIONS[sample.y]}`, "ok")
-	for (let i = 0; i < state.snapshots.length; i++) {
-		snapshotManager.recordStats(i)
-	}
-	drawObsessionCurve()
+	obsessionManager.setRandom(() => drawObsessionCurve())
 }
 
 // ========== 预测与验证 ==========
 
 function predict() {
-	const indices = terrainToIndices(state.terrain)
-	const fp = forward(state.net, indices)
-	state.lastForwardResult = fp
-	const pred = fp.o.indexOf(Math.max(...fp.o))
-	const heroCol = findHeroCol(state.terrain)
-	const checks = getActionChecks(state.terrain, heroCol)
-	const correct = getLabel(state.terrain)
-	
-	// 调试：输出预测详情（使用 getActionName 避免硬编码）
-	console.log("PREDICT", "AI预测:", pred, getActionName(pred), "规则答案:", correct, getActionName(correct))
-	console.log("PREDICT", "输出概率:", fp.o.map((v, i) => `${getActionName(i)}:${v.toFixed(3)}`).join(", "))
-	console.log("PREDICT", "各动作合法性:", `${getActionName(0)}:${checks.canWalk.ok} ${getActionName(1)}:${checks.canJump.ok} ${getActionName(2)}:${checks.canLongJump.ok} ${getActionName(3)}:${checks.canWalkAttack.ok}`)
-
-	const conf = (fp.o[pred] * 100).toFixed(1)
-
-	if (correct === -1) {
-		uiManager.updateTerrainStatus(
-			"bad",
-			`AI 预测: <b>${ACTIONS[pred]}</b> (置信度 ${conf}%)<br>规则答案: <b style="color:#f9ab00">此地形无解（死局）</b>`
-		)
-		drawMLP(fp)
-		drawEmbedding()
-		uiManager.updateProbs(fp.o)
-		stopAnimation(state)
-		return
-	}
-
-	// 统一使用与合法性检查同一数据源的判定函数
-	const isValid = isActionValidByChecks(checks, pred)
-	const lines: string[] = []
-	lines.push(`AI 预测: <b>${ACTIONS[pred]}</b> (置信度 ${conf}%)`)
-	lines.push(`规则答案: <b>${ACTIONS[correct]}</b>`)
-
-	if (isValid) {
-		if (pred === correct) {
-			lines.push("<span style='color:#34a853'>✅ 最优</span>")
-			uiManager.updateTerrainStatus("ok", lines.join("<br>"))
-		} else {
-			lines.push("<span style='color:#f9ab00'>✅ 合法（但非最优）</span>")
-			uiManager.updateTerrainStatus("ok", lines.join("<br>"))
-		}
-	} else {
-		lines.push("<span style='color:#ea4335'>❌ 非法</span>")
-		uiManager.updateTerrainStatus("bad", lines.join("<br>"))
-	}
-
-	drawMLP(fp)
-	drawEmbedding()
-	uiManager.updateProbs(fp.o)
-	playAnimation(ACTIONS[pred])
+	predictor.predict()
 }
 
 function validateTerrain() {
-	const heroCol = findHeroCol(state.terrain)
-	const checks = getActionChecks(state.terrain, heroCol)
-	const walk = checks.canWalk
-	const jump = checks.canJump
-	const longJump = checks.canLongJump
-	const wa = checks.canWalkAttack
-
-	// 统计可行动作数
-	const validActions: string[] = []
-	if (walk.ok) validActions.push("走")
-	if (jump.ok) validActions.push("跳")
-	if (longJump.ok) validActions.push("远跳")
-	if (wa.ok) validActions.push("走A")
-
-	// 构建详细报告
-	const lines: string[] = []
-	lines.push(`<b>狐狸位置：x${heroCol}</b>`)
-	lines.push("")
-
-	if (validActions.length > 0) {
-		lines.push(`✅ 可行动作：${validActions.join("、")}`)
-	} else {
-		lines.push("❌ 无可用动作（死局）")
-	}
-
-	// 显示各动作详情
-	const actionDetails: string[] = []
-
-	// 走
-	if (walk.ok) {
-		actionDetails.push(`✅ 走 → x${heroCol + 1}`)
-	} else {
-		actionDetails.push(`❌ 走：${walk.reasons[0] || "无法前行"}`)
-	}
-
-	// 跳
-	if (jump.ok) {
-		actionDetails.push(`✅ 跳 → x${heroCol + 2}`)
-	} else {
-		const jumpTarget = heroCol + 2
-		if (jumpTarget >= NUM_COLS) {
-			actionDetails.push("❌ 跳：超出地图边界")
-		} else {
-			actionDetails.push(`❌ 跳：${jump.reasons[0] || "无法跳跃"}`)
-		}
-	}
-
-	// 远跳
-	if (longJump.ok) {
-		actionDetails.push(`✅ 远跳 → x${heroCol + 3}`)
-	} else {
-		const longJumpTarget = heroCol + 3
-		if (longJumpTarget >= NUM_COLS) {
-			actionDetails.push("❌ 远跳：超出地图边界")
-		} else {
-			actionDetails.push(`❌ 远跳：${longJump.reasons[0] || "无法远跳"}`)
-		}
-	}
-
-	// 走A
-	if (wa.ok) {
-		const hasSlime = state.terrain[1][heroCol + 1] === ELEM_SLIME
-		actionDetails.push(`✅ 走A → x${heroCol + 1}${hasSlime ? "（击杀史莱姆）" : ""}`)
-	} else {
-		const walkATarget = heroCol + 1
-		if (walkATarget >= NUM_COLS) {
-			actionDetails.push("❌ 走A：超出地图边界")
-		} else {
-			actionDetails.push(`❌ 走A：${wa.reasons[0] || "无法攻击"}`)
-		}
-	}
-
-	lines.push("")
-	lines.push(actionDetails.join("<br>"))
-
-	uiManager.updateTerrainStatus(validActions.length > 0 ? "ok" : "bad", lines.join("<br>"))
+	terrainValidator.validate()
 }
 
 // ========== UI 辅助 ==========
@@ -539,6 +397,9 @@ function init() {
 	;(window as any).runCurriculum = runCurriculum
 	;(window as any).nextCurriculumStage = nextCurriculumStage
 	;(window as any).toggleLearningMode = toggleLearningMode
+
+	// 初始化 Predictor（需要在 drawMLP/drawEmbedding/playAnimation 定义之后）
+	predictor = new Predictor(state, uiManager, drawMLP, drawEmbedding, (action) => playAnimation(action as ActionType))
 
 	// 初始化控制台
 	const consolePanel = new ConsolePanel("#console-mount", logger)
