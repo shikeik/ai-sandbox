@@ -2,8 +2,9 @@
 // 支持任意宽度地图、横向滚动、相机跟随主角、触摸滑动
 
 import { NUM_LAYERS, ELEM_HERO, ELEM_AIR } from "./constants.js"
-import { setupCanvas, drawEditorLabels, drawTerrainGrid, drawEmoji } from "./renderer.js"
+import { drawEditorLabels, drawTerrainGrid, drawEmoji } from "./renderer.js"
 import { calculateAnimationPath, type AnimationPath } from "./animation.js"
+import { setupHighDPICanvas } from "../engine/utils/canvas.js"
 
 export interface MapRendererConfig {
 	canvas: HTMLCanvasElement
@@ -127,26 +128,25 @@ export class MapRenderer {
 	}
 
 	/**
-	 * 计算布局 - 让格子占满宽度
+	 * 计算布局 - 让格子占满宽度，支持高清屏
 	 */
 	private calculateLayout(): void {
-		const rect = this.canvas.getBoundingClientRect()
-		this.canvas.width = rect.width
-		this.canvas.height = rect.height
+		// 使用公共函数设置高清渲染
+		const { width, height } = setupHighDPICanvas(this.canvas)
 
 		// 边距更小，让格子更大
 		const paddingX = 30
-		const availableWidth = rect.width - paddingX * 2
+		const availableWidth = width - paddingX * 2
 
 		// 计算单元格大小 - 让格子填满可用宽度
 		this.cellW = Math.floor((availableWidth - (this.viewportCols - 1) * 4) / this.viewportCols)
-		this.cellH = Math.min(this.cellW, Math.floor((rect.height - 100) / 3))
+		this.cellH = Math.min(this.cellW, Math.floor((height - 100) / 3))
 		this.gapX = 4
 		this.gapY = 8
 
 		// 居中
 		const totalWidth = this.cellW * this.viewportCols + this.gapX * (this.viewportCols - 1)
-		this.startX = Math.floor((rect.width - totalWidth) / 2)
+		this.startX = Math.floor((width - totalWidth) / 2)
 		this.startY = 50
 	}
 
