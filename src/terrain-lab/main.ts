@@ -94,9 +94,11 @@ function switchTab(tabName: string): void {
 	}
 
 	// 如果切换到挑战 Tab，初始化挑战画布
-	if (tabName === "challenge" && challengeUIManager) {
-		challengeUIManager.drawTerrain(challengeController?.getCurrentTerrain() ?? null)
-		challengeUIManager.drawMLP(challengeController?.getCurrentTerrain() ?? null)
+	if (tabName === "challenge" && challengeUIManager && challengeController) {
+		const terrain = challengeController.getCurrentTerrain()
+		const heroCol = challengeController.getHeroCol()
+		challengeUIManager.drawTerrain(terrain, heroCol)
+		challengeUIManager.drawMLP(terrain)
 	}
 }
 
@@ -120,8 +122,8 @@ function initChallenge(): void {
 		// 停止任何正在进行的动画
 		stopChallengeAnimation()
 
-		// 获取动画路径信息以计算持续时间
-		const heroCol = findHeroCol(state.terrain)
+		// 获取当前视野中的狐狸位置（始终在0列）
+		const heroCol = 0
 		const path = calculateAnimationPath(heroCol, action)
 
 		// 根据速度调整动画持续时间
@@ -176,7 +178,8 @@ function initChallenge(): void {
 		// 绘制标签
 		drawEditorLabels(ctx, startX, startY, cellW, cellH, gapX, gapY)
 
-		const heroCol = findHeroCol(state.terrain)
+		// 狐狸在视野中的位置始终是0列
+		const heroCol = 0
 		const { path } = challengeAnimState
 
 		const heroBaseX = startX + heroCol * (cellW + gapX) + cellW / 2
@@ -203,13 +206,18 @@ function initChallenge(): void {
 			hy = heroBaseY - parabola * (cellH + path.jumpHeight)
 		}
 
-		// 绘制地形网格
-		drawTerrainGrid(ctx, state.terrain, {
-			cellW, cellH, gapX, gapY, startX, startY,
-			hideSlimeAt: challengeAnimState.slimeKilled ? (heroCol + 1 < NUM_COLS ? heroCol + 1 : null) : null,
-			hideHeroAtCol: heroCol,
-			dimNonInteractive: false,
-		})
+		// 绘制地形网格（使用当前挑战控制器的地形）
+		if (challengeController) {
+			const terrain = challengeController.getCurrentTerrain()
+			if (terrain) {
+				drawTerrainGrid(ctx, terrain, {
+					cellW, cellH, gapX, gapY, startX, startY,
+					hideSlimeAt: challengeAnimState.slimeKilled ? (heroCol + 1 < NUM_COLS ? heroCol + 1 : null) : null,
+					hideHeroAtCol: heroCol,
+					dimNonInteractive: false,
+				})
+			}
+		}
 
 		// 绘制动画中的狐狸
 		drawEmoji(ctx, "🦊", hx, hy, Math.min(cellW, cellH) * 0.65)
@@ -238,14 +246,25 @@ function initChallenge(): void {
 		(challengeState: ChallengeState) => {
 			// 状态更新回调
 			challengeUIManager?.updateStats(challengeState)
-			challengeUIManager?.updateControls(challengeState.isRunning, challengeState.isPaused)
+			challengeUIManager?.updateControls(challengeState.isRunning, challengeState.isPaused, challengeState.isStepMode)
 			challengeUIManager?.updateHistory(challengeState.history)
+
+			// 更新地形显示（使用视野窗口）
+			const terrain = challengeController?.getCurrentTerrain()
+			if (terrain) {
+				challengeUIManager?.drawTerrain(terrain, challengeState.heroCol)
+				challengeUIManager?.drawMLP(terrain)
+			}
 		},
 		(result: ChallengeResult) => {
-			// 关卡完成回调
+			// 步骤完成回调
 			challengeUIManager?.updateResult(result)
 			challengeUIManager?.updateProbs(result.probabilities)
-			// 注意：这里不立即绘制地形，等待动画渲染
+		},
+		(won: boolean, finalCol: number) => {
+			// 游戏结束回调
+			challengeUIManager?.showGameOver(won, finalCol)
+			challengeUIManager?.updateControls(false, false)
 		},
 		playChallengeAnimation,
 		challengeCanvas
@@ -254,8 +273,10 @@ function initChallenge(): void {
 	// 初始化挑战 UI
 	challengeUIManager.init(() => {
 		// 尺寸变化时重绘
-		challengeUIManager?.drawTerrain(challengeController?.getCurrentTerrain() ?? null)
-		challengeUIManager?.drawMLP(challengeController?.getCurrentTerrain() ?? null)
+		const terrain = challengeController?.getCurrentTerrain() ?? null
+		const heroCol = challengeController?.getHeroCol() ?? 0
+		challengeUIManager?.drawTerrain(terrain, heroCol)
+		challengeUIManager?.drawMLP(terrain)
 	})
 
 	// 设置初始地形配置
@@ -282,13 +303,15 @@ function initChallenge(): void {
 	}
 
 	// 初始渲染
-	challengeUIManager.updateStats(challengeController.getState())
-	challengeUIManager.updateControls(false, false)
-	challengeUIManager.updateResult(null)
-	challengeUIManager.updateHistory([])
-	challengeUIManager.resetProbs()
-	challengeUIManager.drawTerrain(null)
-	challengeUIManager.drawMLP(null)
+	if (challengeController && challengeUIManager) {
+		challengeUIManager.updateStats(challengeController.getState())
+		challengeUIManager.updateControls(false, false)
+		challengeUIManager.updateResult(null)
+		challengeUIManager.updateHistory([])
+		challengeUIManager.resetProbs()
+		challengeUIManager.drawTerrain(null)
+		challengeUIManager.drawMLP(null)
+	}
 }
 
 function startChallenge(): void {
@@ -303,6 +326,10 @@ function startChallenge(): void {
 
 function pauseChallenge(): void {
 	challengeController?.pause()
+}
+
+function stepChallenge(): void {
+	challengeController?.step()
 }
 
 function resetChallenge(): void {
@@ -653,6 +680,7 @@ function init() {
 	// 绑定全局函数 - 连续挑战
 	;(window as any).startChallenge = startChallenge
 	;(window as any).pauseChallenge = pauseChallenge
+	;(window as any).stepChallenge = stepChallenge
 	;(window as any).resetChallenge = resetChallenge
 
 	// 初始化 Predictor（需要在 drawMLP/drawEmbedding/playAnimation 定义之后）

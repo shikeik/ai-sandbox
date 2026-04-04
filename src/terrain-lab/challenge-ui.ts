@@ -2,12 +2,11 @@
 // 职责：管理连续挑战界面的DOM操作和渲染
 
 import type { ChallengeState, ChallengeResult } from "./challenge-controller.js"
-// ForwardResult 由 terrain 计算得出，无需直接导入
 import { ACTIONS } from "./constants.js"
 import { forward } from "./neural-network.js"
 import { terrainToIndices } from "./terrain.js"
 import type { AppState } from "./state.js"
-import { drawMLP, setupCanvas, getEditorLayout, drawTerrainGrid, drawEditorLabels } from "./renderer.js"
+import { drawMLP, setupCanvas, getEditorLayout, drawTerrainGrid, drawEditorLabels, drawEmoji } from "./renderer.js"
 
 // ========== UI 管理器 ==========
 
@@ -48,66 +47,126 @@ export class ChallengeUIManager {
 	// ========== 统计面板更新 ==========
 
 	updateStats(challengeState: ChallengeState): void {
-		this.setText("challenge-level", String(challengeState.currentLevel))
+		this.setText("challenge-step", String(challengeState.currentStep))
 		this.setText("challenge-streak", String(challengeState.streakCount))
-		this.setText("challenge-total", String(challengeState.totalCount))
+		this.setText("challenge-total", String(challengeState.totalSteps))
 
-		const rate = challengeState.totalCount === 0
+		const rate = challengeState.totalSteps === 0
 			? "0%"
-			: Math.round((challengeState.passedCount / challengeState.totalCount) * 100) + "%"
+			: Math.round((challengeState.passedSteps / challengeState.totalSteps) * 100) + "%"
 		this.setText("challenge-rate", rate)
+
+		// 更新位置显示
+		this.setText("challenge-position", `${challengeState.heroCol}/31`)
 	}
 
 	// ========== 控制按钮状态 ==========
 
-	updateControls(isRunning: boolean, isPaused: boolean): void {
+	updateControls(isRunning: boolean, isPaused: boolean, isStepMode: boolean = false): void {
 		const startBtn = document.getElementById("btn-challenge-start") as HTMLButtonElement
 		const pauseBtn = document.getElementById("btn-challenge-pause") as HTMLButtonElement
+		const stepBtn = document.getElementById("btn-challenge-step") as HTMLButtonElement
 
 		if (startBtn) {
-			startBtn.textContent = isRunning && isPaused ? "继续" : "开始挑战"
+			if (isRunning && isPaused) {
+				startBtn.textContent = "继续"
+			} else {
+				startBtn.textContent = "开始挑战"
+			}
 			startBtn.disabled = isRunning && !isPaused
 		}
 
 		if (pauseBtn) {
-			pauseBtn.disabled = !isRunning || isPaused
+			if (isRunning && !isPaused) {
+				pauseBtn.textContent = "暂停"
+				pauseBtn.disabled = false
+			} else if (isRunning && isPaused) {
+				pauseBtn.textContent = "暂停中"
+				pauseBtn.disabled = true
+			} else {
+				pauseBtn.textContent = "暂停"
+				pauseBtn.disabled = true
+			}
+		}
+
+		if (stepBtn) {
+			stepBtn.disabled = isRunning && !isPaused && !isStepMode
 		}
 	}
 
 	// ========== 结果展示 ==========
 
-	updateResult(result: ChallengeResult | null): void {
+	updateResult(result: ChallengeResult | null, gameOver: boolean = false, gameWon: boolean = false): void {
 		const resultEl = document.getElementById("challenge-result")
 		if (!resultEl) return
 
-		if (!result) {
+		if (!result && !gameOver) {
 			resultEl.className = "challenge-result waiting"
-			resultEl.innerHTML = "点击「开始挑战」开始连续闯关"
+			resultEl.innerHTML = "点击「开始挑战」开始跑酷闯关<br><small>目标：从起点(0)到达终点(31)</small>"
 			return
 		}
 
+		if (gameOver) {
+			if (gameWon) {
+				resultEl.className = "challenge-result success"
+				resultEl.innerHTML = `
+					🎉 <b>挑战成功！</b><br>
+					狐狸成功到达终点！<br>
+					<small>共 ${result?.step ?? 0} 步</small>
+				`
+			} else {
+				const conf = result ? (result.probabilities[result.predictedAction] * 100).toFixed(1) : "0"
+				resultEl.className = "challenge-result fail"
+				resultEl.innerHTML = `
+					💥 <b>挑战失败</b><br>
+					${result ? `AI选择了<b>${result.predictedActionName}</b> (置信度 ${conf}%)` : "游戏结束"}<br>
+					<small>位置：第 ${result?.heroCol ?? 0} 列</small>
+				`
+			}
+			return
+		}
+
+		if (!result) return
+
 		const conf = (result.probabilities[result.predictedAction] * 100).toFixed(1)
 
-		if (result.isOptimal) {
+		if (result.isValid) {
 			resultEl.className = "challenge-result success"
 			resultEl.innerHTML = `
-				<b>第${result.level}关</b> - <span style="color:#34a853">✅ 最优</span><br>
-				AI预测：<b>${result.predictedActionName}</b> (置信度 ${conf}%)<br>
-				正确答案：<b>${result.correctActionName}</b>
-			`
-		} else if (result.isValid) {
-			resultEl.className = "challenge-result success"
-			resultEl.innerHTML = `
-				<b>第${result.level}关</b> - <span style="color:#f9ab00">✅ 合法（非最优）</span><br>
-				AI预测：<b>${result.predictedActionName}</b> (置信度 ${conf}%)<br>
-				正确答案：<b>${result.correctActionName}</b>
+				<b>第${result.step}步</b> - <span style="color:#34a853">✅ 合法</span><br>
+				位置：第 ${result.heroCol} 列 → ${result.heroCol + (result.predictedAction === 0 || result.predictedAction === 3 ? 1 : result.predictedAction === 1 ? 2 : 3)} 列<br>
+				AI预测：<b>${result.predictedActionName}</b> (置信度 ${conf}%)
 			`
 		} else {
 			resultEl.className = "challenge-result fail"
 			resultEl.innerHTML = `
-				<b>第${result.level}关</b> - <span style="color:#ea4335">❌ 失败</span><br>
+				<b>第${result.step}步</b> - <span style="color:#ea4335">❌ 非法</span><br>
+				位置：第 ${result.heroCol} 列<br>
 				AI预测：<b>${result.predictedActionName}</b> (置信度 ${conf}%)<br>
-				正确答案：<b>${result.correctActionName}</b>
+				<small>此动作在当前视野不可行</small>
+			`
+		}
+	}
+
+	// ========== 游戏结束显示 ==========
+
+	showGameOver(won: boolean, finalCol: number): void {
+		const resultEl = document.getElementById("challenge-result")
+		if (!resultEl) return
+
+		if (won) {
+			resultEl.className = "challenge-result success"
+			resultEl.innerHTML = `
+				🎉 <b>挑战成功！</b><br>
+				狐狸成功到达终点！<br>
+				<small>最终位置：第 ${finalCol} 列</small>
+			`
+		} else {
+			resultEl.className = "challenge-result fail"
+			resultEl.innerHTML = `
+				💥 <b>挑战失败</b><br>
+				狐狸在第 ${finalCol} 列停下脚步<br>
+				<small>可能是选择了非法动作或掉进了坑</small>
 			`
 		}
 	}
@@ -125,15 +184,15 @@ export class ChallengeUIManager {
 
 		historyEl.innerHTML = history.map(item => {
 			const statusClass = item.isValid ? "success" : "fail"
-			const statusText = item.isOptimal ? "最优" : (item.isValid ? "合法" : "失败")
+			const statusText = item.isValid ? "成功" : "失败"
 			const conf = (item.probabilities[item.predictedAction] * 100).toFixed(0)
 
 			return `
 				<div class="history-item">
-					<div class="history-level ${statusClass}">${item.level}</div>
+					<div class="history-level ${statusClass}">${item.step}</div>
 					<div class="history-info">
+						<div>位置：${item.heroCol} → ${item.heroCol + (item.predictedAction === 0 || item.predictedAction === 3 ? 1 : item.predictedAction === 1 ? 2 : 3)}</div>
 						<div>预测：<span class="history-action">${item.predictedActionName}</span> (${conf}%)</div>
-						<div style="color:#9aa0a6;font-size:10px;">答案：${item.correctActionName}</div>
 					</div>
 					<div class="history-status ${statusClass}">${statusText}</div>
 				</div>
@@ -179,9 +238,9 @@ export class ChallengeUIManager {
 	// ========== Canvas 绘制 ==========
 
 	/**
-	 * 绘制当前关卡地形
+	 * 绘制当前视野地形（5×3窗口）
 	 */
-	drawTerrain(terrain: number[][] | null): void {
+	drawTerrain(terrain: number[][] | null, heroCol: number = 0, fullMapLength: number = 32): void {
 		if (!terrain) {
 			const { ctx, width, height } = setupCanvas(this.challengeCanvas)
 			ctx.fillStyle = "#5f6368"
@@ -194,12 +253,33 @@ export class ChallengeUIManager {
 		const { ctx, rect } = setupCanvas(this.challengeCanvas)
 		const { cellW, cellH, gapX, gapY, startX, startY } = getEditorLayout(rect)
 
+		// 绘制标签
 		drawEditorLabels(ctx, startX, startY, cellW, cellH, gapX, gapY)
+
+		// 绘制进度指示（显示当前在32格地图中的位置）
+		ctx.fillStyle = "#8ab4f8"
+		ctx.font = "12px sans-serif"
+		ctx.textAlign = "left"
+		ctx.fillText(`视野位置: ${heroCol}-${Math.min(heroCol + 4, fullMapLength - 1)} / 0-31`, startX, startY - 10)
+
+		// 绘制视野窗口
 		drawTerrainGrid(ctx, terrain, {
 			cellW, cellH, gapX, gapY, startX, startY,
 			hideSlimeAt: null,
 			dimNonInteractive: false,
 		})
+
+		// 绘制终点标记（如果在视野内）
+		const endCol = 31
+		if (endCol >= heroCol && endCol <= heroCol + 4) {
+			const viewportCol = endCol - heroCol
+			const x = startX + viewportCol * (cellW + gapX)
+			const y = startY - cellH - 5
+			ctx.fillStyle = "#f9ab00"
+			ctx.font = "10px sans-serif"
+			ctx.textAlign = "center"
+			ctx.fillText("🏁终点", x + cellW / 2, y)
+		}
 	}
 
 	/**

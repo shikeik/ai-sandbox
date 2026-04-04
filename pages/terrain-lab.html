@@ -686,16 +686,16 @@
                 <!-- 统计卡片 -->
                 <div class="stats-grid">
                     <div class="stat-card">
-                        <div class="stat-value" id="challenge-level">0</div>
-                        <div class="stat-label">当前关卡</div>
+                        <div class="stat-value" id="challenge-step">0</div>
+                        <div class="stat-label">当前步数</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="challenge-position">0/31</div>
+                        <div class="stat-label">位置</div>
                     </div>
                     <div class="stat-card">
                         <div class="stat-value success" id="challenge-streak">0</div>
                         <div class="stat-label">连胜次数</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-value" id="challenge-total">0</div>
-                        <div class="stat-label">总挑战</div>
                     </div>
                     <div class="stat-card">
                         <div class="stat-value" id="challenge-rate">0%</div>
@@ -721,6 +721,7 @@
                 <div class="challenge-controls">
                     <button class="btn-primary" id="btn-challenge-start" onclick="startChallenge()">开始挑战</button>
                     <button class="btn-accent" id="btn-challenge-pause" onclick="pauseChallenge()" disabled>暂停</button>
+                    <button class="btn-secondary" id="btn-challenge-step" onclick="stepChallenge()">单步执行</button>
                     <button class="btn-danger" id="btn-challenge-reset" onclick="resetChallenge()">重置</button>
                     <select class="speed-select" id="challenge-speed">
                         <option value="1">1x 速度</option>
@@ -729,19 +730,19 @@
                     </select>
                 </div>
 
-                <!-- 当前关卡预览 -->
-                <div class="panel-title" style="margin-top:14px">当前关卡地形</div>
+                <!-- 当前视野预览 -->
+                <div class="panel-title" style="margin-top:14px">当前视野 (5×3窗口)</div>
                 <canvas id="challenge-canvas"></canvas>
 
                 <!-- 当前结果 -->
                 <div class="challenge-result waiting" id="challenge-result">
-                    点击「开始挑战」开始连续闯关
+                    点击「开始挑战」开始跑酷闯关<br><small>目标：从起点(0)到达终点(31)</small>
                 </div>
             </div>
 
             <!-- 右栏：挑战历史 -->
             <div class="panel">
-                <div class="panel-title">挑战历史（最近10关）</div>
+                <div class="panel-title">挑战历史（最近10步）</div>
                 <div class="history-list" id="challenge-history">
                     <div class="empty-history">暂无挑战记录</div>
                 </div>

@@ -1,43 +1,49 @@
 // ========== 连续挑战控制器 ==========
-// 职责：管理AI连续闯关多个随机地形的逻辑
+// 职责：管理AI跑酷模式——32格长地图，5×3视野窗口
 
 import type { AppState } from "./state.js"
 import type { ForwardResult, ActionType } from "./types.js"
 import {
-	NUM_COLS, NUM_LAYERS, ELEMENTS, ELEM_AIR, ELEM_HERO, ELEM_GROUND,
-	ACTIONS, CURRICULUM_STAGES, DEFAULT_TERRAIN_CONFIG
+	NUM_LAYERS, ELEMENTS, ELEM_AIR, ELEM_HERO, ELEM_GROUND,
+	ACTIONS, DEFAULT_TERRAIN_CONFIG
 } from "./constants.js"
 import type { TerrainConfig } from "./constants.js"
 import { forward } from "./neural-network.js"
 import {
 	terrainToIndices, findHeroCol, getActionChecks, getLabel, getActionName,
-	isActionValidByChecks, generateRandomTerrain, isValidTerrain
+	isActionValidByChecks, generateRandomTerrain, isValidTerrain, getLayerPool, randElemFromPool
 } from "./terrain.js"
+
+// ========== 常量 ==========
+
+const MAP_LENGTH = 32  // 地图总长度
+const VIEWPORT_COLS = 5  // 视野窗口宽度
 
 // ========== 挑战结果类型 ==========
 
 export interface ChallengeResult {
-	level: number              // 关卡序号
-	terrain: number[][]        // 地形
+	step: number                // 步数序号
+	heroCol: number             // 狐狸当前列
 	predictedAction: number    // AI预测动作
 	predictedActionName: string
-	correctAction: number      // 正确答案
-	correctActionName: string
 	isValid: boolean           // 是否合法
-	isOptimal: boolean         // 是否最优
 	probabilities: number[]    // 各动作概率
 }
 
 export interface ChallengeState {
 	isRunning: boolean         // 是否正在挑战
 	isPaused: boolean          // 是否暂停
-	currentLevel: number       // 当前关卡
-	streakCount: number        // 连胜次数
-	totalCount: number         // 总挑战次数
-	passedCount: number        // 通过关卡数
+	isStepMode: boolean        // 是否单步模式
+	currentStep: number        // 当前步数
+	heroCol: number            // 狐狸当前列
+	streakCount: number        // 连胜次数（连续成功步数）
+	totalSteps: number         // 总步数
+	passedSteps: number        // 成功步数
 	history: ChallengeResult[] // 历史记录
-	currentTerrain: number[][] | null // 当前地形
+	fullMap: number[][] | null // 完整32格地图（3行×32列）
 	currentResult: ChallengeResult | null // 当前结果
+	gameOver: boolean          // 游戏是否结束
+	gameWon: boolean           // 是否通关
 }
 
 export type ChallengeSpeed = 1 | 2 | 5
@@ -51,7 +57,8 @@ export class ChallengeController {
 	private speed: ChallengeSpeed = 1
 	private challengeTimer: number | null = null
 	private onUpdate: (state: ChallengeState) => void
-	private onLevelComplete: (result: ChallengeResult) => void
+	private onStepComplete: (result: ChallengeResult) => void
+	private onGameOver: (won: boolean, finalCol: number) => void
 	private onPlayAnimation: (action: ActionType, speed: ChallengeSpeed) => Promise<void>
 	private canvas: HTMLCanvasElement | null = null
 
@@ -65,13 +72,15 @@ export class ChallengeController {
 	constructor(
 		state: AppState,
 		onUpdate: (state: ChallengeState) => void,
-		onLevelComplete: (result: ChallengeResult) => void,
+		onStepComplete: (result: ChallengeResult) => void,
+		onGameOver: (won: boolean, finalCol: number) => void,
 		onPlayAnimation: (action: ActionType, speed: ChallengeSpeed) => Promise<void>,
 		canvas?: HTMLCanvasElement
 	) {
 		this.state = state
 		this.onUpdate = onUpdate
-		this.onLevelComplete = onLevelComplete
+		this.onStepComplete = onStepComplete
+		this.onGameOver = onGameOver
 		this.onPlayAnimation = onPlayAnimation
 		this.canvas = canvas ?? null
 		this.challengeState = this.createInitialChallengeState()
@@ -83,13 +92,17 @@ export class ChallengeController {
 		return {
 			isRunning: false,
 			isPaused: false,
-			currentLevel: 0,
+			isStepMode: false,
+			currentStep: 0,
+			heroCol: 0,
 			streakCount: 0,
-			totalCount: 0,
-			passedCount: 0,
+			totalSteps: 0,
+			passedSteps: 0,
 			history: [],
-			currentTerrain: null,
+			fullMap: null,
 			currentResult: null,
+			gameOver: false,
+			gameWon: false,
 		}
 	}
 
@@ -103,6 +116,10 @@ export class ChallengeController {
 
 	getIsPaused(): boolean {
 		return this.challengeState.isPaused
+	}
+
+	getHeroCol(): number {
+		return this.challengeState.heroCol
 	}
 
 	// ========== 配置设置 ==========
@@ -127,11 +144,18 @@ export class ChallengeController {
 	start(): void {
 		if (this.challengeState.isRunning) return
 
+		// 如果游戏已结束或从未开始，重置状态
+		if (this.challengeState.gameOver || this.challengeState.currentStep === 0) {
+			this.reset()
+			this.challengeState.fullMap = this.generateChallengeMap()
+		}
+
 		this.challengeState.isRunning = true
 		this.challengeState.isPaused = false
+		this.challengeState.isStepMode = false
 		this.onUpdate(this.challengeState)
 
-		this.runNextLevel()
+		this.runNextStep()
 	}
 
 	/**
@@ -155,8 +179,32 @@ export class ChallengeController {
 		if (!this.challengeState.isRunning || !this.challengeState.isPaused) return
 
 		this.challengeState.isPaused = false
+		this.challengeState.isStepMode = false
 		this.onUpdate(this.challengeState)
-		this.runNextLevel()
+		this.runNextStep()
+	}
+
+	/**
+	 * 单步执行
+	 */
+	step(): void {
+		// 如果游戏已结束，先重置
+		if (this.challengeState.gameOver) {
+			this.reset()
+			this.challengeState.fullMap = this.generateChallengeMap()
+		}
+
+		// 如果没有地图，先生成
+		if (!this.challengeState.fullMap) {
+			this.challengeState.fullMap = this.generateChallengeMap()
+		}
+
+		this.challengeState.isRunning = true
+		this.challengeState.isPaused = false
+		this.challengeState.isStepMode = true
+		this.onUpdate(this.challengeState)
+
+		this.runNextStep()
 	}
 
 	/**
@@ -176,7 +224,6 @@ export class ChallengeController {
 			clearTimeout(this.challengeTimer)
 			this.challengeTimer = null
 		}
-		// 停止动画
 		this.stopAnimation()
 		this.challengeState.isRunning = false
 		this.challengeState.isPaused = false
@@ -203,24 +250,135 @@ export class ChallengeController {
 	}
 
 	/**
-	 * 执行下一关
+	 * 生成32格挑战地图
 	 */
-	private async runNextLevel(): Promise<void> {
+	private generateChallengeMap(): number[][] {
+		// 生成3行×32列的地图
+		const map: number[][] = [[], [], []]
+		
+		const pools = [
+			getLayerPool(0, this.terrainConfig),
+			getLayerPool(1, this.terrainConfig),
+			getLayerPool(2, this.terrainConfig),
+		]
+
+		for (let layer = 0; layer < NUM_LAYERS; layer++) {
+			for (let col = 0; col < MAP_LENGTH; col++) {
+				map[layer]![col] = randElemFromPool(pools[layer]!)
+			}
+		}
+
+		// 确保第0列第1层是狐狸
+		if (map[1]) map[1][0] = ELEM_HERO
+
+		// 确保第0列第2层是平地（起始位置必须安全）
+		if (map[2]) map[2][0] = ELEM_GROUND
+
+		// 确保第31列第2层是平地（终点）
+		if (map[2]) map[2][31] = ELEM_GROUND
+
+		// 移除其他可能随机生成的狐狸
+		for (let col = 1; col < MAP_LENGTH; col++) {
+			if (map[1] && map[1][col] === ELEM_HERO) {
+				map[1][col] = ELEM_AIR
+			}
+		}
+
+		return map
+	}
+
+	/**
+	 * 获取5×3视野窗口地形
+	 */
+	getViewportTerrain(heroCol: number): number[][] {
+		const viewport: number[][] = [[], [], []]
+		const map = this.challengeState.fullMap
+
+		if (!map) {
+			// 如果没有地图，返回默认空地图
+			return [
+				Array(VIEWPORT_COLS).fill(ELEM_AIR),
+				[ELEM_HERO, ...Array(VIEWPORT_COLS - 1).fill(ELEM_AIR)],
+				Array(VIEWPORT_COLS).fill(ELEM_GROUND),
+			]
+		}
+
+		for (let layer = 0; layer < NUM_LAYERS; layer++) {
+			for (let i = 0; i < VIEWPORT_COLS; i++) {
+				const mapCol = heroCol + i
+				if (mapCol < MAP_LENGTH) {
+					viewport[layer][i] = map[layer]![mapCol]!
+				} else {
+					// 超出地图边界显示空气
+					viewport[layer][i] = ELEM_AIR
+				}
+			}
+		}
+
+		// 确保视野中狐狸在0列
+		for (let c = 0; c < VIEWPORT_COLS; c++) {
+			if (viewport[1][c] === ELEM_HERO && c !== 0) {
+				viewport[1][c] = ELEM_AIR
+			}
+		}
+		viewport[1][0] = ELEM_HERO
+
+		return viewport
+	}
+
+	/**
+	 * 获取当前完整地图
+	 */
+	getFullMap(): number[][] | null {
+		return this.challengeState.fullMap
+	}
+
+	/**
+	 * 获取当前视野地形（用于渲染）
+	 */
+	getCurrentTerrain(): number[][] | null {
+		if (!this.challengeState.fullMap) return null
+		return this.getViewportTerrain(this.challengeState.heroCol)
+	}
+
+	/**
+	 * 执行下一步
+	 */
+	private async runNextStep(): Promise<void> {
 		if (!this.challengeState.isRunning || this.challengeState.isPaused) return
+		if (this.challengeState.gameOver) return
 
-		// 生成新地形
-		const terrain = this.generateChallengeTerrain()
-		this.challengeState.currentTerrain = terrain
-		this.challengeState.currentLevel++
+		const heroCol = this.challengeState.heroCol
 
-		// 执行预测
-		const result = this.executePrediction(terrain)
+		// 检查是否已到达终点
+		if (heroCol >= MAP_LENGTH - 1) {
+			this.challengeState.gameOver = true
+			this.challengeState.gameWon = true
+			this.challengeState.isRunning = false
+			this.onUpdate(this.challengeState)
+			this.onGameOver(true, heroCol)
+			return
+		}
+
+		// 获取当前视野并执行预测
+		const viewport = this.getViewportTerrain(heroCol)
+		const result = this.executePrediction(viewport, heroCol)
 		this.challengeState.currentResult = result
 
 		// 更新统计
-		this.challengeState.totalCount++
+		this.challengeState.currentStep++
+		this.challengeState.totalSteps++
+
+		// 计算目标列
+		let targetCol = heroCol
+		if (result.predictedAction === 0) targetCol = heroCol + 1  // 走
+		else if (result.predictedAction === 1) targetCol = heroCol + 2  // 跳
+		else if (result.predictedAction === 2) targetCol = heroCol + 3  // 远跳
+		else if (result.predictedAction === 3) targetCol = heroCol + 1  // 走A
+
+		// 检查动作是否合法
 		if (result.isValid) {
-			this.challengeState.passedCount++
+			this.challengeState.passedSteps++
 			this.challengeState.streakCount++
 		} else {
 			this.challengeState.streakCount = 0
@@ -234,66 +392,117 @@ export class ChallengeController {
 
 		// 通知更新
 		this.onUpdate(this.challengeState)
-		this.onLevelComplete(result)
+		this.onStepComplete(result)
 
-		// 播放动作动画（无论是否合法都播放，展示AI决策）
+		// 播放动作动画
 		const actionName = result.predictedActionName as ActionType
-		await this.playLevelAnimation(actionName)
+		await this.playStepAnimation(actionName)
 
-		// 动画完成后，延迟进入下一关
-		const delay = this.calculateDelay()
-		this.challengeTimer = window.setTimeout(() => {
-			this.runNextLevel()
-		}, delay)
+		// 动画完成后，更新狐狸位置并检查游戏状态
+		if (result.isValid) {
+			// 移动狐狸到目标列
+			this.moveHero(heroCol, targetCol)
+			this.challengeState.heroCol = targetCol
+
+			// 检查新位置是否安全（落地位置必须是平地）
+			const map = this.challengeState.fullMap
+			if (map && targetCol < MAP_LENGTH) {
+				const landingGround = map[2][targetCol]
+				if (landingGround !== ELEM_GROUND) {
+					// 掉坑了！游戏结束
+					this.challengeState.gameOver = true
+					this.challengeState.gameWon = false
+					this.challengeState.isRunning = false
+					this.onUpdate(this.challengeState)
+					this.onGameOver(false, targetCol)
+					return
+				}
+			}
+
+			// 检查是否通关
+			if (targetCol >= MAP_LENGTH - 1) {
+				this.challengeState.gameOver = true
+				this.challengeState.gameWon = true
+				this.challengeState.isRunning = false
+				this.onUpdate(this.challengeState)
+				this.onGameOver(true, targetCol)
+				return
+			}
+		} else {
+			// 非法动作，游戏结束
+			this.challengeState.gameOver = true
+			this.challengeState.gameWon = false
+			this.challengeState.isRunning = false
+			this.onUpdate(this.challengeState)
+			this.onGameOver(false, heroCol)
+			return
+		}
+
+		// 如果不是单步模式，继续下一步
+		if (!this.challengeState.isStepMode) {
+			const delay = this.calculateDelay()
+			this.challengeTimer = window.setTimeout(() => {
+				this.runNextStep()
+			}, delay)
+		} else {
+			// 单步模式：暂停
+			this.challengeState.isPaused = true
+			this.challengeState.isRunning = false
+			this.onUpdate(this.challengeState)
+		}
 	}
 
 	/**
-	 * 播放关卡动画
+	 * 移动狐狸在地图中的位置
 	 */
-	private playLevelAnimation(action: ActionType): Promise<void> {
-		// 使用回调方式播放动画（由 main.ts 提供具体实现）
+	private moveHero(fromCol: number, toCol: number): void {
+		const map = this.challengeState.fullMap
+		if (!map) return
+
+		// 从原位置移除狐狸
+		if (map[1]) {
+			map[1][fromCol] = ELEM_AIR
+		}
+
+		// 在新位置放置狐狸（如果在地图范围内）
+		if (toCol < MAP_LENGTH && map[1]) {
+			map[1][toCol] = ELEM_HERO
+		}
+	}
+
+	/**
+	 * 播放步骤动画
+	 */
+	private playStepAnimation(action: ActionType): Promise<void> {
 		return this.onPlayAnimation(action, this.speed)
-	}
-
-	/**
-	 * 生成挑战地形
-	 */
-	private generateChallengeTerrain(): number[][] {
-		return generateRandomTerrain(this.terrainConfig)
 	}
 
 	/**
 	 * 执行预测
 	 */
-	private executePrediction(terrain: number[][]): ChallengeResult {
-		const indices = terrainToIndices(terrain)
+	private executePrediction(viewport: number[][], heroCol: number): ChallengeResult {
+		const indices = terrainToIndices(viewport)
 		const fp = forward(this.state.net, indices)
 		const pred = fp.o.indexOf(Math.max(...fp.o))
-		const heroCol = findHeroCol(terrain)
-		const checks = getActionChecks(terrain, heroCol)
-		const correct = getLabel(terrain)
+		const checks = getActionChecks(viewport, 0)  // 视野中狐狸始终在0列
 
 		const isValid = isActionValidByChecks(checks, pred)
-		const isOptimal = pred === correct && correct !== -1
 
 		return {
-			level: this.challengeState.currentLevel + 1,
-			terrain: terrain.map(row => [...row]),
+			step: this.challengeState.currentStep + 1,
+			heroCol,
 			predictedAction: pred,
 			predictedActionName: getActionName(pred),
-			correctAction: correct,
-			correctActionName: correct === -1 ? "无解" : getActionName(correct),
 			isValid,
-			isOptimal,
 			probabilities: [...fp.o],
 		}
 	}
 
 	/**
-	 * 计算关卡间隔延迟（动画后延迟）
+	 * 计算步骤间隔延迟
 	 */
 	private calculateDelay(): number {
-		const baseDelay = 500  // 基础延迟 0.5秒（动画已展示足够时间）
+		const baseDelay = 500
 		return baseDelay / this.speed
 	}
 
@@ -301,23 +510,17 @@ export class ChallengeController {
 	 * 获取成功率
 	 */
 	getSuccessRate(): number {
-		if (this.challengeState.totalCount === 0) return 0
-		return Math.round((this.challengeState.passedCount / this.challengeState.totalCount) * 100)
-	}
-
-	/**
-	 * 获取当前关卡的地形（用于渲染）
-	 */
-	getCurrentTerrain(): number[][] | null {
-		return this.challengeState.currentTerrain
+		if (this.challengeState.totalSteps === 0) return 0
+		return Math.round((this.challengeState.passedSteps / this.challengeState.totalSteps) * 100)
 	}
 
 	/**
 	 * 获取当前前向传播结果（用于渲染MLP）
 	 */
 	getCurrentForwardResult(): ForwardResult | null {
-		if (!this.challengeState.currentTerrain) return null
-		const indices = terrainToIndices(this.challengeState.currentTerrain)
+		const terrain = this.getCurrentTerrain()
+		if (!terrain) return null
+		const indices = terrainToIndices(terrain)
 		return forward(this.state.net, indices)
 	}
 }
