@@ -3,26 +3,32 @@ import type { AppState } from "./state.js"
 import {
 	NUM_COLS, NUM_LAYERS, NUM_ELEMENTS, HIDDEN_DIM, OUTPUT_DIM, EMBED_DIM,
 	INPUT_DIM, ACTIONS, ELEM_AIR, ELEM_HERO, ELEM_GROUND, ELEM_SLIME, ELEM_DEMON, ELEM_COIN,
-	CURRICULUM_STAGES, ELEMENTS, EMBED_SIZE_BASE, EMBED_SIZE_SENSITIVITY, EMBED_SIZE_OFFSET, EMBED_SIZE_MIN, EMBED_SIZE_MAX,
-	UNSUPERVISED_CONFIG, TRAIN_CONFIG, DATASET_SIZE, EVAL_SAMPLE_SIZE
+	CURRICULUM_STAGES, ELEMENTS,
+	UNSUPERVISED_CONFIG, TRAIN_CONFIG, DATASET_SIZE
 } from "./constants.js"
-import { createGradientBuffer, accumulateGradients, calculateReward, type ActionEvaluation } from "./unsupervised.js"
+import { forward, updateNetwork, cloneNet } from "./neural-network.js"
+import { createGradientBuffer, accumulateGradients, calculateReward } from "./unsupervised.js"
 import { createGradientBuffer as createSuperBuffer, accumulateSupervisedGrad } from "./supervised.js"
-import { zeroMat, zeroVec, easeOutQuad } from "./utils.js"
-import { forward, backward, updateNetwork, cloneNet } from "./neural-network.js"
 import {
 	terrainToIndices, findHeroCol, getActionChecks, getLabel, getActionName,
 	isActionValidByChecks, generateTerrainData, generateRandomTerrain
 } from "./terrain.js"
 import {
-	drawTerrainGrid, drawEmoji, getEditorCellAt, setupCanvas,
-	getEditorLayout, drawEditorLabels,
+	getEditorCellAt,
 	drawMLP as rendererDrawMLP, drawEmbedding as rendererDrawEmbedding,
 	drawObsessionCurve as rendererDrawObsessionCurve,
 	stepAnimation as rendererStepAnimation,
 	drawEditorWithState
 } from "./renderer.js"
-import { UIManager, type MetricsData } from "./ui-manager.js"
+import { UIManager } from "./ui-manager.js"
+import { TrainingEngine } from "./training-engine.js"
+import { zeroMat, zeroVec } from "./utils.js"
+
+// 课程学习内部使用的评估函数（将在批次6中进一步重构）
+function evaluateDatasetForCurriculum() {
+	const engine = new TrainingEngine(state, async () => {})
+	return engine.evaluateDataset()
+}
 import { calculateAnimationPath } from "./animation.js"
 import { createInitialState, resetState, setTerrainCell, stopAnimation } from "./state.js"
 
@@ -47,71 +53,6 @@ async function trainBatch() {
 	const btn = document.getElementById("btn-train") as HTMLButtonElement
 	btn.disabled = true
 
-	if (state.learningMode === "supervised") {
-		await trainSupervised()
-	} else {
-		await trainUnsupervised()
-	}
-
-	uiManager.updateSnapshotSlider()
-	evaluateAll()
-	predict()
-	drawObsessionCurve()
-	btn.disabled = false
-}
-
-// 监督学习：使用标签数据
-async function trainSupervised() {
-	const { batchSize, steps } = TRAIN_CONFIG
-
-	// 若快照为空，先保存初始状态（全局累积，不清空旧快照）
-	if (state.snapshots.length === 0) {
-		state.snapshots.push({ step: state.trainSteps, net: cloneNet(state.net) })
-		recordSnapshotStats(0)
-		state.selectedSnapshotIndex = 0
-	}
-
-	for (let s = 0; s < steps; s++) {
-		const buffer = createSuperBuffer()
-		let lossSum = 0
-		let correct = 0
-		let validCount = 0
-
-		for (let b = 0; b < batchSize; b++) {
-			const idx = Math.floor(Math.random() * state.dataset.length)
-			const sample = state.dataset[idx]
-			const { loss, isCorrect } = accumulateSupervisedGrad(buffer, state.net, sample.indices, sample.y, batchSize)
-			lossSum += loss
-			if (isCorrect) correct++
-			
-			// 计算合法率
-			const fp = forward(state.net, sample.indices)
-			const predictedAction = fp.o.indexOf(Math.max(...fp.o))
-			const heroCol = findHeroCol(sample.t)
-			const checks = getActionChecks(sample.t, heroCol)
-			if (isActionValidByChecks(checks, predictedAction)) validCount++
-		}
-
-		updateNetwork(state.net, buffer, 1)
-
-		state.trainSteps++
-		if (s % 20 === 0 || s === steps - 1) {
-			// 统一使用 evaluateDataset 进行采样评估
-			const { accuracy, validRate, loss } = evaluateDataset(state.dataset, state.net, EVAL_SAMPLE_SIZE)
-			uiManager.updateMetrics({ loss, acc: accuracy, validRate, progress: ((s + 1) / steps) * 100 })
-			// 保存快照
-			state.snapshots.push({ step: state.trainSteps, net: cloneNet(state.net) })
-			recordSnapshotStats(state.snapshots.length - 1)
-			await new Promise(r => setTimeout(r, 1))
-		}
-	}
-}
-
-// 无监督学习：ε-贪心探索，根据结果给奖励
-async function trainUnsupervised() {
-	const { batchSize, steps } = TRAIN_CONFIG
-	// 使用动态探索率，初始值从 state.epsilon 获取
-
 	// 若快照为空，先保存初始状态
 	if (state.snapshots.length === 0) {
 		state.snapshots.push({ step: state.trainSteps, net: cloneNet(state.net) })
@@ -119,135 +60,32 @@ async function trainUnsupervised() {
 		state.selectedSnapshotIndex = 0
 	}
 
-	for (let s = 0; s < steps; s++) {
-		// 过滤式监督学习：只有选中最优动作时才用监督学习更新
-		const superBuffer = createSuperBuffer()
-		const unsuperBuffer = createGradientBuffer()
-		let hasSuperUpdate = false
-		let hasUnsuperUpdate = false
-		
-		let totalReward = 0
-		let validCount = 0
+	const engine = new TrainingEngine(state, async (result) => {
+		uiManager.updateMetrics({
+			loss: result.loss,
+			acc: result.accuracy,
+			validRate: result.validRate,
+			epsilon: result.epsilon,
+			reward: result.reward,
+			progress: result.progress
+		})
+		// 保存快照
+		state.snapshots.push({ step: state.trainSteps, net: cloneNet(state.net) })
+		recordSnapshotStats(state.snapshots.length - 1)
+		await new Promise(r => setTimeout(r, 1))
+	})
 
-		for (let b = 0; b < batchSize; b++) {
-			// 随机选一个地形样本
-			const idx = Math.floor(Math.random() * state.dataset.length)
-			const sample = state.dataset[idx]
-			const fp = forward(state.net, sample.indices)
-			
-			// 预测动作（用于评估合法率）
-			const predicted = fp.o.indexOf(Math.max(...fp.o))
-
-			// ε-贪心选择动作（用于探索和学习）
-			let action: number
-			if (Math.random() < state.epsilon) {
-				action = Math.floor(Math.random() * OUTPUT_DIM)
-			} else {
-				action = predicted
-			}
-
-			// 检查预测动作的合法率（用于统计）
-			const heroCol = findHeroCol(sample.t)
-			const checks = getActionChecks(sample.t, heroCol)
-			if (isActionValidByChecks(checks, predicted)) validCount++
-
-			// 检查探索动作的合法性和最优性（用于学习）
-			const isValid = isActionValidByChecks(checks, action)
-			const optimal = getLabel(sample.t)
-			const isOptimal = (action === optimal)
-
-			// 计算奖励（用于学习）
-			let reward: number
-			if (isValid) {
-				reward = isOptimal ? UNSUPERVISED_CONFIG.rewardOptimal : UNSUPERVISED_CONFIG.rewardValid
-			} else {
-				reward = UNSUPERVISED_CONFIG.rewardInvalid
-			}
-			totalReward += reward
-
-			// 过滤式更新策略
-			if (isOptimal) {
-				// 选中最优动作 → 监督学习更新（强信号！）
-				accumulateSupervisedGrad(superBuffer, state.net, sample.indices, optimal, batchSize)
-				hasSuperUpdate = true
-			} else if (!isValid) {
-				// 选中不合法 → 无监督惩罚
-				const evaluation: ActionEvaluation = {
-					action,
-					isValid: false,
-					isOptimal: false,
-					reward: UNSUPERVISED_CONFIG.rewardInvalid,
-				}
-				accumulateGradients(unsuperBuffer, state.net, sample.indices, evaluation, batchSize)
-				hasUnsuperUpdate = true
-			} else {
-				// 选中次优但合法 → 轻微向最优动作引导（权重0.3）
-				accumulateSupervisedGrad(superBuffer, state.net, sample.indices, optimal, batchSize * 3)
-				hasSuperUpdate = true
-			}
-		}
-
-		// 应用更新
-		if (hasSuperUpdate) {
-			updateNetwork(state.net, superBuffer, 1)
-		}
-		if (hasUnsuperUpdate) {
-			updateNetwork(state.net, unsuperBuffer, 1)
-		}
-
-		state.trainSteps++
-		if (s % 20 === 0 || s === steps - 1) {
-			// 统一使用 evaluateDataset 进行采样评估
-			const { accuracy, validRate } = evaluateDataset(state.dataset, state.net, EVAL_SAMPLE_SIZE)
-			
-			// 动态调整探索率
-			const newEpsilon = adjustEpsilon(validRate)
-			console.log("[UNS]", `合法率:${validRate.toFixed(1)}% 准确率:${accuracy.toFixed(1)}% 探索率ε:${newEpsilon.toFixed(2)}`)
-			uiManager.updateMetrics({ reward: totalReward / batchSize, validRate, acc: accuracy, epsilon: newEpsilon, progress: ((s + 1) / steps) * 100 })
-			// 保存快照
-			state.snapshots.push({ step: state.trainSteps, net: cloneNet(state.net) })
-			recordSnapshotStats(state.snapshots.length - 1)
-			await new Promise(r => setTimeout(r, 1))
-		}
-	}
-}
-
-// 动态探索率调整（参考 fox-jump）
-// 逻辑：合法率上升→降低探索率（更信任当前策略），合法率停滞→提高探索率
-function adjustEpsilon(validRate: number): number {
-	// 更新历史窗口
-	state.unsupervisedHistory.push(validRate)
-	if (state.unsupervisedHistory.length > UNSUPERVISED_CONFIG.epsilonWindowSize) {
-		state.unsupervisedHistory.shift()
-	}
-
-	// 窗口未满时保持当前探索率
-	if (state.unsupervisedHistory.length < UNSUPERVISED_CONFIG.epsilonWindowSize) {
-		return state.epsilon
-	}
-
-	// 计算平均合法率（去掉当前这次）
-	const currentAvg = state.unsupervisedHistory.slice(0, -1).reduce((a, b) => a + b, 0) / (UNSUPERVISED_CONFIG.epsilonWindowSize - 1)
-
-	// 探索率调整策略：
-	// 1. 合法率未饱和（<95%）：基于合法率改进调整
-	// 2. 合法率已饱和（>=95%）：基于准确率改进调整，更快收敛
-	if (validRate < 95) {
-		// 阶段1：基于合法率调整
-		if (validRate > currentAvg + UNSUPERVISED_CONFIG.epsilonImproveThreshold) {
-			state.epsilon = Math.max(UNSUPERVISED_CONFIG.epsilonMin, state.epsilon - UNSUPERVISED_CONFIG.epsilonDecayStep)
-		} else if (validRate < currentAvg - UNSUPERVISED_CONFIG.epsilonImproveThreshold) {
-			state.epsilon = Math.min(UNSUPERVISED_CONFIG.epsilonMax, state.epsilon + UNSUPERVISED_CONFIG.epsilonGrowStep)
-		} else {
-			state.epsilon = Math.max(UNSUPERVISED_CONFIG.epsilonMin, state.epsilon - UNSUPERVISED_CONFIG.epsilonDecayIdle)
-		}
+	if (state.learningMode === "supervised") {
+		await engine.trainSupervised()
 	} else {
-		// 阶段2：合法率已饱和（>=95%），持续降低探索率直到最小值
-		// 此时网络已学会合法动作，应更信任策略，减少探索
-		state.epsilon = Math.max(UNSUPERVISED_CONFIG.epsilonMin, state.epsilon - UNSUPERVISED_CONFIG.epsilonDecayStep * 2)
+		await engine.trainUnsupervised()
 	}
 
-	return state.epsilon
+	uiManager.updateSnapshotSlider()
+	evaluateAll()
+	predict()
+	drawObsessionCurve()
+	btn.disabled = false
 }
 
 function recordSnapshotStats(snapshotIndex: number) {
@@ -286,32 +124,10 @@ function applySnapshot(index: number) {
 
 // 统一评估函数（4种训练模式共用）
 // limit: 限制评估样本数（0=全部）
-function evaluateDataset(dataset: typeof state.dataset, net: typeof state.net, limit = 0) {
-	const samples = limit > 0 ? dataset.slice(0, limit) : dataset
-	let correct = 0
-	let validCount = 0
-	let lossSum = 0
-	for (const sample of samples) {
-		const fp = forward(net, sample.indices)
-		const predictedAction = fp.o.indexOf(Math.max(...fp.o))
-		if (predictedAction === sample.y) correct++
-		
-		const heroCol = findHeroCol(sample.t)
-		const checks = getActionChecks(sample.t, heroCol)
-		if (isActionValidByChecks(checks, predictedAction)) validCount++
-		
-		lossSum += -Math.log(Math.max(fp.o[sample.y], 1e-7))
-	}
-	const total = samples.length
-	const accuracy = (correct / total) * 100
-	const validRate = (validCount / total) * 100
-	const loss = lossSum / total
-	return { accuracy, validRate, loss }
-}
-
 // 更新最终评估UI
 function evaluateAll() {
-	const { accuracy, validRate, loss } = evaluateDataset(state.dataset, state.net)
+	const engine = new TrainingEngine(state, async () => {})
+	const { accuracy, validRate, loss } = engine.evaluateDataset()
 	uiManager.updateFinalMetrics(state.trainSteps, accuracy, validRate, loss)
 }
 
@@ -654,7 +470,7 @@ async function runCurriculumSupervised() {
 		}
 
 		// 评估（统一使用 evaluateDataset，完整数据集）
-		const { accuracy: acc, validRate, loss } = evaluateDataset(state.dataset, state.net)
+		const { accuracy: acc, validRate, loss } = evaluateDatasetForCurriculum()
 		uiManager.updateMetrics({ loss, acc, validRate, progress: Math.min(state.trainSteps / maxTotalSteps, 1) * 100 })
 		console.log("[SUP]", `合法率:${validRate.toFixed(1)}% 准确率:${acc.toFixed(1)}% 损失:${loss.toFixed(4)}`)
 
@@ -734,9 +550,10 @@ async function runCurriculumUnsupervised() {
 		}
 
 		// 评估（统一使用 evaluateDataset，完整数据集）
-		const { accuracy, validRate, loss } = evaluateDataset(state.dataset, state.net)
+		const { accuracy, validRate, loss } = evaluateDatasetForCurriculum()
 		// 动态调整探索率
-		const newEpsilon = adjustEpsilon(validRate)
+		const engine = new TrainingEngine(state, async () => {})
+		const newEpsilon = engine.adjustEpsilon(validRate)
 		console.log("[UNS]", `合法率:${validRate.toFixed(1)}% 准确率:${accuracy.toFixed(1)}% 损失:${loss.toFixed(4)} 探索率ε:${newEpsilon.toFixed(2)}`)
 		// 统一使用 updateMetrics 显示所有指标
 		uiManager.updateMetrics({ loss, acc: accuracy, validRate, epsilon: newEpsilon, progress: Math.min(state.trainSteps / maxTotalSteps, 1) * 100 })
