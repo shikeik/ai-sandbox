@@ -209,6 +209,7 @@ function initChallenge(): void {
 		// 绘制地形网格（使用当前挑战控制器的地形）
 		if (challengeController) {
 			const terrain = challengeController.getCurrentTerrain()
+			const actualHeroCol = challengeController.getHeroCol()
 			if (terrain) {
 				drawTerrainGrid(ctx, terrain, {
 					cellW, cellH, gapX, gapY, startX, startY,
@@ -216,6 +217,13 @@ function initChallenge(): void {
 					hideHeroAtCol: heroCol,
 					dimNonInteractive: false,
 				})
+				// 绘制坐标信息（左下角）
+				const gridH = NUM_LAYERS * cellH + (NUM_LAYERS - 1) * gapY
+				const bottomY = startY + gridH + 16
+				ctx.fillStyle = "#8ab4f8"
+				ctx.font = "11px sans-serif"
+				ctx.textAlign = "left"
+				ctx.fillText(`位置: ${actualHeroCol}-${Math.min(actualHeroCol + 4, 31)} / 0-31`, startX, bottomY)
 			}
 		}
 
