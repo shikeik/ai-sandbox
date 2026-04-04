@@ -50,6 +50,7 @@ let obsessionCanvas: HTMLCanvasElement
 // ========== 训练相关 ==========
 
 async function trainBatch() {
+	console.log("MAIN", "开始训练批次")
 	const btn = document.getElementById("btn-train") as HTMLButtonElement
 	btn.disabled = true
 
@@ -81,11 +82,13 @@ async function trainBatch() {
 		await engine.trainUnsupervised()
 	}
 
+	console.log("MAIN", "训练完成，更新UI")
 	uiManager.updateSnapshotSlider()
 	evaluateAll()
 	predict()
 	drawObsessionCurve()
 	btn.disabled = false
+	console.log("MAIN", "训练批次结束")
 }
 
 function recordSnapshotStats(snapshotIndex: number) {
@@ -113,6 +116,7 @@ function recordSnapshotStats(snapshotIndex: number) {
 }
 
 function applySnapshot(index: number) {
+	console.log("MAIN", `应用快照 #${index}`)
 	if (index < 0 || index >= state.snapshots.length) return
 	state.selectedSnapshotIndex = index
 	state.net = cloneNet(state.snapshots[index].net)
@@ -409,6 +413,7 @@ let curriculumStageIdx = 0
 let curriculumRunning = false
 
 async function runCurriculum() {
+	console.log("MAIN", "开始课程学习")
 	if (curriculumRunning) return
 	if (curriculumStageIdx >= CURRICULUM_STAGES.length) {
 		uiManager.updateExam("已完成全部课程阶段！", "ok")
