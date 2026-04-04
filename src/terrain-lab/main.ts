@@ -22,6 +22,7 @@ import {
 } from "./renderer.js"
 import { UIManager } from "./ui-manager.js"
 import { TrainingEngine } from "./training-engine.js"
+import { SnapshotManager } from "./snapshot-manager.js"
 import { zeroMat, zeroVec } from "./utils.js"
 
 // 课程学习内部使用的评估函数（将在批次6中进一步重构）
@@ -38,6 +39,7 @@ import { ConsolePanel } from "../engine/console/ConsolePanel.js"
 // ========== 全局状态 ==========
 const state: AppState = createInitialState()
 const uiManager = new UIManager(state)
+const snapshotManager = new SnapshotManager(state, uiManager)
 
 // DOM 元素
 let editorCanvas: HTMLCanvasElement
@@ -55,11 +57,7 @@ async function trainBatch() {
 	btn.disabled = true
 
 	// 若快照为空，先保存初始状态
-	if (state.snapshots.length === 0) {
-		state.snapshots.push({ step: state.trainSteps, net: cloneNet(state.net) })
-		recordSnapshotStats(0)
-		state.selectedSnapshotIndex = 0
-	}
+	snapshotManager.initSnapshot()
 
 	const engine = new TrainingEngine(state, async (result) => {
 		uiManager.updateMetrics({
@@ -71,8 +69,7 @@ async function trainBatch() {
 			progress: result.progress
 		})
 		// 保存快照
-		state.snapshots.push({ step: state.trainSteps, net: cloneNet(state.net) })
-		recordSnapshotStats(state.snapshots.length - 1)
+		snapshotManager.addSnapshot()
 		await new Promise(r => setTimeout(r, 1))
 	})
 
@@ -91,39 +88,11 @@ async function trainBatch() {
 	console.log("MAIN", "训练批次结束")
 }
 
-function recordSnapshotStats(snapshotIndex: number) {
-	if (snapshotIndex < 0 || snapshotIndex >= state.snapshots.length) return
-	const snap = state.snapshots[snapshotIndex]
-
-	// 执念曲线概率
-	if (state.observedSample) {
-		const fp = forward(snap.net, state.observedSample.indices)
-		snap.observedProbs = fp.o.slice()
-	}
-
-	// 准确率与损失
-	if (state.dataset.length > 0) {
-		let correct = 0
-		let lossSum = 0
-		for (const sample of state.dataset) {
-			const fp = forward(snap.net, sample.indices)
-			if (fp.o.indexOf(Math.max(...fp.o)) === sample.y) correct++
-			lossSum += -Math.log(Math.max(fp.o[sample.y], 1e-7))
-		}
-		snap.acc = (correct / state.dataset.length) * 100
-		snap.loss = lossSum / state.dataset.length
-	}
-}
-
 function applySnapshot(index: number) {
-	console.log("MAIN", `应用快照 #${index}`)
-	if (index < 0 || index >= state.snapshots.length) return
-	state.selectedSnapshotIndex = index
-	state.net = cloneNet(state.snapshots[index].net)
-	const snap = state.snapshots[index]
-	uiManager.applySnapshotLabel(snap.step, snap.acc, snap.loss)
-	predict()
-	drawObsessionCurve()
+	snapshotManager.applySnapshot(index, () => {
+		predict()
+		drawObsessionCurve()
+	})
 }
 
 // 统一评估函数（4种训练模式共用）
@@ -162,7 +131,7 @@ function setObservedFromTerrain() {
 	uiManager.updateObsessionStatus(`观察样本：当前地形 | 规则答案：${ACTIONS[label]}`, "ok")
 	// 若有快照，重新计算所有快照对该样本的概率
 	for (let i = 0; i < state.snapshots.length; i++) {
-		recordSnapshotStats(i)
+		snapshotManager.recordStats(i)
 	}
 	drawObsessionCurve()
 }
@@ -176,7 +145,7 @@ function setObservedRandom() {
 	state.observedSample = sample
 	uiManager.updateObsessionStatus(`观察样本：数据集第 ${state.dataset.indexOf(sample) + 1} 条 | 规则答案：${ACTIONS[sample.y]}`, "ok")
 	for (let i = 0; i < state.snapshots.length; i++) {
-		recordSnapshotStats(i)
+		snapshotManager.recordStats(i)
 	}
 	drawObsessionCurve()
 }
@@ -435,9 +404,7 @@ async function runCurriculum() {
 	btnTrain.disabled = state.dataset.length === 0
 
 	// 清空旧快照，保留初始状态
-	state.snapshots = [{ step: state.trainSteps, net: cloneNet(state.net) }]
-	recordSnapshotStats(0)
-	state.selectedSnapshotIndex = 0
+	snapshotManager.resetSnapshots()
 	uiManager.updateSnapshotSlider()
 
 	// 根据学习模式选择训练方式
@@ -480,8 +447,7 @@ async function runCurriculumSupervised() {
 		console.log("SUP", `合法率:${validRate.toFixed(1)}% 准确率:${acc.toFixed(1)}% 损失:${loss.toFixed(4)}`)
 
 		// 保存快照
-		state.snapshots.push({ step: state.trainSteps, net: cloneNet(state.net) })
-		recordSnapshotStats(state.snapshots.length - 1)
+		snapshotManager.addSnapshot()
 		uiManager.updateSnapshotSlider()
 		drawObsessionCurve()
 
@@ -564,8 +530,7 @@ async function runCurriculumUnsupervised() {
 		uiManager.updateMetrics({ loss, acc: accuracy, validRate, epsilon: newEpsilon, progress: Math.min(state.trainSteps / maxTotalSteps, 1) * 100 })
 
 		// 保存快照
-		state.snapshots.push({ step: state.trainSteps, net: cloneNet(state.net) })
-		recordSnapshotStats(state.snapshots.length - 1)
+		snapshotManager.addSnapshot()
 		uiManager.updateSnapshotSlider()
 		drawObsessionCurve()
 
