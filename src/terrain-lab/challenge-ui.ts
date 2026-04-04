@@ -94,6 +94,39 @@ export class ChallengeUIManager {
 		}
 	}
 
+	// ========== 模式切换 ==========
+
+	updateMode(mode: "play" | "train"): void {
+		const playBtn = document.getElementById("btn-mode-play") as HTMLButtonElement
+		const trainBtn = document.getElementById("btn-mode-train") as HTMLButtonElement
+
+		if (playBtn && trainBtn) {
+			if (mode === "play") {
+				playBtn.classList.add("active")
+				playBtn.style.color = "#e8eaed"
+				trainBtn.classList.remove("active")
+				trainBtn.style.color = "#9aa0a6"
+			} else {
+				playBtn.classList.remove("active")
+				playBtn.style.color = "#9aa0a6"
+				trainBtn.classList.add("active")
+				trainBtn.style.color = "#e8eaed"
+			}
+		}
+
+		// 更新结果区域提示
+		const resultEl = document.getElementById("challenge-result")
+		if (resultEl) {
+			const modeText = mode === "play" 
+				? "游玩模式：冻结调参，仅使用当前AI能力"
+				: "训练模式：AI根据挑战结果实时学习"
+			const smallText = resultEl.querySelector("small")
+			if (smallText) {
+				smallText.textContent = modeText
+			}
+		}
+	}
+
 	// ========== 结果展示 ==========
 
 	updateResult(result: ChallengeResult | null, gameOver: boolean = false, gameWon: boolean = false): void {

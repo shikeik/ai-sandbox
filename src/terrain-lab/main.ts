@@ -216,6 +216,7 @@ function initChallenge(): void {
 			challengeUIManager?.updateStats(challengeState)
 			challengeUIManager?.updateControls(challengeState.isRunning, challengeState.isPaused, challengeState.isStepMode)
 			challengeUIManager?.updateHistory(challengeState.history)
+			challengeUIManager?.updateMode(challengeState.mode)
 
 			// 更新地形显示（使用视野窗口）
 			const terrain = challengeController?.getCurrentTerrain()

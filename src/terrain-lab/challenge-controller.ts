@@ -30,10 +30,13 @@ export interface ChallengeResult {
 	probabilities: number[]    // 各动作概率
 }
 
+export type ChallengeMode = "play" | "train"
+
 export interface ChallengeState {
 	isRunning: boolean         // 是否正在挑战
 	isPaused: boolean          // 是否暂停
 	isStepMode: boolean        // 是否单步模式
+	mode: ChallengeMode        // 挑战模式：demo=演示(冻结调参), train=训练(可学习)
 	currentStep: number        // 当前步数
 	heroCol: number            // 狐狸当前列
 	streakCount: number        // 连胜次数（连续成功步数）
@@ -93,6 +96,7 @@ export class ChallengeController {
 			isRunning: false,
 			isPaused: false,
 			isStepMode: false,
+			mode: "play",
 			currentStep: 0,
 			heroCol: 0,
 			streakCount: 0,
@@ -104,6 +108,15 @@ export class ChallengeController {
 			gameOver: false,
 			gameWon: false,
 		}
+	}
+
+	setMode(mode: ChallengeMode): void {
+		this.challengeState.mode = mode
+		this.onUpdate(this.challengeState)
+	}
+
+	getMode(): ChallengeMode {
+		return this.challengeState.mode
 	}
 
 	getState(): ChallengeState {
