@@ -9,7 +9,7 @@ import {
 	CURRICULUM_STAGES
 } from "./constants.js"
 import type { TerrainConfig } from "./constants.js"
-import { getLabel, getActionName, getLayerPool, randElemFromPool } from "./terrain.js"
+import { getLabel, getActionName, getLayerPool, randElemFromPool, generateTerrainForAction } from "./terrain.js"
 import { MapRenderer } from "./map-renderer.js"
 
 export class MapGeneratorEntry {
@@ -133,38 +133,42 @@ export class MapGeneratorEntry {
 
 	/**
 	 * 生成下一步
+	 * 新逻辑：先随机选动作，再为这个动作生成地形
 	 */
 	private async generateNextStep(): Promise<{ success: boolean; reachedEnd: boolean } | null> {
 		if (!this.generatedMap || this.shouldStop) return null
 
 		const heroCol = this.currentHeroCol
 
-		// 获取当前视野
-		const viewport = this.getViewport(heroCol)
-
-		// 使用规则函数获取最优动作
-		let action = getLabel(viewport)
+		// 随机选一个动作（0=走, 1=跳, 2=远跳, 3=走A）
+		const action = Math.floor(Math.random() * 4)
 		let retryCount = 0
 		const maxRetries = 100
 
-		// 死路自动重试
-		while (action === -1 && retryCount < maxRetries && !this.shouldStop) {
+		// 尝试为该动作生成地形
+		let newTerrain: number[][] | null = null
+		while (retryCount < maxRetries && !this.shouldStop) {
+			newTerrain = generateTerrainForAction(action, heroCol, this.terrainConfig)
+			if (newTerrain) break
 			retryCount++
-			this.regenerateTerrainForRange(heroCol + 1, heroCol + 6)
-			const newViewport = this.getViewport(heroCol)
-			action = getLabel(newViewport)
 
 			if (retryCount % 20 === 0) {
 				this.updateHistory(`第${heroCol}列：重试${retryCount}次...`)
-				this.renderer.draw(this.generatedMap, heroCol)
 				await this.delay(50)
 			}
 		}
 
 		if (this.shouldStop) return null
-		if (action === -1) {
+		if (!newTerrain) {
 			this.updateHistory(`第${heroCol}列：无法生成合法地形`)
 			return { success: false, reachedEnd: false }
+		}
+
+		// 将新地形合并到大地图
+		for (let layer = 0; layer < NUM_LAYERS; layer++) {
+			for (let col = 0; col < 7 && heroCol + col < 32; col++) {
+				this.generatedMap[layer][heroCol + col] = newTerrain[layer][col]
+			}
 		}
 
 		// 计算目标列
@@ -172,10 +176,6 @@ export class MapGeneratorEntry {
 		if (action === 0 || action === 3) targetCol = heroCol + 1
 		else if (action === 1) targetCol = heroCol + 2
 		else if (action === 2) targetCol = heroCol + 3
-
-		// 生成目标列及前方地形
-		this.generateTerrainForRange(targetCol, Math.min(targetCol + 6, 31))
-		this.generatedMap[2][targetCol] = ELEM_GROUND
 
 		// 记录步骤
 		const actionName = getActionName(action)

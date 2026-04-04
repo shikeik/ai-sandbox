@@ -281,3 +281,100 @@ export function generateRandomTerrain(config: TerrainConfig = DEFAULT_TERRAIN_CO
 
 	return terrain
 }
+
+// ========== 为指定动作生成地形 ==========
+
+/**
+ * 为指定动作生成地形
+ * 确保只有该动作合法，其他动作不合法（或可选地也合法）
+ * @param action 目标动作 (0=走, 1=跳, 2=远跳, 3=走A)
+ * @param heroCol 狐狸位置（默认为0）
+ * @param config 地形配置
+ * @returns 生成的地形，如果无法生成则返回null
+ */
+export function generateTerrainForAction(
+	action: number,
+	heroCol: number = 0,
+	config: TerrainConfig = DEFAULT_TERRAIN_CONFIG
+): number[][] | null {
+	const t: number[][] = [
+		Array(NUM_COLS).fill(ELEM_AIR),
+		Array(NUM_COLS).fill(ELEM_AIR),
+		Array(NUM_COLS).fill(ELEM_AIR),
+	]
+
+	// 放置狐狸
+	t[1][heroCol] = ELEM_HERO
+
+	// 根据动作设置地形
+	switch (action) {
+		case 0: // 走：第1列平地+无史莱姆，第2列让跳不合法（有坑或史莱姆或恶魔）
+			// 第1列：平地
+			t[2][heroCol + 1] = ELEM_GROUND
+			// 第2列：让跳不合法（地面不平或天上有恶魔）
+			if (config.demon) {
+				t[0][heroCol + 2] = ELEM_DEMON // 天上放恶魔，跳不合法
+			} else {
+				t[2][heroCol + 2] = ELEM_AIR // 地面放坑，跳不合法
+			}
+			break
+
+		case 1: // 跳：第1列让走不合法，第2列平地
+			// 第1列：让走不合法（有坑或史莱姆或恶魔）
+			t[2][heroCol + 1] = ELEM_AIR // 地面放坑
+			// 第2列：平地
+			t[2][heroCol + 2] = ELEM_GROUND
+			break
+
+		case 2: // 远跳：第1列让走不合法，第2列让跳不合法，第3列平地
+			// 第1列：让走不合法
+			t[2][heroCol + 1] = ELEM_AIR
+			// 第2列：让跳不合法
+			t[2][heroCol + 2] = ELEM_AIR
+			// 第3列：平地
+			t[2][heroCol + 3] = ELEM_GROUND
+			break
+
+		case 3: // 走A：第1列平地+有史莱姆
+			if (!config.slime) {
+				// 如果没有启用史莱姆，无法生成走A地形
+				return null
+			}
+			// 第1列：平地+史莱姆
+			t[2][heroCol + 1] = ELEM_GROUND
+			t[1][heroCol + 1] = ELEM_SLIME
+			break
+
+		default:
+			return null
+	}
+
+	// 填充其他位置（随机但确保不破坏目标动作的合法性）
+	const pools = [
+		getLayerPool(0, config),
+		getLayerPool(1, config),
+		getLayerPool(2, config),
+	]
+
+	for (let layer = 0; layer < NUM_LAYERS; layer++) {
+		for (let col = 0; col < NUM_COLS; col++) {
+			if (t[layer][col] === ELEM_AIR) {
+				// 跳过已设置的位置和狐狸位置
+				if (layer === 1 && col === heroCol) continue
+				// 随机填充（但优先保持空气，避免意外创造其他合法动作）
+				if (Math.random() < 0.3) {
+					t[layer][col] = randElemFromPool(pools[layer])
+				}
+			}
+		}
+	}
+
+	// 验证生成的地形是否确实让目标动作合法
+	const checks = getActionChecks(t, heroCol)
+	const isValid = (action === 0 && checks.canWalk.ok) ||
+	                (action === 1 && checks.canJump.ok) ||
+	                (action === 2 && checks.canLongJump.ok) ||
+	                (action === 3 && checks.canWalkAttack.ok)
+
+	return isValid ? t : null
+}
