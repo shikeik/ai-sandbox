@@ -33,6 +33,10 @@ import { zeroMat, zeroVec } from "./utils.js"
 import { calculateAnimationPath } from "./animation.js"
 import { createInitialState, resetState, setTerrainCell, stopAnimation } from "./state.js"
 
+// ========== 连续挑战模块 ==========
+import { ChallengeController, ChallengeState, ChallengeResult, ChallengeSpeed } from "./challenge-controller.js"
+import { ChallengeUIManager } from "./challenge-ui.js"
+
 import { Logger } from "../engine/utils/Logger.js"
 import { ConsolePanel } from "../engine/console/ConsolePanel.js"
 
@@ -44,6 +48,10 @@ const curriculumController = new CurriculumController(state, uiManager, snapshot
 const terrainValidator = new TerrainValidator(state, uiManager)
 const obsessionManager = new ObsessionManager(state, uiManager, snapshotManager)
 
+// 连续挑战控制器
+let challengeController: ChallengeController | null = null
+let challengeUIManager: ChallengeUIManager | null = null
+
 // Predictor 需要等 drawMLP/drawEmbedding/playAnimation 定义后再创建
 let predictor: Predictor
 
@@ -54,6 +62,115 @@ let embeddingCanvas: HTMLCanvasElement
 let obsessionCanvas: HTMLCanvasElement
 
 // 注意：UI 元素定义现在使用从 constants.ts 导入的 ELEMENTS
+
+// ========== Tab 切换 ==========
+
+function switchTab(tabName: string): void {
+	// 更新 Tab 按钮状态
+	document.querySelectorAll(".tab-btn").forEach(btn => {
+		btn.classList.toggle("active", btn.getAttribute("data-tab") === tabName)
+	})
+
+	// 切换内容显示
+	document.querySelectorAll(".tab-content").forEach(content => {
+		content.classList.remove("active")
+	})
+	const targetContent = document.getElementById(`tab-${tabName}`)
+	if (targetContent) {
+		targetContent.classList.add("active")
+	}
+
+	// 如果切换到挑战 Tab，初始化挑战画布
+	if (tabName === "challenge" && challengeUIManager) {
+		challengeUIManager.drawTerrain(challengeController?.getCurrentTerrain() ?? null)
+		challengeUIManager.drawMLP(challengeController?.getCurrentTerrain() ?? null)
+	}
+}
+
+// ========== 连续挑战功能 ==========
+
+function initChallenge(): void {
+	challengeUIManager = new ChallengeUIManager(state)
+
+	challengeController = new ChallengeController(
+		state,
+		(challengeState: ChallengeState) => {
+			// 状态更新回调
+			challengeUIManager?.updateStats(challengeState)
+			challengeUIManager?.updateControls(challengeState.isRunning, challengeState.isPaused)
+			challengeUIManager?.updateHistory(challengeState.history)
+		},
+		(result: ChallengeResult) => {
+			// 关卡完成回调
+			challengeUIManager?.updateResult(result)
+			challengeUIManager?.updateProbs(result.probabilities)
+			challengeUIManager?.drawTerrain(result.terrain)
+			challengeUIManager?.drawMLP(result.terrain)
+		}
+	)
+
+	// 初始化挑战 UI
+	challengeUIManager.init(() => {
+		// 尺寸变化时重绘
+		challengeUIManager?.drawTerrain(challengeController?.getCurrentTerrain() ?? null)
+		challengeUIManager?.drawMLP(challengeController?.getCurrentTerrain() ?? null)
+	})
+
+	// 设置初始地形配置
+	const stageSelect = document.getElementById("challenge-stage-select") as HTMLSelectElement
+	if (stageSelect) {
+		const stageIdx = Number(stageSelect.value)
+		challengeController.setTerrainConfig(CURRICULUM_STAGES[stageIdx].config)
+
+		stageSelect.addEventListener("change", () => {
+			const idx = Number(stageSelect.value)
+			challengeController?.setTerrainConfig(CURRICULUM_STAGES[idx].config)
+			console.log("CHALLENGE", `切换到${CURRICULUM_STAGES[idx].name}`)
+		})
+	}
+
+	// 速度选择
+	const speedSelect = document.getElementById("challenge-speed") as HTMLSelectElement
+	if (speedSelect) {
+		speedSelect.addEventListener("change", () => {
+			const speed = Number(speedSelect.value) as ChallengeSpeed
+			challengeController?.setSpeed(speed)
+			console.log("CHALLENGE", `速度设置为 ${speed}x`)
+		})
+	}
+
+	// 初始渲染
+	challengeUIManager.updateStats(challengeController.getState())
+	challengeUIManager.updateControls(false, false)
+	challengeUIManager.updateResult(null)
+	challengeUIManager.updateHistory([])
+	challengeUIManager.resetProbs()
+	challengeUIManager.drawTerrain(null)
+	challengeUIManager.drawMLP(null)
+}
+
+function startChallenge(): void {
+	if (!challengeController) return
+
+	if (challengeController.getIsPaused()) {
+		challengeController.resume()
+	} else {
+		challengeController.start()
+	}
+}
+
+function pauseChallenge(): void {
+	challengeController?.pause()
+}
+
+function resetChallenge(): void {
+	challengeController?.reset()
+	challengeUIManager?.updateResult(null)
+	challengeUIManager?.updateHistory([])
+	challengeUIManager?.resetProbs()
+	challengeUIManager?.drawTerrain(null)
+	challengeUIManager?.drawMLP(null)
+}
 
 // ========== 训练相关 ==========
 
@@ -370,7 +487,7 @@ function init() {
 		applySnapshot(Number(slider.value))
 	})
 
-	// 绑定全局函数
+	// 绑定全局函数 - 监督学习
 	;(window as any).generateData = generateData
 	;(window as any).trainBatch = trainBatch
 	;(window as any).resetNet = resetNet
@@ -388,8 +505,19 @@ function init() {
 	;(window as any).nextCurriculumStage = nextCurriculumStage
 	;(window as any).toggleLearningMode = toggleLearningMode
 
+	// 绑定全局函数 - Tab 切换
+	;(window as any).switchTab = switchTab
+
+	// 绑定全局函数 - 连续挑战
+	;(window as any).startChallenge = startChallenge
+	;(window as any).pauseChallenge = pauseChallenge
+	;(window as any).resetChallenge = resetChallenge
+
 	// 初始化 Predictor（需要在 drawMLP/drawEmbedding/playAnimation 定义之后）
 	predictor = new Predictor(state, uiManager, drawMLP, drawEmbedding, (action) => playAnimation(action as ActionType))
+
+	// 初始化连续挑战
+	initChallenge()
 
 	// 初始化控制台
 	const consolePanel = new ConsolePanel("#console-mount", logger)
