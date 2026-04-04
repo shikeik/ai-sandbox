@@ -120,6 +120,64 @@
 4. 全局 `tsx` 已安装，可以直接用 `tsx --test xxx.test.ts` 跑单个测试文件
 5. 修改测试时如果动了 `package.json` 的 `test` 脚本，注意单引号在部分 shell 里可能需要改成双引号
 
+### 阶段 5：terrain-lab 重构评估（交给下一个 AI 执行）
+
+**触发原因**：测试框架迁移完成后，用户发现 `src/terrain-lab/main.ts` 已膨胀到 1523 行，是典型的 God File。决定按代码重构规范进行系统性的复杂度降低重构。
+
+**做了什么**：
+- 按 **DRY、SRP、OCP** 三原则扫描了 `src/terrain-lab/` 全部代码
+- 按 **内联类独立化** 和 **逻辑与视图分离** 两个额外维度进行了深度评估
+- 识别出 6 个需要独立化的内联类：`SnapshotManager`、`CurriculumController`、`TrainingEngine`、`CanvasRenderer`、`UIManager`、`AnimationController`
+- 识别出 7 个逻辑与视图重度耦合点：`trainSupervised`、`runCurriculum*`、`predict`、`validateTerrain`、`generateData`、`resetNet`、`recordSnapshotStats`
+
+**核心结论**：
+- `main.ts` 必须从 1523 行压缩到 **< 250 行**
+- 计划分 **7 个批次**逐步执行重构（Canvas 工具函数 → Canvas 绘制 → UI 管理器 → 训练引擎 → 快照管理器 → 课程控制器 → 接口整理）
+- 详细评估报告和重构计划已写入：
+  > `docs/需求/terrain-lab重构/00-重构评估与计划.md`
+
+**当前状态**：✅ 评估完成，重构计划已归档。本次对话因上下文过多，**将重构执行交给下一个 AI**。
+
 ---
 
-*（本文档为阶段式记录，后续如有相关迭代可直接追加"阶段 5、阶段 6..."）*
+## 当前整体状态
+
+| 事项 | 状态 |
+|---|---|
+| `/init` 中文提示词 | ✅ 完成 |
+| 旧自定义测试清理 | ✅ 完成 |
+| 测试代码迁移到标准框架 | ✅ 完成（`node:test` + `tsx`） |
+| `npm test` 可运行 | ✅ 完成 |
+| Vitest 方案 | ❌ 放弃（环境限制） |
+| 坑与经验知识库 | ✅ 完成 |
+| terrain-lab 重构评估 | ✅ 完成 |
+| terrain-lab 重构执行 | ⏳ 移交下一个 AI |
+
+---
+
+## 关键文件变更
+
+| 文件 | 说明 |
+|---|---|
+| `src/terrain-lab/convergence.test.ts` | 新增：监督/无监督收敛测试（`node:test` 格式） |
+| `src/terrain-lab/clip.test.ts` | 新增：权重裁剪影响测试（`node:test` 格式） |
+| `src/terrain-lab/filtered-supervised.test.ts` | 新增：过滤式监督学习测试（`node:test` 格式） |
+| `src/terrain-lab/__tests__/` | ❌ 删除：旧自定义测试套件 |
+| `package.json` | 新增 `"test": "tsx --test 'src/**/*.test.ts'"` |
+| `AGENTS.md` | 更新测试策略章节 |
+| `docs/坑与经验/` | 新增：10 条坑 + 9 条经验 + 索引 |
+| `docs/需求/terrain-lab重构/00-重构评估与计划.md` | 新增：详细重构需求文档 |
+
+---
+
+## 给下一个 AI 的建议
+
+1. **不要再尝试在原项目位置引入 Vitest/Jest/Playwright 等依赖原生二进制的测试框架**，100% 会卡在 esbuild/rollup 的 `EACCES`
+2. 如果必须跑 vitest，只能把项目复制到 `~/` 下重新 `npm install` 再跑
+3. `node:test` 对数值型算法测试完全够用，断言用 `node:assert` 的 `ok`/`strictEqual`/`deepStrictEqual` 即可
+4. **重构 terrain-lab 时请务必阅读**：`docs/需求/terrain-lab重构/00-重构评估与计划.md`
+5. 重构务必按批次 1→7 小步快跑，每批执行完运行 `npm run lint && npm test && npm run build`
+
+---
+
+*（本文档为阶段式记录，后续如有相关迭代可直接追加"阶段 6、阶段 7..."）*
