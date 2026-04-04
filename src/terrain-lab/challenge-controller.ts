@@ -1,6 +1,8 @@
 // ========== 连续挑战控制器 ==========
 // 职责：管理AI跑酷模式——32格长地图，5×3视野窗口
 
+export { ChallengeUIManager } from "./challenge-ui.js"
+
 import type { AppState } from "./state.js"
 import type { ForwardResult, ActionType } from "./types.js"
 import {
