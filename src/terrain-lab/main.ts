@@ -193,9 +193,9 @@ function predict() {
 	const correct = getLabel(state.terrain)
 	
 	// 调试：输出预测详情（使用 getActionName 避免硬编码）
-	console.log("[PREDICT] AI预测:", pred, getActionName(pred), "规则答案:", correct, getActionName(correct))
-	console.log("[PREDICT] 输出概率:", fp.o.map((v, i) => `${getActionName(i)}:${v.toFixed(3)}`).join(", "))
-	console.log("[PREDICT] 各动作合法性:", `${getActionName(0)}:${checks.canWalk.ok} ${getActionName(1)}:${checks.canJump.ok} ${getActionName(2)}:${checks.canLongJump.ok} ${getActionName(3)}:${checks.canWalkAttack.ok}`)
+	console.log("PREDICT", "AI预测:", pred, getActionName(pred), "规则答案:", correct, getActionName(correct))
+	console.log("PREDICT", "输出概率:", fp.o.map((v, i) => `${getActionName(i)}:${v.toFixed(3)}`).join(", "))
+	console.log("PREDICT", "各动作合法性:", `${getActionName(0)}:${checks.canWalk.ok} ${getActionName(1)}:${checks.canJump.ok} ${getActionName(2)}:${checks.canLongJump.ok} ${getActionName(3)}:${checks.canWalkAttack.ok}`)
 
 	const conf = (fp.o[pred] * 100).toFixed(1)
 
@@ -477,7 +477,7 @@ async function runCurriculumSupervised() {
 		// 评估（统一使用 evaluateDataset，完整数据集）
 		const { accuracy: acc, validRate, loss } = evaluateDatasetForCurriculum()
 		uiManager.updateMetrics({ loss, acc, validRate, progress: Math.min(state.trainSteps / maxTotalSteps, 1) * 100 })
-		console.log("[SUP]", `合法率:${validRate.toFixed(1)}% 准确率:${acc.toFixed(1)}% 损失:${loss.toFixed(4)}`)
+		console.log("SUP", `合法率:${validRate.toFixed(1)}% 准确率:${acc.toFixed(1)}% 损失:${loss.toFixed(4)}`)
 
 		// 保存快照
 		state.snapshots.push({ step: state.trainSteps, net: cloneNet(state.net) })
@@ -559,7 +559,7 @@ async function runCurriculumUnsupervised() {
 		// 动态调整探索率
 		const engine = new TrainingEngine(state, async () => {})
 		const newEpsilon = engine.adjustEpsilon(validRate)
-		console.log("[UNS]", `合法率:${validRate.toFixed(1)}% 准确率:${accuracy.toFixed(1)}% 损失:${loss.toFixed(4)} 探索率ε:${newEpsilon.toFixed(2)}`)
+		console.log("UNS", `合法率:${validRate.toFixed(1)}% 准确率:${accuracy.toFixed(1)}% 损失:${loss.toFixed(4)} 探索率ε:${newEpsilon.toFixed(2)}`)
 		// 统一使用 updateMetrics 显示所有指标
 		uiManager.updateMetrics({ loss, acc: accuracy, validRate, epsilon: newEpsilon, progress: Math.min(state.trainSteps / maxTotalSteps, 1) * 100 })
 

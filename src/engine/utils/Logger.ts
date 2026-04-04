@@ -20,15 +20,15 @@ function formatArg(a: unknown): string {
 	return String(a)
 }
 
+/**
+ * 提取日志标签
+ * 格式要求: "TAG", "message"（TAG 为大写字母、数字、下划线、连字符）
+ * 示例: console.log("GAME", "玩家得分:", 100)
+ */
 function extractTag(args: unknown[]): { tag: string; rest: unknown[] } {
-	if (args.length > 0 && typeof args[0] === "string") {
-		// 支持 [TAG] 格式
-		const bracketMatch = args[0].match(/^\[([^\]]+)\]$/)
-		if (bracketMatch) {
-			return { tag: bracketMatch[1], rest: args.slice(1) }
-		}
-		// 支持 TAG 格式（大写字母、数字、下划线、连字符）
-		if (/^[A-Z][A-Z0-9_-]*$/.test(args[0]) && args.length > 1) {
+	if (args.length > 1 && typeof args[0] === "string") {
+		// 支持 "TAG" 格式（大写字母、数字、下划线、连字符）
+		if (/^[A-Z][A-Z0-9_-]*$/.test(args[0])) {
 			return { tag: args[0], rest: args.slice(1) }
 		}
 	}
