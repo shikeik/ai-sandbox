@@ -1,7 +1,7 @@
 // ========== 通用地图渲染器 ==========
 // 支持任意宽度地图、横向滚动、相机跟随主角、触摸滑动
 
-import { NUM_LAYERS, ELEM_HERO, ELEM_AIR } from "./constants.js"
+import { NUM_LAYERS, ELEM_HERO, ELEM_AIR, ELEMENTS } from "./constants.js"
 import { drawEditorLabels, drawTerrainGrid, drawEmoji } from "./renderer.js"
 import { calculateAnimationPath, type AnimationPath } from "./animation.js"
 import { setupHighDPICanvas } from "../engine/utils/canvas.js"
@@ -34,10 +34,18 @@ export class MapRenderer {
 	private isDragging = false
 	private lastTouchX = 0
 	private velocity = 0
+	private lastMoveTime = 0
+	private maxVelocity = 0  // 记录本次滑动的最大速度
 
 	// 动画
 	private animState: AnimState | null = null
 	private animFrameId: number | null = null
+
+	// 惯性滚动
+	private inertiaFrameId: number | null = null
+	private readonly FRICTION = 0.92  // 摩擦力系数，越小停得越快
+	private readonly MIN_VELOCITY = 0.5  // 最小速度，低于此值停止
+	private readonly BOUNCE_DAMPING = 0.3  // 边界回弹阻尼
 
 	// 单元格尺寸
 	private cellW = 0
@@ -89,13 +97,29 @@ export class MapRenderer {
 			this.isDragging = true
 			this.lastTouchX = x
 			this.velocity = 0
+			this.maxVelocity = 0
+			this.lastMoveTime = performance.now()
+			// 取消正在进行的惯性滚动
+			this.stopInertia()
 		}
 
 		const onMove = (x: number) => {
 			if (!this.isDragging) return
 			const delta = this.lastTouchX - x
-			this.velocity = delta
+			const now = performance.now()
+			const dt = now - this.lastMoveTime
+
+			// 计算瞬时速度（像素/毫秒）
+			if (dt > 0) {
+				this.velocity = delta / dt
+				// 记录最大速度（带方向）
+				if (Math.abs(this.velocity) > Math.abs(this.maxVelocity)) {
+					this.maxVelocity = this.velocity
+				}
+			}
+
 			this.lastTouchX = x
+			this.lastMoveTime = now
 
 			// 滑动调整相机
 			const colDelta = delta / (this.cellW + this.gapX)
@@ -110,6 +134,8 @@ export class MapRenderer {
 
 		const onEnd = () => {
 			this.isDragging = false
+			// 启动惯性滚动
+			this.startInertia()
 		}
 
 		this.canvas.addEventListener("mousedown", (e) => onStart(e.clientX))
@@ -151,14 +177,17 @@ export class MapRenderer {
 	}
 
 	/**
-	 * 获取视野内的地图数据
+	 * 获取视野内的地图数据（支持丝滑滚动，多取一列）
 	 */
 	private getViewport(map: number[][]): number[][] {
 		const viewport: number[][] = [[], [], []]
 		const startCol = Math.floor(this.cameraCol)
 
+		// 多取一列用于显示部分列（丝滑滚动）
+		const colsToRender = this.viewportCols + 1
+
 		for (let layer = 0; layer < NUM_LAYERS; layer++) {
-			for (let i = 0; i < this.viewportCols; i++) {
+			for (let i = 0; i < colsToRender; i++) {
 				const mapCol = startCol + i
 				if (mapCol < this.mapWidth) {
 					viewport[layer][i] = map[layer][mapCol]
@@ -172,6 +201,14 @@ export class MapRenderer {
 	}
 
 	/**
+	 * 计算丝滑滚动的偏移量
+	 */
+	private getScrollOffset(): number {
+		const fraction = this.cameraCol - Math.floor(this.cameraCol)
+		return fraction * (this.cellW + this.gapX)
+	}
+
+	/**
 	 * 主绘制函数
 	 */
 	draw(map: number[][], heroCol: number): void {
@@ -181,7 +218,7 @@ export class MapRenderer {
 	}
 
 	/**
-	 * 立即绘制
+	 * 立即绘制（支持丝滑滚动）
 	 */
 	private drawImmediate(map: number[][], heroCol: number): void {
 		this.calculateLayout()
@@ -190,13 +227,16 @@ export class MapRenderer {
 		this.ctx.fillStyle = "#0b0c0f"
 		this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height)
 
-		// 获取视野
+		// 获取视野（多一列用于丝滑滚动）
 		const viewport = this.getViewport(map)
 
-		// 绘制列标签（x0, x1, x2...）
-		this.drawColumnLabels()
+		// 计算丝滑滚动偏移量
+		const scrollOffset = this.getScrollOffset()
 
-		// 绘制层标签
+		// 绘制列标签（x0, x1, x2...）带丝滑滚动
+		this.drawColumnLabels(scrollOffset)
+
+		// 绘制层标签（固定，不随滚动）
 		this.drawLayerLabels()
 
 		// 动画状态处理
@@ -210,22 +250,12 @@ export class MapRenderer {
 			}
 		}
 
-		// 绘制地形
-		drawTerrainGrid(this.ctx, viewport, {
-			cellW: this.cellW,
-			cellH: this.cellH,
-			gapX: this.gapX,
-			gapY: this.gapY,
-			startX: this.startX,
-			startY: this.startY,
-			hideSlimeAt,
-			hideHeroAtCol,
-			dimNonInteractive: false
-		})
+		// 绘制地形（带丝滑滚动偏移）
+		this.drawTerrainGridSmooth(viewport, scrollOffset, hideSlimeAt, hideHeroAtCol)
 
 		// 动画狐狸
 		if (this.animState) {
-			this.drawAnimatedHero()
+			this.drawAnimatedHero(scrollOffset)
 		}
 
 		// 位置信息
@@ -236,20 +266,74 @@ export class MapRenderer {
 	}
 
 	/**
-	 * 绘制列标签（x0, x1, x2...）
+	 * 绘制地形网格（支持丝滑滚动偏移）
 	 */
-	private drawColumnLabels(): void {
+	private drawTerrainGridSmooth(
+		viewport: number[][],
+		scrollOffset: number,
+		hideSlimeAt: number | null,
+		hideHeroAtCol: number | null
+	): void {
+		const effectiveStartX = this.startX - scrollOffset
+		const colsToRender = viewport[0].length
+
+		// 绘制网格线框
+		for (let r = 0; r < NUM_LAYERS; r++) {
+			for (let c = 0; c < colsToRender; c++) {
+				const x = effectiveStartX + c * (this.cellW + this.gapX)
+				const y = this.startY + r * (this.cellH + this.gapY)
+
+				// 跳过完全在视野外的格子（左右边界检查）
+				if (x + this.cellW < 0 || x > this.canvas.width / (window.devicePixelRatio || 1)) continue
+
+				this.ctx.strokeStyle = "#3c4043"
+				this.ctx.lineWidth = 1
+				this.ctx.strokeRect(x, y, this.cellW, this.cellH)
+			}
+		}
+
+		// 绘制元素
+		for (let r = 0; r < NUM_LAYERS; r++) {
+			for (let c = 0; c < colsToRender; c++) {
+				const x = effectiveStartX + c * (this.cellW + this.gapX)
+				const y = this.startY + r * (this.cellH + this.gapY)
+
+				// 跳过完全在视野外的格子
+				if (x + this.cellW < 0 || x > this.canvas.width / (window.devicePixelRatio || 1)) continue
+
+				const elemId = viewport[r][c]
+
+				// 跳过被击杀的史莱姆
+				if (r === 1 && c === (hideSlimeAt ?? -1)) continue
+
+				// 动画时跳过原位置的狐狸（显示空气）
+				if (r === 1 && c === (hideHeroAtCol ?? -1) && elemId === 1) {
+					drawEmoji(this.ctx, " ", x + this.cellW / 2, y + this.cellH / 2, Math.min(this.cellW, this.cellH) * 0.55)
+					continue
+				}
+
+				drawEmoji(this.ctx, ELEMENTS[elemId].emoji, x + this.cellW / 2, y + this.cellH / 2, Math.min(this.cellW, this.cellH) * 0.55)
+			}
+		}
+	}
+
+	/**
+	 * 绘制列标签（x0, x1, x2...）带丝滑滚动
+	 */
+	private drawColumnLabels(scrollOffset: number): void {
 		this.ctx.fillStyle = "#9aa0a6"
 		this.ctx.font = "12px sans-serif"
 		this.ctx.textAlign = "center"
 
 		const startCol = Math.floor(this.cameraCol)
+		const effectiveStartX = this.startX - scrollOffset
 
-		for (let i = 0; i < this.viewportCols; i++) {
+		// 多绘制一个标签用于丝滑滚动显示
+		for (let i = 0; i <= this.viewportCols; i++) {
 			const col = startCol + i
 			if (col >= this.mapWidth) break
 
-			const x = this.startX + i * (this.cellW + this.gapX) + this.cellW / 2
+			const x = effectiveStartX + i * (this.cellW + this.gapX) + this.cellW / 2
 			const y = this.startY - 12
 			this.ctx.fillText(`x${col}`, x, y)
 		}
@@ -271,14 +355,15 @@ export class MapRenderer {
 	}
 
 	/**
-	 * 绘制动画中的狐狸
+	 * 绘制动画中的狐狸（支持丝滑滚动）
 	 */
-	private drawAnimatedHero(): void {
+	private drawAnimatedHero(scrollOffset: number): void {
 		if (!this.animState) return
 
-		const heroBaseX = this.startX + 0 * (this.cellW + this.gapX) + this.cellW / 2
+		const effectiveStartX = this.startX - scrollOffset
+		const heroBaseX = effectiveStartX + 0 * (this.cellW + this.gapX) + this.cellW / 2
 		const heroBaseY = this.startY + 1 * (this.cellH + this.gapY) + this.cellH / 2
-		const targetX = this.startX + this.animState.path.targetCol * (this.cellW + this.gapX) + this.cellW / 2
+		const targetX = effectiveStartX + this.animState.path.targetCol * (this.cellW + this.gapX) + this.cellW / 2
 
 		let hx = heroBaseX
 		let hy = heroBaseY
@@ -314,7 +399,8 @@ export class MapRenderer {
 
 		const startCol = Math.floor(this.cameraCol)
 		const endCol = Math.min(startCol + this.viewportCols - 1, this.mapWidth - 1)
-		const text = `视野: ${startCol}-${endCol} / 0-${this.mapWidth - 1} | 狐狸位置: ${heroCol}`
+		const cameraPrecise = this.cameraCol.toFixed(1)
+		const text = `视野: ${startCol}-${endCol} / 0-${this.mapWidth - 1} | 相机: ${cameraPrecise} | 狐狸位置: ${heroCol}`
 		this.ctx.fillText(text, this.canvas.width / 2, bottomY)
 	}
 
@@ -394,5 +480,80 @@ export class MapRenderer {
 	clear(): void {
 		this.ctx.fillStyle = "#0b0c0f"
 		this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height)
+	}
+
+	// ========== 惯性滚动 ==========
+
+	/**
+	 * 启动惯性滚动
+	 */
+	private startInertia(): void {
+		// 使用最大速度作为初始速度
+		let initialVelocity = this.maxVelocity
+
+		// 速度太小不启动
+		if (Math.abs(initialVelocity) < 0.05) return
+
+		// 取消已有的惯性动画
+		this.stopInertia()
+
+		let velocity = initialVelocity * 20  // 放大系数，调整手感
+
+		const animate = () => {
+			// 摩擦力减速
+			velocity *= this.FRICTION
+
+			// 速度低于阈值停止
+			if (Math.abs(velocity) < this.MIN_VELOCITY) {
+				this.stopInertia()
+				return
+			}
+
+			// 应用速度到相机位置
+			const pxPerCol = this.cellW + this.gapX
+			const colDelta = velocity / pxPerCol
+			let newCameraCol = this.cameraCol + colDelta
+
+			// 边界处理（带阻尼）
+			let hitBoundary = false
+			if (newCameraCol < 0) {
+				newCameraCol = 0
+				velocity *= this.BOUNCE_DAMPING
+				hitBoundary = true
+			} else if (newCameraCol > this.mapWidth - this.viewportCols) {
+				newCameraCol = this.mapWidth - this.viewportCols
+				velocity *= this.BOUNCE_DAMPING
+				hitBoundary = true
+			}
+
+			this.cameraCol = newCameraCol
+
+			// 绘制
+			if (this.currentMap) {
+				this.drawImmediate(this.currentMap, this.currentHeroCol)
+			}
+
+			// 如果撞边界且速度很小，停止
+			if (hitBoundary && Math.abs(velocity) < this.MIN_VELOCITY * 2) {
+				this.stopInertia()
+				return
+			}
+
+			this.inertiaFrameId = requestAnimationFrame(animate)
+		}
+
+		this.inertiaFrameId = requestAnimationFrame(animate)
+	}
+
+	/**
+	 * 停止惯性滚动
+	 */
+	private stopInertia(): void {
+		if (this.inertiaFrameId !== null) {
+			cancelAnimationFrame(this.inertiaFrameId)
+			this.inertiaFrameId = null
+		}
+		this.velocity = 0
+		this.maxVelocity = 0
 	}
 }
