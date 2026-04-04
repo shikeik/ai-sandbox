@@ -3,6 +3,8 @@
 import type { NetParams } from "./types.js"
 import { NUM_ELEMENTS, HIDDEN_DIM, INPUT_DIM, OUTPUT_DIM, EMBED_DIM } from "./constants.js"
 import { forward, backward } from "./neural-network.js"
+import { createGradientBuffer, type GradientBuffer } from "./gradients.js"
+export { createGradientBuffer, type GradientBuffer } from "./gradients.js"
 
 // 无监督学习配置接口
 export interface UnsupervisedRewardConfig {
@@ -17,42 +19,6 @@ export interface ActionEvaluation {
 	isValid: boolean
 	isOptimal: boolean
 	reward: number
-}
-
-// 梯度容器（与 Gradients 接口兼容）
-export interface GradientBuffer {
-	dEmbed: number[][]
-	dW1: number[][]
-	db1: number[]
-	dW2: number[][]
-	db2: number[]
-}
-
-// 创建空梯度容器
-export function createGradientBuffer(): GradientBuffer {
-	return {
-		dEmbed: Array(NUM_ELEMENTS).fill(null).map(() => Array(EMBED_DIM).fill(0)),
-		dW1: Array(HIDDEN_DIM).fill(null).map(() => Array(INPUT_DIM).fill(0)),
-		db1: Array(HIDDEN_DIM).fill(0),
-		dW2: Array(OUTPUT_DIM).fill(null).map(() => Array(HIDDEN_DIM).fill(0)),
-		db2: Array(OUTPUT_DIM).fill(0),
-	}
-}
-
-// 计算奖励（纯函数，可测试）
-export function calculateReward(
-	action: number,
-	isValid: boolean,
-	isOptimal: boolean,
-	config: UnsupervisedRewardConfig
-): ActionEvaluation {
-	if (!isValid) {
-		return { action, isValid, isOptimal, reward: config.rewardInvalid }
-	}
-	if (isOptimal) {
-		return { action, isValid, isOptimal, reward: config.rewardOptimal }
-	}
-	return { action, isValid, isOptimal, reward: config.rewardValid }
 }
 
 // 新增：带最优动作引导的梯度累积
@@ -135,8 +101,9 @@ function _addGradient(
 	const fp = forward(net, indices)
 	const grad = backward(net, fp, action)
 
+	// 使用 EMBED_DIM 常量替代硬编码的 2
 	for (let e = 0; e < NUM_ELEMENTS; e++) {
-		for (let d = 0; d < 2; d++) {
+		for (let d = 0; d < EMBED_DIM; d++) {
 			buffer.dEmbed[e][d] += grad.dEmbed[e][d] * scale
 		}
 	}
@@ -154,32 +121,18 @@ function _addGradient(
 	}
 }
 
-// 验证梯度缓冲区是否有效（测试用）
-export function isValidGradientBuffer(buffer: GradientBuffer): boolean {
-	// 检查维度
-	if (buffer.dEmbed.length !== NUM_ELEMENTS) return false
-	if (buffer.dW1.length !== HIDDEN_DIM) return false
-	if (buffer.dW2.length !== OUTPUT_DIM) return false
-
-	// 检查是否有 NaN 或 Infinity
-	const allValues = [
-		...buffer.dEmbed.flat(),
-		...buffer.dW1.flat(),
-		...buffer.db1,
-		...buffer.dW2.flat(),
-		...buffer.db2,
-	]
-	return allValues.every(v => !isNaN(v) && isFinite(v))
-}
-
-// 计算缓冲区总梯度幅值（测试用）
-export function getTotalGradientMagnitude(buffer: GradientBuffer): number {
-	const allValues = [
-		...buffer.dEmbed.flat(),
-		...buffer.dW1.flat(),
-		...buffer.db1,
-		...buffer.dW2.flat(),
-		...buffer.db2,
-	]
-	return allValues.reduce((sum, v) => sum + Math.abs(v), 0)
+// 计算奖励（纯函数，可测试）
+export function calculateReward(
+	action: number,
+	isValid: boolean,
+	isOptimal: boolean,
+	config: UnsupervisedRewardConfig
+): ActionEvaluation {
+	if (!isValid) {
+		return { action, isValid, isOptimal, reward: config.rewardInvalid }
+	}
+	if (isOptimal) {
+		return { action, isValid, isOptimal, reward: config.rewardOptimal }
+	}
+	return { action, isValid, isOptimal, reward: config.rewardValid }
 }

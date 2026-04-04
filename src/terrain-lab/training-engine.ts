@@ -6,8 +6,9 @@ import type { AppState } from "./state.js"
 import type { ActionEvaluation } from "./unsupervised.js"
 import { TRAIN_CONFIG, EVAL_SAMPLE_SIZE, OUTPUT_DIM, UNSUPERVISED_CONFIG } from "./constants.js"
 import { forward, updateNetwork, cloneNet } from "./neural-network.js"
-import { accumulateSupervisedGrad, createGradientBuffer as createSuperBuffer } from "./supervised.js"
-import { accumulateGradients, createGradientBuffer } from "./unsupervised.js"
+import { accumulateSupervisedGrad } from "./supervised.js"
+import { accumulateGradients } from "./unsupervised.js"
+import { createGradientBuffer } from "./gradients.js"
 import { findHeroCol, getActionChecks, isActionValidByChecks, getLabel } from "./terrain.js"
 
 export interface TrainingResult {
@@ -43,7 +44,7 @@ export class TrainingEngine {
 		const { batchSize, steps } = TRAIN_CONFIG
 
 		for (let s = 0; s < steps; s++) {
-			const buffer = createSuperBuffer()
+			const buffer = createGradientBuffer()
 
 			for (let b = 0; b < batchSize; b++) {
 				const idx = Math.floor(Math.random() * this.state.dataset.length)
@@ -73,7 +74,7 @@ export class TrainingEngine {
 		const { batchSize, steps } = TRAIN_CONFIG
 
 		for (let s = 0; s < steps; s++) {
-			const superBuffer = createSuperBuffer()
+			const superBuffer = createGradientBuffer()
 			const unsuperBuffer = createGradientBuffer()
 			let hasSuperUpdate = false
 			let hasUnsuperUpdate = false

@@ -3,31 +3,13 @@
 import type { NetParams, ForwardResult } from "./types.js"
 import { NUM_ELEMENTS, HIDDEN_DIM, INPUT_DIM, OUTPUT_DIM, EMBED_DIM } from "./constants.js"
 import { forward, backward } from "./neural-network.js"
-
-// 梯度容器（与 Gradients 接口兼容）
-export interface GradientBuffer {
-	dEmbed: number[][]
-	dW1: number[][]
-	db1: number[]
-	dW2: number[][]
-	db2: number[]
-}
+import { createGradientBuffer, type GradientBuffer } from "./gradients.js"
+export { createGradientBuffer, type GradientBuffer } from "./gradients.js"
 
 // 训练统计
 export interface TrainingStats {
 	lossSum: number
 	correctCount: number
-}
-
-// 创建空梯度容器
-export function createGradientBuffer(): GradientBuffer {
-	return {
-		dEmbed: Array(NUM_ELEMENTS).fill(null).map(() => Array(EMBED_DIM).fill(0)),
-		dW1: Array(HIDDEN_DIM).fill(null).map(() => Array(INPUT_DIM).fill(0)),
-		db1: Array(HIDDEN_DIM).fill(0),
-		dW2: Array(OUTPUT_DIM).fill(null).map(() => Array(HIDDEN_DIM).fill(0)),
-		db2: Array(OUTPUT_DIM).fill(0),
-	}
 }
 
 // 单样本监督学习梯度累积
@@ -41,9 +23,9 @@ export function accumulateSupervisedGrad(
 	const fp = forward(net, indices)
 	const grad = backward(net, fp, targetLabel)
 
-	// 累积梯度
+	// 累积梯度（使用 EMBED_DIM 常量替代硬编码的 2）
 	for (let e = 0; e < NUM_ELEMENTS; e++) {
-		for (let d = 0; d < 2; d++) {
+		for (let d = 0; d < EMBED_DIM; d++) {
 			buffer.dEmbed[e][d] += grad.dEmbed[e][d] / batchSize
 		}
 	}
@@ -87,28 +69,4 @@ export function evaluateModel(
 		accuracy: (correct / dataset.length) * 100,
 		avgLoss: lossSum / dataset.length,
 	}
-}
-
-// 验证梯度缓冲区是否有效（测试用）
-export function isValidGradientBuffer(buffer: GradientBuffer): boolean {
-	const allValues = [
-		...buffer.dEmbed.flat(),
-		...buffer.dW1.flat(),
-		...buffer.db1,
-		...buffer.dW2.flat(),
-		...buffer.db2,
-	]
-	return allValues.every(v => !isNaN(v) && isFinite(v))
-}
-
-// 计算缓冲区总梯度幅值（测试用）
-export function getTotalGradientMagnitude(buffer: GradientBuffer): number {
-	const allValues = [
-		...buffer.dEmbed.flat(),
-		...buffer.dW1.flat(),
-		...buffer.db1,
-		...buffer.dW2.flat(),
-		...buffer.db2,
-	]
-	return allValues.reduce((sum, v) => sum + Math.abs(v), 0)
 }

@@ -7,8 +7,9 @@ import type { SnapshotManager } from "./snapshot-manager.js"
 import { TrainingEngine } from "./training-engine.js"
 import { CURRICULUM_STAGES, TRAIN_CONFIG, DATASET_SIZE, UNSUPERVISED_CONFIG } from "./constants.js"
 import { generateTerrainData, findHeroCol, getActionChecks, isActionValidByChecks, getLabel } from "./terrain.js"
-import { createGradientBuffer, accumulateGradients, calculateReward } from "./unsupervised.js"
-import { createGradientBuffer as createSuperBuffer, accumulateSupervisedGrad } from "./supervised.js"
+import { accumulateGradients, calculateReward } from "./unsupervised.js"
+import { accumulateSupervisedGrad } from "./supervised.js"
+import { createGradientBuffer } from "./gradients.js"
 import { forward, updateNetwork } from "./neural-network.js"
 import { zeroMat, zeroVec } from "./utils.js"
 import { NUM_ELEMENTS, HIDDEN_DIM, INPUT_DIM, OUTPUT_DIM, EMBED_DIM } from "./constants.js"
@@ -86,7 +87,7 @@ export class CurriculumController {
 
 		while (this.state.trainSteps < maxTotalSteps) {
 			for (let s = 0; s < stepsPerBatch; s++) {
-				const buffer = createSuperBuffer()
+				const buffer = createGradientBuffer()
 
 				for (let b = 0; b < batchSize; b++) {
 					const idx = Math.floor(Math.random() * this.state.dataset.length)
