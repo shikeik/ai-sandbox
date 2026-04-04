@@ -121,7 +121,7 @@ async function trainSupervised() {
 		if (s % 20 === 0 || s === steps - 1) {
 			// 统一使用 evaluateDataset 进行采样评估
 			const { accuracy, validRate, loss } = evaluateDataset(state.dataset, state.net, EVAL_SAMPLE_SIZE)
-			updateMetrics(loss, accuracy, ((s + 1) / steps) * 100, validRate)
+			updateMetrics({ loss, acc: accuracy, validRate, progress: ((s + 1) / steps) * 100 })
 			// 保存快照
 			state.snapshots.push({ step: state.trainSteps, net: cloneNet(state.net) })
 			recordSnapshotStats(state.snapshots.length - 1)
@@ -226,25 +226,12 @@ async function trainUnsupervised() {
 			// 动态调整探索率
 			const newEpsilon = adjustEpsilon(validRate)
 			console.log("[UNS]", `合法率:${validRate.toFixed(1)}% 准确率:${accuracy.toFixed(1)}% 探索率ε:${newEpsilon.toFixed(2)}`)
-			updateMetricsUnsupervised(totalReward / batchSize, validRate, ((s + 1) / steps) * 100, accuracy)
+			updateMetrics({ reward: totalReward / batchSize, validRate, acc: accuracy, epsilon: newEpsilon, progress: ((s + 1) / steps) * 100 })
 			// 保存快照
 			state.snapshots.push({ step: state.trainSteps, net: cloneNet(state.net) })
 			recordSnapshotStats(state.snapshots.length - 1)
 			await new Promise(r => setTimeout(r, 1))
 		}
-	}
-}
-
-// 无监督学习指标更新
-function updateMetricsUnsupervised(avgReward: number, validRate: number, progress?: number, accuracy?: number) {
-	document.getElementById("step-count")!.textContent = String(state.trainSteps)
-	document.getElementById("loss-display")!.textContent = avgReward.toFixed(2)
-	document.getElementById("valid-display")!.textContent = validRate.toFixed(0) + "%"
-	if (accuracy !== undefined) {
-		document.getElementById("acc-display")!.textContent = accuracy.toFixed(0) + "%"
-	}
-	if (progress !== undefined) {
-		;(document.getElementById("train-progress") as HTMLDivElement).style.width = progress + "%"
 	}
 }
 
@@ -339,18 +326,32 @@ function applySnapshot(index: number) {
 	drawObsessionCurve()
 }
 
-function updateMetrics(loss: number, acc?: number, progress?: number, validRate?: number) {
+// 统一指标更新（所有训练模式共用）
+// 参数为0或undefined时显示默认值
+function updateMetrics(params: {
+	loss?: number        // 交叉熵损失
+	reward?: number      // 平均奖励
+	acc?: number         // 准确率
+	validRate?: number   // 合法率
+	epsilon?: number     // 探索率
+	progress?: number    // 进度
+}) {
+	const { loss = 0, reward = 0, acc = 0, validRate = 0, epsilon = 0, progress = 0 } = params
+	
 	document.getElementById("step-count")!.textContent = String(state.trainSteps)
-	if (loss !== undefined && loss !== 0) {
-		document.getElementById("loss-display")!.textContent = loss.toFixed(4)
+	document.getElementById("loss-display")!.textContent = loss > 0 ? loss.toFixed(4) : "-"
+	document.getElementById("reward-display")!.textContent = reward !== 0 ? reward.toFixed(3) : "-"
+	document.getElementById("acc-display")!.textContent = acc > 0 ? acc.toFixed(1) + "%" : "-"
+	document.getElementById("valid-display")!.textContent = validRate > 0 ? validRate.toFixed(1) + "%" : "-"
+	document.getElementById("epsilon-display")!.textContent = epsilon > 0 ? epsilon.toFixed(2) : "0.00"
+	
+	// 显示/隐藏探索率（监督学习时epsilon=0）
+	const epsilonMetric = document.getElementById("metric-epsilon")
+	if (epsilonMetric) {
+		epsilonMetric.style.display = epsilon > 0 ? "block" : "none"
 	}
-	if (acc !== undefined) {
-		document.getElementById("acc-display")!.textContent = acc.toFixed(0) + "%"
-	}
-	if (validRate !== undefined) {
-		document.getElementById("valid-display")!.textContent = validRate.toFixed(0) + "%"
-	}
-	if (progress !== undefined) {
+	
+	if (progress > 0) {
 		;(document.getElementById("train-progress") as HTMLDivElement).style.width = progress + "%"
 	}
 }
@@ -394,7 +395,7 @@ function evaluateAll() {
 
 function generateData() {
 	state.dataset = generateTerrainData(DATASET_SIZE, state.terrainConfig)  // 修复：使用常量
-	updateMetrics(0)
+	updateMetrics({})
 	document.getElementById("data-count")!.textContent = String(state.dataset.length)
 	const btn = document.getElementById("btn-train") as HTMLButtonElement
 	btn.disabled = state.dataset.length === 0
@@ -716,8 +717,11 @@ function resetNet() {
 	document.getElementById("data-count")!.textContent = "0"
 	document.getElementById("step-count")!.textContent = "0"
 	document.getElementById("loss-display")!.textContent = "-"
+	document.getElementById("reward-display")!.textContent = "-"
 	document.getElementById("acc-display")!.textContent = "-"
 	document.getElementById("valid-display")!.textContent = "-"
+	document.getElementById("epsilon-display")!.textContent = "-"
+	;(document.getElementById("metric-epsilon") as HTMLDivElement).style.display = "none"
 	;(document.getElementById("train-progress") as HTMLDivElement).style.width = "0%"
 	;(document.getElementById("btn-train") as HTMLButtonElement).disabled = true
 	updateExam("网络已重置", "wait")
@@ -846,7 +850,7 @@ async function runCurriculumSupervised() {
 
 		// 评估（统一使用 evaluateDataset，完整数据集）
 		const { accuracy: acc, validRate, loss } = evaluateDataset(state.dataset, state.net)
-		updateMetrics(loss, acc, Math.min(state.trainSteps / maxTotalSteps, 1) * 100, validRate)
+		updateMetrics({ loss, acc, validRate, progress: Math.min(state.trainSteps / maxTotalSteps, 1) * 100 })
 		console.log("[SUP]", `合法率:${validRate.toFixed(1)}% 准确率:${acc.toFixed(1)}% 损失:${loss.toFixed(4)}`)
 
 		// 保存快照
@@ -930,7 +934,7 @@ async function runCurriculumUnsupervised() {
 		const newEpsilon = adjustEpsilon(validRate)
 		console.log("[UNS]", `合法率:${validRate.toFixed(1)}% 准确率:${accuracy.toFixed(1)}% 损失:${loss.toFixed(4)} 探索率ε:${newEpsilon.toFixed(2)}`)
 		// 统一使用 updateMetrics 显示所有指标
-		updateMetrics(loss, accuracy, Math.min(state.trainSteps / maxTotalSteps, 1) * 100, validRate)
+		updateMetrics({ loss, acc: accuracy, validRate, epsilon: newEpsilon, progress: Math.min(state.trainSteps / maxTotalSteps, 1) * 100 })
 
 		// 保存快照
 		state.snapshots.push({ step: state.trainSteps, net: cloneNet(state.net) })
