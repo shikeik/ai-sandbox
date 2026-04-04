@@ -97,10 +97,10 @@ export const EVAL_SAMPLE_SIZE = 100
 export const TRAIN_CONFIG = {
 	supervised: {
 		batchSize: 32,
-		steps: 100,
+		steps: 200,  // 统一为200步
 	},
 	unsupervised: {
 		batchSize: 32,
-		steps: 1000,  // 无监督需要更多步数收敛
+		steps: 200,  // 统一为200步
 	},
 }
