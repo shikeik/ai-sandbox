@@ -761,16 +761,17 @@ function updateCurriculumUI() {
 	const status = document.getElementById("curriculum-status")!
 	const btnCurriculum = document.getElementById("btn-curriculum") as HTMLButtonElement
 	const btnNext = document.getElementById("btn-next-stage") as HTMLButtonElement
+	const modeText = state.learningMode === "supervised" ? "监督" : "无监督"
 
 	if (curriculumRunning) {
-		status.textContent = `当前阶段：${CURRICULUM_STAGES[curriculumStageIdx].name}（训练中…）`
+		status.textContent = `当前阶段：${CURRICULUM_STAGES[curriculumStageIdx].name}（${modeText}训练中…）`
 		btnCurriculum.disabled = true
 		btnNext.disabled = true
 		return
 	}
 
 	const stageName = CURRICULUM_STAGES[curriculumStageIdx]?.name ?? "已完成全部阶段"
-	status.textContent = `当前阶段：${stageName}`
+	status.textContent = `当前阶段：${stageName} | ${modeText}学习`
 	btnCurriculum.disabled = false
 	btnNext.disabled = curriculumStageIdx >= CURRICULUM_STAGES.length - 1
 }
