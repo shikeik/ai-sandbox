@@ -187,17 +187,7 @@ function renderTerrainConfigWithCallback(): void {
 }
 
 function onConfigChange() {
-	const swGroundOnly = document.getElementById("sw-ground-only") as HTMLInputElement
-	const swSlime = document.getElementById("sw-slime") as HTMLInputElement
-	const swDemon = document.getElementById("sw-demon") as HTMLInputElement
-	const swCoin = document.getElementById("sw-coin") as HTMLInputElement
-
-	state.terrainConfig = {
-		groundOnly: swGroundOnly.checked,
-		slime: swSlime.checked,
-		demon: swDemon.checked,
-		coin: swCoin.checked,
-	}
+	state.terrainConfig = uiManager.getConfigFromUI()
 	renderTerrainConfigWithCallback()
 	renderBrushesWithCallback()
 	uiManager.updateTerrainStatus("wait", "地形配置已更新")
