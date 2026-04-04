@@ -705,8 +705,12 @@ function randomTerrain() {
 
 function resetNet() {
 	resetState(state)
+	// 重置所有数据显示
 	document.getElementById("data-count")!.textContent = "0"
-	updateMetrics(0)
+	document.getElementById("step-count")!.textContent = "0"
+	document.getElementById("loss-display")!.textContent = "-"
+	document.getElementById("acc-display")!.textContent = "-"
+	document.getElementById("valid-display")!.textContent = "-"
 	;(document.getElementById("train-progress") as HTMLDivElement).style.width = "0%"
 	;(document.getElementById("btn-train") as HTMLButtonElement).disabled = true
 	updateExam("网络已重置", "wait")
