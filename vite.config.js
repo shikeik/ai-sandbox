@@ -13,7 +13,8 @@ export default {
 				index: resolve(__dirname, 'index.html'),
 				'fox-jump': resolve(__dirname, 'pages/fox-jump.html'),
 				'terrain-lab': resolve(__dirname, 'pages/terrain-lab.html'),
-				'mlp-teaching': resolve(__dirname, 'pages/mlp-teaching.html')
+				'mlp-teaching': resolve(__dirname, 'pages/mlp-teaching.html'),
+				'metrics-dashboard': resolve(__dirname, 'pages/metrics-dashboard.html')
 			}
 		}
 	},
