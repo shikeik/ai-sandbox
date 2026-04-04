@@ -345,11 +345,7 @@ function updateMetrics(params: {
 	document.getElementById("valid-display")!.textContent = validRate > 0 ? validRate.toFixed(1) + "%" : "-"
 	document.getElementById("epsilon-display")!.textContent = epsilon > 0 ? epsilon.toFixed(2) : "0.00"
 	
-	// 显示/隐藏探索率（监督学习时epsilon=0）
-	const epsilonMetric = document.getElementById("metric-epsilon")
-	if (epsilonMetric) {
-		epsilonMetric.style.display = epsilon > 0 ? "block" : "none"
-	}
+	// 探索率统一显示（监督学习时显示0.00）
 	
 	if (progress > 0) {
 		;(document.getElementById("train-progress") as HTMLDivElement).style.width = progress + "%"
@@ -721,7 +717,6 @@ function resetNet() {
 	document.getElementById("acc-display")!.textContent = "-"
 	document.getElementById("valid-display")!.textContent = "-"
 	document.getElementById("epsilon-display")!.textContent = "-"
-	;(document.getElementById("metric-epsilon") as HTMLDivElement).style.display = "none"
 	;(document.getElementById("train-progress") as HTMLDivElement).style.width = "0%"
 	;(document.getElementById("btn-train") as HTMLButtonElement).disabled = true
 	updateExam("网络已重置", "wait")
