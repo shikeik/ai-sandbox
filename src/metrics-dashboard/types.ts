@@ -18,6 +18,18 @@ export interface MetricCardConfig {
 	lowerIsBetter: boolean
 }
 
+/** 对比模式下的指标数据 */
+export interface ComparisonMetricData {
+	/** Model A 当前值 */
+	modelAValue: number
+	/** Model B 当前值 */
+	modelBValue: number
+	/** Model A 历史数据 */
+	modelAHistory: { step: number; value: number }[]
+	/** Model B 历史数据 */
+	modelBHistory: { step: number; value: number }[]
+}
+
 /** 训练指标数据 */
 export interface TrainingMetrics {
 	step: number

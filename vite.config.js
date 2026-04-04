@@ -14,7 +14,8 @@ export default {
 				'fox-jump': resolve(__dirname, 'pages/fox-jump.html'),
 				'terrain-lab': resolve(__dirname, 'pages/terrain-lab.html'),
 				'mlp-teaching': resolve(__dirname, 'pages/mlp-teaching.html'),
-				'metrics-dashboard': resolve(__dirname, 'pages/metrics-dashboard.html')
+				'metrics-dashboard': resolve(__dirname, 'pages/metrics-dashboard.html'),
+				'model-comparison': resolve(__dirname, 'pages/model-comparison.html')
 			}
 		}
 	},

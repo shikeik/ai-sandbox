@@ -424,3 +424,284 @@ export function drawPieChart(
 		currentAngle += sliceAngle
 	}
 }
+
+/** 双Y轴图表选项 */
+export interface DualAxisChartOptions {
+	/** 左侧Y轴系列索引 */
+	leftAxisSeries: number[]
+	/** 右侧Y轴系列索引 */
+	rightAxisSeries: number[]
+	/** 是否显示网格 */
+	showGrid?: boolean
+	/** 网格颜色 */
+	gridColor?: string
+	/** 文字颜色 */
+	textColor?: string
+	/** 内边距 */
+	padding?: { left: number; right: number; top: number; bottom: number }
+}
+
+/**
+ * 绘制双Y轴折线图（用于模型对比）
+ * @param ctx 绘制上下文
+ * @param width 画布宽度
+ * @param height 画布高度
+ * @param seriesArray 数据系列数组
+ * @param options 双Y轴选项
+ */
+export function drawDualAxisChart(
+	ctx: CanvasRenderingContext2D,
+	width: number,
+	height: number,
+	seriesArray: LineSeries[],
+	options: DualAxisChartOptions
+): void {
+	if (seriesArray.length === 0) return
+
+	const {
+		leftAxisSeries,
+		rightAxisSeries,
+		showGrid = true,
+		gridColor = "#3c4043",
+		textColor = "#9aa0a6",
+		padding = { left: 48, right: 48, top: 20, bottom: 32 },
+	} = options
+
+	// 分离左右轴数据
+	const leftSeries = leftAxisSeries.map(i => seriesArray[i]).filter(Boolean)
+	const rightSeries = rightAxisSeries.map(i => seriesArray[i]).filter(Boolean)
+
+	// 计算左右Y轴范围
+	const leftRange = calculateDataRange(leftSeries)
+	const rightRange = calculateDataRange(rightSeries)
+
+	// 计算X范围
+	let minX = Infinity
+	let maxX = -Infinity
+	for (const series of seriesArray) {
+		for (const point of series.data) {
+			minX = Math.min(minX, point.step)
+			maxX = Math.max(maxX, point.step)
+		}
+	}
+
+	const chartW = width - padding.left - padding.right
+	const chartH = height - padding.top - padding.bottom
+
+	// 创建坐标映射
+	const xScale = (x: number): number => {
+		const xRange = maxX - minX
+		if (xRange === 0) return padding.left + chartW / 2
+		return padding.left + ((x - minX) / xRange) * chartW
+	}
+
+	const leftYScale = (y: number): number => {
+		const yRange = leftRange.max - leftRange.min
+		if (yRange === 0) return padding.top + chartH / 2
+		return padding.top + chartH - ((y - leftRange.min) / yRange) * chartH
+	}
+
+	const rightYScale = (y: number): number => {
+		const yRange = rightRange.max - rightRange.min
+		if (yRange === 0) return padding.top + chartH / 2
+		return padding.top + chartH - ((y - rightRange.min) / yRange) * chartH
+	}
+
+	// 绘制网格
+	if (showGrid) {
+		ctx.strokeStyle = gridColor
+		ctx.lineWidth = 0.5
+		ctx.setLineDash([2, 2])
+
+		for (let i = 0; i <= 4; i++) {
+			const y = padding.top + (chartH / 4) * i
+			ctx.beginPath()
+			ctx.moveTo(padding.left, y)
+			ctx.lineTo(width - padding.right, y)
+			ctx.stroke()
+		}
+
+		ctx.setLineDash([])
+	}
+
+	// 绘制坐标轴
+	ctx.strokeStyle = "#5f6368"
+	ctx.lineWidth = 1
+	ctx.beginPath()
+	// 左Y轴
+	ctx.moveTo(padding.left, padding.top)
+	ctx.lineTo(padding.left, height - padding.bottom)
+	// X轴
+	ctx.lineTo(width - padding.right, height - padding.bottom)
+	// 右Y轴
+	ctx.moveTo(width - padding.right, padding.top)
+	ctx.lineTo(width - padding.right, height - padding.bottom)
+	ctx.stroke()
+
+	// 绘制左侧Y轴刻度
+	ctx.fillStyle = leftSeries[0]?.color ?? textColor
+	ctx.font = "10px sans-serif"
+	ctx.textAlign = "right"
+	ctx.textBaseline = "middle"
+
+	for (let i = 0; i <= 4; i++) {
+		const value = leftRange.min + (leftRange.max - leftRange.min) * (1 - i / 4)
+		const y = padding.top + (chartH / 4) * i
+		ctx.fillText(value.toFixed(1), padding.left - 6, y)
+	}
+
+	// 绘制右侧Y轴刻度
+	ctx.fillStyle = rightSeries[0]?.color ?? textColor
+	ctx.textAlign = "left"
+
+	for (let i = 0; i <= 4; i++) {
+		const value = rightRange.min + (rightRange.max - rightRange.min) * (1 - i / 4)
+		const y = padding.top + (chartH / 4) * i
+		ctx.fillText(value.toFixed(0), width - padding.right + 6, y)
+	}
+
+	// 绘制左侧Y轴系列
+	for (const series of leftSeries) {
+		ctx.strokeStyle = series.color
+		ctx.lineWidth = series.lineWidth ?? 2
+		ctx.lineJoin = "round"
+		ctx.lineCap = "round"
+
+		ctx.beginPath()
+		let hasPoint = false
+
+		for (const point of series.data) {
+			const x = xScale(point.step)
+			const y = leftYScale(point.value)
+
+			if (!hasPoint) {
+				ctx.moveTo(x, y)
+				hasPoint = true
+			} else {
+				ctx.lineTo(x, y)
+			}
+		}
+
+		ctx.stroke()
+	}
+
+	// 绘制右侧Y轴系列
+	for (const series of rightSeries) {
+		ctx.strokeStyle = series.color
+		ctx.lineWidth = series.lineWidth ?? 2
+		ctx.lineJoin = "round"
+		ctx.lineCap = "round"
+
+		ctx.beginPath()
+		let hasPoint = false
+
+		for (const point of series.data) {
+			const x = xScale(point.step)
+			const y = rightYScale(point.value)
+
+			if (!hasPoint) {
+				ctx.moveTo(x, y)
+				hasPoint = true
+			} else {
+				ctx.lineTo(x, y)
+			}
+		}
+
+		ctx.stroke()
+	}
+}
+
+/**
+ * 绘制对比迷你图（双线条，用于指标卡片）
+ * @param canvas 画布元素
+ * @param dataA Model A 数据
+ * @param dataB Model B 数据
+ * @param colorA Model A 颜色
+ * @param colorB Model B 颜色
+ */
+export function drawComparisonMiniChart(
+	canvas: HTMLCanvasElement,
+	dataA: { step: number; value: number }[],
+	dataB: { step: number; value: number }[],
+	colorA: string,
+	colorB: string
+): void {
+	if (dataA.length < 2 && dataB.length < 2) return
+
+	const ctx = canvas.getContext("2d")!
+	const dpr = window.devicePixelRatio || 1
+	const rect = canvas.getBoundingClientRect()
+
+	// 设置高DPI
+	canvas.width = Math.floor(rect.width * dpr)
+	canvas.height = Math.floor(rect.height * dpr)
+	ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+	ctx.clearRect(0, 0, rect.width, rect.height)
+
+	// 内边距
+	const padding = { left: 4, right: 4, top: 4, bottom: 4 }
+	const width = rect.width
+	const height = rect.height
+	const chartW = width - padding.left - padding.right
+	const chartH = height - padding.top - padding.bottom
+
+	// 计算统一的Y范围
+	let minY = Infinity
+	let maxY = -Infinity
+
+	for (const point of dataA) {
+		minY = Math.min(minY, point.value)
+		maxY = Math.max(maxY, point.value)
+	}
+	for (const point of dataB) {
+		minY = Math.min(minY, point.value)
+		maxY = Math.max(maxY, point.value)
+	}
+
+	// 添加边距
+	const range = maxY - minY || 1
+	minY -= range * 0.1
+	maxY += range * 0.1
+
+	// 绘制 Model A 线条（实线）
+	if (dataA.length >= 2) {
+		ctx.strokeStyle = colorA
+		ctx.lineWidth = 2
+		ctx.beginPath()
+
+		for (let i = 0; i < dataA.length; i++) {
+			const x = padding.left + (i / (dataA.length - 1)) * chartW
+			const y = padding.top + chartH - ((dataA[i].value - minY) / (maxY - minY)) * chartH
+
+			if (i === 0) {
+				ctx.moveTo(x, y)
+			} else {
+				ctx.lineTo(x, y)
+			}
+		}
+
+		ctx.stroke()
+	}
+
+	// 绘制 Model B 线条（虚线）
+	if (dataB.length >= 2) {
+		ctx.strokeStyle = colorB
+		ctx.lineWidth = 2
+		ctx.setLineDash([3, 2])
+		ctx.beginPath()
+
+		for (let i = 0; i < dataB.length; i++) {
+			const x = padding.left + (i / (dataB.length - 1)) * chartW
+			const y = padding.top + chartH - ((dataB[i].value - minY) / (maxY - minY)) * chartH
+
+			if (i === 0) {
+				ctx.moveTo(x, y)
+			} else {
+				ctx.lineTo(x, y)
+			}
+		}
+
+		ctx.stroke()
+		ctx.setLineDash([])
+	}
+}
