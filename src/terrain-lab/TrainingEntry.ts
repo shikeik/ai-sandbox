@@ -297,7 +297,9 @@ export class TrainingEntry {
 	// ========== 预测与验证 ==========
 
 	predict(): void {
-		// 保存当前地形快照（用于刷新视图恢复）
+		// 先刷新视图（如有验收残留则恢复）
+		this.resetView()
+		// 保存当前地形快照（用于验收后恢复）
 		this.actionSnapshot = this.state.terrain.map(row => [...row])
 		this.predictor.predict()
 	}
