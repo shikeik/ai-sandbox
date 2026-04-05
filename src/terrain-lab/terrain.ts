@@ -104,12 +104,13 @@ export function getActionChecks(t: number[][], heroCol: number): ActionChecks {
 	const col2 = heroCol + 2
 	const col3 = heroCol + 3
 
-	const sky0 = getName(0, col1)
-	const sky1 = getName(0, col2)
-	const sky2 = getName(0, col3)
-	const ground0 = getName(2, col1)
-	const ground1 = getName(2, col2)
-	const ground2 = getName(2, col3)
+	// 层定义：t[0]=地面, t[1]=地上, t[2]=天上
+	const sky0 = getName(2, col1)
+	const sky1 = getName(2, col2)
+	const sky2 = getName(2, col3)
+	const ground0 = getName(0, col1)
+	const ground1 = getName(0, col2)
+	const ground2 = getName(0, col3)
 	const mid0 = getName(1, col1)
 	const mid1 = getName(1, col2)
 	const mid2 = getName(1, col3)
@@ -307,49 +308,37 @@ export function generateTerrainForAction(
 
 	// 放置狐狸
 	t[1][heroCol] = ELEM_HERO
+	// 狐狸脚下必须是平地（有支撑）
+	t[0][heroCol] = ELEM_GROUND
 
-	// 根据动作设置地形（确定性的，不随机填充关键列）
-	switch (action) {
-		case 0: // 走：第1列平地，第2、3列都放坑（阻止跳和远跳）
-			// 第1列：平地（确保能走）
-			t[2][heroCol + 1] = ELEM_GROUND
-			// 第2列：坑（阻止跳）
-			t[2][heroCol + 2] = ELEM_AIR
-			// 第3列：坑（阻止远跳）
-			t[2][heroCol + 3] = ELEM_AIR
-			break
+	// 根据动作设置地形（只生成需要的列，不多不少）
+		switch (action) {
+			case 0: // 走（+1格）：只生成第1列=平地
+				t[0][heroCol + 1] = ELEM_GROUND
+				break
 
-		case 1: // 跳：第1列坑，第2列平地，第3列坑
-			// 第1列：坑（阻止走）
-			t[2][heroCol + 1] = ELEM_AIR
-			// 第2列：平地（确保能跳）
-			t[2][heroCol + 2] = ELEM_GROUND
-			// 第3列：坑（阻止远跳）
-			t[2][heroCol + 3] = ELEM_AIR
-			break
+			case 1: // 跳（+2格）：第1列=坑，第2列=平地
+				t[0][heroCol + 1] = ELEM_AIR
+				t[0][heroCol + 2] = ELEM_GROUND
+				break
 
-		case 2: // 远跳：第1列坑，第2列坑，第3列平地
-			// 第1列：坑（阻止走）
-			t[2][heroCol + 1] = ELEM_AIR
-			// 第2列：坑（阻止跳）
-			t[2][heroCol + 2] = ELEM_AIR
-			// 第3列：平地（确保能远跳）
-			t[2][heroCol + 3] = ELEM_GROUND
-			break
+			case 2: // 远跳（+3格）：第1列=坑，第2列=坑，第3列=平地
+				t[0][heroCol + 1] = ELEM_AIR
+				t[0][heroCol + 2] = ELEM_AIR
+				t[0][heroCol + 3] = ELEM_GROUND
+				break
 
-		case 3: // 走A：第1列平地+史莱姆
-			if (!config.slime) {
-				// 如果没有启用史莱姆，无法生成走A地形
+			case 3: // 走A（+1格）：第1列=平地+史莱姆
+				if (!config.slime) {
+					return null
+				}
+				t[0][heroCol + 1] = ELEM_GROUND
+				t[1][heroCol + 1] = ELEM_SLIME
+				break
+
+			default:
 				return null
-			}
-			// 第1列：平地+史莱姆（确保能走A）
-			t[2][heroCol + 1] = ELEM_GROUND
-			t[1][heroCol + 1] = ELEM_SLIME
-			break
-
-		default:
-			return null
-	}
+		}
 
 	// 其他列保持空气（不随机填充，避免破坏动作合法性）
 	// 这样既简单又可靠，零失败
