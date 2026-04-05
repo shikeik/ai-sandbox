@@ -212,15 +212,15 @@ export class MapRenderer {
 	}
 
 	/**
-	 * 获取视野内的地图数据（支持丝滑滚动，多取三列防止边缘裁剪）
+	 * 获取视野内的地图数据（支持丝滑滚动，多取一列防止边缘裁剪）
 	 */
 	private getViewport(map: number[][]): number[][] {
 		const viewport: number[][] = [[], [], []]
-		// 始终从 cameraCol 的前一列开始取，确保丝滑滚动时左边界有数据
-		const startCol = Math.floor(this.cameraCol) - 1
+		// 从 cameraCol 开始取，不偏移
+		const startCol = Math.floor(this.cameraCol)
 
-		// 多取三列：左边界一列 + 丝滑滚动一列 + 右边界缓冲一列
-		const colsToRender = this.viewportCols + 3
+		// 多取一列用于丝滑滚动时的右边界缓冲
+		const colsToRender = this.viewportCols + 1
 
 		for (let layer = 0; layer < NUM_LAYERS; layer++) {
 			for (let i = 0; i < colsToRender; i++) {
@@ -312,7 +312,7 @@ export class MapRenderer {
 		hideHeroAtMapCol: number | null
 	): void {
 		const effectiveStartX = this.startX - scrollOffset
-		const startCol = Math.floor(this.cameraCol) - 1
+		const startCol = Math.floor(this.cameraCol)
 		const colsToRender = viewport[0].length
 
 		// 层映射：绘制行 r -> 数据层 layer (r=0天上, r=1地上, r=2地面)
@@ -362,12 +362,12 @@ export class MapRenderer {
 		this.ctx.font = "12px sans-serif"
 		this.ctx.textAlign = "center"
 
-		// 从 cameraCol-1 开始绘制，与 viewport 一致
-		const startCol = Math.floor(this.cameraCol) - 1
+		// 从 cameraCol 开始绘制，与 viewport 一致
+		const startCol = Math.floor(this.cameraCol)
 		const effectiveStartX = this.startX - scrollOffset
 
-		// 多绘制两列标签用于丝滑滚动显示
-		for (let i = 0; i <= this.viewportCols + 1; i++) {
+		// 多绘制一列标签用于丝滑滚动显示
+		for (let i = 0; i <= this.viewportCols; i++) {
 			const col = startCol + i
 			if (col < 0) continue
 			if (col >= this.mapWidth) break
@@ -398,13 +398,16 @@ export class MapRenderer {
 
 	/**
 	 * 绘制动画中的狐狸（支持丝滑滚动）
+	 * 注意：动画路径的 targetCol 是相对偏移（1,2,3），需要基于视口第0列计算
 	 */
 	private drawAnimatedHero(scrollOffset: number): void {
 		if (!this.animState) return
 
 		const effectiveStartX = this.startX - scrollOffset
-		const heroBaseX = effectiveStartX + 0 * (this.cellW + this.gapX) + this.cellW / 2
+		// 狐狸从视口第0列开始动画（因为相机跟随狐狸，视口第0列就是狐狸位置）
+		const heroBaseX = effectiveStartX + this.cellW / 2
 		const heroBaseY = this.startY + 1 * (this.cellH + this.gapY) + this.cellH / 2
+		// targetCol 是相对偏移（走=1, 跳=2, 远跳=3）
 		const targetX = effectiveStartX + this.animState.path.targetCol * (this.cellW + this.gapX) + this.cellW / 2
 
 		let hx = heroBaseX
