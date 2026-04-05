@@ -390,12 +390,13 @@ export class MapRenderer {
 	private drawAnimatedHero(scrollOffset: number): void {
 		if (!this.animState) return
 
-		const effectiveStartX = this.startX - scrollOffset
-		// 基于世界列号计算位置：currentHeroCol 是世界坐标
-		const heroBaseX = effectiveStartX + (this.currentHeroCol - this.cameraCol) * (this.cellW + this.gapX) + this.cellW / 2
+		const colWidth = this.cellW + this.gapX
+		// 使用世界坐标直接计算屏幕位置，不通过 effectiveStartX 避免重复处理 scrollOffset
+		// startX + (世界列 - 相机列) * 列宽 + 格子中心偏移
+		const heroBaseX = this.startX + (this.currentHeroCol - this.cameraCol) * colWidth + this.cellW / 2
 		const heroBaseY = this.startY + 1 * (this.cellH + this.gapY) + this.cellH / 2
 		// targetCol 是相对偏移（走=1, 跳=2, 远跳=3）
-		const targetX = effectiveStartX + (this.currentHeroCol - this.cameraCol + this.animState.path.targetCol) * (this.cellW + this.gapX) + this.cellW / 2
+		const targetX = this.startX + (this.currentHeroCol - this.cameraCol + this.animState.path.targetCol) * colWidth + this.cellW / 2
 
 		let hx = heroBaseX
 		let hy = heroBaseY
@@ -423,8 +424,9 @@ export class MapRenderer {
 	 */
 	private drawHeroAtCol(scrollOffset: number): void {
 		const colWidth = this.cellW + this.gapX
-		// 直接用世界坐标计算屏幕位置，不重复处理 scrollOffset
-		const x = this.startX + (this.currentHeroCol - this.cameraCol) * colWidth - scrollOffset + this.cellW / 2
+		// 使用世界坐标直接计算屏幕位置：startX + (世界列 - 相机列) * 列宽 + 格子中心偏移
+		// 注意：不通过 effectiveStartX，避免重复处理 scrollOffset
+		const x = this.startX + (this.currentHeroCol - this.cameraCol) * colWidth + this.cellW / 2
 		const y = this.startY + 1 * (this.cellH + this.gapY) + this.cellH / 2
 		
 		drawEmoji(this.ctx, "🦊", x, y, Math.min(this.cellW, this.cellH) * 0.65)

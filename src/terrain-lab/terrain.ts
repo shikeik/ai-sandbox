@@ -302,13 +302,16 @@ export function generateRandomTerrain(config: TerrainConfig = DEFAULT_TERRAIN_CO
  * @param action 目标动作 (0=走, 1=跳, 2=远跳, 3=走A)
  * @param heroCol 狐狸位置（默认为0）
  * @param config 地形配置
+ * @param existingMap 可选：现有地图，在此基础上生成
+ * @param minimal 可选：单步模式只生成必要列，不生成装饰列(x+3)，默认false
  * @returns 生成的地形，如果无法生成则返回null
  */
 export function generateTerrainForAction(
 	action: number,
 	heroCol: number = 0,
 	config: TerrainConfig = DEFAULT_TERRAIN_CONFIG,
-	existingMap?: number[][]  // 可选：现有地图，在此基础上生成
+	existingMap?: number[][],
+	minimal: boolean = false
 ): number[][] | null {
 	// 生成32列完整地形（适配大地图生成器）
 	const MAP_WIDTH = 32
@@ -324,11 +327,12 @@ export function generateTerrainForAction(
 	// 只确保狐狸脚下是平地（用于合法性检查）
 	t[0][heroCol] = ELEM_GROUND
 
-	// 候选池（根据层）- 恶魔和史莱姆权重更高
+	// 候选池（根据层）- 恶魔权重x3（60%概率），史莱姆权重x2
 	const skyPool = [ELEM_AIR]
 	if (config.demon) {
 		skyPool.push(ELEM_DEMON)
-		skyPool.push(ELEM_DEMON)  // 恶魔权重x2
+		skyPool.push(ELEM_DEMON)
+		skyPool.push(ELEM_DEMON)  // 恶魔权重x3
 	}
 	if (config.coin) skyPool.push(ELEM_COIN)
 
@@ -347,40 +351,47 @@ export function generateTerrainForAction(
 
 	// 根据动作设置地形（地面固定，其他层候选池过滤）
 	switch (action) {
-		case 0: // 走（+1格）- 生成第1、2、3列
+		case 0: // 走（+1格）- x+1是目标平地
 			// 地面层：第1列必须是平地
 			t[0][heroCol + 1] = ELEM_GROUND
-			// 地上层：第1列只在未生成时设置（避免覆盖之前的装饰）
-			if (t[1][heroCol + 1] === ELEM_AIR || t[1][heroCol + 1] === -1) {
-				t[1][heroCol + 1] = pick(midPool, [ELEM_SLIME])
-			}
-			// 第2、3列：从池子随机选元素
-			if (t[1][heroCol + 2] === ELEM_AIR || t[1][heroCol + 2] === -1) t[1][heroCol + 2] = pick(midPool)
-			if (t[1][heroCol + 3] === ELEM_AIR || t[1][heroCol + 3] === -1) t[1][heroCol + 3] = pick(midPool)
-			// 天上层：第1列只在未生成时设置
+			// 天上层：第1列生成（走对天上无限制，可以从池子选）
 			if (t[2][heroCol + 1] === ELEM_AIR || t[2][heroCol + 1] === -1) {
-				t[2][heroCol + 1] = pick(skyPool, [ELEM_DEMON])
+				t[2][heroCol + 1] = pick(skyPool)
 			}
-			// 第2、3列：从池子随机选元素
-			if (t[2][heroCol + 2] === ELEM_AIR || t[2][heroCol + 2] === -1) t[2][heroCol + 2] = pick(skyPool)
-			if (t[2][heroCol + 3] === ELEM_AIR || t[2][heroCol + 3] === -1) t[2][heroCol + 3] = pick(skyPool)
+			// minimal模式：只生成第1列（目标列）
+			// 非minimal模式：生成第2、3列作为装饰
+			if (!minimal) {
+				// 地上层装饰
+				if (t[1][heroCol + 1] === ELEM_AIR || t[1][heroCol + 1] === -1) {
+					t[1][heroCol + 1] = pick(midPool, [ELEM_SLIME])
+				}
+				if (t[1][heroCol + 2] === ELEM_AIR || t[1][heroCol + 2] === -1) t[1][heroCol + 2] = pick(midPool)
+				if (t[1][heroCol + 3] === ELEM_AIR || t[1][heroCol + 3] === -1) t[1][heroCol + 3] = pick(midPool)
+				// 天上层装饰
+				if (t[2][heroCol + 2] === ELEM_AIR || t[2][heroCol + 2] === -1) t[2][heroCol + 2] = pick(skyPool)
+				if (t[2][heroCol + 3] === ELEM_AIR || t[2][heroCol + 3] === -1) t[2][heroCol + 3] = pick(skyPool)
+			}
 			break
 
-		case 1: // 跳（+2格）- 生成第1、2、3列
+		case 1: // 跳（+2格）- x+1是坑，x+2是目标平地
 			// 地面层
 			t[0][heroCol + 1] = ELEM_AIR
 			t[0][heroCol + 2] = ELEM_GROUND
-			// 地上层：第1列只在未生成时设置
-			if (t[1][heroCol + 1] === ELEM_AIR || t[1][heroCol + 1] === -1) t[1][heroCol + 1] = pick(midPool)
-			// 第2列移除史莱姆（跳要求目标列地上无史莱姆）
-			if (t[1][heroCol + 2] === ELEM_AIR || t[1][heroCol + 2] === -1) t[1][heroCol + 2] = pick(midPool, [ELEM_SLIME])
-			// 第3列：从池子随机选元素
-			if (t[1][heroCol + 3] === ELEM_AIR || t[1][heroCol + 3] === -1) t[1][heroCol + 3] = pick(midPool)
-			// 天上层：第1、2列只在未生成时设置（移除恶魔）
-			if (t[2][heroCol + 1] === ELEM_AIR || t[2][heroCol + 1] === -1) t[2][heroCol + 1] = pick(skyPool, [ELEM_DEMON])
-			if (t[2][heroCol + 2] === ELEM_AIR || t[2][heroCol + 2] === -1) t[2][heroCol + 2] = pick(skyPool, [ELEM_DEMON])
-			// 第3列：从池子随机选元素
-			if (t[2][heroCol + 3] === ELEM_AIR || t[2][heroCol + 3] === -1) t[2][heroCol + 3] = pick(skyPool)
+			// 天上层：第1、2列排除恶魔（跳要求天上无恶魔）
+			if (t[2][heroCol + 1] === ELEM_AIR || t[2][heroCol + 1] === -1) {
+				t[2][heroCol + 1] = pick(skyPool, [ELEM_DEMON])
+			}
+			if (t[2][heroCol + 2] === ELEM_AIR || t[2][heroCol + 2] === -1) {
+				t[2][heroCol + 2] = pick(skyPool, [ELEM_DEMON])
+			}
+			// minimal模式：只生成第1、2列
+			// 非minimal模式：生成第3列装饰
+			if (!minimal) {
+				if (t[1][heroCol + 1] === ELEM_AIR || t[1][heroCol + 1] === -1) t[1][heroCol + 1] = pick(midPool)
+				if (t[1][heroCol + 2] === ELEM_AIR || t[1][heroCol + 2] === -1) t[1][heroCol + 2] = pick(midPool, [ELEM_SLIME])
+				if (t[1][heroCol + 3] === ELEM_AIR || t[1][heroCol + 3] === -1) t[1][heroCol + 3] = pick(midPool)
+				if (t[2][heroCol + 3] === ELEM_AIR || t[2][heroCol + 3] === -1) t[2][heroCol + 3] = pick(skyPool)
+			}
 			break
 
 		case 2: // 远跳（+3格）- 生成第1、2、3、4列（但x+4是bug，只到x+3）
