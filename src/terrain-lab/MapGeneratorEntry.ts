@@ -272,7 +272,16 @@ export class MapGeneratorEntry {
 
 		// 2. 播放行动画（狐狸在视野内移动）
 		console.log(`播放行动画 | ${actionName}`)
-		await this.gridWorld.playAction(actionName as import("./types.js").ActionType)
+		await this.gridWorld.playAction(actionName as import("./types.js").ActionType, {
+			onFrame: (progress, slimeKilled) => {
+				this.gridWorld.renderAnimation(
+					{ canvas: this.mapCanvas },
+					actionName as import("./types.js").ActionType,
+					progress,
+					slimeKilled
+				)
+			}
+		})
 
 		// 3. 动画完成后，更新狐狸位置（狐狸只是基于坐标的动画，不在地图上）
 		this.currentHeroCol = targetCol
