@@ -7,7 +7,7 @@ import {
 } from "./constants.js"
 import { findHeroCol } from "./terrain.js"
 import { calculateAnimationPath } from "./animation.js"
-import { setupHighDPICanvas } from "../engine/utils/canvas.js"
+import { setupHighDPICanvas } from "@/engine/utils/canvas.js"
 
 // 重新导出，保持兼容性
 export function setupCanvas(canvas: HTMLCanvasElement) {

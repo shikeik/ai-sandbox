@@ -6,8 +6,8 @@ import { createInitialState } from "./state.js"
 import { TrainingEntry } from "./TrainingEntry.js"
 import { ChallengeEntry } from "./ChallengeEntry.js"
 import { MapGeneratorEntry } from "./MapGeneratorEntry.js"
-import { Logger } from "../engine/utils/Logger.js"
-import { ConsolePanel } from "../engine/console/ConsolePanel.js"
+import { Logger } from "@/engine/utils/Logger.js"
+import { ConsolePanel } from "@/engine/console/ConsolePanel.js"
 
 // ========== 全局状态 ==========
 const state: AppState = createInitialState()

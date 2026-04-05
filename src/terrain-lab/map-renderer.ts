@@ -1,10 +1,10 @@
 // ========== 通用地图渲染器 ==========
 // 支持任意宽度地图、横向滚动、相机跟随主角、触摸滑动
 
-import { NUM_LAYERS, ELEM_HERO, ELEM_AIR, ELEMENTS } from "./constants.js"
-import { drawEditorLabels, drawTerrainGrid, drawEmoji } from "./renderer.js"
-import { calculateAnimationPath, type AnimationPath } from "./animation.js"
-import { setupHighDPICanvas } from "../engine/utils/canvas.js"
+import { NUM_LAYERS, ELEM_HERO, ELEM_AIR, ELEMENTS } from "@/terrain-lab/constants.js"
+import { drawEditorLabels, drawTerrainGrid, drawEmoji } from "@/terrain-lab/renderer.js"
+import { calculateAnimationPath, type AnimationPath } from "@/terrain-lab/animation.js"
+import { setupHighDPICanvas } from "@/engine/utils/canvas.js"
 
 export interface MapRendererConfig {
 	canvas: HTMLCanvasElement
@@ -537,7 +537,7 @@ export class MapRenderer {
 	private startInertia(): void {
 		// 使用松手时的实际速度，不是最大速度
 		// 如果用户停住再松手，velocity 应该接近0
-		let initialVelocity = this.velocity
+		const initialVelocity = this.velocity
 
 		// 速度太小不启动
 		if (Math.abs(initialVelocity) < 0.1) return

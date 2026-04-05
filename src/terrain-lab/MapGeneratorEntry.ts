@@ -2,14 +2,14 @@
 // 职责：用规则验证函数一步步生成 32 格合法地图
 // 特点：触摸滑动、相机跟随主角、行动画
 
-import type { AppState } from "./state.js"
+import type { AppState } from "@/terrain-lab/state.js"
 import {
 	ELEM_AIR, ELEM_HERO, ELEM_GROUND,
-	CURRICULUM_STAGES
-} from "./constants.js"
-import type { TerrainConfig } from "./constants.js"
-import { getLabel, getActionName, generateTerrainForAction } from "./terrain.js"
-import { MapRenderer } from "./map-renderer.js"
+	CURRICULUM_STAGES, NUM_LAYERS
+} from "@/terrain-lab/constants.js"
+import type { TerrainConfig } from "@/terrain-lab/constants.js"
+import { getLabel, getActionName, generateTerrainForAction } from "@/terrain-lab/terrain.js"
+import { MapRenderer } from "@/terrain-lab/map-renderer.js"
 
 export class MapGeneratorEntry {
 	private state: AppState
@@ -175,8 +175,8 @@ export class MapGeneratorEntry {
 			action = 0 // 降级为走
 		}
 
-		// 使用 existingMap 参数在同一张地图上直接生成
-		const result = generateTerrainForAction(action, heroCol, this.terrainConfig, this.generatedMap)
+		// 使用 existingMap 参数在同一张地图上直接生成（minimal=true 单步模式）
+		const result = generateTerrainForAction(action, heroCol, this.terrainConfig, this.generatedMap, true)
 		if (!result) {
 			this.updateHistory(`第${heroCol}列：生成失败`)
 			return { success: false, reachedEnd: false }
@@ -333,7 +333,7 @@ export class MapGeneratorEntry {
 
 		const historyEl = document.getElementById("generator-history")
 		if (historyEl) {
-			historyEl.innerHTML = '<div style="color:#5f6368;text-align:center;padding:10px;">等待生成...</div>'
+			historyEl.innerHTML = "<div style=\"color:#5f6368;text-align:center;padding:10px;\">等待生成...</div>"
 		}
 
 		this.updateButtonState(false)

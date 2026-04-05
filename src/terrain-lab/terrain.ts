@@ -160,9 +160,9 @@ export function getActionChecks(t: number[][], heroCol: number, numCols: number 
 
 	// 辅助函数：地面是否可用（平地或未知）
 	const isGroundOK = (name: string) => name === "平地" || name === "未知"
-	// 辅助函数：是否无阻碍（不是恶魔/史莱姆，或者是未知）
-	const isNoDemon = (name: string) => name !== "恶魔" || name === "未知"
-	const isNoSlime = (name: string) => name !== "史莱姆" || name === "未知"
+	// 辅助函数：是否无恶魔/史莱姆（未知也算无阻碍）
+	const isNoDemon = (name: string) => name !== "恶魔"
+	const isNoSlime = (name: string) => name !== "史莱姆"
 
 	return {
 		canWalk: {
