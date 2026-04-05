@@ -26,6 +26,7 @@ export interface GridWorldConfig {
 	viewportWidth?: number    // 视野宽度（默认全部显示）
 	cellSize?: number         // 格子大小（默认44）
 	gap?: number              // 格子间距（默认6）
+	scale?: number            // 整体缩放比例（默认1.0）
 }
 
 // ========== 渲染配置 ==========

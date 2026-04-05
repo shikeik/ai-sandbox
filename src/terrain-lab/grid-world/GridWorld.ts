@@ -72,7 +72,7 @@ export class GridWorld {
 		}
 
 		// 初始化子系统
-		this.renderer = new GridWorldRenderer(this.elements, config.height)
+		this.renderer = new GridWorldRenderer(this.elements, config.height, config.scale)
 		this.animator = new GridWorldAnimator()
 
 		console.log("GRID-WORLD", `创建完成 | size=${config.width}x${config.height}, viewport=${config.viewportWidth ?? "全部"}`)

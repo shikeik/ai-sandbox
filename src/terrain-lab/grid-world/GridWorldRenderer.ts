@@ -15,6 +15,7 @@ export class GridWorldRenderer {
 	private elements: ElementDef[]
 	private numLayers: number
 	private logger: Logger
+	private scale: number
 
 	// Canvas 状态
 	private canvas: HTMLCanvasElement | null = null
@@ -26,11 +27,12 @@ export class GridWorldRenderer {
 	private lastCanvasWidth = 0
 	private lastCanvasHeight = 0
 
-	constructor(elements: ElementDef[], numLayers: number) {
+	constructor(elements: ElementDef[], numLayers: number, scale: number = 1) {
 		this.elements = elements
 		this.numLayers = numLayers
+		this.scale = scale
 		this.logger = new Logger("GRID-RENDERER")
-		console.log(`渲染器初始化 | elements=${elements.length}, layers=${numLayers}`)
+		console.log(`渲染器初始化 | elements=${elements.length}, layers=${numLayers}, scale=${scale}`)
 	}
 
 	// ========== 布局计算 ==========
@@ -45,10 +47,11 @@ export class GridWorldRenderer {
 		cellSize: number = DEFAULT_CELL_SIZE,
 		gap: number = DEFAULT_GAP
 	): LayoutMetrics {
-		const cellW = cellSize
-		const cellH = cellSize
-		const gapX = gap
-		const gapY = gap
+		// 应用整体缩放
+		const cellW = Math.floor(cellSize * this.scale)
+		const cellH = Math.floor(cellSize * this.scale)
+		const gapX = Math.floor(gap * this.scale)
+		const gapY = Math.floor(gap * this.scale)
 		
 		const gridW = viewportCols * cellW + (viewportCols - 1) * gapX
 		const gridH = this.numLayers * cellH + (this.numLayers - 1) * gapY

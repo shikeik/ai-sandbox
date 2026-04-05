@@ -58,12 +58,13 @@ export class KimiEntry {
 	constructor(state: AppState) {
 		this.state = state
 
-		// 初始化 GridWorld（32列，宽视野）
+		// 初始化 GridWorld（32列，宽视野，整体缩小0.7倍）
 		this.gridWorld = createGridWorld({
 			width: 32,
 			height: NUM_LAYERS,
 			elements: DEFAULT_ELEMENTS,
 			viewportWidth: VIEWPORT_COLS,
+			scale: 0.6,
 		})
 	}
 
@@ -110,7 +111,7 @@ export class KimiEntry {
 					</div>
 
 					<!-- ${VIEWPORT_COLS}×3 宽视野画布 -->
-					<canvas id="kimi-canvas" style="width:100%;max-width:900px;height:400px;background:#0b0c0f;border-radius:8px;display:block;margin:0 auto;"></canvas>
+					<canvas id="kimi-canvas" style="width:100%;max-width:800px;height:280px;background:#0b0c0f;border-radius:8px;display:block;margin:0 auto;"></canvas>
 
 					<!-- 状态信息 -->
 					<div class="challenge-result waiting" id="kimi-status" style="margin-top:10px;">
