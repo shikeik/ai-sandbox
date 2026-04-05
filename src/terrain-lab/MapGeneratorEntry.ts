@@ -82,9 +82,9 @@ export class MapGeneratorEntry {
 		this.currentHeroCol = 0
 		this.generationHistory = []
 
-		// 设置起点
-		this.generatedMap[1][0] = ELEM_HERO
-		this.generatedMap[2][0] = ELEM_GROUND
+		// 设置起点（层索引：0=地面, 1=地上, 2=天上）
+		this.generatedMap[0][0] = ELEM_GROUND  // 狐狸脚下是平地
+		this.generatedMap[1][0] = ELEM_HERO    // 狐狸在地上层
 
 		// 生成初始视野（第1-6列）
 		this.generateTerrainForRange(1, 6)
@@ -134,6 +134,7 @@ export class MapGeneratorEntry {
 	/**
 	 * 生成下一步
 	 * 新逻辑：先随机选动作，再为这个动作生成地形（零失败）
+	 * 使用 existingMap 参数在同一张地图上累积生成
 	 */
 	private async generateNextStep(): Promise<{ success: boolean; reachedEnd: boolean } | null> {
 		if (!this.generatedMap || this.shouldStop) return null
@@ -147,19 +148,13 @@ export class MapGeneratorEntry {
 			action = 0 // 降级为走
 		}
 
-		// 直接生成地形（零失败，除了走A无史莱姆的情况已处理）
-		const newTerrain = generateTerrainForAction(action, heroCol, this.terrainConfig)
-		if (!newTerrain) {
+		// 使用 existingMap 参数在同一张地图上直接生成
+		// 这样不会覆盖之前已生成的地形
+		const result = generateTerrainForAction(action, heroCol, this.terrainConfig, this.generatedMap)
+		if (!result) {
 			// 理论上不会到这里，除非配置异常
 			this.updateHistory(`第${heroCol}列：生成失败`)
 			return { success: false, reachedEnd: false }
-		}
-
-		// 将新地形合并到大地图
-		for (let layer = 0; layer < NUM_LAYERS; layer++) {
-			for (let col = 0; col < 7 && heroCol + col < 32; col++) {
-				this.generatedMap[layer][heroCol + col] = newTerrain[layer][col]
-			}
 		}
 
 		// 计算目标列

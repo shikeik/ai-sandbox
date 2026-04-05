@@ -39,49 +39,49 @@ describe("地图生成器 - generateTerrainForAction", () => {
 			console.log("层0 (地面):", t[0].slice(0, showCols).map((v, i) => formatCol(v, i <= 1)).join(","))
 			console.log("图例: .=未生成, 0=坑, 1=狐狸, 2=平地")
 
-			// 模拟多步累积生成完整地图（32列，未生成用.表示）
-			console.log("\n=== 模拟多步累积生成（完整32列）===")
+			// 真正用 generateTerrainForAction 跑多步累积生成完整地图
+			console.log("\n=== 多步累积生成完整地图（32列）===")
+			
+			// 初始化32列空地图
 			const fullMap: number[][] = [
-				Array(32).fill(-1),  // -1表示未生成
+				Array(32).fill(-1),
 				Array(32).fill(-1),
 				Array(32).fill(-1),
 			]
+			fullMap[0][0] = 2  // 起点地面
+			fullMap[1][0] = 1  // 起点狐狸
+			fullMap[2][0] = 0  // 起点天上
+
 			let heroPos = 0
+			let path = "0"
 
-			// 第0列：起点
-			fullMap[0][0] = 2  // 地面：平地
-			fullMap[1][0] = 1  // 地上：狐狸
-			fullMap[2][0] = 0  // 天上：空气
+			// 模拟走10步生成，使用existingMap参数直接在同一张地图上生成
+			for (let step = 0; step < 10 && heroPos < 28; step++) {
+				const action = [0, 1, 0, 2, 0, 1, 0, 0, 2, 0][step]  // 预设动作序列
+				
+				// 使用existingMap参数，在同一张地图上继续生成
+				generateTerrainForAction(action, heroPos, TEST_CONFIG, fullMap)
 
-			// 第1步：走（到第1列）
-			fullMap[0][1] = 2  // 地面：平地
-			fullMap[1][1] = 0  // 地上：空气
-			fullMap[2][1] = 0  // 天上：空气
-			heroPos = 1
+				// 移动狐狸
+				fullMap[1][heroPos] = 0  // 旧位置清空
+				if (action === 0 || action === 3) heroPos += 1
+				else if (action === 1) heroPos += 2
+				else if (action === 2) heroPos += 3
+				fullMap[1][heroPos] = 1  // 新位置放狐狸
 
-			// 第2步：跳（到第3列）
-			fullMap[0][2] = 0  // 第2列地面：坑
-			fullMap[0][3] = 2  // 第3列地面：平地
-			heroPos = 3
+				path += `→${heroPos}(${
+					action === 0 ? "走" : action === 1 ? "跳" : action === 2 ? "远跳" : "走A"
+				})`
+			}
 
-			// 第3步：走（到第4列）
-			fullMap[0][4] = 2  // 第4列地面：平地
-			heroPos = 4
+			// 格式化输出（-1显示为.）
+			const format = (arr: number[]) => arr.map(v => v === -1 ? "." : v).join(",")
 
-			// 第4步：远跳（到第7列）
-			fullMap[0][5] = 0  // 第5列地面：坑
-			fullMap[0][6] = 0  // 第6列地面：坑
-			fullMap[0][7] = 2  // 第7列地面：平地
-			heroPos = 7
-
-			// 格式化输出完整地图
-			const formatFullMap = (arr: number[]) => arr.map(v => v === -1 ? "." : String(v)).join(",")
-
-			console.log("路径: 0→1(走)→3(跳)→4(走)→7(远跳)")
-			console.log("层2 (天上):", formatFullMap(fullMap[2]))
-			console.log("层1 (地上):", formatFullMap(fullMap[1]))
-			console.log("层0 (地面):", formatFullMap(fullMap[0]))
-			console.log("图例: .=未生成, 0=坑, 1=狐狸, 2=平地")
+			console.log(`路径: ${path}`)
+			console.log("层2 (天上):", format(fullMap[2]))
+			console.log("层1 (地上):", format(fullMap[1]))
+			console.log("层0 (地面):", format(fullMap[0]))
+			console.log("图例: .=未生成, 0=空气/坑, 1=狐狸, 2=平地, 3=史莱姆, 4=恶魔, 5=金币")
 			console.log("")
 
 			const checks = getActionChecks(t, 0)

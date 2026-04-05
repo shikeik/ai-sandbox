@@ -301,6 +301,9 @@ export class MapRenderer {
 	/**
 	 * 绘制地形网格（支持丝滑滚动偏移）
 	 * 不裁剪：地图只有32列，全部绘制开销可忽略
+	 * 
+	 * 注意：viewport[0]=地面, viewport[1]=地上, viewport[2]=天上
+	 * 但绘制时翻转：r=0 在最上方显示天上层，r=2 在最下方显示地面层
 	 */
 	private drawTerrainGridSmooth(
 		viewport: number[][],
@@ -311,6 +314,9 @@ export class MapRenderer {
 		const effectiveStartX = this.startX - scrollOffset
 		const startCol = Math.floor(this.cameraCol) - 1
 		const colsToRender = viewport[0].length
+
+		// 层映射：绘制行 r -> 数据层 layer (r=0天上, r=1地上, r=2地面)
+		const layerMap = [2, 1, 0]
 
 		// 绘制网格线框
 		for (let r = 0; r < NUM_LAYERS; r++) {
@@ -326,18 +332,19 @@ export class MapRenderer {
 
 		// 绘制元素
 		for (let r = 0; r < NUM_LAYERS; r++) {
+			const dataLayer = layerMap[r]  // 数据层索引
 			for (let c = 0; c < colsToRender; c++) {
 				const x = effectiveStartX + c * (this.cellW + this.gapX)
 				const y = this.startY + r * (this.cellH + this.gapY)
 
-				const elemId = viewport[r][c]
+				const elemId = viewport[dataLayer][c]
 				const mapCol = startCol + c  // 计算当前格子对应的实际地图列号
 
-				// 跳过被击杀的史莱姆
-				if (r === 1 && mapCol === hideSlimeAtMapCol) continue
+				// 跳过被击杀的史莱姆（数据层1是地上层）
+				if (dataLayer === 1 && mapCol === hideSlimeAtMapCol) continue
 
 				// 动画时跳过原位置的狐狸（显示空气）
-				if (r === 1 && mapCol === hideHeroAtMapCol && elemId === 1) {
+				if (dataLayer === 1 && mapCol === hideHeroAtMapCol && elemId === 1) {
 					drawEmoji(this.ctx, " ", x + this.cellW / 2, y + this.cellH / 2, Math.min(this.cellW, this.cellH) * 0.55)
 					continue
 				}
@@ -373,9 +380,10 @@ export class MapRenderer {
 
 	/**
 	 * 绘制层标签（在左侧预留空间内）
+	 * 注意：绘制时翻转了层顺序，r=0 显示天上层，r=2 显示地面层
 	 */
 	private drawLayerLabels(): void {
-		const layerNames = ["天上", "地上", "地面"]
+		const layerNames = ["天上", "地上", "地面"]  // 从上到下对应绘制行 r=0, r=1, r=2
 		this.ctx.fillStyle = "#9aa0a6"
 		this.ctx.font = "12px sans-serif"
 		this.ctx.textAlign = "center"

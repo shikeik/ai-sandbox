@@ -57,7 +57,7 @@ export interface BoundaryCheck {
 	reason?: string
 }
 
-export function checkBoundaries(heroCol: number): {
+export function checkBoundaries(heroCol: number, numCols: number = NUM_COLS): {
 	walk: BoundaryCheck
 	jump: BoundaryCheck
 	longJump: BoundaryCheck
@@ -69,36 +69,37 @@ export function checkBoundaries(heroCol: number): {
 
 	return {
 		walk: {
-			inBounds: col1 < NUM_COLS,
+			inBounds: col1 < numCols,
 			targetCol: col1,
-			reason: col1 >= NUM_COLS ? `前1(x${col1})超出地图边界` : undefined
+			reason: col1 >= numCols ? `前1(x${col1})超出地图边界` : undefined
 		},
 		jump: {
-			inBounds: col2 < NUM_COLS,
+			inBounds: col2 < numCols,
 			targetCol: col2,
-			reason: col2 >= NUM_COLS ? `前2(x${col2})超出地图边界` : undefined
+			reason: col2 >= numCols ? `前2(x${col2})超出地图边界` : undefined
 		},
 		longJump: {
-			inBounds: col3 < NUM_COLS,
+			inBounds: col3 < numCols,
 			targetCol: col3,
-			reason: col3 >= NUM_COLS ? `前3(x${col3})超出地图边界` : undefined
+			reason: col3 >= numCols ? `前3(x${col3})超出地图边界` : undefined
 		},
 		walkAttack: {
-			inBounds: col1 < NUM_COLS,
+			inBounds: col1 < numCols,
 			targetCol: col1,
-			reason: col1 >= NUM_COLS ? `前1(x${col1})超出地图边界` : undefined
+			reason: col1 >= numCols ? `前1(x${col1})超出地图边界` : undefined
 		},
 	}
 }
 
-export function getActionChecks(t: number[][], heroCol: number): ActionChecks {
-	// 安全获取元素名，超出边界返回"空气"
+export function getActionChecks(t: number[][], heroCol: number, numCols: number = NUM_COLS): ActionChecks {
+	// 安全获取元素名，超出边界返回"空气"，-1返回"未知"（未生成）
 	const getName = (r: number, c: number): string => {
-		if (c >= NUM_COLS) return "空气"
+		if (c >= numCols) return "空气"
+		if (t[r][c] === -1) return "未知"  // 未生成的格子
 		return ELEMENTS[t[r][c]]?.name ?? "空气"
 	}
 
-	const bounds = checkBoundaries(heroCol)
+	const bounds = checkBoundaries(heroCol, numCols)
 
 	const col1 = heroCol + 1
 	const col2 = heroCol + 2
@@ -150,24 +151,30 @@ export function getActionChecks(t: number[][], heroCol: number): ActionChecks {
 	if (!bounds.walkAttack.inBounds) {
 		walkAttackReasons.push(bounds.walkAttack.reason!)
 	} else {
-		walkAttackReasons.push(ground0 !== "平地" ? `前1(x${col1})地面不是平地` : null)
+		walkAttackReasons.push(ground0 === "坑" ? `前1(x${col1})地面是坑` : null)
 	}
+
+	// 辅助函数：地面是否可用（平地或未知）
+	const isGroundOK = (name: string) => name === "平地" || name === "未知"
+	// 辅助函数：是否无阻碍（不是恶魔/史莱姆，或者是未知）
+	const isNoDemon = (name: string) => name !== "恶魔" || name === "未知"
+	const isNoSlime = (name: string) => name !== "史莱姆" || name === "未知"
 
 	return {
 		canWalk: {
-			ok: bounds.walk.inBounds && ground0 === "平地" && mid0 !== "史莱姆",
+			ok: bounds.walk.inBounds && isGroundOK(ground0) && isNoSlime(mid0),
 			reasons: walkReasons.filter(Boolean) as string[],
 		},
 		canJump: {
-			ok: bounds.jump.inBounds && sky0 !== "恶魔" && ground1 === "平地" && sky1 !== "恶魔" && mid1 !== "史莱姆",
+			ok: bounds.jump.inBounds && isNoDemon(sky0) && isGroundOK(ground1) && isNoDemon(sky1) && isNoSlime(mid1),
 			reasons: jumpReasons.filter(Boolean) as string[],
 		},
 		canLongJump: {
-			ok: bounds.longJump.inBounds && sky0 !== "恶魔" && sky1 !== "恶魔" && ground2 === "平地" && sky2 !== "恶魔" && mid2 !== "史莱姆",
+			ok: bounds.longJump.inBounds && isNoDemon(sky0) && isNoDemon(sky1) && isGroundOK(ground2) && isNoDemon(sky2) && isNoSlime(mid2),
 			reasons: longJumpReasons.filter(Boolean) as string[],
 		},
 		canWalkAttack: {
-			ok: bounds.walkAttack.inBounds && ground0 === "平地",
+			ok: bounds.walkAttack.inBounds && isGroundOK(ground0),
 			reasons: walkAttackReasons.filter(Boolean) as string[],
 		},
 	}
@@ -296,48 +303,91 @@ export function generateRandomTerrain(config: TerrainConfig = DEFAULT_TERRAIN_CO
 export function generateTerrainForAction(
 	action: number,
 	heroCol: number = 0,
-	config: TerrainConfig = DEFAULT_TERRAIN_CONFIG
+	config: TerrainConfig = DEFAULT_TERRAIN_CONFIG,
+	existingMap?: number[][]  // 可选：现有地图，在此基础上生成
 ): number[][] | null {
 	// 生成32列完整地形（适配大地图生成器）
 	const MAP_WIDTH = 32
-	const t: number[][] = [
-		Array(MAP_WIDTH).fill(ELEM_AIR),
-		Array(MAP_WIDTH).fill(ELEM_AIR),
-		Array(MAP_WIDTH).fill(ELEM_AIR),
-	]
+	const t: number[][] = existingMap
+		? existingMap  // 使用现有地图
+		: [            // 或创建新地图
+			Array(MAP_WIDTH).fill(ELEM_AIR),
+			Array(MAP_WIDTH).fill(ELEM_AIR),
+			Array(MAP_WIDTH).fill(ELEM_AIR),
+		]
 
 	// 放置狐狸
 	t[1][heroCol] = ELEM_HERO
 	// 狐狸脚下必须是平地（有支撑）
 	t[0][heroCol] = ELEM_GROUND
 
-	// 根据动作设置地形（只生成需要的列，不多不少）
-		switch (action) {
-			case 0: // 走（+1格）：只生成第1列=平地
-				t[0][heroCol + 1] = ELEM_GROUND
-				break
+	// 候选池（根据层）
+	const skyPool = [ELEM_AIR]
+	if (config.demon) skyPool.push(ELEM_DEMON)
+	if (config.coin) skyPool.push(ELEM_COIN)
 
-			case 1: // 跳（+2格）：第1列=坑，第2列=平地
-				t[0][heroCol + 1] = ELEM_AIR
-				t[0][heroCol + 2] = ELEM_GROUND
-				break
+	const midPool = [ELEM_AIR]
+	if (config.slime) midPool.push(ELEM_SLIME)
+	if (config.coin) midPool.push(ELEM_COIN)
 
-			case 2: // 远跳（+3格）：第1列=坑，第2列=坑，第3列=平地
-				t[0][heroCol + 1] = ELEM_AIR
-				t[0][heroCol + 2] = ELEM_AIR
-				t[0][heroCol + 3] = ELEM_GROUND
-				break
+	// 辅助函数：从候选池随机选一个（排除禁止元素）
+	const pick = (pool: number[], exclude: number[] = []) => {
+		const available = pool.filter(e => !exclude.includes(e))
+		return available[Math.floor(Math.random() * available.length)] ?? ELEM_AIR
+	}
 
-			case 3: // 走A（+1格）：第1列=平地+史莱姆
-				if (!config.slime) {
-					return null
-				}
-				t[0][heroCol + 1] = ELEM_GROUND
-				t[1][heroCol + 1] = ELEM_SLIME
-				break
+	// 根据动作设置地形（地面固定，其他层候选池过滤）
+	switch (action) {
+		case 0: // 走（+1格）
+			// 地面层
+			t[0][heroCol + 1] = ELEM_GROUND
+			// 地上层：移除史莱姆（走要求地上无史莱姆）
+			t[1][heroCol + 1] = pick(midPool, [ELEM_SLIME])
+			// 天上层：移除恶魔（走要求天上无恶魔）
+			t[2][heroCol + 1] = pick(skyPool, [ELEM_DEMON])
+			break
 
-			default:
+		case 1: // 跳（+2格）
+			// 地面层
+			t[0][heroCol + 1] = ELEM_AIR
+			t[0][heroCol + 2] = ELEM_GROUND
+			// 地上层：第2列移除史莱姆（跳要求目标列地上无史莱姆）
+			t[1][heroCol + 1] = pick(midPool)  // 第1列无限制
+			t[1][heroCol + 2] = pick(midPool, [ELEM_SLIME])
+			// 天上层：第1、2列移除恶魔（跳要求路径天上无恶魔）
+			t[2][heroCol + 1] = pick(skyPool, [ELEM_DEMON])
+			t[2][heroCol + 2] = pick(skyPool, [ELEM_DEMON])
+			break
+
+		case 2: // 远跳（+3格）
+			// 地面层
+			t[0][heroCol + 1] = ELEM_AIR
+			t[0][heroCol + 2] = ELEM_AIR
+			t[0][heroCol + 3] = ELEM_GROUND
+			// 地上层：第3列移除史莱姆
+			t[1][heroCol + 1] = pick(midPool)
+			t[1][heroCol + 2] = pick(midPool)
+			t[1][heroCol + 3] = pick(midPool, [ELEM_SLIME])
+			// 天上层：第1、2、3列都移除恶魔
+			t[2][heroCol + 1] = pick(skyPool, [ELEM_DEMON])
+			t[2][heroCol + 2] = pick(skyPool, [ELEM_DEMON])
+			t[2][heroCol + 3] = pick(skyPool, [ELEM_DEMON])
+			break
+
+		case 3: // 走A（+1格）
+			if (!config.slime) {
 				return null
+			}
+			// 地面层
+			t[0][heroCol + 1] = ELEM_GROUND
+			// 地上层：必须有史莱姆（走A要求）
+			t[1][heroCol + 1] = ELEM_SLIME
+			// 天上层：移除恶魔
+			t[2][heroCol + 1] = pick(skyPool, [ELEM_DEMON])
+			break
+
+		default:
+			return null
 		}
 
 	// 其他列保持空气（不随机填充，避免破坏动作合法性）
