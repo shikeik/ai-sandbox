@@ -320,9 +320,8 @@ export function generateTerrainForAction(
 			Array(MAP_WIDTH).fill(ELEM_AIR),
 		]
 
-	// 放置狐狸
-	t[1][heroCol] = ELEM_HERO
-	// 狐狸脚下必须是平地（有支撑）
+	// 注意：狐狸不在地图上，由调用方根据坐标渲染
+	// 只确保狐狸脚下是平地（用于合法性检查）
 	t[0][heroCol] = ELEM_GROUND
 
 	// 候选池（根据层）- 恶魔和史莱姆权重更高

@@ -96,7 +96,7 @@ describe("地图生成器 - generateTerrainForAction", () => {
 			assert.ok(!checks.canLongJump.ok, "远跳不应该合法")
 
 			// 验证地形结构（走只生成第1列）
-			assert.strictEqual(t[1][0], ELEM_HERO, "第0列地上应该是狐狸")
+			// 注意：狐狸不在地图上，只检查地面
 			assert.strictEqual(t[0][1], ELEM_GROUND, "第1列地面应该是平地")
 			// 第2、3列保持空气（未生成，由边界检查阻止跳/远跳）
 		})
@@ -125,7 +125,7 @@ describe("地图生成器 - generateTerrainForAction", () => {
 			assert.ok(!checks.canLongJump.ok, "远跳不应该合法")
 
 			// 验证地形结构（跳生成第1、2列）
-			assert.strictEqual(t[1][0], ELEM_HERO, "第0列地上应该是狐狸")
+			// 注意：狐狸不在地图上，只检查地面
 			assert.strictEqual(t[0][1], ELEM_AIR, "第1列地面应该是坑（阻止走）")
 			assert.strictEqual(t[0][2], ELEM_GROUND, "第2列地面应该是平地")
 			// 第3列保持空气（未生成）
@@ -155,7 +155,7 @@ describe("地图生成器 - generateTerrainForAction", () => {
 			assert.ok(checks.canLongJump.ok, "远跳应该合法")
 
 			// 验证地形结构（远跳生成第1、2、3列）
-			assert.strictEqual(t[1][0], ELEM_HERO, "第0列地上应该是狐狸")
+			// 注意：狐狸不在地图上，只检查地面
 			assert.strictEqual(t[0][1], ELEM_AIR, "第1列地面应该是坑（阻止走）")
 			assert.strictEqual(t[0][2], ELEM_AIR, "第2列地面应该是坑（阻止跳）")
 			assert.strictEqual(t[0][3], ELEM_GROUND, "第3列地面应该是平地")
@@ -182,7 +182,7 @@ describe("地图生成器 - generateTerrainForAction", () => {
 			assert.ok(checks.canWalkAttack.ok, "走A应该合法")
 
 			// 验证地形结构
-			assert.strictEqual(t[1][0], ELEM_HERO, "第0列地上应该是狐狸")
+			// 注意：狐狸不在地图上，只检查地面和装饰
 			assert.strictEqual(t[0][1], ELEM_GROUND, "第1列地面应该是平地")
 			assert.strictEqual(t[1][1], ELEM_SLIME, "第1列地上应该是史莱姆")
 		})
