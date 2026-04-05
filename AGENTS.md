@@ -38,14 +38,15 @@
 ```
 ├── index.html                      # 导航入口页（选择五个演示模块）
 ├── package.json                    # npm 配置，脚本定义
-├── vite.config.js                  # 多页面 Rollup 配置 + 路径别名
+├── vite.config.ts                  # 多页面 Rollup 配置 + 路径别名
 ├── tsconfig.json                   # TypeScript 严格模式、ES2020
 ├── tsconfig.node.json              # Node 配置引用
-├── eslint.config.js                # ESLint 规则（双引号、无分号、禁止 var）
+├── eslint.config.ts                # ESLint 规则（双引号、无分号、禁止 var）
 ├── TODO.md                         # 项目待办与已知问题
 ├── deploy.sh                       # 腾讯云服务器部署脚本
 ├── scripts/
-│   └── build-single-file.mjs       # 将 Vite 构建产物内联为单文件 HTML
+│   ├── build-single-file.mjs       # 将 Vite 构建产物内联为单文件 HTML
+│   └── test.mjs                    # 测试脚本包装器
 ├── pages/                          # 多页面 HTML 入口
 │   ├── fox-jump.html               # 狐狸跳跃游戏页
 │   ├── terrain-lab.html            # 地形实验室页
@@ -61,7 +62,8 @@
 │   │   │   ├── ConsolePanel.ts     # 可折叠控制台面板
 │   │   │   └── console.css         # 控制台样式
 │   │   └── utils/
-│   │       └── Logger.ts           # 带标签的日志系统
+│   │       ├── Logger.ts           # 带标签的日志系统
+│   │       └── canvas.ts           # Canvas 工具函数
 │   ├── fox-jump/                   # 狐狸跳跃游戏
 │   │   ├── main.ts                 # 游戏入口
 │   │   ├── style.css               # 全局样式、布局、UI 控件
@@ -88,7 +90,10 @@
 │   │       ├── SeededRandom.ts     # Mulberry32 种子化随机数
 │   │       └── timeUtils.ts        # 时间格式化
 │   ├── terrain-lab/                # 地形实验室（监督/无监督学习 + MLP）
-│   │   ├── main.ts                 # 地形实验室入口
+│   │   ├── main.ts                 # 地形实验室入口（管理三个 Tab）
+│   │   ├── TrainingEntry.ts        # 训练 Tab 入口
+│   │   ├── ChallengeEntry.ts       # 连续挑战 Tab 入口
+│   │   ├── MapGeneratorEntry.ts    # 地图生成器 Tab 入口
 │   │   ├── state.ts                # 全局状态管理
 │   │   ├── constants.ts            # 网络维度、元素类型、动作常量、课程阶段
 │   │   ├── types.ts                # 类型定义
@@ -107,11 +112,10 @@
 │   │   ├── challenge-ui.ts         # 挑战模式 UI
 │   │   ├── predictor.ts            # 预测器
 │   │   ├── terrain-validator.ts    # 地形合法性验证
+│   │   ├── map-renderer.ts         # 地图渲染器
 │   │   ├── ui-manager.ts           # UI 管理器
 │   │   ├── gradients.ts            # 梯度计算
-│   │   ├── clip.test.ts            # 权重裁剪影响测试
-│   │   ├── convergence.test.ts     # 收敛性测试
-│   │   └── filtered-supervised.test.ts # 过滤式监督学习测试
+│   │   └── utils/                  # 工具函数
 │   ├── metrics-dashboard/          # 指标仪表盘
 │   │   ├── main.ts                 # 入口
 │   │   ├── metrics-store.ts        # 指标数据存储
@@ -129,6 +133,17 @@
 │       ├── main.ts                 # 入口
 │       ├── timeline-controller.ts  # 时间轴控制器
 │       └── ui-manager.ts           # UI 管理器
+├── test/                           # 测试目录
+│   ├── unit/                       # 单元测试
+│   │   └── map-generator.test.ts   # 地图生成器测试
+│   ├── slow/                       # 慢速测试（训练收敛性测试）
+│   │   └── terrain-lab/
+│   │       ├── clip.test.ts        # 权重裁剪影响测试
+│   │       ├── convergence.test.ts # 收敛性测试
+│   │       └── filtered-supervised.test.ts # 过滤式监督学习测试
+│   └── ts/                         # TypeScript 调试脚本
+│       └── terrain-lab/
+│           └── debug-generate.ts   # 地形生成调试
 └── dist/                           # Vite 构建输出目录
 ```
 
@@ -137,6 +152,7 @@
 ## 4. 路径别名（Vite resolve.alias）
 
 ```js
+'@'           -> src
 '@engine'     -> src/engine
 '@fox-jump'   -> src/fox-jump
 '@game'       -> src/fox-jump/game
@@ -176,7 +192,11 @@ npm run build:single
 npm run preview
 
 # 运行测试
-npm test
+npm test                          # 只跑单元测试 (test/unit/)
+npm run test:all                  # 跑所有测试 (unit + slow)
+npm run test:slow                 # 只跑慢速测试 (test/slow/)
+npm run test:ts                   # 跑所有 TS 调试脚本
+npm run test:dir <目录名>          # 跑指定目录下的单元测试
 ```
 
 ### 部署
@@ -233,26 +253,42 @@ npm test
 
 ## 7. 测试策略
 
-本项目使用 **Node.js 内置测试框架** (`node:test`) 进行测试。
+本项目使用 **Node.js 内置测试框架** (`node:test`) 进行测试，通过 `tsx` 直接执行 TypeScript 文件。
 
 ### 测试文件位置
 
-`src/terrain-lab/` 下以 `.test.ts` 结尾的文件：
+| 目录 | 用途 |
+|------|------|
+| `test/unit/` | 单元测试，运行速度快 |
+| `test/slow/` | 慢速测试，验证训练收敛性 |
+| `test/ts/` | TypeScript 调试脚本，非正式测试 |
+
+### 主要测试文件
 
 | 文件 | 用途 |
 |------|------|
-| `convergence.test.ts` | 验证监督学习与无监督学习在默认地形配置下能否收敛到目标指标 |
-| `clip.test.ts` | 验证不同权重裁剪值对无监督学习合法率的影响 |
-| `filtered-supervised.test.ts` | 验证"只有选中最优动作时才监督更新"的过滤式策略效果 |
+| `test/unit/map-generator.test.ts` | 验证 `generateTerrainForAction` 生成的地形结构正确性 |
+| `test/slow/terrain-lab/convergence.test.ts` | 验证监督学习与无监督学习在默认地形配置下能否收敛到目标指标 |
+| `test/slow/terrain-lab/clip.test.ts` | 验证不同权重裁剪值对无监督学习合法率的影响 |
+| `test/slow/terrain-lab/filtered-supervised.test.ts` | 验证"只有选中最优动作时才监督更新"的过滤式策略效果 |
 
 ### 运行方式
 
 ```bash
-# 运行所有测试
+# 运行所有单元测试
 npm test
+
+# 运行单个单元测试文件
+npm test -- map-generator
+
+# 运行所有测试（包括慢速测试）
+npm run test:all
+
+# 只运行慢速测试
+npm run test:slow
 ```
 
-测试使用 `tsx` 直接执行 TypeScript 文件，无需预编译。
+测试使用 `tsx` 直接执行 TypeScript 文件，无需预编译。路径别名 `@/` 通过 `tsx` 的自定义加载器支持。
 
 ---
 
@@ -296,6 +332,11 @@ npm test
 - `train`：AI 自动闯关并实时更新权重，支持 5 档速度
 
 ### 8.3 地形实验室（`terrain-lab`）
+
+**三个 Tab 入口**：
+- `TrainingEntry`：监督学习/无监督学习训练页
+- `ChallengeEntry`：连续地图挑战页
+- `MapGeneratorEntry`：地图生成器页
 
 **监督学习 + 无监督学习演示页面**：
 - **地形编辑器**：5 列 × 3 层网格，支持放置空气、狐狸、平地、史莱姆、恶魔、金币
@@ -396,15 +437,22 @@ Vite 配置中通过 `rollupOptions.input` 定义 6 个入口：
 
 ### 11.6 测试文件的特殊性
 
-测试文件使用 `.test.ts` 后缀，被 `tsconfig.json` 明确排除（`"exclude": ["src/**/*.test.ts"]`）。测试直接使用 Node.js 内置的 `node:test` 模块，通过 `tsx` 执行。
+测试文件使用 `.test.ts` 后缀，被 `tsconfig.json` 明确排除（`"exclude": ["src/**/*.test.ts"]`）。测试使用 Node.js 内置的 `node:test` 模块，通过 `tsx` 执行。
+
+### 11.7 地形实验室 Tab 结构
+
+`terrain-lab` 采用多入口类架构：
+- `main.ts` 管理 Tab 切换和全局状态
+- `TrainingEntry` / `ChallengeEntry` / `MapGeneratorEntry` 各自独立管理对应 Tab 的生命周期
+- 网络参数更新通过回调 `onNetworkUpdated` 同步
 
 ---
 
 ## 12. 待办事项
 
 详见 `TODO.md`，主要方向：
-- terrain-lab Tab 拆分：监督学习页 + 连续挑战页（已完成）
+- terrain-lab Tab 拆分：监督学习页 + 连续挑战页 + 地图生成器页（已完成）
 
 ---
 
-*最后更新：2026-04-04*
+*最后更新：2026-04-05*

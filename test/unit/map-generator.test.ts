@@ -3,9 +3,9 @@
 
 import { describe, it } from "node:test"
 import { strict as assert } from "node:assert"
-import { generateTerrainForAction, getActionChecks, getLabel } from "../../src/terrain-lab/terrain.js"
-import { ELEM_AIR, ELEM_GROUND, ELEM_HERO, ELEM_SLIME } from "../../src/terrain-lab/constants.js"
-import type { TerrainConfig } from "../../src/terrain-lab/constants.js"
+import { generateTerrainForAction, getActionChecks, getLabel } from "@/terrain-lab/terrain.js"
+import { ELEM_AIR, ELEM_GROUND, ELEM_HERO, ELEM_SLIME } from "@/terrain-lab/constants.js"
+import type { TerrainConfig } from "@/terrain-lab/constants.js"
 
 // 测试配置（启用所有元素）
 const TEST_CONFIG: TerrainConfig = {

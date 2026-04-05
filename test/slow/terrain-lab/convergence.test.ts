@@ -2,12 +2,12 @@
 
 import { describe, it } from "node:test"
 import { strict as assert } from "node:assert"
-import { createNet, forward, updateNetwork } from "../../../src/terrain-lab/neural-network.js"
-import { createGradientBuffer, accumulateSupervisedGrad } from "../../../src/terrain-lab/supervised.js"
-import { createGradientBuffer as createUnsupervisedBuffer, accumulateGradients, calculateReward } from "../../../src/terrain-lab/unsupervised.js"
-import { UNSUPERVISED_CONFIG, DEFAULT_TERRAIN_CONFIG } from "../../../src/terrain-lab/constants.js"
-import { generateTerrainData, getLabel, findHeroCol, getActionChecks, isActionValidByChecks } from "../../../src/terrain-lab/terrain.js"
-import type { DatasetItem, NetParams } from "../../../src/terrain-lab/types.js"
+import { createNet, forward, updateNetwork } from "@/terrain-lab/neural-network.js"
+import { createGradientBuffer, accumulateSupervisedGrad } from "@/terrain-lab/supervised.js"
+import { createGradientBuffer as createUnsupervisedBuffer, accumulateGradients, calculateReward } from "@/terrain-lab/unsupervised.js"
+import { UNSUPERVISED_CONFIG, DEFAULT_TERRAIN_CONFIG } from "@/terrain-lab/constants.js"
+import { generateTerrainData, getLabel, findHeroCol, getActionChecks, isActionValidByChecks } from "@/terrain-lab/terrain.js"
+import type { DatasetItem, NetParams } from "@/terrain-lab/types.js"
 
 const DATASET_SIZE = 6000
 const TRAIN_STEPS = 3000

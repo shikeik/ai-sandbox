@@ -1,6 +1,6 @@
 // 调试：8次生成，每次打印完整地图
-import { generateTerrainForAction } from "../../../src/terrain-lab/terrain.js"
-import { TerrainConfig, ELEMENTS } from "../../../src/terrain-lab/constants.js"
+import { generateTerrainForAction } from "@/terrain-lab/terrain.js"
+import { TerrainConfig, ELEMENTS } from "@/terrain-lab/constants.js"
 
 const STAGE5_CONFIG: TerrainConfig = {
 	groundOnly: false,
