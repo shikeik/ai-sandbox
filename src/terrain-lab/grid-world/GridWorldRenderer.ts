@@ -366,7 +366,7 @@ export class GridWorldRenderer {
 
 		// 检查是否在格子内部（不在 gap 上）
 		const localX = x - col * (cellW + gapX)
-		const localY = y - col * (cellH + gapY)
+		const localY = y - row * (cellH + gapY)
 		if (localX < 0 || localX > cellW || localY < 0 || localY > cellH) {
 			return null
 		}

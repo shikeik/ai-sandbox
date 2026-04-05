@@ -460,8 +460,14 @@ export class GridWorld {
 		progress: number,
 		slimeKilled: boolean
 	): void {
-		const layout = this.renderer.getLastLayout()
-		if (!layout) return
+		let layout = this.renderer.getLastLayout()
+		
+		// 如果没有 layout，先计算一个（首次渲染时）
+		if (!layout) {
+			const rect = options.canvas.getBoundingClientRect()
+			const viewportWidth = this.config.viewportWidth ?? this.config.width
+			layout = this.renderer.calculateLayout(rect.width, rect.height, viewportWidth)
+		}
 
 		const viewportWidth = this.config.viewportWidth ?? this.config.width
 		const viewport = this.getViewport(this.state.cameraCol, viewportWidth)
