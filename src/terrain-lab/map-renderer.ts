@@ -526,16 +526,17 @@ export class MapRenderer {
 	 * 启动惯性滚动
 	 */
 	private startInertia(): void {
-		// 使用最大速度作为初始速度
-		let initialVelocity = this.maxVelocity
+		// 使用松手时的实际速度，不是最大速度
+		// 如果用户停住再松手，velocity 应该接近0
+		let initialVelocity = this.velocity
 
 		// 速度太小不启动
-		if (Math.abs(initialVelocity) < 0.05) return
+		if (Math.abs(initialVelocity) < 0.1) return
 
 		// 取消已有的惯性动画
 		this.stopInertia()
 
-		let velocity = initialVelocity * 20  // 放大系数，调整手感
+		let velocity = initialVelocity * 15  // 放大系数，调整手感
 
 		const animate = () => {
 			// 摩擦力减速
