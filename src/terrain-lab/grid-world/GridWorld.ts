@@ -223,11 +223,13 @@ export class GridWorld {
 
 	/**
 	 * 相机跟随主角
+	 * @param enable 是否启用跟随
+	 * @param offset 主角在视野中的偏移位置（列数），默认0（最左侧）
 	 */
-	followHero(enable: boolean): void {
+	followHero(enable: boolean, offset: number = 0): void {
 		if (enable && this.config.viewportWidth) {
-			// 狐狸固定在视野左侧第0列（而不是中间）
-			const targetCamera = Math.max(0, this.state.heroCol)
+			// 狐狸固定在视野左侧 offset 列处
+			const targetCamera = Math.max(0, this.state.heroCol - offset)
 			this.setCameraCol(targetCamera)
 		}
 	}

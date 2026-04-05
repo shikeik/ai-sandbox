@@ -147,7 +147,7 @@ export class KimiEntry {
 		// 同步到 GridWorld
 		this.syncMapToGridWorld()
 		this.gridWorld.setHeroCol(0)
-		this.gridWorld.followHero(true)
+		this.gridWorld.followHero(true, 3)  // offset=3，狐狸位于11列视野的左侧1/3处
 
 		this.updateUI()
 		this.renderViewport()
@@ -342,7 +342,7 @@ export class KimiEntry {
 
 		// 更新位置
 		this.heroCol = this.gridWorld.getHeroCol()
-		this.gridWorld.followHero(true)
+		this.gridWorld.followHero(true, 3)  // offset=3，狐狸位于11列视野的左侧1/3处
 
 		// 记录日志
 		this.gameLog.push({
