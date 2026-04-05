@@ -58,12 +58,12 @@ export class KimiEntry {
 	constructor(state: AppState) {
 		this.state = state
 
-		// 初始化 GridWorld（32列，5列视野）
+		// 初始化 GridWorld（32列，宽视野）
 		this.gridWorld = createGridWorld({
 			width: 32,
 			height: NUM_LAYERS,
 			elements: DEFAULT_ELEMENTS,
-			viewportWidth: 5,
+			viewportWidth: VIEWPORT_COLS,
 		})
 	}
 
