@@ -281,9 +281,7 @@ export class GridWorld {
 				if (ground0 !== "平地" && ground0 !== "未知") {
 					reasons.push(`前1(x${col1})地面不是平地`)
 				}
-				if (sky0 === "恶魔") {
-					reasons.push(`前1(x${col1})天上有恶魔`)
-				}
+				// 注意：走不检查天上恶魔（在地上走路不影响）
 				if (mid0 === "史莱姆") {
 					reasons.push(`前1(x${col1})地上有史莱姆`)
 				}

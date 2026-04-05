@@ -127,7 +127,7 @@ export function getActionChecks(t: number[][], heroCol: number, numCols: number 
 		walkReasons.push(bounds.walk.reason!)
 	} else {
 		walkReasons.push(ground0 !== "平地" ? `前1(x${col1})地面不是平地` : null)
-		walkReasons.push(sky0 === "恶魔" ? `前1(x${col1})天上有恶魔` : null)
+		// 注意：走不检查天上恶魔（在地上走路不影响）
 		walkReasons.push(mid0 === "史莱姆" ? `前1(x${col1})地上有史莱姆` : null)
 	}
 
