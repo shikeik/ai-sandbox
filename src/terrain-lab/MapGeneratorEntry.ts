@@ -318,11 +318,15 @@ export class MapGeneratorEntry {
 
 	private updateButtonState(isGenerating: boolean): void {
 		const startBtn = document.getElementById("btn-generator-start") as HTMLButtonElement
+		const stepBtn = document.getElementById("btn-generator-step") as HTMLButtonElement
 		const stopBtn = document.getElementById("btn-generator-stop") as HTMLButtonElement
 
 		if (startBtn) {
 			startBtn.disabled = isGenerating
 			startBtn.textContent = isGenerating ? "生成中..." : "开始生成"
+		}
+		if (stepBtn) {
+			stepBtn.disabled = isGenerating
 		}
 		if (stopBtn) {
 			stopBtn.disabled = !isGenerating
