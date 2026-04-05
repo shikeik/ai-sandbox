@@ -1,25 +1,33 @@
-// ========== 连续挑战 UI 管理 ==========
-// 职责：管理连续挑战界面的DOM操作和渲染
+// ========== 连续挑战 UI 管理（重构版）==========
+// 职责：管理连续挑战界面的 DOM 操作
+// 绘制功能已移至 GridWorldRenderer
 
 import type { ChallengeState, ChallengeResult } from "./challenge-controller.js"
 import { ACTIONS, NUM_LAYERS } from "./constants.js"
 import { forward } from "./neural-network.js"
 import { terrainToIndices } from "./terrain.js"
 import type { AppState } from "./state.js"
-import { drawMLP, setupCanvas, getEditorLayout, drawTerrainGrid, drawEditorLabels, drawEmoji } from "./renderer.js"
+import type { GridWorld } from "./grid-world/index.js"
+import { drawMLP, setupCanvas } from "./renderer.js"
+import { Logger } from "@/engine/utils/Logger.js"
 
 // ========== UI 管理器 ==========
 
 export class ChallengeUIManager {
 	private state: AppState
+	private gridWorld: GridWorld
 	private challengeCanvas: HTMLCanvasElement
 	private mlpCanvas: HTMLCanvasElement
 	private resizeObserver: ResizeObserver | null = null
+	private logger: Logger
 
-	constructor(state: AppState) {
+	constructor(state: AppState, gridWorld: GridWorld) {
 		this.state = state
+		this.gridWorld = gridWorld
 		this.challengeCanvas = document.getElementById("challenge-canvas") as HTMLCanvasElement
 		this.mlpCanvas = document.getElementById("challenge-mlp-canvas") as HTMLCanvasElement
+		this.logger = new Logger("CHALLENGE-UI")
+		console.log("ChallengeUIManager 初始化完成")
 	}
 
 	// ========== 初始化 ==========
@@ -117,7 +125,7 @@ export class ChallengeUIManager {
 		// 更新结果区域提示
 		const resultEl = document.getElementById("challenge-result")
 		if (resultEl) {
-			const modeText = mode === "play" 
+			const modeText = mode === "play"
 				? "游玩模式：冻结调参，仅使用当前AI能力"
 				: "训练模式：AI根据挑战结果实时学习"
 			const smallText = resultEl.querySelector("small")
@@ -268,116 +276,24 @@ export class ChallengeUIManager {
 		`).join("")
 	}
 
-	// ========== Canvas 绘制 ==========
+	// ========== Canvas 绘制（使用 GridWorld）=========
 
 	/**
-	 * 统一的视野绘制函数（支持静态显示和动画）
+	 * 绘制当前视野地形（5×3窗口）
 	 */
-	drawViewport(
-		terrain: number[][] | null,
-		heroCol: number = 0,
-		fullMapLength: number = 32,
-		animState?: {
-			progress: number
-			targetCol: number
-			isJump: boolean
-			jumpHeight: number
-			slimeKilled: boolean
-		} | null
-	): void {
+	drawTerrain(terrain: number[][] | null, heroCol: number = 0, fullMapLength: number = 32): void {
 		if (!terrain) {
-			const { ctx, width, height } = setupCanvas(this.challengeCanvas)
-			ctx.fillStyle = "#5f6368"
-			ctx.font = "14px sans-serif"
-			ctx.textAlign = "center"
-			ctx.fillText("等待挑战开始...", width / 2, height / 2)
+			console.log("无地形数据，清空画布")
+			this.gridWorld.clear(this.challengeCanvas, "等待挑战开始...")
 			return
 		}
 
-		const { ctx, rect } = setupCanvas(this.challengeCanvas)
-		const { cellW, cellH, gapX, gapY, startX, startY } = getEditorLayout(rect)
-
-		// 绘制标签
-		drawEditorLabels(ctx, startX, startY, cellW, cellH, gapX, gapY)
-
-		// 计算绘制区域高度
-		const gridH = NUM_LAYERS * cellH + (NUM_LAYERS - 1) * gapY
-		const bottomY = startY + gridH + 16
-
-		// 绘制坐标信息（左下角，避免和上方文字重叠）
-		ctx.fillStyle = "#8ab4f8"
-		ctx.font = "11px sans-serif"
-		ctx.textAlign = "left"
-		ctx.fillText(`位置: ${heroCol}-${Math.min(heroCol + 4, fullMapLength - 1)} / 0-31`, startX, bottomY)
-
-		// 动画状态处理
-		let hideHeroAtCol: number | null = null
-		let hideSlimeAt: number | null = null
-
-		if (animState) {
-			hideHeroAtCol = 0 // 动画时隐藏原位置狐狸
-			if (animState.slimeKilled) {
-				hideSlimeAt = 1 // 击杀了第1列的史莱姆
-			}
-		}
-
-		// 绘制视野窗口
-		drawTerrainGrid(ctx, terrain, {
-			cellW, cellH, gapX, gapY, startX, startY,
-			hideSlimeAt,
-			hideHeroAtCol,
-			dimNonInteractive: false,
+		console.log(`绘制地形 | heroCol=${heroCol}`)
+		this.gridWorld.render({
+			canvas: this.challengeCanvas,
+			showLayerLabels: true,
+			showColLabels: true,
 		})
-
-		// 如果有动画状态，绘制动画中的狐狸
-		if (animState) {
-			const heroBaseX = startX + 0 * (cellW + gapX) + cellW / 2
-			const heroBaseY = startY + 1 * (cellH + gapY) + cellH / 2
-			const targetX = startX + animState.targetCol * (cellW + gapX) + cellW / 2
-
-			let hx = heroBaseX
-			let hy = heroBaseY
-			const t = animState.progress
-
-			if (!animState.isJump) {
-				// 走或走A：缓动
-				hx = heroBaseX + (targetX - heroBaseX) * this.easeOutQuad(t)
-				hy = heroBaseY
-			} else {
-				// 跳跃：抛物线
-				hx = heroBaseX + (targetX - heroBaseX) * t
-				const parabola = 4 * t * (1 - t)
-				hy = heroBaseY - parabola * (cellH + animState.jumpHeight)
-			}
-
-			drawEmoji(ctx, "🦊", hx, hy, Math.min(cellW, cellH) * 0.65)
-		}
-
-		// 绘制终点标记（如果在视野内）
-		const endCol = 31
-		if (endCol >= heroCol && endCol <= heroCol + 4) {
-			const viewportCol = endCol - heroCol
-			const x = startX + viewportCol * (cellW + gapX)
-			const y = startY - cellH - 5
-			ctx.fillStyle = "#f9ab00"
-			ctx.font = "10px sans-serif"
-			ctx.textAlign = "center"
-			ctx.fillText("🏁终点", x + cellW / 2, y)
-		}
-	}
-
-	/**
-	 * 缓动函数
-	 */
-	private easeOutQuad(t: number): number {
-		return t * (2 - t)
-	}
-
-	/**
-	 * 绘制当前视野地形（5×3窗口）- 兼容旧接口
-	 */
-	drawTerrain(terrain: number[][] | null, heroCol: number = 0, fullMapLength: number = 32): void {
-		this.drawViewport(terrain, heroCol, fullMapLength, null)
 	}
 
 	/**
@@ -385,6 +301,7 @@ export class ChallengeUIManager {
 	 */
 	drawMLP(terrain: number[][] | null): void {
 		if (!terrain) {
+			console.log("无地形数据，清空 MLP 画布")
 			const { ctx, width, height } = setupCanvas(this.mlpCanvas)
 			ctx.fillStyle = "#5f6368"
 			ctx.font = "12px sans-serif"

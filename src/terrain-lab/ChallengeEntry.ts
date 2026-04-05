@@ -1,30 +1,31 @@
-// ========== 连续挑战入口类 ==========
+// ========== 连续挑战入口类（重构版）==========
 // 职责：管理连续挑战 Tab 的所有功能
-// 包含：32格地图跑酷、挑战控制、动画播放
+// 使用 GridWorldSystem 统一处理渲染和动画
 
 import type { AppState } from "./state.js"
 import type { ForwardResult, ActionType } from "./types.js"
 import type { ChallengeState, ChallengeResult, ChallengeSpeed, ChallengeMode } from "./challenge-controller.js"
 import { ChallengeController, ChallengeUIManager } from "./challenge-controller.js"
-import { CURRICULUM_STAGES } from "./constants.js"
-import { calculateAnimationPath, type AnimationPath } from "./animation.js"
+import { CURRICULUM_STAGES, NUM_LAYERS } from "./constants.js"
+import { Logger } from "@/engine/utils/Logger.js"
+
+// ========== 引入格子世界系统 ==========
+
+import {
+	GridWorld,
+	DEFAULT_ELEMENTS,
+	createGridWorld,
+} from "./grid-world/index.js"
 
 export class ChallengeEntry {
 	// ========== 依赖 ==========
 	private state: AppState
 	private challengeController: ChallengeController | null = null
 	private challengeUIManager: ChallengeUIManager | null = null
+	private logger: Logger
 
-	// ========== 动画状态 ==========
-	private challengeAnimState: {
-		action: ActionType
-		startTime: number
-		duration: number
-		path: AnimationPath
-		resolve: () => void
-		slimeKilled: boolean
-	} | null = null
-	private challengeAnimFrameId: number | null = null
+	// ========== 格子世界系统 ==========
+	private gridWorld: GridWorld
 
 	// ========== 回调 ==========
 	private onRequestPredict: () => void
@@ -35,12 +36,26 @@ export class ChallengeEntry {
 	) {
 		this.state = state
 		this.onRequestPredict = onRequestPredict
+		this.logger = new Logger("CHALLENGE-ENTRY")
+
+		console.log("ChallengeEntry 初始化开始")
+
+		// 初始化格子世界（32列，5列视野）
+		this.gridWorld = createGridWorld({
+			width: 32,
+			height: NUM_LAYERS,
+			elements: DEFAULT_ELEMENTS,
+			viewportWidth: 5,
+		})
+		console.log("格子世界初始化完成 | 32x3, viewport=5")
 	}
 
 	// ========== 初始化 ==========
 
 	init(): void {
-		this.challengeUIManager = new ChallengeUIManager(this.state)
+		console.log("init() 开始")
+
+		this.challengeUIManager = new ChallengeUIManager(this.state, this.gridWorld)
 
 		// 获取挑战画布
 		const challengeCanvas = document.getElementById("challenge-canvas") as HTMLCanvasElement
@@ -75,6 +90,8 @@ export class ChallengeEntry {
 
 		// 绑定全局函数
 		this.bindGlobalFunctions()
+
+		console.log("init() 完成")
 	}
 
 	private setupTerrainConfig(): void {
@@ -86,7 +103,7 @@ export class ChallengeEntry {
 			stageSelect.addEventListener("change", () => {
 				const idx = Number(stageSelect.value)
 				this.challengeController?.setTerrainConfig(CURRICULUM_STAGES[idx].config)
-				console.log("CHALLENGE", `切换到${CURRICULUM_STAGES[idx].name}`)
+				console.log(`切换到${CURRICULUM_STAGES[idx].name}`)
 			})
 		}
 	}
@@ -97,7 +114,7 @@ export class ChallengeEntry {
 			speedSelect.addEventListener("change", () => {
 				const speed = Number(speedSelect.value) as ChallengeSpeed
 				this.challengeController?.setSpeed(speed)
-				console.log("CHALLENGE", `速度设置为 ${speed}x`)
+				console.log(`速度设置为 ${speed}x`)
 			})
 		}
 	}
@@ -111,6 +128,7 @@ export class ChallengeEntry {
 	}
 
 	private resetUI(): void {
+		console.log("重置 UI")
 		if (this.challengeController && this.challengeUIManager) {
 			this.challengeUIManager.updateStats(this.challengeController.getState())
 			this.challengeUIManager.updateControls(false, false)
@@ -125,6 +143,8 @@ export class ChallengeEntry {
 	// ========== 回调处理 ==========
 
 	private handleStateUpdate(challengeState: ChallengeState): void {
+		console.log(`状态更新 | step=${challengeState.currentStep}, heroCol=${challengeState.heroCol}`)
+		
 		this.challengeUIManager?.updateStats(challengeState)
 		this.challengeUIManager?.updateControls(
 			challengeState.isRunning,
@@ -137,117 +157,63 @@ export class ChallengeEntry {
 		// 更新地形显示（使用视野窗口）
 		const terrain = this.challengeController?.getCurrentTerrain()
 		if (terrain) {
+			// 同步到 GridWorld 并更新相机
+			this.gridWorld.setGrid(this.challengeController!.getFullMap()!)
+			this.gridWorld.setHeroCol(challengeState.heroCol)
+			this.gridWorld.followHero(true)
+			
 			this.challengeUIManager?.drawTerrain(terrain, challengeState.heroCol)
 			this.challengeUIManager?.drawMLP(terrain)
 		}
 	}
 
 	private handleStepComplete(result: ChallengeResult): void {
+		console.log(`步骤完成 | step=${result.step}, action=${result.predictedActionName}, valid=${result.isValid}`)
 		this.challengeUIManager?.updateResult(result)
 		this.challengeUIManager?.updateProbs(result.probabilities)
 	}
 
 	private handleGameOver(won: boolean, finalCol: number): void {
+		console.log(`游戏结束 | won=${won}, finalCol=${finalCol}`)
 		this.challengeUIManager?.showGameOver(won, finalCol)
 		this.challengeUIManager?.updateControls(false, false)
 	}
 
 	// ========== 动画播放 ==========
 
-	private playChallengeAnimation(action: ActionType, speed: ChallengeSpeed): Promise<void> {
+	private async playChallengeAnimation(action: ActionType, speed: ChallengeSpeed): Promise<void> {
+		console.log(`播放挑战动画 | action=${action}, speed=${speed}`)
+
 		const challengeCanvas = document.getElementById("challenge-canvas") as HTMLCanvasElement
 		if (!challengeCanvas) {
+			console.error("挑战画布不存在")
 			return Promise.resolve()
 		}
 
-		// 停止任何正在进行的动画
-		this.stopChallengeAnimation()
+		// 使用 GridWorld 播放动画
+		const heroCol = this.challengeController?.getHeroCol() ?? 0
+		this.gridWorld.setHeroCol(heroCol)
 
-		// 获取当前视野中的狐狸位置（始终在0列）
-		const heroCol = 0
-		const path = calculateAnimationPath(heroCol, action)
-
-		// 根据速度调整动画持续时间
-		const adjustedDuration = path.duration / speed
-
-		return new Promise((resolve) => {
-			// 设置动画状态
-			this.challengeAnimState = {
+		// 动画回调
+		const onFrame = (progress: number, slimeKilled: boolean) => {
+			this.gridWorld.renderAnimation(
+				{ canvas: challengeCanvas },
 				action,
-				startTime: performance.now(),
-				duration: adjustedDuration,
-				path,
-				resolve,
-				slimeKilled: false,
-			}
-
-			// 开始动画循环
-			this.challengeAnimFrameId = requestAnimationFrame((now) => this.stepChallengeAnimation(now))
-		})
-	}
-
-	private stepChallengeAnimation(now: number): void {
-		if (!this.challengeAnimState) return
-
-		const { startTime, duration, resolve } = this.challengeAnimState
-
-		// 计算进度
-		let t = (now - startTime) / duration
-		if (t > 1) t = 1
-
-		// 渲染当前帧
-		this.renderChallengeAnimationFrame(t)
-
-		if (t < 1) {
-			this.challengeAnimFrameId = requestAnimationFrame((n) => this.stepChallengeAnimation(n))
-		} else {
-			// 动画完成
-			this.finishChallengeAnimation()
-			resolve()
-		}
-	}
-
-	private renderChallengeAnimationFrame(progress: number): void {
-		if (!this.challengeAnimState || !this.challengeController || !this.challengeUIManager) return
-
-		const terrain = this.challengeController.getCurrentTerrain()
-		const heroCol = this.challengeController.getHeroCol()
-		const { path } = this.challengeAnimState
-
-		// 走A击杀逻辑
-		if (!path.isJump && path.duration === 400 && progress > 0.5) {
-			this.challengeAnimState.slimeKilled = true
+				progress,
+				slimeKilled
+			)
 		}
 
-		// 使用统一的绘制函数
-		this.challengeUIManager.drawViewport(terrain, heroCol, 32, {
-			progress,
-			targetCol: path.targetCol,
-			isJump: path.isJump,
-			jumpHeight: path.jumpHeight,
-			slimeKilled: this.challengeAnimState.slimeKilled,
-		})
-	}
-
-	private finishChallengeAnimation(): void {
-		if (this.challengeAnimFrameId !== null) {
-			cancelAnimationFrame(this.challengeAnimFrameId)
-			this.challengeAnimFrameId = null
-		}
-		this.challengeAnimState = null
-	}
-
-	private stopChallengeAnimation(): void {
-		if (this.challengeAnimFrameId !== null) {
-			cancelAnimationFrame(this.challengeAnimFrameId)
-			this.challengeAnimFrameId = null
-		}
-		this.challengeAnimState = null
+		// 播放动画
+		await this.gridWorld.playAction(action, { speed, onFrame })
+		
+		console.log(`挑战动画完成 | action=${action}`)
 	}
 
 	// ========== 公共控制方法 ==========
 
 	startChallenge(): void {
+		console.log("开始挑战")
 		if (!this.challengeController) return
 
 		if (this.challengeController.getIsPaused()) {
@@ -258,14 +224,17 @@ export class ChallengeEntry {
 	}
 
 	pauseChallenge(): void {
+		console.log("暂停挑战")
 		this.challengeController?.pause()
 	}
 
 	stepChallenge(): void {
+		console.log("单步挑战")
 		this.challengeController?.step()
 	}
 
 	resetChallenge(): void {
+		console.log("重置挑战")
 		this.challengeController?.reset()
 		this.challengeUIManager?.updateResult(null)
 		this.challengeUIManager?.updateHistory([])
@@ -275,12 +244,14 @@ export class ChallengeEntry {
 	}
 
 	setChallengeMode(mode: ChallengeMode): void {
+		console.log(`设置模式 | mode=${mode}`)
 		this.challengeController?.setMode(mode)
 	}
 
 	// ========== Tab 切换时调用 ==========
 
 	onTabActivate(): void {
+		console.log("Tab 激活")
 		// 切换到挑战 Tab，初始化挑战画布
 		if (this.challengeUIManager && this.challengeController) {
 			const terrain = this.challengeController.getCurrentTerrain()

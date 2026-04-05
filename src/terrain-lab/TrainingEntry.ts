@@ -1,9 +1,9 @@
-// ========== AI 训练入口类 ==========
+// ========== AI 训练入口类（重构版）==========
 // 职责：管理监督学习/无监督学习 Tab 的所有功能
-// 包含：地形编辑器、MLP训练、课程学习、预测验证
+// 使用 GridWorldSystem 统一处理渲染、编辑、动画
 
 import type { ForwardResult, ActionType, DatasetItem } from "./types.js"
-import type { AppState, Snapshot } from "./state.js"
+import type { AppState } from "./state.js"
 import {
 	NUM_COLS, NUM_LAYERS, NUM_ELEMENTS, HIDDEN_DIM, OUTPUT_DIM, EMBED_DIM,
 	INPUT_DIM, ACTIONS, ELEM_AIR, ELEM_HERO, ELEM_GROUND, ELEM_SLIME, ELEM_DEMON, ELEM_COIN,
@@ -11,20 +11,11 @@ import {
 	UNSUPERVISED_CONFIG, TRAIN_CONFIG, DATASET_SIZE
 } from "./constants.js"
 import type { TerrainConfig } from "./constants.js"
-import { forward, updateNetwork, cloneNet, createNet } from "./neural-network.js"
-import { createGradientBuffer, accumulateGradients, calculateReward } from "./unsupervised.js"
-import { createGradientBuffer as createSuperBuffer, accumulateSupervisedGrad } from "./supervised.js"
+import { forward, createNet } from "./neural-network.js"
 import {
-	terrainToIndices, findHeroCol, getActionChecks, getLabel, getActionName,
+	terrainToIndices, findHeroCol, getActionChecks, getLabel,
 	isActionValidByChecks, generateTerrainData, generateRandomTerrain
 } from "./terrain.js"
-import {
-	getEditorCellAt,
-	drawMLP as rendererDrawMLP, drawEmbedding as rendererDrawEmbedding,
-	drawObsessionCurve as rendererDrawObsessionCurve,
-	stepAnimation as rendererStepAnimation,
-	drawEditorWithState
-} from "./renderer.js"
 import { UIManager } from "./ui-manager.js"
 import { TrainingEngine } from "./training-engine.js"
 import { SnapshotManager } from "./snapshot-manager.js"
@@ -32,9 +23,16 @@ import { CurriculumController } from "./curriculum-controller.js"
 import { TerrainValidator } from "./terrain-validator.js"
 import { Predictor } from "./predictor.js"
 import { ObsessionManager } from "./obsession-manager.js"
-import { zeroMat, zeroVec } from "./utils.js"
 import { stopAnimation, setTerrainCell } from "./state.js"
-import { createAnimationState, stopAnimation as stopAnimState, type AnimationState } from "./animation.js"
+import { Logger } from "@/engine/utils/Logger.js"
+
+// ========== 引入格子世界系统 ==========
+
+import {
+	GridWorld,
+	DEFAULT_ELEMENTS,
+	createGridWorld,
+} from "./grid-world/index.js"
 
 export class TrainingEntry {
 	// ========== 依赖 ==========
@@ -45,6 +43,10 @@ export class TrainingEntry {
 	private terrainValidator: TerrainValidator
 	private obsessionManager: ObsessionManager
 	private predictor: Predictor
+	private logger: Logger
+
+	// ========== 格子世界系统 ==========
+	private gridWorld: GridWorld
 
 	// ========== DOM 元素 ==========
 	private editorCanvas: HTMLCanvasElement
@@ -55,12 +57,18 @@ export class TrainingEntry {
 	// ========== 回调 ==========
 	private onRequestPredict: () => void
 
+	// ========== 动画帧 ID ==========
+	private animFrameId: number | null = null
+
 	constructor(
 		state: AppState,
 		onRequestPredict: () => void
 	) {
 		this.state = state
 		this.onRequestPredict = onRequestPredict
+		this.logger = new Logger("TRAINING-ENTRY")
+
+		console.log("TrainingEntry 初始化开始")
 
 		// 初始化管理器
 		this.uiManager = new UIManager(state)
@@ -69,13 +77,39 @@ export class TrainingEntry {
 		this.terrainValidator = new TerrainValidator(state, this.uiManager)
 		this.obsessionManager = new ObsessionManager(state, this.uiManager, this.snapshotManager)
 
+		// 初始化格子世界
+		this.gridWorld = createGridWorld({
+			width: NUM_COLS,
+			height: NUM_LAYERS,
+			elements: DEFAULT_ELEMENTS,
+		})
+		this.gridWorld.enableEditor()
+		console.log("格子世界初始化完成")
+
+		// 同步地形数据
+		this.syncTerrainToGridWorld()
+
 		// 获取 DOM 元素
 		this.editorCanvas = document.getElementById("editor-canvas") as HTMLCanvasElement
 		this.mlpCanvas = document.getElementById("mlp-canvas") as HTMLCanvasElement
 		this.embeddingCanvas = document.getElementById("embedding-canvas") as HTMLCanvasElement
 		this.obsessionCanvas = document.getElementById("obsession-canvas") as HTMLCanvasElement
 
-		// 初始化 Predictor（需要在 drawMLP/drawEmbedding/playAnimation 定义之后）
+		// 设置编辑器回调
+		const editor = this.gridWorld.getEditor()
+		if (editor) {
+			editor.onCellPainted = (row, col, elementId) => {
+				console.log(`编辑器绘制回调 | row=${row}, col=${col}, element=${elementId}`)
+				setTerrainCell(this.state, row, col, elementId)
+				this.drawEditor()
+				this.uiManager.updateTerrainStatus("wait", "地形已更新，点击「合法性检查」或「预测当前地形」查看结果")
+			}
+			editor.onInvalidPlacement = (message) => {
+				this.uiManager.updateTerrainStatus("bad", message)
+			}
+		}
+
+		// 初始化 Predictor
 		this.predictor = new Predictor(
 			state,
 			this.uiManager,
@@ -83,12 +117,31 @@ export class TrainingEntry {
 			() => this.drawEmbedding(),
 			(action) => this.playAnimation(action as ActionType)
 		)
+
+		console.log("TrainingEntry 初始化完成")
+	}
+
+	// ========== 同步地形数据 ==========
+
+	private syncTerrainToGridWorld(): void {
+		console.log(`同步地形到 GridWorld | terrain=${JSON.stringify(this.state.terrain).substring(0, 100)}...`)
+		this.gridWorld.setGrid(this.state.terrain)
+		const heroCol = findHeroCol(this.state.terrain)
+		this.gridWorld.setHeroCol(heroCol)
+		console.log(`主角位置同步 | heroCol=${heroCol}`)
+	}
+
+	private syncGridWorldToTerrain(): void {
+		console.log("从 GridWorld 同步地形到 state")
+		this.state.terrain = this.gridWorld.getGrid()
 	}
 
 	// ========== 初始化 ==========
 
 	init(): void {
-		// 动态更新HTML标题
+		console.log("init() 开始")
+
+		// 动态更新 HTML 标题
 		const editorTitle = document.getElementById("editor-title")
 		if (editorTitle) {
 			editorTitle.textContent = `编辑预览视图 (${NUM_COLS}×${NUM_LAYERS}) — 点击绘制，狐狸可在任意列`
@@ -130,6 +183,8 @@ export class TrainingEntry {
 
 		// 绑定全局函数
 		this.bindGlobalFunctions()
+
+		console.log("init() 完成")
 	}
 
 	private setupResizeObserver(): void {
@@ -137,6 +192,7 @@ export class TrainingEntry {
 			for (const entry of entries) {
 				const target = entry.target as HTMLCanvasElement
 				if (target === this.editorCanvas) {
+					console.log("编辑器画布 Resize")
 					this.drawEditor()
 				} else if (target === this.mlpCanvas && this.state.lastForwardResult) {
 					this.drawMLP(this.state.lastForwardResult)
@@ -154,7 +210,6 @@ export class TrainingEntry {
 	}
 
 	private bindGlobalFunctions(): void {
-		// 训练相关
 		;(window as any).generateData = () => this.generateData()
 		;(window as any).trainBatch = () => this.trainBatch()
 		;(window as any).resetNet = () => this.resetNet()
@@ -173,21 +228,24 @@ export class TrainingEntry {
 	// ========== 数据生成 ==========
 
 	generateData(): void {
+		console.log("生成数据开始")
 		this.state.dataset = generateTerrainData(DATASET_SIZE, this.state.terrainConfig)
 		this.uiManager.updateMetrics({})
 		this.uiManager.updateDataCount(this.state.dataset.length)
 		this.uiManager.setTrainButtonDisabled(this.state.dataset.length === 0)
 		this.uiManager.updateExam(`已生成 ${this.state.dataset.length} 条合法训练数据`, "wait")
+		
 		// 默认随机选一个观察样本
 		if (this.state.dataset.length > 0 && !this.state.observedSample) {
 			this.setObservedRandom()
 		}
+		console.log(`生成数据完成 | count=${this.state.dataset.length}`)
 	}
 
 	// ========== 训练 ==========
 
 	async trainBatch(): Promise<void> {
-		console.log("TRAINING", "开始训练批次")
+		console.log("训练批次开始")
 		const btn = document.getElementById("btn-train") as HTMLButtonElement
 		btn.disabled = true
 
@@ -214,16 +272,16 @@ export class TrainingEntry {
 			await engine.trainUnsupervised()
 		}
 
-		console.log("TRAINING", "训练完成，更新UI")
+		console.log("训练完成，更新UI")
 		this.uiManager.updateSnapshotSlider()
 		this.evaluateAll()
 		this.predict()
 		this.drawObsessionCurve()
 		btn.disabled = false
-		console.log("TRAINING", "训练批次结束")
 
 		// 通知外部可能需要更新
 		this.onRequestPredict()
+		console.log("训练批次结束")
 	}
 
 	private evaluateAll(): void {
@@ -255,19 +313,44 @@ export class TrainingEntry {
 	// ========== 快照 ==========
 
 	applySnapshot(index: number): void {
+		console.log(`应用快照 | index=${index}`)
 		this.snapshotManager.applySnapshot(index, () => {
 			this.predict()
 			this.drawObsessionCurve()
 		})
+		// 同步地形
+		this.syncTerrainToGridWorld()
+		this.drawEditor()
 	}
 
 	// ========== 地形操作 ==========
 
 	private handleCanvasClick(e: MouseEvent): void {
+		console.log(`画布点击 | clientX=${e.clientX}, clientY=${e.clientY}`)
+		
 		const rect = this.editorCanvas.getBoundingClientRect()
-		const cell = getEditorCellAt(e.clientX - rect.left, e.clientY - rect.top, rect)
-		if (!cell) return
-		this.paintCell(cell.r, cell.c)
+		const mx = e.clientX - rect.left
+		const my = e.clientY - rect.top
+
+		const cell = this.gridWorld.getCellAtPosition(mx, my, rect.width, rect.height)
+		
+		if (cell) {
+			console.log(`点击格子 | row=${cell.row}, col=${cell.col}`)
+			const editor = this.gridWorld.getEditor()
+			if (editor) {
+				editor.setBrush(this.state.selectedBrush)
+				const painted = editor.paintAt(cell.row, cell.col)
+				console.log(`绘制结果 | painted=${painted}`)
+				if (painted) {
+					// 同步回 state
+					this.syncGridWorldToTerrain()
+					this.stopAnimation()
+					this.drawEditor()
+				}
+			}
+		} else {
+			console.log("点击位置不在有效格子上")
+		}
 	}
 
 	private getAllowedElementsForLayer(layer: number): number[] {
@@ -287,29 +370,43 @@ export class TrainingEntry {
 	}
 
 	private paintCell(r: number, c: number): void {
-		const allowed = this.getAllowedElementsForLayer(r)
-		if (!allowed.includes(this.state.selectedBrush)) {
-			this.uiManager.updateTerrainStatus("bad", `❌ 该元素不能放在 ${["天上", "地上", "地面"][r]}层`)
+		console.log(`paintCell | r=${r}, c=${c}`)
+		const editor = this.gridWorld.getEditor()
+		if (!editor) {
+			console.error("编辑器未初始化")
 			return
 		}
-		stopAnimation(this.state)
-		setTerrainCell(this.state, r, c, this.state.selectedBrush)
-		this.drawEditor()
-		this.uiManager.updateTerrainStatus("wait", "地形已更新，点击「合法性检查」或「预测当前地形」查看结果")
+
+		// 检查层限制
+		editor.setLayerAllowedElements(r, this.getAllowedElementsForLayer(r))
+		
+		const painted = editor.paintAt(r, c, this.state.selectedBrush)
+		if (painted) {
+			this.syncGridWorldToTerrain()
+			this.stopAnimation()
+			this.drawEditor()
+			this.uiManager.updateTerrainStatus("wait", "地形已更新，点击「合法性检查」或「预测当前地形」查看结果")
+		}
 	}
 
 	randomTerrain(): void {
-		this.state.terrain = generateRandomTerrain(this.state.terrainConfig)
-		stopAnimation(this.state)
+		console.log("随机地形开始")
+		const newTerrain = generateRandomTerrain(this.state.terrainConfig)
+		this.state.terrain = newTerrain
+		this.syncTerrainToGridWorld()
+		
+		this.stopAnimation()
 		this.drawEditor()
 		this.uiManager.updateTerrainStatus("wait", "已随机生成新地形，点击「预测当前地形」查看 AI 判断")
 		this.drawMLP(null)
 		this.drawEmbedding()
 		this.uiManager.resetProbs()
+		console.log("随机地形完成")
 	}
 
 	resetView(): void {
-		stopAnimation(this.state)
+		console.log("重置视图")
+		this.stopAnimation()
 		this.drawEditor()
 	}
 
@@ -332,7 +429,17 @@ export class TrainingEntry {
 	}
 
 	private onConfigChange(): void {
+		console.log("配置变更")
 		this.state.terrainConfig = this.uiManager.getConfigFromUI()
+		
+		// 更新编辑器的层限制
+		const editor = this.gridWorld.getEditor()
+		if (editor) {
+			for (let layer = 0; layer < NUM_LAYERS; layer++) {
+				editor.setLayerAllowedElements(layer, this.getAllowedElementsForLayer(layer))
+			}
+		}
+		
 		this.renderTerrainConfig()
 		this.renderBrushes()
 		this.uiManager.updateTerrainStatus("wait", "地形配置已更新")
@@ -341,6 +448,7 @@ export class TrainingEntry {
 	// ========== 课程学习 ==========
 
 	async runCurriculum(): Promise<void> {
+		console.log("开始课程学习")
 		await this.curriculumController.runCurriculum(
 			() => {
 				// 生成数据回调
@@ -353,9 +461,11 @@ export class TrainingEntry {
 				this.predict()
 			}
 		)
+		console.log("课程学习结束")
 	}
 
 	nextCurriculumStage(): void {
+		console.log("切换课程阶段")
 		this.curriculumController.nextStage(() => {
 			this.renderTerrainConfig()
 			this.renderBrushes()
@@ -364,6 +474,7 @@ export class TrainingEntry {
 
 	toggleLearningMode(): void {
 		this.state.learningMode = this.state.learningMode === "supervised" ? "unsupervised" : "supervised"
+		console.log(`学习模式切换 | mode=${this.state.learningMode}`)
 		this.uiManager.updateModeUI(this.state.learningMode)
 		this.uiManager.updateExam(`已切换到「${this.state.learningMode === "supervised" ? "监督学习" : "无监督学习"}」模式`, "wait")
 	}
@@ -371,6 +482,8 @@ export class TrainingEntry {
 	// ========== 网络操作 ==========
 
 	resetNet(): void {
+		console.log("重置网络")
+		
 		// 重置网络参数
 		this.state.net = createNet()
 		this.state.trainSteps = 0
@@ -389,7 +502,8 @@ export class TrainingEntry {
 			[ELEM_GROUND, ELEM_GROUND, ...Array(NUM_COLS - 2).fill(ELEM_AIR)],
 		]
 		this.state.selectedBrush = ELEM_AIR
-		stopAnimation(this.state)
+		this.syncTerrainToGridWorld()
+		this.stopAnimation()
 
 		// 重置所有数据显示
 		this.uiManager.resetNetworkUI()
@@ -406,6 +520,8 @@ export class TrainingEntry {
 			this.state.learningMode
 		)
 		this.uiManager.updateModeUI(this.state.learningMode)
+		
+		console.log("网络重置完成")
 	}
 
 	// ========== UI 渲染 ==========
@@ -413,6 +529,10 @@ export class TrainingEntry {
 	private renderBrushes(): void {
 		this.uiManager.renderBrushes(this.state.selectedBrush, (id) => {
 			this.state.selectedBrush = id
+			const editor = this.gridWorld.getEditor()
+			if (editor) {
+				editor.setBrush(id)
+			}
 			this.renderBrushes()
 			this.uiManager.updateTerrainStatus("wait", "已选择 " + ELEMENTS[id].name + "，点击上方格子绘制")
 		})
@@ -424,6 +544,13 @@ export class TrainingEntry {
 			currentStageIdx,
 			(idx) => {
 				this.state.terrainConfig = { ...CURRICULUM_STAGES[idx].config }
+				// 更新编辑器的层限制
+				const editor = this.gridWorld.getEditor()
+				if (editor) {
+					for (let layer = 0; layer < NUM_LAYERS; layer++) {
+						editor.setLayerAllowedElements(layer, this.getAllowedElementsForLayer(layer))
+					}
+				}
 				this.renderTerrainConfig()
 				this.renderBrushes()
 				this.uiManager.updateTerrainStatus("wait", `已切换到「${CURRICULUM_STAGES[idx].name}」，随机地形和生成数据将使用该配置`)
@@ -435,49 +562,67 @@ export class TrainingEntry {
 	// ========== 绘制函数 ==========
 
 	drawEditor(): void {
-		drawEditorWithState(this.editorCanvas, this.state)
+		this.gridWorld.render({
+			canvas: this.editorCanvas,
+			showLayerLabels: true,
+			showColLabels: true,
+		})
 	}
 
 	drawMLP(fp: ForwardResult | null): void {
-		rendererDrawMLP(this.mlpCanvas, this.state, fp)
+		// MLP 绘制保持原样（在 renderer.ts 中实现，需要导入）
+		import("./renderer.js").then(({ drawMLP }) => {
+			drawMLP(this.mlpCanvas, this.state, fp)
+		})
 	}
 
 	drawEmbedding(): void {
-		rendererDrawEmbedding(this.embeddingCanvas, this.state)
+		// Embedding 绘制保持原样
+		import("./renderer.js").then(({ drawEmbedding }) => {
+			drawEmbedding(this.embeddingCanvas, this.state)
+		})
 	}
 
 	drawObsessionCurve(): void {
-		rendererDrawObsessionCurve(this.obsessionCanvas, this.state)
+		// 执念曲线绘制保持原样
+		import("./renderer.js").then(({ drawObsessionCurve }) => {
+			drawObsessionCurve(this.obsessionCanvas, this.state)
+		})
 	}
 
 	// ========== 动画 ==========
 
-	private playAnimation(action: ActionType): void {
+	private playAnimation(action: ActionType): Promise<void> {
+		console.log(`播放动画 | action=${action}`)
+		
+		this.stopAnimation()
+
+		return new Promise((resolve) => {
+			const onFrame = (progress: number, slimeKilled: boolean) => {
+				this.gridWorld.renderAnimation(
+					{ canvas: this.editorCanvas },
+					action,
+					progress,
+					slimeKilled
+				)
+			}
+
+			this.gridWorld.playAction(action, { onFrame }).then((result) => {
+				console.log(`动画完成 | result=${JSON.stringify(result)}`)
+				// 同步地形
+				this.syncGridWorldToTerrain()
+				this.drawEditor()
+				resolve()
+			})
+		})
+	}
+
+	private stopAnimation(): void {
+		if (this.animFrameId !== null) {
+			cancelAnimationFrame(this.animFrameId)
+			this.animFrameId = null
+		}
 		stopAnimation(this.state)
-		this.state.animation.animAction = action
-		this.state.animation.animStartTime = performance.now()
-		this.state.animation.animSlimeKilled = false
-		this.state.animation.animId = requestAnimationFrame((now) => this.stepAnimation(now))
-	}
-
-	private stepAnimation(now: number): void {
-		if (!this.state.animation.animAction) return
-
-		const t = rendererStepAnimation(this.editorCanvas, this.state, now)
-
-		if (t < 1) {
-			this.state.animation.animId = requestAnimationFrame((n) => this.stepAnimation(n))
-		} else {
-			this.finishAnimation()
-		}
-	}
-
-	private finishAnimation(): void {
-		if (this.state.animation.animId !== null) {
-			cancelAnimationFrame(this.state.animation.animId)
-			this.state.animation.animId = null
-		}
-		this.drawEditor()
 	}
 
 	// ========== 公共方法 ==========
