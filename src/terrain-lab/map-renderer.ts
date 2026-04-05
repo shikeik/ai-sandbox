@@ -274,11 +274,11 @@ export class MapRenderer {
 		// 1. 先绘制地形（网格 + emoji）
 		this.drawTerrainGridSmooth(viewport, scrollOffset, hideSlimeAtMapCol)
 
-		// 2. 绘制狐狸（基于 currentHeroCol 世界坐标，正确计算屏幕位置）
+		// 2. 绘制狐狸（基于 currentHeroCol 世界坐标）
 		if (this.animState) {
-			this.drawAnimatedHero()
+			this.drawAnimatedHero(scrollOffset)
 		} else {
-			this.drawHeroAtCol()
+			this.drawHeroAtCol(scrollOffset)
 		}
 
 		// 3. 再绘制标签（在地图之上）
@@ -421,10 +421,11 @@ export class MapRenderer {
 	/**
 	 * 绘制静止的狐狸（基于世界坐标正确计算屏幕位置）
 	 */
-	private drawHeroAtCol(): void {
+	private drawHeroAtCol(scrollOffset: number): void {
 		const colWidth = this.cellW + this.gapX
-		// 世界坐标转屏幕坐标：屏幕x = 起点x + (世界列 - 相机列) * 列宽
-		const x = this.startX + (this.currentHeroCol - this.cameraCol) * colWidth + this.cellW / 2
+		const effectiveStartX = this.startX - scrollOffset
+		// 世界坐标转屏幕坐标
+		const x = effectiveStartX + (this.currentHeroCol - this.cameraCol) * colWidth + this.cellW / 2
 		const y = this.startY + 1 * (this.cellH + this.gapY) + this.cellH / 2
 		
 		drawEmoji(this.ctx, "🦊", x, y, Math.min(this.cellW, this.cellH) * 0.65)

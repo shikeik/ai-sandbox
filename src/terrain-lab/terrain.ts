@@ -347,20 +347,26 @@ export function generateTerrainForAction(
 
 	// 根据动作设置地形（地面固定，其他层候选池过滤）
 	switch (action) {
-		case 0: // 走（+1格）- 只生成第1列
+		case 0: // 走（+1格）- 生成第1、2、3列
 			// 地面层：第1列必须是平地
 			t[0][heroCol + 1] = ELEM_GROUND
 			// 地上层：第1列只在未生成时设置（避免覆盖之前的装饰）
 			if (t[1][heroCol + 1] === ELEM_AIR || t[1][heroCol + 1] === -1) {
 				t[1][heroCol + 1] = pick(midPool, [ELEM_SLIME])
 			}
+			// 第2、3列：从池子随机选元素
+			if (t[1][heroCol + 2] === ELEM_AIR || t[1][heroCol + 2] === -1) t[1][heroCol + 2] = pick(midPool)
+			if (t[1][heroCol + 3] === ELEM_AIR || t[1][heroCol + 3] === -1) t[1][heroCol + 3] = pick(midPool)
 			// 天上层：第1列只在未生成时设置
 			if (t[2][heroCol + 1] === ELEM_AIR || t[2][heroCol + 1] === -1) {
 				t[2][heroCol + 1] = pick(skyPool, [ELEM_DEMON])
 			}
+			// 第2、3列：从池子随机选元素
+			if (t[2][heroCol + 2] === ELEM_AIR || t[2][heroCol + 2] === -1) t[2][heroCol + 2] = pick(skyPool)
+			if (t[2][heroCol + 3] === ELEM_AIR || t[2][heroCol + 3] === -1) t[2][heroCol + 3] = pick(skyPool)
 			break
 
-		case 1: // 跳（+2格）- 只生成第1、2列
+		case 1: // 跳（+2格）- 生成第1、2、3列
 			// 地面层
 			t[0][heroCol + 1] = ELEM_AIR
 			t[0][heroCol + 2] = ELEM_GROUND
@@ -368,12 +374,16 @@ export function generateTerrainForAction(
 			if (t[1][heroCol + 1] === ELEM_AIR || t[1][heroCol + 1] === -1) t[1][heroCol + 1] = pick(midPool)
 			// 第2列移除史莱姆（跳要求目标列地上无史莱姆）
 			if (t[1][heroCol + 2] === ELEM_AIR || t[1][heroCol + 2] === -1) t[1][heroCol + 2] = pick(midPool, [ELEM_SLIME])
+			// 第3列：从池子随机选元素
+			if (t[1][heroCol + 3] === ELEM_AIR || t[1][heroCol + 3] === -1) t[1][heroCol + 3] = pick(midPool)
 			// 天上层：第1、2列只在未生成时设置（移除恶魔）
 			if (t[2][heroCol + 1] === ELEM_AIR || t[2][heroCol + 1] === -1) t[2][heroCol + 1] = pick(skyPool, [ELEM_DEMON])
 			if (t[2][heroCol + 2] === ELEM_AIR || t[2][heroCol + 2] === -1) t[2][heroCol + 2] = pick(skyPool, [ELEM_DEMON])
+			// 第3列：从池子随机选元素
+			if (t[2][heroCol + 3] === ELEM_AIR || t[2][heroCol + 3] === -1) t[2][heroCol + 3] = pick(skyPool)
 			break
 
-		case 2: // 远跳（+3格）- 只生成第1、2、3列
+		case 2: // 远跳（+3格）- 生成第1、2、3、4列（但x+4是bug，只到x+3）
 			// 地面层
 			t[0][heroCol + 1] = ELEM_AIR
 			t[0][heroCol + 2] = ELEM_AIR
@@ -387,6 +397,7 @@ export function generateTerrainForAction(
 			if (t[2][heroCol + 1] === ELEM_AIR || t[2][heroCol + 1] === -1) t[2][heroCol + 1] = pick(skyPool, [ELEM_DEMON])
 			if (t[2][heroCol + 2] === ELEM_AIR || t[2][heroCol + 2] === -1) t[2][heroCol + 2] = pick(skyPool, [ELEM_DEMON])
 			if (t[2][heroCol + 3] === ELEM_AIR || t[2][heroCol + 3] === -1) t[2][heroCol + 3] = pick(skyPool, [ELEM_DEMON])
+			// 注意：远跳只到x+3，不生成x+4
 			break
 
 		case 3: // 走A（+1格）
