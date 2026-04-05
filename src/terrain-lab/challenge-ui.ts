@@ -27,7 +27,7 @@ export class ChallengeUIManager {
 		this.challengeCanvas = document.getElementById("challenge-canvas") as HTMLCanvasElement
 		this.mlpCanvas = document.getElementById("challenge-mlp-canvas") as HTMLCanvasElement
 		this.logger = new Logger("CHALLENGE-UI")
-		console.log("ChallengeUIManager 初始化完成")
+		console.log("CHALLENGE-UI", "初始化完成")
 	}
 
 	// ========== 初始化 ==========

@@ -40,7 +40,7 @@ export class MapGeneratorEntry {
 		this.mapCanvas = document.getElementById("generator-canvas") as HTMLCanvasElement
 		this.logger = new Logger("MAP-GENERATOR")
 
-		console.log("MapGeneratorEntry 初始化开始")
+		console.log("MAP-GENERATOR", "初始化开始")
 
 		// 初始化格子世界（32列，7列视野，启用相机跟随）
 		this.gridWorld = createGridWorld({

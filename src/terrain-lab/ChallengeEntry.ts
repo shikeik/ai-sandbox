@@ -38,7 +38,7 @@ export class ChallengeEntry {
 		this.onRequestPredict = onRequestPredict
 		this.logger = new Logger("CHALLENGE-ENTRY")
 
-		console.log("ChallengeEntry 初始化开始")
+		console.log("CHALLENGE-ENTRY", "初始化开始")
 
 		// 初始化格子世界（32列，5列视野）
 		this.gridWorld = createGridWorld({
