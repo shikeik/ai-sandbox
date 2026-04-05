@@ -29,18 +29,22 @@ export function findHeroCol(t: number[][]): number {
 // ========== 随机元素生成 ==========
 
 export function getLayerPool(layer: number, config: TerrainConfig): number[] {
-	if (layer === 2 && config.groundOnly) {
+	// 层索引：0=地面, 1=地上, 2=天上
+	if (layer === 0 && config.groundOnly) {
 		return [ELEM_GROUND]
 	}
 	const pool = [ELEM_AIR]
 	if (layer === 0) {
-		if (config.demon) pool.push(ELEM_DEMON)
-		if (config.coin) pool.push(ELEM_COIN)
+		// 地面层：空气 + 平地
+		pool.push(ELEM_GROUND)
 	} else if (layer === 1) {
+		// 地上层：空气 + 史莱姆 + 金币
 		if (config.slime) pool.push(ELEM_SLIME)
 		if (config.coin) pool.push(ELEM_COIN)
 	} else if (layer === 2) {
-		pool.push(ELEM_GROUND)
+		// 天上层：空气 + 恶魔 + 金币
+		if (config.demon) pool.push(ELEM_DEMON)
+		if (config.coin) pool.push(ELEM_COIN)
 	}
 	return pool
 }
