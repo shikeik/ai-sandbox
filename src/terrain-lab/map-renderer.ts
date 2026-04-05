@@ -82,14 +82,6 @@ export class MapRenderer {
 	}
 
 	/**
-	 * 设置相机跟随主角
-	 */
-	followHero(heroCol: number): void {
-		// 让主角保持在视野最左侧
-		this.setCameraPosition(heroCol)
-	}
-
-	/**
 	 * 设置触摸滑动事件
 	 */
 	private setupTouchEvents(): void {

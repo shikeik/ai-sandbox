@@ -91,8 +91,7 @@ export class MapGeneratorEntry {
 		this.generatedMap[1][0] = ELEM_HERO    // 狐狸在地上层
 		// 注意：不预生成任何地形，真正做到"走到哪生成到哪"
 
-		// 初始渲染：相机跟随到起点
-		this.renderer.followHero(0)
+		// 初始渲染
 		this.renderer.draw(this.generatedMap, 0)
 		this.updateHistory("起点：第0列")
 
@@ -149,7 +148,6 @@ export class MapGeneratorEntry {
 			this.generatedMap[0][0] = ELEM_GROUND
 			this.generatedMap[1][0] = ELEM_HERO
 			
-			this.renderer.followHero(0)
 			this.renderer.draw(this.generatedMap, 0)
 			this.updateHistory("起点：第0列")
 			return
@@ -201,8 +199,7 @@ export class MapGeneratorEntry {
 		this.updateHistory(`第${heroCol}列 ${actionName}→第${targetCol}列`)
 
 		// ========== 动画移动 ==========
-		// 1. 相机先移动到能看到主角和新位置的地方
-		this.renderer.followHero(heroCol)
+		// 1. 渲染当前状态
 		this.renderer.draw(this.generatedMap, heroCol)
 		await this.delay(isSingleStep ? 50 : 100)
 
@@ -220,12 +217,7 @@ export class MapGeneratorEntry {
 		this.generatedMap[1][targetCol] = ELEM_HERO
 		this.currentHeroCol = targetCol
 
-		// 4. 相机跟随到新位置，渲染
-		if (this.currentHeroCol >= 25) {
-			this.renderer.setCameraPosition(25)
-		} else {
-			this.renderer.followHero(this.currentHeroCol)
-		}
+		// 4. 渲染新位置
 		this.renderer.draw(this.generatedMap, this.currentHeroCol)
 
 		// 5. 等待一下让用户看清新地形
