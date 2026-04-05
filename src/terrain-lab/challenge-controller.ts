@@ -13,7 +13,8 @@ import type { TerrainConfig } from "./constants.js"
 import { forward } from "./neural-network.js"
 import {
 	terrainToIndices, findHeroCol, getActionChecks, getLabel, getActionName,
-	isActionValidByChecks, generateRandomTerrain, isValidTerrain, getLayerPool, randElemFromPool
+	isActionValidByChecks, generateRandomTerrain, isValidTerrain, getLayerPool, randElemFromPool,
+	generateTerrainForAction
 } from "./terrain.js"
 
 // ========== 常量 ==========
@@ -265,40 +266,51 @@ export class ChallengeController {
 	}
 
 	/**
-	 * 生成32格挑战地图
+	 * 生成32格绝对合法挑战地图
+	 * 使用generateTerrainForAction一步步生成，确保每格都有解
 	 */
 	private generateChallengeMap(): number[][] {
-		// 生成3行×32列的地图
-		const map: number[][] = [[], [], []]
-		
-		const pools = [
-			getLayerPool(0, this.terrainConfig),
-			getLayerPool(1, this.terrainConfig),
-			getLayerPool(2, this.terrainConfig),
+		// 初始化32列空地图
+		const map: number[][] = [
+			Array(MAP_LENGTH).fill(ELEM_AIR),
+			Array(MAP_LENGTH).fill(ELEM_AIR),
+			Array(MAP_LENGTH).fill(ELEM_AIR),
 		]
 
-		for (let layer = 0; layer < NUM_LAYERS; layer++) {
-			for (let col = 0; col < MAP_LENGTH; col++) {
-				map[layer]![col] = randElemFromPool(pools[layer]!)
+		// 起点设置
+		map[2][0] = ELEM_GROUND  // 地面
+		map[1][0] = ELEM_HERO    // 狐狸
+
+		let heroCol = 0
+
+		// 一步步生成合法地形，直到到达终点或超出边界
+		while (heroCol < MAP_LENGTH - 1) {
+			// 随机选择一个动作（0=走, 1=跳, 2=远跳）
+			const action = Math.floor(Math.random() * 3)
+			
+			// 为该动作生成地形
+			const result = generateTerrainForAction(action, heroCol, this.terrainConfig, map, true)
+			
+			if (result) {
+				// 成功生成，移动狐狸位置
+				heroCol += (action === 0 ? 1 : action === 1 ? 2 : 3)
+				
+				// 确保不超出地图
+				if (heroCol >= MAP_LENGTH) break
+				
+				// 更新狐狸位置
+				map[1].fill(ELEM_AIR)  // 清除所有狐狸
+				map[1][heroCol] = ELEM_HERO
+			} else {
+				// 生成失败（比如走A需要史莱姆但配置没有），尝试下一个动作
+				continue
 			}
 		}
 
-		// 确保第0列第1层是狐狸
-		if (map[1]) map[1][0] = ELEM_HERO
+		// 确保终点是平地
+		map[2][MAP_LENGTH - 1] = ELEM_GROUND
 
-		// 确保第0列第2层是平地（起始位置必须安全）
-		if (map[2]) map[2][0] = ELEM_GROUND
-
-		// 确保第31列第2层是平地（终点）
-		if (map[2]) map[2][31] = ELEM_GROUND
-
-		// 移除其他可能随机生成的狐狸
-		for (let col = 1; col < MAP_LENGTH; col++) {
-			if (map[1] && map[1][col] === ELEM_HERO) {
-				map[1][col] = ELEM_AIR
-			}
-		}
-
+		console.log("CHALLENGE-CTRL", `生成合法地图完成 | 路径长度=${heroCol}`)
 		return map
 	}
 
