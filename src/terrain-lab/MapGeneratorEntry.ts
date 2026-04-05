@@ -4,12 +4,11 @@
 
 import type { AppState } from "./state.js"
 import {
-	NUM_LAYERS,
 	ELEM_AIR, ELEM_HERO, ELEM_GROUND,
 	CURRICULUM_STAGES
 } from "./constants.js"
 import type { TerrainConfig } from "./constants.js"
-import { getLabel, getActionName, getLayerPool, randElemFromPool, generateTerrainForAction } from "./terrain.js"
+import { getLabel, getActionName, generateTerrainForAction } from "./terrain.js"
 import { MapRenderer } from "./map-renderer.js"
 
 export class MapGeneratorEntry {
@@ -85,9 +84,7 @@ export class MapGeneratorEntry {
 		// 设置起点（层索引：0=地面, 1=地上, 2=天上）
 		this.generatedMap[0][0] = ELEM_GROUND  // 狐狸脚下是平地
 		this.generatedMap[1][0] = ELEM_HERO    // 狐狸在地上层
-
-		// 生成初始视野（第1-6列）
-		this.generateTerrainForRange(1, 6)
+		// 注意：不预生成任何地形，真正做到"走到哪生成到哪"
 
 		// 初始渲染：相机跟随到起点
 		this.renderer.followHero(0)
@@ -214,52 +211,7 @@ export class MapGeneratorEntry {
 		]
 	}
 
-	/**
-	 * 生成地形
-	 */
-	private generateTerrainForRange(startCol: number, endCol: number): void {
-		if (!this.generatedMap) return
-		const pools = [
-			getLayerPool(0, this.terrainConfig),
-			getLayerPool(1, this.terrainConfig),
-			getLayerPool(2, this.terrainConfig)
-		]
 
-		for (let col = startCol; col <= endCol && col < 32; col++) {
-			if (this.generatedMap[2][col] === ELEM_AIR) {
-				for (let layer = 0; layer < NUM_LAYERS; layer++) {
-					if (layer === 2) {
-						this.generatedMap[layer][col] = Math.random() < 0.7 ? ELEM_GROUND : ELEM_AIR
-					} else {
-						this.generatedMap[layer][col] = randElemFromPool(pools[layer])
-					}
-				}
-			}
-		}
-	}
-
-	/**
-	 * 重新生成地形（重试用）
-	 */
-	private regenerateTerrainForRange(startCol: number, endCol: number): void {
-		if (!this.generatedMap) return
-		const pools = [
-			getLayerPool(0, this.terrainConfig),
-			getLayerPool(1, this.terrainConfig),
-			getLayerPool(2, this.terrainConfig)
-		]
-
-		for (let col = startCol; col <= endCol && col < 32; col++) {
-			if (col >= 32) break
-			for (let layer = 0; layer < NUM_LAYERS; layer++) {
-				if (layer === 2) {
-					this.generatedMap[layer][col] = Math.random() < 0.7 ? ELEM_GROUND : ELEM_AIR
-				} else {
-					this.generatedMap[layer][col] = randElemFromPool(pools[layer])
-				}
-			}
-		}
-	}
 
 	/**
 	 * 获取视野
