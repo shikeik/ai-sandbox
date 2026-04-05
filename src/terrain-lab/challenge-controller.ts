@@ -279,38 +279,42 @@ export class ChallengeController {
 
 		// 起点设置
 		map[2][0] = ELEM_GROUND  // 地面
-		map[1][0] = ELEM_HERO    // 狐狸
 
 		let heroCol = 0
+		let attempts = 0
+		const maxAttempts = 100
 
 		// 一步步生成合法地形，直到到达终点或超出边界
-		while (heroCol < MAP_LENGTH - 1) {
+		while (heroCol < MAP_LENGTH - 1 && attempts < maxAttempts) {
+			attempts++
+			
 			// 随机选择一个动作（0=走, 1=跳, 2=远跳）
 			const action = Math.floor(Math.random() * 3)
+			const step = action === 0 ? 1 : action === 1 ? 2 : 3
+			
+			// 检查是否会超出地图
+			if (heroCol + step >= MAP_LENGTH) continue
 			
 			// 为该动作生成地形
 			const result = generateTerrainForAction(action, heroCol, this.terrainConfig, map, true)
 			
 			if (result) {
 				// 成功生成，移动狐狸位置
-				heroCol += (action === 0 ? 1 : action === 1 ? 2 : 3)
-				
-				// 确保不超出地图
-				if (heroCol >= MAP_LENGTH) break
-				
-				// 更新狐狸位置
-				map[1].fill(ELEM_AIR)  // 清除所有狐狸
-				map[1][heroCol] = ELEM_HERO
-			} else {
-				// 生成失败（比如走A需要史莱姆但配置没有），尝试下一个动作
-				continue
+				heroCol += step
 			}
 		}
 
 		// 确保终点是平地
 		map[2][MAP_LENGTH - 1] = ELEM_GROUND
+		
+		// 清除地图上所有狐狸（狐狸由GridWorld单独管理）
+		for (let c = 0; c < MAP_LENGTH; c++) {
+			if (map[1][c] === ELEM_HERO) {
+				map[1][c] = ELEM_AIR
+			}
+		}
 
-		console.log("CHALLENGE-CTRL", `生成合法地图完成 | 路径长度=${heroCol}`)
+		console.log("CHALLENGE-CTRL", `生成合法地图完成 | 终点=${heroCol}, 尝试次数=${attempts}`)
 		return map
 	}
 
