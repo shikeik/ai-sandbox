@@ -147,7 +147,7 @@ export class GridWorldRenderer {
 		heroX: number,          // 动画中的精确 X 坐标
 		heroY: number           // 动画中的精确 Y 坐标
 	): void {
-		const { canvas, cameraCol = 0, hideSlimeAtCol } = options
+		const { canvas, cameraCol = 0, hideHeroAtCol, hideSlimeAtCol } = options
 		
 		this.canvas = canvas
 		const ctx = canvas.getContext("2d")
@@ -176,7 +176,7 @@ export class GridWorldRenderer {
 		this.drawColLabels(layout, cameraCol, viewportCols)
 
 		// 绘制网格和元素（隐藏原位置狐狸）
-		this.drawGrid(grid, layout, cameraCol, null, hideSlimeAtCol)
+		this.drawGrid(grid, layout, cameraCol, hideHeroAtCol, hideSlimeAtCol)
 
 		// 绘制动画中的狐狸
 		this.drawHeroAtPosition(heroX, heroY, layout.cellW, layout.cellH)

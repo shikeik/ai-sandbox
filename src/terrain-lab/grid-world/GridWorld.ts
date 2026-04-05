@@ -492,7 +492,7 @@ export class GridWorld {
 		this.renderer.renderAnimation(viewport, {
 			...options,
 			cameraCol: this.state.cameraCol,
-			hideHeroAtCol: 0,  // 隐藏原位置狐狸
+			hideHeroAtCol: heroScreenCol,  // 隐藏原位置狐狸
 			hideSlimeAtCol: slimeKilled ? this.state.heroCol + 1 : null,
 		}, heroScreenCol, pos.x, pos.y)
 	}
