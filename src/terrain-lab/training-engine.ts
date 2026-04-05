@@ -39,9 +39,10 @@ export class TrainingEngine {
 	}
 
 	// ========== 监督学习 ==========
-	async trainSupervised(): Promise<void> {
+	async trainSupervised(customSteps?: number): Promise<void> {
 		console.log("TRAIN-ENGINE", "开始监督学习训练")
-		const { batchSize, steps } = TRAIN_CONFIG
+		const { batchSize } = TRAIN_CONFIG
+		const steps = customSteps ?? TRAIN_CONFIG.steps
 
 		for (let s = 0; s < steps; s++) {
 			const buffer = createGradientBuffer()
@@ -69,9 +70,10 @@ export class TrainingEngine {
 	}
 
 	// ========== 无监督学习 ==========
-	async trainUnsupervised(): Promise<void> {
+	async trainUnsupervised(customSteps?: number): Promise<void> {
 		console.log("TRAIN-ENGINE", "开始无监督学习训练")
-		const { batchSize, steps } = TRAIN_CONFIG
+		const { batchSize } = TRAIN_CONFIG
+		const steps = customSteps ?? TRAIN_CONFIG.steps
 
 		for (let s = 0; s < steps; s++) {
 			const superBuffer = createGradientBuffer()

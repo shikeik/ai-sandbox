@@ -154,11 +154,9 @@ export class TrainingEntry {
 		if (mlpTitle) {
 			mlpTitle.textContent = `MLP 网络状态 (${INPUT_DIM} → ${HIDDEN_DIM} → ${OUTPUT_DIM})`
 		}
-		// 动态更新训练按钮文字
+		// 获取训练按钮引用
 		const btnTrain = document.getElementById("btn-train") as HTMLButtonElement
-		if (btnTrain) {
-			btnTrain.textContent = `训练${TRAIN_CONFIG.steps}步+预测`
-		}
+		const btnTrain1000 = document.getElementById("btn-train-1000") as HTMLButtonElement
 
 		this.renderBrushes()
 		this.renderTerrainConfig()
@@ -216,6 +214,7 @@ export class TrainingEntry {
 	private bindGlobalFunctions(): void {
 		;(window as any).generateData = () => this.generateData()
 		;(window as any).trainBatch = () => this.trainBatch()
+		;(window as any).trainBatch1000 = () => this.trainBatch1000()
 		;(window as any).resetNet = () => this.resetNet()
 		;(window as any).predict = () => this.predict()
 		;(window as any).validateTerrain = () => this.validateTerrain()
@@ -248,10 +247,12 @@ export class TrainingEntry {
 
 	// ========== 训练 ==========
 
-	async trainBatch(): Promise<void> {
-		console.log("TRAINING-ENTRY", "训练批次开始")
-		const btn = document.getElementById("btn-train") as HTMLButtonElement
-		btn.disabled = true
+	async trainBatch(steps?: number): Promise<void> {
+		console.log("TRAINING-ENTRY", `训练批次开始 | steps=${steps ?? TRAIN_CONFIG.steps}`)
+		const btn200 = document.getElementById("btn-train") as HTMLButtonElement
+		const btn1000 = document.getElementById("btn-train-1000") as HTMLButtonElement
+		btn200.disabled = true
+		btn1000.disabled = true
 
 		// 若快照为空，先保存初始状态
 		this.snapshotManager.initSnapshot()
@@ -271,9 +272,9 @@ export class TrainingEntry {
 		})
 
 		if (this.state.learningMode === "supervised") {
-			await engine.trainSupervised()
+			await engine.trainSupervised(steps)
 		} else {
-			await engine.trainUnsupervised()
+			await engine.trainUnsupervised(steps)
 		}
 
 		console.log("TRAINING-ENTRY", "训练完成，更新UI")
@@ -281,11 +282,16 @@ export class TrainingEntry {
 		this.evaluateAll()
 		this.predict()
 		this.drawObsessionCurve()
-		btn.disabled = false
+		btn200.disabled = false
+		btn1000.disabled = false
 
 		// 通知外部可能需要更新
 		this.onRequestPredict()
 		console.log("TRAINING-ENTRY", "训练批次结束")
+	}
+
+	async trainBatch1000(): Promise<void> {
+		await this.trainBatch(1000)
 	}
 
 	private evaluateAll(): void {
