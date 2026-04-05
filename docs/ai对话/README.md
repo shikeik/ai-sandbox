@@ -46,7 +46,7 @@ kimi-XX-最终中文标题.md
 | 10 | `kimi-10-地形实验室课程学习.md` | Curriculum Learning、课程阶段设计 |
 | 11 | `kimi-11-无监督学习模式与代码清理.md` | ε-贪心探索、87%瓶颈突破、代码重构 |
 | 12 | `kimi-12-测试框架迁移与init中文化.md` | init提示词中文、自定义测试改node:test |
-| 13 | `kimi-13-进行中.md` | terrain-lab 模块化重构（9个批次） |
+| 13 | `kimi-13-terrain-lab模块化重构.md` | terrain-lab 模块化重构（9个批次） |
 | 14 | `kimi-14-格子世界系统重构.md` | GridWorldSystem 统一渲染，消除 1000+ 行重复代码 |
 
 ## 快速定位
