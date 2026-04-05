@@ -274,13 +274,11 @@ export class MapRenderer {
 		// 1. 先绘制地形（网格 + emoji）
 		this.drawTerrainGridSmooth(viewport, scrollOffset, hideSlimeAtMapCol)
 
-		// 2. 绘制狐狸（基于 currentHeroCol 坐标，不在地图数据中）
+		// 2. 绘制狐狸（基于 currentHeroCol 世界坐标，正确计算屏幕位置）
 		if (this.animState) {
-			// 动画时绘制动画狐狸
-			this.drawAnimatedHero(scrollOffset)
+			this.drawAnimatedHero()
 		} else {
-			// 静止时根据 currentHeroCol 绘制狐狸
-			this.drawHeroAtCol(scrollOffset)
+			this.drawHeroAtCol()
 		}
 
 		// 3. 再绘制标签（在地图之上）
@@ -421,17 +419,12 @@ export class MapRenderer {
 	}
 
 	/**
-	 * 绘制静止的狐狸（基于 currentHeroCol 坐标）
+	 * 绘制静止的狐狸（基于世界坐标正确计算屏幕位置）
 	 */
-	private drawHeroAtCol(scrollOffset: number): void {
-		const effectiveStartX = this.startX - scrollOffset
-		// 计算狐狸在屏幕上的位置
-		const heroScreenCol = this.currentHeroCol - this.cameraCol
-		
-		// 只在视野内绘制
-		if (heroScreenCol < -1 || heroScreenCol > this.viewportCols) return
-		
-		const x = effectiveStartX + heroScreenCol * (this.cellW + this.gapX) + this.cellW / 2
+	private drawHeroAtCol(): void {
+		const colWidth = this.cellW + this.gapX
+		// 世界坐标转屏幕坐标：屏幕x = 起点x + (世界列 - 相机列) * 列宽
+		const x = this.startX + (this.currentHeroCol - this.cameraCol) * colWidth + this.cellW / 2
 		const y = this.startY + 1 * (this.cellH + this.gapY) + this.cellH / 2
 		
 		drawEmoji(this.ctx, "🦊", x, y, Math.min(this.cellW, this.cellH) * 0.65)
