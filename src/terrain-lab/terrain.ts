@@ -341,10 +341,16 @@ export function generateTerrainForAction(
 		case 0: // 走（+1格）
 			// 地面层
 			t[0][heroCol + 1] = ELEM_GROUND
-			// 地上层：移除史莱姆（走要求地上无史莱姆）
+			// 地上层：第1列移除史莱姆（走要求地上无史莱姆）
 			t[1][heroCol + 1] = pick(midPool, [ELEM_SLIME])
-			// 天上层：移除恶魔（走要求天上无恶魔）
+			// 第2、3列可以生成装饰元素
+			t[1][heroCol + 2] = pick(midPool)  // 可以有史莱姆
+			t[1][heroCol + 3] = pick(midPool)  // 可以有史莱姆
+			// 天上层：第1列移除恶魔（走要求天上无恶魔）
 			t[2][heroCol + 1] = pick(skyPool, [ELEM_DEMON])
+			// 第2、3列可以生成装饰元素（不影响走的合法性）
+			t[2][heroCol + 2] = pick(skyPool)  // 可以有恶魔
+			t[2][heroCol + 3] = pick(skyPool)  // 可以有恶魔
 			break
 
 		case 1: // 跳（+2格）
@@ -354,9 +360,13 @@ export function generateTerrainForAction(
 			// 地上层：第2列移除史莱姆（跳要求目标列地上无史莱姆）
 			t[1][heroCol + 1] = pick(midPool)  // 第1列无限制
 			t[1][heroCol + 2] = pick(midPool, [ELEM_SLIME])
+			// 第3列可以生成装饰元素
+			t[1][heroCol + 3] = pick(midPool)  // 可以有史莱姆
 			// 天上层：第1、2列移除恶魔（跳要求路径天上无恶魔）
 			t[2][heroCol + 1] = pick(skyPool, [ELEM_DEMON])
 			t[2][heroCol + 2] = pick(skyPool, [ELEM_DEMON])
+			// 第3列可以生成装饰元素（不影响跳的合法性）
+			t[2][heroCol + 3] = pick(skyPool)  // 可以有恶魔
 			break
 
 		case 2: // 远跳（+3格）
@@ -368,10 +378,18 @@ export function generateTerrainForAction(
 			t[1][heroCol + 1] = pick(midPool)
 			t[1][heroCol + 2] = pick(midPool)
 			t[1][heroCol + 3] = pick(midPool, [ELEM_SLIME])
-			// 天上层：第1、2、3列都移除恶魔
+			// 第4列可以生成装饰元素
+			if (heroCol + 4 < 32) {
+				t[1][heroCol + 4] = pick(midPool)  // 可以有史莱姆
+			}
+			// 天上层：第1、2、3列都移除恶魔（路径要求）
 			t[2][heroCol + 1] = pick(skyPool, [ELEM_DEMON])
 			t[2][heroCol + 2] = pick(skyPool, [ELEM_DEMON])
 			t[2][heroCol + 3] = pick(skyPool, [ELEM_DEMON])
+			// 第4列可以生成装饰元素（不影响远跳的合法性）
+			if (heroCol + 4 < 32) {
+				t[2][heroCol + 4] = pick(skyPool)  // 可以有恶魔
+			}
 			break
 
 		case 3: // 走A（+1格）
