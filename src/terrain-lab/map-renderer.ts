@@ -423,9 +423,8 @@ export class MapRenderer {
 	 */
 	private drawHeroAtCol(scrollOffset: number): void {
 		const colWidth = this.cellW + this.gapX
-		const effectiveStartX = this.startX - scrollOffset
-		// 世界坐标转屏幕坐标
-		const x = effectiveStartX + (this.currentHeroCol - this.cameraCol) * colWidth + this.cellW / 2
+		// 直接用世界坐标计算屏幕位置，不重复处理 scrollOffset
+		const x = this.startX + (this.currentHeroCol - this.cameraCol) * colWidth - scrollOffset + this.cellW / 2
 		const y = this.startY + 1 * (this.cellH + this.gapY) + this.cellH / 2
 		
 		drawEmoji(this.ctx, "🦊", x, y, Math.min(this.cellW, this.cellH) * 0.65)
