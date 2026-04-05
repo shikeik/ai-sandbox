@@ -294,8 +294,8 @@ export class MapRenderer {
 	 * 绘制地形网格（支持丝滑滚动偏移）
 	 * 不裁剪：地图只有32列，全部绘制开销可忽略
 	 * 
-	 * 注意：viewport[0]=地面, viewport[1]=地上, viewport[2]=天上
-	 * 但绘制时翻转：r=0 在最上方显示天上层，r=2 在最下方显示地面层
+	 * 注意：viewport[0]=天上, viewport[1]=地上, viewport[2]=地面（y↓ 坐标系）
+	 * 绘制时直接对应：r=0 显示天上层，r=2 显示地面层
 	 */
 	private drawTerrainGridSmooth(
 		viewport: number[][],
@@ -306,8 +306,8 @@ export class MapRenderer {
 		const startCol = Math.floor(this.cameraCol)
 		const colsToRender = viewport[0].length
 
-		// 层映射：绘制行 r -> 数据层 layer (r=0天上, r=1地上, r=2地面)
-		const layerMap = [2, 1, 0]
+		// 层映射：绘制行 r = 数据层 layer（y↓ 直连，无需翻转）
+		const layerMap = [0, 1, 2]
 
 		// 绘制网格线框
 		for (let r = 0; r < NUM_LAYERS; r++) {

@@ -6,16 +6,18 @@ import { createInitialState } from "./state.js"
 import { TrainingEntry } from "./TrainingEntry.js"
 import { ChallengeEntry } from "./ChallengeEntry.js"
 import { MapGeneratorEntry } from "./MapGeneratorEntry.js"
+import { KimiEntry } from "./KimiEntry.js"
 import { Logger } from "@/engine/utils/Logger.js"
 import { ConsolePanel } from "@/engine/console/ConsolePanel.js"
 
 // ========== 全局状态 ==========
 const state: AppState = createInitialState()
 
-// ========== 三个入口类实例 ==========
+// ========== 四个入口类实例 ==========
 let trainingEntry: TrainingEntry
 let challengeEntry: ChallengeEntry
 let generatorEntry: MapGeneratorEntry
+let kimiEntry: KimiEntry
 
 // ========== Tab 切换 ==========
 
@@ -39,6 +41,8 @@ function switchTab(tabName: string): void {
 		challengeEntry?.onTabActivate()
 	} else if (tabName === "generator") {
 		generatorEntry?.onTabActivate()
+	} else if (tabName === "kimi") {
+		kimiEntry?.onTabActivate()
 	}
 }
 
@@ -55,15 +59,17 @@ function init(): void {
 	// 创建独立的 Logger 实例
 	const logger = new Logger("terrain-lab")
 
-	// 初始化三个入口类
+	// 初始化四个入口类
 	trainingEntry = new TrainingEntry(state, onNetworkUpdated)
 	challengeEntry = new ChallengeEntry(state, onNetworkUpdated)
 	generatorEntry = new MapGeneratorEntry(state)
+	kimiEntry = new KimiEntry(state)
 
 	// 分别初始化
 	trainingEntry.init()
 	challengeEntry.init()
 	generatorEntry.init()
+	kimiEntry.init()
 
 	// 绑定全局 Tab 切换函数
 	;(window as any).switchTab = switchTab

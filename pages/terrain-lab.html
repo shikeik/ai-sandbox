@@ -551,6 +551,7 @@
         <button class="tab-btn active" data-tab="supervised" onclick="switchTab('supervised')">AI训练</button>
         <button class="tab-btn" data-tab="challenge" onclick="switchTab('challenge')">地形模式</button>
         <button class="tab-btn" data-tab="generator" onclick="switchTab('generator')">地图生成</button>
+        <button class="tab-btn" data-tab="kimi" onclick="switchTab('kimi')">🤖 Kimi挑战</button>
     </div>
 
     <!-- Tab 1: AI训练 -->
@@ -712,6 +713,28 @@
                 <div class="panel-title" style="margin-top:14px">生成步骤</div>
                 <div id="generator-history" style="max-height:120px;overflow-y:auto;background:#0b0c0f;border:1px solid #2c2f36;border-radius:8px;padding:8px;font-size:11px;">
                     <div style="color:#5f6368;text-align:center;padding:10px;">暂无生成记录</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tab 4: Kimi挑战 -->
+    <div id="tab-kimi" class="tab-content">
+        <div class="challenge-layout">
+            <div class="panel" style="grid-column: 1 / -1; text-align: center; padding: 60px 20px;">
+                <div style="font-size: 48px; margin-bottom: 20px;">🤖</div>
+                <div style="font-size: 18px; color: #8ab4f8; margin-bottom: 10px;">Kimi 挑战模式</div>
+                <div style="font-size: 13px; color: #9aa0a6; max-width: 500px; margin: 0 auto; line-height: 1.6;">
+                    通过 HTTP API 与 Kimi 进行回合制交互<br>
+                    Kimi 接收 5×3 视野 → 分析决策 → 返回动作 ID → 执行动画<br>
+                    你来当旁观者，看 Kimi 如何闯关
+                </div>
+                <div style="margin-top: 30px; padding: 20px; background: #0b0c0f; border-radius: 8px; display: inline-block; text-align: left;">
+                    <div style="font-size: 11px; color: #5f6368; margin-bottom: 10px;">// 等待接入...</div>
+                    <div style="font-size: 12px; color: #bdc1c6; font-family: monospace;">
+                        GET  /api/state   → 获取当前视野<br>
+                        POST /api/action  → 执行动作 (0-3)
+                    </div>
                 </div>
             </div>
         </div>
