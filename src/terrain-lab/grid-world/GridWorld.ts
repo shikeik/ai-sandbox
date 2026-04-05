@@ -124,7 +124,14 @@ export class GridWorld {
 			return
 		}
 		this.state.grid = grid.map(row => [...row])
-		console.log("GRID-WORLD", "网格已更新")
+		// 同步更新 heroCol，避免后续 setHeroCol 清除错误位置的元素
+		for (let c = 0; c < this.config.width; c++) {
+			if (this.state.grid[1][c] === 1) {
+				this.state.heroCol = c
+				break
+			}
+		}
+		console.log("GRID-WORLD", `网格已更新 | heroCol=${this.state.heroCol}`)
 	}
 
 	/**

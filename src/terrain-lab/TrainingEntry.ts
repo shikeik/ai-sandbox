@@ -60,6 +60,9 @@ export class TrainingEntry {
 	// ========== 动画帧 ID ==========
 	private animFrameId: number | null = null
 
+	// ========== 验收快照（仅用于刷新视图恢复）==========
+	private actionSnapshot: number[][] | null = null
+
 	constructor(
 		state: AppState,
 		onRequestPredict: () => void
@@ -128,9 +131,8 @@ export class TrainingEntry {
 	private syncTerrainToGridWorld(): void {
 		console.log("TRAINING-ENTRY", `同步地形到 GridWorld | terrain=${JSON.stringify(this.state.terrain).substring(0, 100)}...`)
 		this.gridWorld.setGrid(this.state.terrain)
-		const heroCol = findHeroCol(this.state.terrain)
-		this.gridWorld.setHeroCol(heroCol)
-		console.log("TRAINING-ENTRY", `主角位置同步 | heroCol=${heroCol}`)
+		// 注意：setGrid 内部已自动同步 heroCol
+		console.log("TRAINING-ENTRY", "地形同步完成")
 	}
 
 	private syncGridWorldToTerrain(): void {
@@ -295,6 +297,8 @@ export class TrainingEntry {
 	// ========== 预测与验证 ==========
 
 	predict(): void {
+		// 保存当前地形快照（用于刷新视图恢复）
+		this.actionSnapshot = this.state.terrain.map(row => [...row])
 		this.predictor.predict()
 	}
 
@@ -407,6 +411,12 @@ export class TrainingEntry {
 
 	resetView(): void {
 		console.log("TRAINING-ENTRY", "重置视图")
+		// 如有验收快照，恢复地形并清空
+		if (this.actionSnapshot) {
+			this.state.terrain = this.actionSnapshot.map(row => [...row])
+			this.actionSnapshot = null
+			console.log("TRAINING-ENTRY", "已恢复地形并清空快照")
+		}
 		this.syncTerrainToGridWorld()
 		this.stopAnimation()
 		this.drawEditor()
@@ -611,8 +621,8 @@ export class TrainingEntry {
 
 			this.gridWorld.playAction(action, { onFrame }).then((result) => {
 				console.log("TRAINING-ENTRY", `动画完成 | result=${JSON.stringify(result)}`)
-				// 同步地形
-				this.syncGridWorldToTerrain()
+				// 不同步回 state.terrain，保持 state.terrain 干净
+				// GridWorld 保持动画结束状态（狐狸在终点，金币被吃掉）
 				this.drawEditor()
 				resolve()
 			})
