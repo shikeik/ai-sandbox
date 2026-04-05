@@ -242,8 +242,11 @@ export class UIManager {
 
 	// ========== 训练按钮状态 ==========
 	setTrainButtonDisabled(disabled: boolean): void {
-		;(document.getElementById("btn-train") as HTMLButtonElement).disabled = disabled
-		;(document.getElementById("btn-train-1000") as HTMLButtonElement).disabled = disabled
+		const btn200 = document.getElementById("btn-train") as HTMLButtonElement
+		const btn1000 = document.getElementById("btn-train-1000") as HTMLButtonElement
+		if (btn200) btn200.disabled = disabled
+		if (btn1000) btn1000.disabled = disabled
+		console.log("UI-MANAGER", `训练按钮状态更新 | disabled=${disabled}`)
 	}
 
 	// ========== 配置变化处理 ==========
