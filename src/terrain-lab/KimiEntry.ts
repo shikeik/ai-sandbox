@@ -1,41 +1,70 @@
-// ========== Kimi 挑战入口 ==========
+// ========== Kimi 挑战入口（GridWorld 版）==========
 // 职责：通过 HTTP API 与 Kimi 进行回合制交互
+// 使用 GridWorld 统一渲染，复用 ChallengeController 的地图生成逻辑
 
 import type { AppState } from "./state.js"
 import {
-	NUM_LAYERS, NUM_COLS, ELEMENTS, ELEM_AIR, ELEM_HERO, ELEM_GROUND,
-	ELEM_SLIME, ELEM_DEMON, ELEM_COIN, DEFAULT_TERRAIN_CONFIG
+	NUM_LAYERS, ELEM_AIR, ELEM_HERO, ELEM_GROUND, DEFAULT_TERRAIN_CONFIG
 } from "./constants.js"
 import type { TerrainConfig } from "./constants.js"
+import { generateTerrainForAction, terrainToIndices } from "./terrain.js"
+import { forward } from "./neural-network.js"
+
+// ========== 引入格子世界系统 ==========
 import {
-	getLayerPool, randElemFromPool
-} from "./terrain.js"
-import { setupHighDPICanvas } from "@/engine/utils/canvas.js"
-import { drawEmoji } from "./renderer.js"
+	GridWorld,
+	DEFAULT_ELEMENTS,
+	createGridWorld,
+} from "./grid-world/index.js"
 
 // ========== 常量 ==========
 const MAP_LENGTH = 32  // 地图总长度
 const VIEWPORT_COLS = 5  // 视野窗口宽度
 
+// 动作类型
+const ACTIONS = ["走", "跳", "远跳", "走A"] as const
+type ActionType = typeof ACTIONS[number]
+
+// 动作到列偏移的映射
+const ACTION_TO_COL_DELTA: Record<ActionType, number> = {
+	"走": 1,
+	"跳": 2,
+	"远跳": 3,
+	"走A": 1,
+}
+
+// 动作序号映射（与 Kimi API 对应）
+const ACTION_INDEX: Record<ActionType, number> = {
+	"走": 0,
+	"跳": 1,
+	"远跳": 2,
+	"走A": 3,
+}
+
 export class KimiEntry {
 	private state: AppState
 	private container: HTMLElement | null = null
-	private canvas: HTMLCanvasElement | null = null
-	private ctx: CanvasRenderingContext2D | null = null
+
+	// 格子世界
+	private gridWorld: GridWorld
 
 	// 游戏状态
 	private fullMap: number[][] | null = null
 	private heroCol = 0
 	private terrainConfig: TerrainConfig = { ...DEFAULT_TERRAIN_CONFIG }
-
-	// 单元格尺寸
-	private cellW = 0
-	private cellH = 0
-	private gapX = 4
-	private gapY = 4
+	private isPlaying = false
+	private gameLog: Array<{ step: number; action: ActionType; valid: boolean; reason?: string }> = []
 
 	constructor(state: AppState) {
 		this.state = state
+
+		// 初始化 GridWorld（32列，5列视野）
+		this.gridWorld = createGridWorld({
+			width: 32,
+			height: NUM_LAYERS,
+			elements: DEFAULT_ELEMENTS,
+			viewportWidth: 5,
+		})
 	}
 
 	init(): void {
@@ -44,14 +73,6 @@ export class KimiEntry {
 
 		// 替换内容为游戏界面
 		this.renderLayout()
-
-		// 初始化 canvas
-		const canvas = document.getElementById("kimi-canvas") as HTMLCanvasElement
-		if (canvas) {
-			this.canvas = canvas
-			const result = setupHighDPICanvas(canvas)
-			this.ctx = result.ctx
-		}
 
 		// 绑定按钮事件
 		this.bindEvents()
@@ -64,8 +85,8 @@ export class KimiEntry {
 
 	onTabActivate(): void {
 		console.log("[KIMI] Tab 激活")
-		if (this.canvas && this.fullMap) {
-			this.drawViewport()
+		if (this.fullMap) {
+			this.renderViewport()
 		}
 	}
 
@@ -80,37 +101,35 @@ export class KimiEntry {
 					<div class="panel-title" style="display:flex;justify-content:space-between;align-items:center;">
 						<span>🤖 Kimi 挑战 - 5×3 视野</span>
 						<div style="display:flex;gap:10px;align-items:center;">
-							<span style="font-size:11px;color:#9aa0a6;">狐狸位置: <span id="kimi-hero-pos">0/31</span></span>
-							<button class="btn-primary" id="btn-kimi-reset">重置</button>
-							<button class="btn-accent" id="btn-kimi-step" disabled>单步</button>
-							<button class="btn-secondary" id="btn-kimi-start">开始</button>
+							<span style="font-size:11px;color:#9aa0a6;">位置: <span id="kimi-hero-pos">0/31</span></span>
+							<span style="font-size:11px;color:#9aa0a6;">步数: <span id="kimi-step-count">0</span></span>
+							<button class="btn-primary" id="btn-kimi-reset">重置地图</button>
+							<button class="btn-accent" id="btn-kimi-step" disabled>Kimi 决策</button>
+							<button class="btn-secondary" id="btn-kimi-auto" disabled>自动运行</button>
 						</div>
 					</div>
 
 					<!-- 5×3 视野画布 -->
-					<canvas id="kimi-canvas" style="width:100%;max-width:500px;height:300px;background:#0b0c0f;border-radius:8px;display:block;margin:0 auto;"></canvas>
+					<canvas id="kimi-canvas" style="width:100%;max-width:600px;height:280px;background:#0b0c0f;border-radius:8px;display:block;margin:0 auto;"></canvas>
 
 					<!-- 状态信息 -->
 					<div class="challenge-result waiting" id="kimi-status" style="margin-top:10px;">
-						点击「重置」生成地图，等待 Kimi 连接...
+						点击「重置地图」生成合法 traversable 地图
 					</div>
 
-					<!-- 调试信息：完整地图预览 -->
-					<div class="panel-title" style="margin-top:14px;">完整地图预览 (32格)</div>
-					<div id="kimi-map-preview" style="font-family:monospace;font-size:10px;line-height:1.4;background:#0b0c0f;padding:10px;border-radius:8px;overflow-x:auto;white-space:pre;color:#bdc1c6;"></div>
+					<!-- 操作日志 -->
+					<div id="kimi-log" style="margin-top:10px;max-height:150px;overflow-y:auto;font-family:monospace;font-size:11px;background:#0b0c0f;padding:10px;border-radius:8px;color:#bdc1c6;">
+						<div style="color:#5f6368;">等待游戏开始...</div>
+					</div>
 				</div>
 			</div>
 		`
 	}
 
 	private bindEvents(): void {
-		const btnReset = document.getElementById("btn-kimi-reset")
-		const btnStep = document.getElementById("btn-kimi-step")
-		const btnStart = document.getElementById("btn-kimi-start")
-
-		btnReset?.addEventListener("click", () => this.resetGame())
-		btnStep?.addEventListener("click", () => this.step())
-		btnStart?.addEventListener("click", () => this.start())
+		document.getElementById("btn-kimi-reset")?.addEventListener("click", () => this.resetGame())
+		document.getElementById("btn-kimi-step")?.addEventListener("click", () => this.kimiStep())
+		document.getElementById("btn-kimi-auto")?.addEventListener("click", () => this.toggleAuto())
 	}
 
 	// ========== 游戏逻辑 ==========
@@ -120,210 +139,277 @@ export class KimiEntry {
 	 */
 	private resetGame(): void {
 		this.heroCol = 0
-		this.fullMap = this.generateMap()
-		this.updateHeroPosDisplay()
-		this.drawViewport()
-		this.updateMapPreview()
-		this.updateStatus("地图已生成，狐狸在起点 (0, 地上层)")
+		this.gameLog = []
+		this.isPlaying = false
+		this.fullMap = this.generateTraversableMap()
+
+		// 同步到 GridWorld
+		this.syncMapToGridWorld()
+		this.gridWorld.setHeroCol(0)
+		this.gridWorld.followHero(true)
+
+		this.updateUI()
+		this.renderViewport()
+		this.updateStatus("地图已生成，点击「Kimi 决策」开始")
+		this.updateLog("地图生成完成，狐狸在起点 (0, 地上层)", "success")
+
+		// 启用按钮
+		const btnStep = document.getElementById("btn-kimi-step") as HTMLButtonElement
+		const btnAuto = document.getElementById("btn-kimi-auto") as HTMLButtonElement
+		if (btnStep) btnStep.disabled = false
+		if (btnAuto) btnAuto.disabled = false
 	}
 
 	/**
-	 * 生成 32×3 完整地图
+	 * 生成可通行的 32×3 地图（最佳实践：使用 action-based 生成）
 	 */
-	private generateMap(): number[][] {
-		const map: number[][] = [[], [], []]
-
-		const pools = [
-			getLayerPool(0, this.terrainConfig),
-			getLayerPool(1, this.terrainConfig),
-			getLayerPool(2, this.terrainConfig),
+	private generateTraversableMap(): number[][] {
+		// 初始化空地图
+		const map: number[][] = [
+			Array(MAP_LENGTH).fill(ELEM_AIR),
+			Array(MAP_LENGTH).fill(ELEM_AIR),
+			Array(MAP_LENGTH).fill(ELEM_AIR),
 		]
 
-		for (let layer = 0; layer < NUM_LAYERS; layer++) {
-			for (let col = 0; col < MAP_LENGTH; col++) {
-				map[layer]![col] = randElemFromPool(pools[layer]!)
+		// 起点地面
+		map[2][0] = ELEM_GROUND
+
+		let heroCol = 0
+		const maxAttempts = 100
+
+		while (heroCol < MAP_LENGTH - 1) {
+			// 随机选择动作
+			const actionIdx = Math.floor(Math.random() * 3) // 0=走, 1=跳, 2=远跳
+			
+			// 检查是否超出边界
+			const delta = actionIdx === 0 ? 1 : actionIdx === 1 ? 2 : 3
+			if (heroCol + delta >= MAP_LENGTH) {
+				// 超出边界，尝试走路
+				if (heroCol + 1 < MAP_LENGTH) {
+					// 强制生成走路的地形
+					generateTerrainForAction(0, heroCol, this.terrainConfig, map, true)
+					heroCol += 1
+				} else {
+					break
+				}
+				continue
+			}
+
+			// 尝试生成该动作的地形
+			let attempts = 0
+			let generated: number[][] | null = null
+			while (attempts < maxAttempts && !generated) {
+				generated = generateTerrainForAction(actionIdx, heroCol, this.terrainConfig, map, true)
+				attempts++
+			}
+
+			if (generated) {
+				heroCol += delta
+			} else {
+				// 生成失败，尝试走路
+				const walkGenerated = generateTerrainForAction(0, heroCol, this.terrainConfig, map, true)
+				if (walkGenerated) {
+					heroCol += 1
+				} else {
+					break
+				}
 			}
 		}
 
-		// 确保第0列第1层是狐狸 (x0, 地上层)
-		map[1]![0] = ELEM_HERO
-
-		// 确保第0列第2层是平地（起始安全）
-		map[2]![0] = ELEM_GROUND
-
-		// 确保第31列第2层是平地（终点）
-		map[2]![31] = ELEM_GROUND
-
-		// 移除其他狐狸
-		for (let col = 1; col < MAP_LENGTH; col++) {
-			if (map[1]![col] === ELEM_HERO) {
-				map[1]![col] = ELEM_AIR
-			}
-		}
+		// 确保终点是平地
+		map[2][MAP_LENGTH - 1] = ELEM_GROUND
 
 		return map
 	}
 
 	/**
-	 * 获取 5×3 视野窗口
+	 * 同步地图到 GridWorld（地图不包含狐狸）
 	 */
-	private getViewport(): number[][] {
-		const viewport: number[][] = [[], [], []]
+	private syncMapToGridWorld(): void {
+		if (!this.fullMap) return
 
-		if (!this.fullMap) {
-			return [
-				Array(VIEWPORT_COLS).fill(ELEM_AIR),
-				[ELEM_HERO, ...Array(VIEWPORT_COLS - 1).fill(ELEM_AIR)],
-				Array(VIEWPORT_COLS).fill(ELEM_GROUND),
-			]
-		}
-
-		for (let layer = 0; layer < NUM_LAYERS; layer++) {
-			for (let i = 0; i < VIEWPORT_COLS; i++) {
-				const mapCol = this.heroCol + i
-				if (mapCol < MAP_LENGTH) {
-					viewport[layer][i] = this.fullMap[layer]![mapCol]!
-				} else {
-					viewport[layer][i] = ELEM_AIR
-				}
+		// 创建副本，移除狐狸（GridWorld 单独管理狐狸位置）
+		const gridOnly = this.fullMap.map(row => [...row])
+		for (let c = 0; c < MAP_LENGTH; c++) {
+			if (gridOnly[1][c] === ELEM_HERO) {
+				gridOnly[1][c] = ELEM_AIR
 			}
 		}
 
-		// 确保视野中狐狸在0列（清除其他列的狐狸）
-		for (let c = 1; c < VIEWPORT_COLS; c++) {
-			if (viewport[1][c] === ELEM_HERO) {
-				viewport[1][c] = ELEM_AIR
+		this.gridWorld.setGrid(gridOnly)
+	}
+
+	/**
+	 * Kimi 单步决策
+	 */
+	private async kimiStep(): Promise<void> {
+		if (!this.fullMap || this.heroCol >= MAP_LENGTH - 1) {
+			this.updateStatus("游戏已结束")
+			return
+		}
+
+		// 获取当前视野
+		const viewport = this.getViewportForKimi()
+
+		// TODO: 调用 Kimi API 获取决策
+		// 现在用本地 MLP 网络模拟
+		const action = await this.getKimiAction(viewport)
+
+		// 执行动作
+		await this.executeAction(action)
+	}
+
+	/**
+	 * 获取 Kimi 的决策（TODO: 替换为真实 API 调用）
+	 */
+	private async getKimiAction(viewport: number[][]): Promise<ActionType> {
+		// 临时：使用本地网络预测
+		if (!this.state.net) {
+			// 随机选择合法动作
+			const validActions = this.getValidActions()
+			if (validActions.length === 0) return "走"
+			return validActions[Math.floor(Math.random() * validActions.length)]
+		}
+
+		// 使用训练好的网络预测
+		const indices = terrainToIndices(viewport)
+		const result = forward(this.state.net, indices)
+		
+		// 找到最大概率的动作
+		let maxIdx = 0
+		let maxProb = result.o[0]
+		for (let i = 1; i < result.o.length; i++) {
+			if (result.o[i] > maxProb) {
+				maxProb = result.o[i]
+				maxIdx = i
 			}
 		}
-		viewport[1][0] = ELEM_HERO
+		
+		return ACTIONS[maxIdx] ?? "走"
+	}
 
-		return viewport
+	/**
+	 * 获取当前合法的 actions
+	 */
+	private getValidActions(): ActionType[] {
+		const valid: ActionType[] = []
+		for (const action of ACTIONS) {
+			const check = this.gridWorld.checkAction(action as ActionType)
+			if (check.ok) {
+				valid.push(action)
+			}
+		}
+		return valid
+	}
+
+	/**
+	 * 执行动作
+	 */
+	private async executeAction(action: ActionType): Promise<void> {
+		const canvas = document.getElementById("kimi-canvas") as HTMLCanvasElement
+		if (!canvas) return
+
+		// 检查动作合法性
+		const check = this.gridWorld.checkAction(action)
+
+		if (!check.ok) {
+			// 非法动作
+			this.gameLog.push({
+				step: this.gameLog.length + 1,
+				action,
+				valid: false,
+				reason: check.reasons.join("; ")
+			})
+			this.updateLog(`[非法] ${action}: ${check.reasons.join("; ")}`, "error")
+			this.updateStatus(`Kimi 选择了非法动作: ${action}`)
+			this.updateUI()
+			return
+		}
+
+		// 播放动画
+		await this.gridWorld.playAction(action, {
+			speed: 2,
+			onFrame: (progress, slimeKilled) => {
+				this.gridWorld.renderAnimation(
+					{ canvas },
+					action,
+					progress,
+					slimeKilled
+				)
+			}
+		})
+
+		// 更新位置
+		this.heroCol = this.gridWorld.getHeroCol()
+		this.gridWorld.followHero(true)
+
+		// 记录日志
+		this.gameLog.push({
+			step: this.gameLog.length + 1,
+			action,
+			valid: true
+		})
+		this.updateLog(`[成功] ${action} -> 位置 ${this.heroCol}`, "success")
+
+		// 检查是否到达终点
+		if (this.heroCol >= MAP_LENGTH - 1) {
+			this.updateStatus("🎉 Kimi 成功到达终点！")
+			this.updateLog("🎉 游戏胜利！", "success")
+			this.isPlaying = false
+		} else {
+			this.updateStatus(`Kimi 执行了「${action}」，当前位置 ${this.heroCol}`)
+		}
+
+		this.updateUI()
+		this.renderViewport()
+	}
+
+	/**
+	 * 获取视野给 Kimi（5×3 网格）
+	 */
+	private getViewportForKimi(): number[][] {
+		return this.gridWorld.getViewport(this.heroCol, VIEWPORT_COLS)
+	}
+
+	/**
+	 * 自动运行
+	 */
+	private async toggleAuto(): Promise<void> {
+		if (this.isPlaying) {
+			this.isPlaying = false
+			return
+		}
+
+		this.isPlaying = true
+		const btnAuto = document.getElementById("btn-kimi-auto") as HTMLButtonElement
+		if (btnAuto) btnAuto.textContent = "停止"
+
+		while (this.isPlaying && this.heroCol < MAP_LENGTH - 1) {
+			await this.kimiStep()
+			await new Promise(r => setTimeout(r, 500))
+		}
+
+		this.isPlaying = false
+		if (btnAuto) btnAuto.textContent = "自动运行"
 	}
 
 	// ========== 渲染 ==========
 
-	/**
-	 * 绘制 5×3 视野
-	 * 坐标系：y 向下为正，r=0 在上方显示天上层，r=2 在下方显示地面层
-	 */
-	private drawViewport(): void {
-		if (!this.canvas || !this.ctx) return
+	private renderViewport(): void {
+		const canvas = document.getElementById("kimi-canvas") as HTMLCanvasElement
+		if (!canvas) return
 
-		const viewport = this.getViewport()
-
-		// 清空
-		this.ctx.fillStyle = "#0b0c0f"
-		this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height)
-
-		// 获取 css 尺寸（因为 ctx 已经 setTransform(dpr) 了）
-		const cssWidth = this.canvas.width / (window.devicePixelRatio || 1)
-		const cssHeight = this.canvas.height / (window.devicePixelRatio || 1)
-
-		// 布局参数（css 像素）
-		const paddingX = 50
-		const paddingY = 30
-		const labelW = 36   // 左侧层标签宽度
-		const labelH = 16   // 顶部列标签高度
-
-		// 计算单元格尺寸
-		const availableWidth = cssWidth - paddingX * 2 - labelW
-		const availableHeight = cssHeight - paddingY * 2 - labelH
-
-		this.cellW = Math.floor((availableWidth - (VIEWPORT_COLS - 1) * this.gapX) / VIEWPORT_COLS)
-		this.cellH = Math.min(
-			this.cellW,
-			Math.floor((availableHeight - (NUM_LAYERS - 1) * this.gapY) / NUM_LAYERS)
-		)
-
-		// 居中起始位置
-		const totalW = VIEWPORT_COLS * this.cellW + (VIEWPORT_COLS - 1) * this.gapX
-		const totalH = NUM_LAYERS * this.cellH + (NUM_LAYERS - 1) * this.gapY
-		const startX = (cssWidth - totalW - labelW) / 2 + labelW
-		const startY = (cssHeight - totalH - labelH) / 2 + labelH
-
-		// 层映射：r=0(上方)=layer0(天上), r=1=layer1(地上), r=2(下方)=layer2(地面)
-		// 这样天上在上方显示，地面在下方显示
-		const layerNames = ["天上", "地上", "地面"]
-		const layerMap = [0, 1, 2]
-
-		// 设置字体
-		this.ctx.fillStyle = "#9aa0a6"
-		this.ctx.font = "12px sans-serif"
-		this.ctx.textAlign = "center"
-		this.ctx.textBaseline = "middle"
-
-		// 绘制层标签（左侧）
-		for (let r = 0; r < NUM_LAYERS; r++) {
-			const y = startY + r * (this.cellH + this.gapY) + this.cellH / 2
-			this.ctx.fillText(layerNames[r], startX - labelW / 2 - 4, y)
-		}
-
-		// 绘制列标签（顶部）
-		const labelTopY = startY - labelH / 2
-		for (let c = 0; c < VIEWPORT_COLS; c++) {
-			const colNum = this.heroCol + c
-			const x = startX + c * (this.cellW + this.gapX) + this.cellW / 2
-			this.ctx.fillText(`x${colNum}`, x, labelTopY)
-		}
-
-		// 绘制网格和元素
-		for (let r = 0; r < NUM_LAYERS; r++) {
-			const dataLayer = layerMap[r]
-			for (let c = 0; c < VIEWPORT_COLS; c++) {
-				const x = startX + c * (this.cellW + this.gapX)
-				const y = startY + r * (this.cellH + this.gapY)
-
-				// 网格边框
-				this.ctx.strokeStyle = "#3c4043"
-				this.ctx.lineWidth = 1
-				this.ctx.strokeRect(x, y, this.cellW, this.cellH)
-
-				// 元素 emoji
-				const elemId = viewport[dataLayer][c]
-				const emoji = ELEMENTS[elemId]?.emoji ?? " "
-				drawEmoji(this.ctx, emoji, x + this.cellW / 2, y + this.cellH / 2, Math.min(this.cellW, this.cellH) * 0.55)
-			}
-		}
-
-		// 高亮狐狸位置（画蓝框）- 狐狸固定在地上层（layer 1，对应 r=1）
-		const foxX = startX
-		const foxY = startY + 1 * (this.cellH + this.gapY)
-		this.ctx.strokeStyle = "#8ab4f8"
-		this.ctx.lineWidth = 3
-		this.ctx.strokeRect(foxX + 2, foxY + 2, this.cellW - 4, this.cellH - 4)
-	}
-
-	/**
-	 * 更新完整地图预览（文字版）
-	 */
-	private updateMapPreview(): void {
-		const preview = document.getElementById("kimi-map-preview")
-		if (!preview || !this.fullMap) return
-
-		const layerNames = ["天:", "地:", "面:"]
-		let text = ""
-
-		for (let layer = 0; layer < NUM_LAYERS; layer++) {
-			text += layerNames[layer] + " "
-			for (let col = 0; col < MAP_LENGTH; col++) {
-				const elemId = this.fullMap[layer]![col]!
-				const emoji = ELEMENTS[elemId]?.emoji ?? "?"
-				text += emoji
-			}
-			text += "\n"
-		}
-
-		// 标记狐狸位置（用 ▲ 避免和 🦊 混淆）
-		text += "    " + " ".repeat(this.heroCol) + "▲"
-
-		preview.textContent = text
+		this.gridWorld.render({ canvas })
 	}
 
 	// ========== UI 更新 ==========
 
-	private updateHeroPosDisplay(): void {
-		const el = document.getElementById("kimi-hero-pos")
-		if (el) el.textContent = `${this.heroCol}/31`
+	private updateUI(): void {
+		const posEl = document.getElementById("kimi-hero-pos")
+		const stepEl = document.getElementById("kimi-step-count")
+
+		if (posEl) posEl.textContent = `${this.heroCol}/31`
+		if (stepEl) stepEl.textContent = String(this.gameLog.length)
 	}
 
 	private updateStatus(msg: string): void {
@@ -331,15 +417,15 @@ export class KimiEntry {
 		if (el) el.innerHTML = msg
 	}
 
-	// ========== 控制 ==========
+	private updateLog(msg: string, type: "success" | "error" | "info" = "info") {
+		const logEl = document.getElementById("kimi-log")
+		if (!logEl) return
 
-	private step(): void {
-		// TODO: 单步执行，等待 Kimi 输入
-		console.log("[KIMI] 单步")
-	}
-
-	private start(): void {
-		// TODO: 开始游戏，循环等待 Kimi 输入
-		console.log("[KIMI] 开始")
+		const color = type === "success" ? "#34a853" : type === "error" ? "#ea4335" : "#9aa0a6"
+		const entry = document.createElement("div")
+		entry.style.color = color
+		entry.textContent = `[${this.gameLog.length}] ${msg}`
+		logEl.appendChild(entry)
+		logEl.scrollTop = logEl.scrollHeight
 	}
 }
