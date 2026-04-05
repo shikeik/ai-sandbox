@@ -143,7 +143,7 @@ export class MapGeneratorEntry {
 			this.generatedMap = this.createEmptyMap()
 			this.currentHeroCol = 0
 			this.generationHistory = []
-			this.prevPosDecorations = []
+			this.prevPosDecorations = [{ col: 0, value: -1 }]  // 起点原先是未生成(-1)
 			
 			this.generatedMap[0][0] = ELEM_GROUND
 			this.generatedMap[1][0] = ELEM_HERO
