@@ -23,6 +23,9 @@ export class MapGeneratorEntry {
 	private currentHeroCol = 0
 	private generatedMap: number[][] | null = null
 	private generationHistory: string[] = []
+	
+	// 狐狸移动前原位置的装饰元素（用于恢复，实现"幽灵行动"）
+	private prevPosDecorations: { col: number; value: number }[] = []
 
 	constructor(state: AppState) {
 		this.state = state
@@ -64,6 +67,7 @@ export class MapGeneratorEntry {
 	private bindGlobalFunctions(): void {
 		;(window as any).startGeneration = () => this.startGeneration()
 		;(window as any).stopGeneration = () => this.stopGeneration()
+		;(window as any).stepGeneration = () => this.stepGeneration()
 	}
 
 	/**
@@ -80,6 +84,7 @@ export class MapGeneratorEntry {
 		this.generatedMap = this.createEmptyMap()
 		this.currentHeroCol = 0
 		this.generationHistory = []
+		this.prevPosDecorations = [{ col: 0, value: -1 }]  // 起点原先是未生成(-1)
 
 		// 设置起点（层索引：0=地面, 1=地上, 2=天上）
 		this.generatedMap[0][0] = ELEM_GROUND  // 狐狸脚下是平地
@@ -129,27 +134,58 @@ export class MapGeneratorEntry {
 	}
 
 	/**
+	 * 单步生成（供外部调用）
+	 */
+	async stepGeneration(): Promise<void> {
+		if (this.isGenerating) return // 正在连续生成时不能单步
+		
+		if (!this.generatedMap) {
+			// 首次单步，初始化
+			this.generatedMap = this.createEmptyMap()
+			this.currentHeroCol = 0
+			this.generationHistory = []
+			this.prevPosDecorations = []
+			
+			this.generatedMap[0][0] = ELEM_GROUND
+			this.generatedMap[1][0] = ELEM_HERO
+			
+			this.renderer.followHero(0)
+			this.renderer.draw(this.generatedMap, 0)
+			this.updateHistory("起点：第0列")
+			return
+		}
+		
+		if (this.currentHeroCol >= 31) {
+			this.showResult(true, `✅ 已到达终点！共${this.generationHistory.length}步`)
+			return
+		}
+		
+		const result = await this.generateNextStep(true) // true = 单步模式
+		if (result?.reachedEnd) {
+			this.showResult(true, `✅ 地图生成完成！共${this.generationHistory.length}步`)
+		}
+	}
+
+	/**
 	 * 生成下一步
 	 * 新逻辑：先随机选动作，再为这个动作生成地形（零失败）
 	 * 使用 existingMap 参数在同一张地图上累积生成
+	 * 注意：狐狸是"幽灵行动"，不会实际影响地图（不会击杀史莱姆/金币）
 	 */
-	private async generateNextStep(): Promise<{ success: boolean; reachedEnd: boolean } | null> {
+	private async generateNextStep(isSingleStep = false): Promise<{ success: boolean; reachedEnd: boolean } | null> {
 		if (!this.generatedMap || this.shouldStop) return null
 
 		const heroCol = this.currentHeroCol
 
 		// 随机选一个动作（0=走, 1=跳, 2=远跳, 3=走A）
-		// 如果选到走A但配置不支持，会自动降级为走
 		let action = Math.floor(Math.random() * 4)
 		if (action === 3 && !this.terrainConfig.slime) {
 			action = 0 // 降级为走
 		}
 
 		// 使用 existingMap 参数在同一张地图上直接生成
-		// 这样不会覆盖之前已生成的地形
 		const result = generateTerrainForAction(action, heroCol, this.terrainConfig, this.generatedMap)
 		if (!result) {
-			// 理论上不会到这里，除非配置异常
 			this.updateHistory(`第${heroCol}列：生成失败`)
 			return { success: false, reachedEnd: false }
 		}
@@ -168,20 +204,24 @@ export class MapGeneratorEntry {
 		// 1. 相机先移动到能看到主角和新位置的地方
 		this.renderer.followHero(heroCol)
 		this.renderer.draw(this.generatedMap, heroCol)
-		await this.delay(100)
+		await this.delay(isSingleStep ? 50 : 100)
 
 		// 2. 播放行动画（狐狸在视野内移动）
 		await this.renderer.playAnimation(actionName)
 
-		// 3. 动画完成后，实际移动狐狸
-		this.generatedMap[1][heroCol] = ELEM_AIR
+		// 3. 动画完成后，"幽灵移动"狐狸 - 不实际修改地图，只更新位置
+		// 恢复之前所有位置的装饰
+		for (const pos of this.prevPosDecorations) {
+			this.generatedMap[1][pos.col] = pos.value
+		}
+		// 记录新位置的原值，然后显示狐狸
+		const originalValue = this.generatedMap[1][targetCol]
+		this.prevPosDecorations.push({ col: targetCol, value: originalValue })
 		this.generatedMap[1][targetCol] = ELEM_HERO
 		this.currentHeroCol = targetCol
 
 		// 4. 相机跟随到新位置，渲染
-		// 如果到达终点附近，让相机能看到终点
 		if (this.currentHeroCol >= 25) {
-			// 显示最后几列，确保能看到终点
 			this.renderer.setCameraPosition(25)
 		} else {
 			this.renderer.followHero(this.currentHeroCol)
@@ -189,7 +229,7 @@ export class MapGeneratorEntry {
 		this.renderer.draw(this.generatedMap, this.currentHeroCol)
 
 		// 5. 等待一下让用户看清新地形
-		await this.delay(300)
+		await this.delay(isSingleStep ? 150 : 300)
 
 		// 检查终点
 		if (targetCol >= 31) {
