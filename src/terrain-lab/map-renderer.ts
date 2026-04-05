@@ -262,23 +262,25 @@ export class MapRenderer {
 		// 计算丝滑滚动偏移量
 		const scrollOffset = this.getScrollOffset()
 
-		// 动画状态处理（使用实际地图列号）
-		let hideHeroAtMapCol: number | null = null
+		// 动画状态处理
 		let hideSlimeAtMapCol: number | null = null
 
 		if (this.animState) {
-			hideHeroAtMapCol = this.currentHeroCol
 			if (this.animState.slimeKilled) {
 				hideSlimeAtMapCol = this.currentHeroCol + 1
 			}
 		}
 
 		// 1. 先绘制地形（网格 + emoji）
-		this.drawTerrainGridSmooth(viewport, scrollOffset, hideSlimeAtMapCol, hideHeroAtMapCol)
+		this.drawTerrainGridSmooth(viewport, scrollOffset, hideSlimeAtMapCol)
 
-		// 2. 动画狐狸
+		// 2. 绘制狐狸（基于 currentHeroCol 坐标，不在地图数据中）
 		if (this.animState) {
+			// 动画时绘制动画狐狸
 			this.drawAnimatedHero(scrollOffset)
+		} else {
+			// 静止时根据 currentHeroCol 绘制狐狸
+			this.drawHeroAtCol(scrollOffset)
 		}
 
 		// 3. 再绘制标签（在地图之上）
@@ -300,8 +302,7 @@ export class MapRenderer {
 	private drawTerrainGridSmooth(
 		viewport: number[][],
 		scrollOffset: number,
-		hideSlimeAtMapCol: number | null,
-		hideHeroAtMapCol: number | null
+		hideSlimeAtMapCol: number | null
 	): void {
 		const effectiveStartX = this.startX - scrollOffset
 		const startCol = Math.floor(this.cameraCol)
@@ -334,12 +335,6 @@ export class MapRenderer {
 
 				// 跳过被击杀的史莱姆（数据层1是地上层）
 				if (dataLayer === 1 && mapCol === hideSlimeAtMapCol) continue
-
-				// 动画时跳过原位置的狐狸（显示空气）
-				if (dataLayer === 1 && mapCol === hideHeroAtMapCol && elemId === 1) {
-					drawEmoji(this.ctx, " ", x + this.cellW / 2, y + this.cellH / 2, Math.min(this.cellW, this.cellH) * 0.55)
-					continue
-				}
 
 				// 安全获取 emoji，未生成(-1)或无效ID显示为空格
 				const emoji = ELEMENTS[elemId]?.emoji ?? " "
@@ -423,6 +418,23 @@ export class MapRenderer {
 
 	private easeOutQuad(t: number): number {
 		return t * (2 - t)
+	}
+
+	/**
+	 * 绘制静止的狐狸（基于 currentHeroCol 坐标）
+	 */
+	private drawHeroAtCol(scrollOffset: number): void {
+		const effectiveStartX = this.startX - scrollOffset
+		// 计算狐狸在屏幕上的位置
+		const heroScreenCol = this.currentHeroCol - this.cameraCol
+		
+		// 只在视野内绘制
+		if (heroScreenCol < -1 || heroScreenCol > this.viewportCols) return
+		
+		const x = effectiveStartX + heroScreenCol * (this.cellW + this.gapX) + this.cellW / 2
+		const y = this.startY + 1 * (this.cellH + this.gapY) + this.cellH / 2
+		
+		drawEmoji(this.ctx, "🦊", x, y, Math.min(this.cellW, this.cellH) * 0.65)
 	}
 
 	/**

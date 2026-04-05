@@ -23,9 +23,6 @@ export class MapGeneratorEntry {
 	private currentHeroCol = 0
 	private generatedMap: number[][] | null = null
 	private generationHistory: string[] = []
-	
-	// 狐狸移动前原位置的装饰元素（用于恢复，实现"幽灵行动"）
-	private prevPosDecorations: { col: number; value: number }[] = []
 
 	constructor(state: AppState) {
 		this.state = state
@@ -84,12 +81,10 @@ export class MapGeneratorEntry {
 		this.generatedMap = this.createEmptyMap()
 		this.currentHeroCol = 0
 		this.generationHistory = []
-		this.prevPosDecorations = [{ col: 0, value: -1 }]  // 起点原先是未生成(-1)
 
 		// 设置起点（层索引：0=地面, 1=地上, 2=天上）
 		this.generatedMap[0][0] = ELEM_GROUND  // 狐狸脚下是平地
-		this.generatedMap[1][0] = ELEM_HERO    // 狐狸在地上层
-		// 注意：不预生成任何地形，真正做到"走到哪生成到哪"
+		// 注意：狐狸不在地图上，只是基于坐标的动画
 
 		// 初始渲染
 		this.renderer.draw(this.generatedMap, 0)
@@ -143,10 +138,9 @@ export class MapGeneratorEntry {
 			this.generatedMap = this.createEmptyMap()
 			this.currentHeroCol = 0
 			this.generationHistory = []
-			this.prevPosDecorations = [{ col: 0, value: -1 }]  // 起点原先是未生成(-1)
 			
 			this.generatedMap[0][0] = ELEM_GROUND
-			this.generatedMap[1][0] = ELEM_HERO
+			// 注意：狐狸不在地图上，只是基于坐标的动画
 			
 			this.renderer.draw(this.generatedMap, 0)
 			this.updateHistory("起点：第0列")
@@ -206,16 +200,7 @@ export class MapGeneratorEntry {
 		// 2. 播放行动画（狐狸在视野内移动）
 		await this.renderer.playAnimation(actionName)
 
-		// 3. 动画完成后，"幽灵移动"狐狸 - 不实际修改地图，只更新位置
-		// 只恢复上一个位置（不是累积所有位置），避免多狐狸问题
-		if (this.prevPosDecorations.length > 0) {
-			const lastPos = this.prevPosDecorations[this.prevPosDecorations.length - 1]
-			this.generatedMap[1][lastPos.col] = lastPos.value
-		}
-		// 记录新位置的原值，然后显示狐狸
-		const originalValue = this.generatedMap[1][targetCol]
-		this.prevPosDecorations = [{ col: targetCol, value: originalValue }]  // 只保留当前位置
-		this.generatedMap[1][targetCol] = ELEM_HERO
+		// 3. 动画完成后，更新狐狸位置（狐狸只是基于坐标的动画，不在地图上）
 		this.currentHeroCol = targetCol
 
 		// 4. 渲染新位置
