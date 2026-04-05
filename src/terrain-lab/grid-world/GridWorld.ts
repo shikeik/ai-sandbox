@@ -226,7 +226,8 @@ export class GridWorld {
 	 */
 	followHero(enable: boolean): void {
 		if (enable && this.config.viewportWidth) {
-			const targetCamera = Math.max(0, this.state.heroCol - Math.floor(this.config.viewportWidth / 2))
+			// 狐狸固定在视野左侧第0列（而不是中间）
+			const targetCamera = Math.max(0, this.state.heroCol)
 			this.setCameraCol(targetCamera)
 		}
 	}
