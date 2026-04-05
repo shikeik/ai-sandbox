@@ -389,18 +389,18 @@ export class MapRenderer {
 	}
 
 	/**
-	 * 绘制动画中的狐狸（支持丝滑滚动）
-	 * 注意：动画路径的 targetCol 是相对偏移（1,2,3），需要基于视口第0列计算
+	 * 绘制动画中的狐狸（基于世界坐标，不受滑动影响）
+	 * 动画在世界坐标系中进行，然后根据相机位置偏移到屏幕
 	 */
 	private drawAnimatedHero(scrollOffset: number): void {
 		if (!this.animState) return
 
 		const effectiveStartX = this.startX - scrollOffset
-		// 狐狸从视口第0列开始动画（因为相机跟随狐狸，视口第0列就是狐狸位置）
-		const heroBaseX = effectiveStartX + this.cellW / 2
+		// 基于世界列号计算位置：currentHeroCol 是世界坐标
+		const heroBaseX = effectiveStartX + (this.currentHeroCol - this.cameraCol) * (this.cellW + this.gapX) + this.cellW / 2
 		const heroBaseY = this.startY + 1 * (this.cellH + this.gapY) + this.cellH / 2
 		// targetCol 是相对偏移（走=1, 跳=2, 远跳=3）
-		const targetX = effectiveStartX + this.animState.path.targetCol * (this.cellW + this.gapX) + this.cellW / 2
+		const targetX = effectiveStartX + (this.currentHeroCol - this.cameraCol + this.animState.path.targetCol) * (this.cellW + this.gapX) + this.cellW / 2
 
 		let hx = heroBaseX
 		let hy = heroBaseY

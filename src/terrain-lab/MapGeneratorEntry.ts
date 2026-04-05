@@ -207,13 +207,14 @@ export class MapGeneratorEntry {
 		await this.renderer.playAnimation(actionName)
 
 		// 3. 动画完成后，"幽灵移动"狐狸 - 不实际修改地图，只更新位置
-		// 恢复之前所有位置的装饰
-		for (const pos of this.prevPosDecorations) {
-			this.generatedMap[1][pos.col] = pos.value
+		// 只恢复上一个位置（不是累积所有位置），避免多狐狸问题
+		if (this.prevPosDecorations.length > 0) {
+			const lastPos = this.prevPosDecorations[this.prevPosDecorations.length - 1]
+			this.generatedMap[1][lastPos.col] = lastPos.value
 		}
 		// 记录新位置的原值，然后显示狐狸
 		const originalValue = this.generatedMap[1][targetCol]
-		this.prevPosDecorations.push({ col: targetCol, value: originalValue })
+		this.prevPosDecorations = [{ col: targetCol, value: originalValue }]  // 只保留当前位置
 		this.generatedMap[1][targetCol] = ELEM_HERO
 		this.currentHeroCol = targetCol
 
