@@ -4,6 +4,70 @@ import { resolve } from 'path'
 const pendingRequests = new Map()
 let requestId = 0
 
+// 格式化 JSON，数组内部不换行
+function formatJsonCompactArrays(obj) {
+	// 深拷贝，避免修改原对象
+	const data = JSON.parse(JSON.stringify(obj))
+	
+	// 手动构建格式化的 JSON
+	const lines = []
+	lines.push('{')
+	
+	// success
+	lines.push(`  "success": ${data.success},`)
+	
+	// death
+	if (data.death !== undefined) {
+		lines.push(`  "death": ${data.death},`)
+	}
+	if (data.deathReason !== undefined) {
+		lines.push(`  "deathReason": ${data.deathReason === null ? 'null' : '"' + data.deathReason + '"'},`)
+	}
+	if (data.killedSlime !== undefined) {
+		lines.push(`  "killedSlime": ${data.killedSlime},`)
+	}
+	
+	// viewport
+	if (data.viewport) {
+		lines.push('  "viewport": {')
+		// grid - 数组保持单行
+		if (data.viewport.grid) {
+			const gridStr = data.viewport.grid.map(row => `[${row.join(', ')}]`).join(',\n      ')
+			lines.push('    "grid": [')
+			lines.push('      ' + gridStr)
+			lines.push('    ],')
+		}
+		// heroPos
+		if (data.viewport.heroPos) {
+			lines.push(`    "heroPos": { "col": ${data.viewport.heroPos.col}, "row": ${data.viewport.heroPos.row} },`)
+		}
+		// heroWorldCol
+		if (data.viewport.heroWorldCol !== undefined) {
+			lines.push(`    "heroWorldCol": ${data.viewport.heroWorldCol},`)
+		}
+		// steps
+		if (data.viewport.steps !== undefined) {
+			lines.push(`    "steps": ${data.viewport.steps},`)
+		}
+		// status
+		if (data.viewport.status !== undefined) {
+			lines.push(`    "status": "${data.viewport.status}"`)
+		}
+		lines.push('  },')
+	}
+	
+	// timestamp
+	if (data.timestamp !== undefined) {
+		lines.push(`  "timestamp": ${data.timestamp},`)
+	}
+	
+	// requestId
+	lines.push(`  "requestId": ${data.requestId}`)
+	lines.push('}')
+	
+	return lines.join('\n')
+}
+
 // 格式化美观响应（用于 curl ?pretty 模式）
 function formatPrettyResponse(result, requestId) {
 	const emojis = { 0: '⬛', 1: '🦊', 2: '🟩', 3: '🦠', 4: '👿', 5: '🪙' }
@@ -33,9 +97,9 @@ function formatPrettyResponse(result, requestId) {
 		
 		lines.push('')
 		lines.push('🗺️  视野 (5×3):')
-		for (const row of grid) {
-			lines.push('  ' + row.map(c => emojis[c] || '?').join(''))
-		}
+		lines.push('天上: ' + grid[0].map(c => emojis[c] || '?').join(''))
+		lines.push('地上: ' + grid[1].map(c => emojis[c] || '?').join(''))
+		lines.push('地面: ' + grid[2].map(c => emojis[c] || '?').join(''))
 		lines.push('')
 		lines.push('图例: ⬛空气 🦊狐狸 🟩平地 🦠史莱姆 👿恶魔 🪙金币')
 		
@@ -44,6 +108,14 @@ function formatPrettyResponse(result, requestId) {
 			lines.push(`🦊 狐狸: 视野内[${heroPos.col},${heroPos.row}] | 世界[${heroWorldCol}] | 步数:${steps}`)
 			if (status) lines.push(`📊 状态: ${status}`)
 		}
+		
+		// 添加游戏规则教程
+		lines.push('')
+		lines.push('📖 规则说明:')
+		lines.push('  • 走(+1): 地面[0]是平地, 地上无史莱姆 | 不看天上')
+		lines.push('  • 跳(+2): 地面[1]是平地, 天上/地上无恶魔/史莱姆')
+		lines.push('  • 远跳(+3): 地面[2]是平地, 路径天上无恶魔')
+		lines.push('  • 走A(+1): 地上有史莱姆(击杀), 地面是平地')
 	}
 	
 	lines.push('')
@@ -113,12 +185,12 @@ const apiBridgePlugin = {
 					// JSON 格式
 					res.setHeader('Content-Type', 'application/json')
 					res.setHeader('Access-Control-Allow-Origin', '*')
-					res.end(JSON.stringify({ ...result, requestId: id }))
+						res.end(formatJsonCompactArrays({ ...result, requestId: id }) + "\n")
 				}
 			} catch (err) {
 				res.statusCode = 500
 				res.setHeader('Content-Type', 'application/json')
-				res.end(JSON.stringify({ error: err.message, requestId: id }))
+				res.end(JSON.stringify({ error: err.message, requestId: id }) + "\n")
 			}
 		})
 

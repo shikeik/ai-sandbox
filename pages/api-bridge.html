@@ -292,7 +292,41 @@
 			<strong>💡 使用方法：</strong><br>
 			1. 确保此页面保持打开<br>
 			2. 在终端运行：<code>node scripts/api-bridge/kimi-cli.mjs 走</code><br>
-			3. 或使用 curl：<code>curl -X POST http://localhost:4000/api/kimi -d '{"action":"走"}'</code>
+			3. 或使用 curl：<code>curl -X POST http://localhost:4000/api/kimi?pretty -d '{"action":"走"}'</code>
+		</div>
+
+		<div class="info-card" style="background: rgba(255,193,7,0.1); border-color: rgba(255,193,7,0.3);">
+			<strong>📖 游戏规则（通关秘籍）：</strong><br>
+			<table style="width:100%; margin-top:10px; font-size:13px; border-collapse:collapse;">
+				<tr style="border-bottom:1px solid rgba(255,255,255,0.1);">
+					<td style="padding:8px 0;"><strong>动作</strong></td>
+					<td style="padding:8px 0;"><strong>合法条件</strong></td>
+					<td style="padding:8px 0;"><strong>死亡原因</strong></td>
+				</tr>
+				<tr style="border-bottom:1px solid rgba(255,255,255,0.05);">
+					<td style="padding:6px 0;">🚶 走 (+1)</td>
+					<td style="padding:6px 0;">地面[x+1]=🟩, 地上[x+1]≠🦠</td>
+					<td style="padding:6px 0;">掉坑 / 撞史莱姆</td>
+				</tr>
+				<tr style="border-bottom:1px solid rgba(255,255,255,0.05);">
+					<td style="padding:6px 0;">🦘 跳 (+2)</td>
+					<td style="padding:6px 0;">天上[x+1,x+2]≠👿, 地面[x+2]=🟩, 地上[x+2]≠🦠</td>
+					<td style="padding:6px 0;">撞恶魔 / 掉坑 / 撞史莱姆</td>
+				</tr>
+				<tr style="border-bottom:1px solid rgba(255,255,255,0.05);">
+					<td style="padding:6px 0;">🚀 远跳 (+3)</td>
+					<td style="padding:6px 0;">天上[x+1,x+2,x+3]≠👿, 地面[x+3]=🟩, 地上[x+3]≠🦠</td>
+					<td style="padding:6px 0;">撞恶魔 / 掉坑 / 撞史莱姆</td>
+				</tr>
+				<tr>
+					<td style="padding:6px 0;">⚔️ 走A (+1)</td>
+					<td style="padding:6px 0;">地上[x+1]=🦠, 地面[x+1]=🟩</td>
+					<td style="padding:6px 0;">无史莱姆 / 掉坑</td>
+				</tr>
+			</table>
+			<p style="margin-top:10px; font-size:12px; color:#aaa;">
+				💡 <strong>提示：</strong>地图是"可通关"的，意味着从起点到终点存在一条合法路径。观察地面层（第3行）的平地分布来推断该走/跳/远跳！
+			</p>
 		</div>
 
 		<!-- 游戏面板 -->
@@ -362,63 +396,88 @@
 				this.reset()
 			}
 
-			// 生成可通关的地图
+			// 生成可通关的地图（action-based 生成）
 			generateMap() {
-				// 初始化空地
-				this.grid = Array(3).fill(null).map(() => Array(this.mapLength).fill(0))
+				const ELEM_AIR = 0, ELEM_HERO = 1, ELEM_GROUND = 2, ELEM_SLIME = 3, ELEM_DEMON = 4, ELEM_COIN = 5
 				
-				const elements = {
-					EMPTY: 0,   // ⬛ 空气
-					HERO: 1,    // 🦊 狐狸
-					GROUND: 2,  // 🟩 平地
-					SLIME: 3,   // 🦠 史莱姆
-					DEMON: 4,   // 👿 恶魔
-					COIN: 5     // 🪙 金币
+				// 初始化全空气地图
+				this.grid = [
+					Array(this.mapLength).fill(ELEM_AIR),  // 天上层
+					Array(this.mapLength).fill(ELEM_AIR),  // 地上层
+					Array(this.mapLength).fill(ELEM_AIR)   // 地面层
+				]
+				
+				// 起点
+				this.grid[1][0] = ELEM_HERO
+				this.grid[2][0] = ELEM_GROUND
+
+				// 候选池
+				const skyPool = [ELEM_AIR, ELEM_DEMON, ELEM_DEMON, ELEM_DEMON, ELEM_COIN]
+				const midPool = [ELEM_AIR, ELEM_SLIME, ELEM_SLIME, ELEM_COIN]
+				const pick = (pool, exclude = []) => {
+					const available = pool.filter(e => !exclude.includes(e))
+					return available[Math.floor(Math.random() * available.length)] || ELEM_AIR
 				}
 
-				// 起点
-				this.grid[1][0] = elements.HERO
-				this.grid[2][0] = elements.GROUND
-				this.grid[2][1] = elements.GROUND
-
-				// 随机生成可通关路径
-				let col = 1
-				while (col < this.mapLength - 1) {
-					const actions = ['走', '跳', '远跳']
+				// action-based 生成：从起点开始，一步步生成确保可通关
+				let heroCol = 0
+				while (heroCol < this.mapLength - 1) {
+					// 随机选择动作
+					const actions = [0, 1, 2] // 走, 跳, 远跳
 					const action = actions[Math.floor(Math.random() * actions.length)]
 					
-					let move = 1
-					if (action === '跳') move = 2
-					if (action === '远跳') move = 3
-
-					const targetCol = col + move
-					if (targetCol >= this.mapLength) break
-
-					// 放置平地
-					this.grid[2][targetCol] = elements.GROUND
-
-					// 随机添加障碍或金币
-					if (Math.random() < 0.2 && move > 1) {
-						// 恶魔（跳过时危险）
-						for (let i = 1; i < move; i++) {
-							this.grid[0][col + i] = elements.DEMON
-						}
+					// 根据动作生成地形
+					switch (action) {
+						case 0: // 走（+1）
+							if (heroCol + 1 >= this.mapLength) break
+							this.grid[2][heroCol + 1] = ELEM_GROUND
+							this.grid[0][heroCol + 1] = pick(skyPool)
+							this.grid[1][heroCol + 1] = pick(midPool, [ELEM_SLIME])
+							heroCol += 1
+							break
+							
+						case 1: // 跳（+2）
+							if (heroCol + 2 >= this.mapLength) {
+								// 不够跳，改走
+								this.grid[2][heroCol + 1] = ELEM_GROUND
+								heroCol += 1
+								break
+							}
+							this.grid[2][heroCol + 1] = ELEM_AIR // 坑
+							this.grid[2][heroCol + 2] = ELEM_GROUND // 落点
+							this.grid[0][heroCol + 1] = pick(skyPool, [ELEM_DEMON]) // x+1无恶魔
+							this.grid[0][heroCol + 2] = pick(skyPool, [ELEM_DEMON]) // x+2无恶魔
+							this.grid[1][heroCol + 1] = pick(midPool)
+							this.grid[1][heroCol + 2] = pick(midPool, [ELEM_SLIME])
+							heroCol += 2
+							break
+							
+						case 2: // 远跳（+3）
+							if (heroCol + 3 >= this.mapLength) {
+								// 不够远跳，改走
+								this.grid[2][heroCol + 1] = ELEM_GROUND
+								heroCol += 1
+								break
+							}
+							this.grid[2][heroCol + 1] = ELEM_AIR // 坑
+							this.grid[2][heroCol + 2] = ELEM_AIR // 坑
+							this.grid[2][heroCol + 3] = ELEM_GROUND // 落点
+							this.grid[0][heroCol + 1] = pick(skyPool, [ELEM_DEMON])
+							this.grid[0][heroCol + 2] = pick(skyPool, [ELEM_DEMON])
+							this.grid[0][heroCol + 3] = pick(skyPool, [ELEM_DEMON])
+							this.grid[1][heroCol + 1] = pick(midPool)
+							this.grid[1][heroCol + 2] = pick(midPool)
+							this.grid[1][heroCol + 3] = pick(midPool, [ELEM_SLIME])
+							heroCol += 3
+							break
 					}
-					if (Math.random() < 0.15) {
-						// 史莱姆
-						this.grid[1][targetCol] = elements.SLIME
-					}
-					if (Math.random() < 0.1) {
-						// 金币
-						const layer = Math.random() < 0.5 ? 0 : 1
-						this.grid[layer][targetCol] = elements.COIN
-					}
-
-					col = targetCol
 				}
 
-				// 终点
-				this.grid[2][this.mapLength - 1] = elements.GROUND
+				// 终点必须是平地
+				this.grid[2][this.mapLength - 1] = ELEM_GROUND
+				// 清除终点上的障碍
+				this.grid[0][this.mapLength - 1] = ELEM_AIR
+				this.grid[1][this.mapLength - 1] = ELEM_AIR
 			}
 
 			reset() {
@@ -432,7 +491,7 @@
 
 			// 执行动作（强制执行，不管合不合法）
 			executeAction(action) {
-				const elements = { EMPTY: 0, HERO: 1, GROUND: 2, SLIME: 3, DEMON: 4, COIN: 5 }
+				const ELEM_AIR = 0, ELEM_HERO = 1, ELEM_GROUND = 2, ELEM_SLIME = 3, ELEM_DEMON = 4, ELEM_COIN = 5
 				const moveMap = { '走': 1, '跳': 2, '远跳': 3, '走A': 1 }
 				const move = moveMap[action] || 1
 				const targetCol = this.heroCol + move
@@ -449,7 +508,7 @@
 				// 路径检查（跳/远跳时遇到恶魔）→ 死亡
 				else if ((action === '跳' || action === '远跳') && !death) {
 					for (let i = 1; i < move; i++) {
-						if (this.grid[0][this.heroCol + i] === elements.DEMON) {
+						if (this.grid[0][this.heroCol + i] === ELEM_DEMON) {
 							death = true
 							deathReason = '撞到恶魔！'
 							break
@@ -459,23 +518,23 @@
 
 				// 走A 检查
 				if (action === '走A' && !death) {
-					if (this.grid[1][targetCol] === elements.SLIME) {
-						this.grid[1][targetCol] = elements.EMPTY
+					if (this.grid[1][targetCol] === ELEM_SLIME) {
+						this.grid[1][targetCol] = ELEM_AIR
 						killedSlime = true
 					}
 					// 走A 没有史莱姆也继续前进（只是没击杀）
 				}
 
 				// 落地检查 → 死亡
-				if (!death && this.grid[2][targetCol] !== elements.GROUND) {
+				if (!death && this.grid[2][targetCol] !== ELEM_GROUND) {
 					death = true
 					deathReason = '掉进坑里了！'
 				}
 
 				// 强制执行移动
-				this.grid[1][this.heroCol] = elements.EMPTY
+				this.grid[1][this.heroCol] = ELEM_AIR
 				this.heroCol = Math.min(targetCol, this.mapLength - 1)
-				this.grid[1][this.heroCol] = elements.HERO
+				this.grid[1][this.heroCol] = ELEM_HERO
 				this.steps++
 
 				// 更新状态
@@ -528,24 +587,29 @@
 				const emojis = { 0: '⬛', 1: '🦊', 2: '🟩', 3: '🦠', 4: '👿', 5: '🪙' }
 				const vp = this.getViewport()
 
-				// 列标签
-				const startCol = Math.max(0, this.heroCol - 1)
+				// 列标签 - 显示相对狐狸的位置
 				const labels = Array(5).fill(0).map((_, i) => {
-					const col = startCol + i
-					return `<div class="col-label">${col}</div>`
+					const label = i === 1 ? '▼' : `+${i-1}`
+					return `<div class="col-label">${label}</div>`
 				}).join('')
 				document.getElementById('col-labels').innerHTML = labels
 
-				// 网格
-				const layerNames = ['天上', '地上', '地面']
+				// 网格 - 3层都显示，标注检查规则
+				const layerInfo = [
+					{ name: '天上', check: '跳/远跳检查' },
+					{ name: '地上', check: '走A检查' },
+					{ name: '地面', check: '全部动作' }
+				]
 				let html = ''
 				for (let row = 0; row < 3; row++) {
 					html += `<div class="row-with-label">`
-					html += `<div class="row-label">${layerNames[row]}</div>`
+					html += `<div class="row-label" style="font-size:11px; color:#888; width:100px;">${layerInfo[row].name}<br><span style="font-size:9px;">${layerInfo[row].check}</span></div>`
 					html += `<div class="grid-row">`
 					for (let col = 0; col < 5; col++) {
 						const cell = vp.grid[row][col]
-						html += `<div class="cell">${emojis[cell]}</div>`
+						const isHero = cell === 1
+						const highlight = isHero ? 'background:rgba(255,193,7,0.3); border:1px solid #ffc107;' : ''
+						html += `<div class="cell" style="${highlight}">${emojis[cell]}</div>`
 					}
 					html += `</div></div>`
 				}
