@@ -101,6 +101,8 @@ export class TrainingEntry {
 			editor.onCellPainted = (row, col, elementId) => {
 				console.log("TRAINING-ENTRY", `编辑器绘制回调 | row=${row}, col=${col}, element=${elementId}`)
 				setTerrainCell(this.state, row, col, elementId)
+				// 关键：把修改同步到 GridWorld 再绘制
+				this.syncTerrainToGridWorld()
 				this.drawEditor()
 				this.uiManager.updateTerrainStatus("wait", "地形已更新，点击「合法性检查」或「预测当前地形」查看结果")
 			}
@@ -342,10 +344,9 @@ export class TrainingEntry {
 				const painted = editor.paintAt(cell.row, cell.col)
 				console.log("TRAINING-ENTRY", `绘制结果 | painted=${painted}`)
 				if (painted) {
-					// 同步回 state
-					this.syncGridWorldToTerrain()
+					// 绘制已完成，只需停止动画和刷新
 					this.stopAnimation()
-					this.drawEditor()
+					// 注意：绘制已在 onCellPainted 回调中完成
 				}
 			}
 		} else {
