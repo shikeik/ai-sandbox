@@ -19,7 +19,7 @@ import {
 
 // ========== 常量 ==========
 const MAP_LENGTH = 32  // 地图总长度
-const VIEWPORT_COLS = 5  // 视野窗口宽度
+const VIEWPORT_COLS = 11  // 视野窗口宽度（显示更多内容）
 
 // 动作类型
 const ACTIONS = ["走", "跳", "远跳", "走A"] as const
@@ -99,7 +99,7 @@ export class KimiEntry {
 			<div class="challenge-layout">
 				<div class="panel" style="grid-column: 1 / -1;">
 					<div class="panel-title" style="display:flex;justify-content:space-between;align-items:center;">
-						<span>🤖 Kimi 挑战 - 5×3 视野</span>
+						<span>🤖 Kimi 挑战 - ${VIEWPORT_COLS}×3 宽视野</span>
 						<div style="display:flex;gap:10px;align-items:center;">
 							<span style="font-size:11px;color:#9aa0a6;">位置: <span id="kimi-hero-pos">0/31</span></span>
 							<span style="font-size:11px;color:#9aa0a6;">步数: <span id="kimi-step-count">0</span></span>
@@ -109,8 +109,8 @@ export class KimiEntry {
 						</div>
 					</div>
 
-					<!-- 5×3 视野画布 -->
-					<canvas id="kimi-canvas" style="width:100%;max-width:600px;height:280px;background:#0b0c0f;border-radius:8px;display:block;margin:0 auto;"></canvas>
+					<!-- ${VIEWPORT_COLS}×3 宽视野画布 -->
+					<canvas id="kimi-canvas" style="width:100%;max-width:900px;height:400px;background:#0b0c0f;border-radius:8px;display:block;margin:0 auto;"></canvas>
 
 					<!-- 状态信息 -->
 					<div class="challenge-result waiting" id="kimi-status" style="margin-top:10px;">
