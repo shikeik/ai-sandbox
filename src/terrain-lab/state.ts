@@ -1,7 +1,7 @@
 import type { NetParams, ForwardResult, DatasetItem } from "./types.js"
-import type { AnimationState } from "./animation.js"
+import type { ActionType } from "./types.js"
 import { createNet } from "./neural-network.js"
-import { createAnimationState } from "./animation.js"
+import { createAnimationState } from "./grid-world/index.js"
 import { NUM_COLS, NUM_LAYERS, ELEM_AIR, ELEM_HERO, ELEM_GROUND, DEFAULT_TERRAIN_CONFIG } from "./constants.js"
 
 // ========== 应用状态 ==========
@@ -36,7 +36,12 @@ export interface AppState {
 	observedSample: DatasetItem | null
 
 	// 动画
-	animation: AnimationState
+	animation: {
+		animId: number | null
+		animStartTime: number
+		animAction: ActionType | null
+		animSlimeKilled: boolean
+	}
 
 	// 学习模式：supervised | unsupervised
 	learningMode: "supervised" | "unsupervised"
