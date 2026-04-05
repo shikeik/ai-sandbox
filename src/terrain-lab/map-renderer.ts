@@ -341,7 +341,9 @@ export class MapRenderer {
 					continue
 				}
 
-				drawEmoji(this.ctx, ELEMENTS[elemId].emoji, x + this.cellW / 2, y + this.cellH / 2, Math.min(this.cellW, this.cellH) * 0.55)
+				// 安全获取 emoji，未生成(-1)或无效ID显示为空格
+				const emoji = ELEMENTS[elemId]?.emoji ?? " "
+				drawEmoji(this.ctx, emoji, x + this.cellW / 2, y + this.cellH / 2, Math.min(this.cellW, this.cellH) * 0.55)
 			}
 		}
 	}
