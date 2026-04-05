@@ -297,35 +297,11 @@
 
 		<div class="info-card" style="background: rgba(255,193,7,0.1); border-color: rgba(255,193,7,0.3);">
 			<strong>📖 游戏规则（通关秘籍）：</strong><br>
-			<table style="width:100%; margin-top:10px; font-size:13px; border-collapse:collapse;">
-				<tr style="border-bottom:1px solid rgba(255,255,255,0.1);">
-					<td style="padding:8px 0;"><strong>动作</strong></td>
-					<td style="padding:8px 0;"><strong>合法条件</strong></td>
-					<td style="padding:8px 0;"><strong>死亡原因</strong></td>
-				</tr>
-				<tr style="border-bottom:1px solid rgba(255,255,255,0.05);">
-					<td style="padding:6px 0;">🚶 走 (+1)</td>
-					<td style="padding:6px 0;">地面[x+1]=🟩, 地上[x+1]≠🦠</td>
-					<td style="padding:6px 0;">掉坑 / 撞史莱姆</td>
-				</tr>
-				<tr style="border-bottom:1px solid rgba(255,255,255,0.05);">
-					<td style="padding:6px 0;">🦘 跳 (+2)</td>
-					<td style="padding:6px 0;">天上[x+1,x+2]≠👿, 地面[x+2]=🟩, 地上[x+2]≠🦠</td>
-					<td style="padding:6px 0;">撞恶魔 / 掉坑 / 撞史莱姆</td>
-				</tr>
-				<tr style="border-bottom:1px solid rgba(255,255,255,0.05);">
-					<td style="padding:6px 0;">🚀 远跳 (+3)</td>
-					<td style="padding:6px 0;">天上[x+1,x+2,x+3]≠👿, 地面[x+3]=🟩, 地上[x+3]≠🦠</td>
-					<td style="padding:6px 0;">撞恶魔 / 掉坑 / 撞史莱姆</td>
-				</tr>
-				<tr>
-					<td style="padding:6px 0;">⚔️ 走A (+1)</td>
-					<td style="padding:6px 0;">地上[x+1]=🦠, 地面[x+1]=🟩</td>
-					<td style="padding:6px 0;">无史莱姆 / 掉坑</td>
-				</tr>
+			<table id="rules-table" style="width:100%; margin-top:10px; font-size:13px; border-collapse:collapse;">
+				<!-- 动态填充 -->
 			</table>
-			<p style="margin-top:10px; font-size:12px; color:#aaa;">
-				💡 <strong>提示：</strong>地图是"可通关"的，意味着从起点到终点存在一条合法路径。观察地面层（第3行）的平地分布来推断该走/跳/远跳！
+			<p id="rules-hint" style="margin-top:10px; font-size:12px; color:#aaa;">
+				<!-- 动态填充 -->
 			</p>
 		</div>
 
@@ -384,6 +360,13 @@
 	</div>
 
 	<script type="module">
+		// ========== 加载统一规则 ==========
+		const GAME_RULES = await fetch('../scripts/api-bridge/rules.json').then(r => r.json())
+		
+		// 规则工具函数
+		const EMOJIS = { 0: '⬛', 1: '🦊', 2: '🟩', 3: '🦠', 4: '👿', 5: '🪙' }
+		const ELEMENT_NAMES = { 0: '空气', 1: '狐狸', 2: '平地', 3: '史莱姆', 4: '恶魔', 5: '金币' }
+		
 		// ========== 游戏核心逻辑 ==========
 		class SimpleGame {
 			constructor() {
@@ -584,32 +567,26 @@
 
 			// 渲染到页面
 			render() {
-				const emojis = { 0: '⬛', 1: '🦊', 2: '🟩', 3: '🦠', 4: '👿', 5: '🪙' }
 				const vp = this.getViewport()
 
-				// 列标签 - 显示相对狐狸的位置
-				const labels = Array(5).fill(0).map((_, i) => {
-					const label = i === 1 ? '▼' : `+${i-1}`
-					return `<div class="col-label">${label}</div>`
-				}).join('')
+				// 列标签 - 显示相对狐狸的位置 [-1, 0, +1, +2, +3]
+				const colLabels = ['-1', '▼', '+1', '+2', '+3']
+				const labels = colLabels.map(l => `<div class="col-label">${l}</div>`).join('')
 				document.getElementById('col-labels').innerHTML = labels
 
-				// 网格 - 3层都显示，标注检查规则
-				const layerInfo = [
-					{ name: '天上', check: '跳/远跳检查' },
-					{ name: '地上', check: '走A检查' },
-					{ name: '地面', check: '全部动作' }
-				]
+				// 网格 - 层信息硬编码（rules.json 是数组格式）
+				const layerNames = ['天上', '地上', '地面']
+				const layerChecks = ['跳/远跳检查恶魔', '走A检查史莱姆', '所有动作检查平地']
 				let html = ''
 				for (let row = 0; row < 3; row++) {
 					html += `<div class="row-with-label">`
-					html += `<div class="row-label" style="font-size:11px; color:#888; width:100px;">${layerInfo[row].name}<br><span style="font-size:9px;">${layerInfo[row].check}</span></div>`
+					html += `<div class="row-label" style="font-size:11px; color:#888; width:100px;">${layerNames[row]}<br><span style="font-size:9px;">${layerChecks[row]}</span></div>`
 					html += `<div class="grid-row">`
 					for (let col = 0; col < 5; col++) {
 						const cell = vp.grid[row][col]
 						const isHero = cell === 1
 						const highlight = isHero ? 'background:rgba(255,193,7,0.3); border:1px solid #ffc107;' : ''
-						html += `<div class="cell" style="${highlight}">${emojis[cell]}</div>`
+						html += `<div class="cell" style="${highlight}">${EMOJIS[cell]}</div>`
 					}
 					html += `</div></div>`
 				}
@@ -650,6 +627,32 @@
 
 		// 渲染初始地图
 		game.render()
+
+		// 渲染规则表格（从 rules.json）
+		function renderRulesTable() {
+			const { actions, hint } = GAME_RULES
+			const table = document.getElementById('rules-table')
+			
+			let html = `<tr style="border-bottom:1px solid rgba(255,255,255,0.1);">
+				<td style="padding:8px 0;"><strong>动作</strong></td>
+				<td style="padding:8px 0;"><strong>检查条件</strong></td>
+			</tr>`
+			
+			const actionIcons = { '走': '🚶', '跳': '🦘', '远跳': '🚀', '走A': '⚔️' }
+			
+			Object.entries(actions).forEach(([name, action], idx) => {
+				const isLast = idx === Object.keys(actions).length - 1
+				const border = isLast ? '' : 'border-bottom:1px solid rgba(255,255,255,0.05);'
+				html += `<tr style="${border}">
+					<td style="padding:6px 0;">${actionIcons[name]} ${name} (+${action.move})</td>
+					<td style="padding:6px 0; font-size:12px;">${action.check}</td>
+				</tr>`
+			})
+			
+			table.innerHTML = html
+			document.getElementById('rules-hint').innerHTML = `💡 <strong>提示：</strong>${hint}`
+		}
+		renderRulesTable()
 
 		// ========== WebSocket / HMR 通信 ==========
 		if (import.meta.hot) {

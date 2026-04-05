@@ -1,129 +1,11 @@
 import { resolve } from 'path'
+import { buildResponse, formatJsonCompact, formatPretty } from './scripts/api-bridge/formatter.mjs'
 
 // ========== API Bridge 插件 ==========
+// 职责：HTTP 路由 + WebSocket 桥接（通用配置，无业务逻辑）
+
 const pendingRequests = new Map()
 let requestId = 0
-
-// 格式化 JSON，数组内部不换行
-function formatJsonCompactArrays(obj) {
-	// 深拷贝，避免修改原对象
-	const data = JSON.parse(JSON.stringify(obj))
-	
-	// 手动构建格式化的 JSON
-	const lines = []
-	lines.push('{')
-	
-	// success
-	lines.push(`  "success": ${data.success},`)
-	
-	// death
-	if (data.death !== undefined) {
-		lines.push(`  "death": ${data.death},`)
-	}
-	if (data.deathReason !== undefined) {
-		lines.push(`  "deathReason": ${data.deathReason === null ? 'null' : '"' + data.deathReason + '"'},`)
-	}
-	if (data.killedSlime !== undefined) {
-		lines.push(`  "killedSlime": ${data.killedSlime},`)
-	}
-	
-	// viewport
-	if (data.viewport) {
-		lines.push('  "viewport": {')
-		// grid - 数组保持单行
-		if (data.viewport.grid) {
-			const gridStr = data.viewport.grid.map(row => `[${row.join(', ')}]`).join(',\n      ')
-			lines.push('    "grid": [')
-			lines.push('      ' + gridStr)
-			lines.push('    ],')
-		}
-		// heroPos
-		if (data.viewport.heroPos) {
-			lines.push(`    "heroPos": { "col": ${data.viewport.heroPos.col}, "row": ${data.viewport.heroPos.row} },`)
-		}
-		// heroWorldCol
-		if (data.viewport.heroWorldCol !== undefined) {
-			lines.push(`    "heroWorldCol": ${data.viewport.heroWorldCol},`)
-		}
-		// steps
-		if (data.viewport.steps !== undefined) {
-			lines.push(`    "steps": ${data.viewport.steps},`)
-		}
-		// status
-		if (data.viewport.status !== undefined) {
-			lines.push(`    "status": "${data.viewport.status}"`)
-		}
-		lines.push('  },')
-	}
-	
-	// timestamp
-	if (data.timestamp !== undefined) {
-		lines.push(`  "timestamp": ${data.timestamp},`)
-	}
-	
-	// requestId
-	lines.push(`  "requestId": ${data.requestId}`)
-	lines.push('}')
-	
-	return lines.join('\n')
-}
-
-// 格式化美观响应（用于 curl ?pretty 模式）
-function formatPrettyResponse(result, requestId) {
-	const emojis = { 0: '⬛', 1: '🦊', 2: '🟩', 3: '🦠', 4: '👿', 5: '🪙' }
-	const lines = []
-	
-	// 状态判断
-	let statusIcon = '✅ 成功'
-	if (result.death) statusIcon = '💀 死亡'
-	else if (!result.success) statusIcon = '❌ 失败'
-	
-	lines.push('══════════════════════════════════════════')
-	lines.push(`  响应 #${requestId} | ${statusIcon}`)
-	lines.push('══════════════════════════════════════════')
-	
-	// 死亡原因
-	if (result.death && result.deathReason) {
-		lines.push(`死因: ${result.deathReason}`)
-	}
-	
-	// 击杀提示
-	if (result.killedSlime) {
-		lines.push('🗡️ 击杀了史莱姆！')
-	}
-	
-	if (result.viewport) {
-		const { grid, heroPos, heroWorldCol, steps, status } = result.viewport
-		
-		lines.push('')
-		lines.push('🗺️  视野 (5×3):')
-		lines.push('天上: ' + grid[0].map(c => emojis[c] || '?').join(''))
-		lines.push('地上: ' + grid[1].map(c => emojis[c] || '?').join(''))
-		lines.push('地面: ' + grid[2].map(c => emojis[c] || '?').join(''))
-		lines.push('')
-		lines.push('图例: ⬛空气 🦊狐狸 🟩平地 🦠史莱姆 👿恶魔 🪙金币')
-		
-		if (heroPos !== undefined) {
-			lines.push('')
-			lines.push(`🦊 狐狸: 视野内[${heroPos.col},${heroPos.row}] | 世界[${heroWorldCol}] | 步数:${steps}`)
-			if (status) lines.push(`📊 状态: ${status}`)
-		}
-		
-		// 添加游戏规则教程
-		lines.push('')
-		lines.push('📖 规则说明:')
-		lines.push('  • 走(+1): 地面[0]是平地, 地上无史莱姆 | 不看天上')
-		lines.push('  • 跳(+2): 地面[1]是平地, 天上/地上无恶魔/史莱姆')
-		lines.push('  • 远跳(+3): 地面[2]是平地, 路径天上无恶魔')
-		lines.push('  • 走A(+1): 地上有史莱姆(击杀), 地面是平地')
-	}
-	
-	lines.push('')
-	lines.push('──────────────────────────────────────────')
-	lines.push('')  // 结尾空行，避免顶住命令行提示符
-	
-	return lines.join('\n')
-}
 
 const apiBridgePlugin = {
 	name: 'api-bridge',
@@ -133,7 +15,7 @@ const apiBridgePlugin = {
 			if (req.method !== 'POST') {
 				res.statusCode = 405
 				res.setHeader('Content-Type', 'application/json')
-				res.end(JSON.stringify({ error: 'Method not allowed' }))
+				res.end(JSON.stringify({ error: 'Method not allowed' }) + '\n')
 				return
 			}
 
@@ -149,7 +31,6 @@ const apiBridgePlugin = {
 			// 创建 Promise 等待浏览器响应
 			const responsePromise = new Promise((resolve, reject) => {
 				pendingRequests.set(id, { resolve, reject })
-				// 30秒超时
 				setTimeout(() => {
 					if (pendingRequests.has(id)) {
 						pendingRequests.delete(id)
@@ -162,35 +43,30 @@ const apiBridgePlugin = {
 				const parsedBody = JSON.parse(body || '{}')
 
 				// 通过 WebSocket 发送给浏览器
-				server.ws.send('api-request', {
-					id,
-					body: parsedBody
-				})
+				server.ws.send('api-request', { id, body: parsedBody })
 
 				// 等待浏览器响应
 				const result = await responsePromise
+				const response = buildResponse(result, id)
 
-				// 检查是否请求美观格式 (?pretty 或 ?format=pretty)
+				// 检查是否请求美观格式
 				const url = new URL(req.url, `http://${req.headers.host}`)
 				const isPretty = url.searchParams.has('pretty') || 
 					url.searchParams.get('format') === 'pretty'
 
+				res.setHeader('Access-Control-Allow-Origin', '*')
+				
 				if (isPretty) {
-					// 美观纯文本格式
-					const text = formatPrettyResponse(result, id)
 					res.setHeader('Content-Type', 'text/plain; charset=utf-8')
-					res.setHeader('Access-Control-Allow-Origin', '*')
-					res.end(text)
+					res.end(formatPretty(response, id))
 				} else {
-					// JSON 格式
 					res.setHeader('Content-Type', 'application/json')
-					res.setHeader('Access-Control-Allow-Origin', '*')
-						res.end(formatJsonCompactArrays({ ...result, requestId: id }) + "\n")
+					res.end(formatJsonCompact(response) + '\n')
 				}
 			} catch (err) {
 				res.statusCode = 500
 				res.setHeader('Content-Type', 'application/json')
-				res.end(JSON.stringify({ error: err.message, requestId: id }) + "\n")
+				res.end(JSON.stringify({ error: err.message, requestId: id }) + '\n')
 			}
 		})
 
@@ -204,7 +80,6 @@ const apiBridgePlugin = {
 		})
 	}
 }
-// ========== API Bridge 插件结束 ==========
 
 export default {
 	server: {
@@ -243,10 +118,7 @@ export default {
 	},
 	esbuild: {
 		loader: 'ts',
-		include: [
-			'src/**/*.ts',
-			'src/**/*.js'
-		]
+		include: ['src/**/*.ts', 'src/**/*.js']
 	},
 	optimizeDeps: {
 		esbuildOptions: {
