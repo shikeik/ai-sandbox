@@ -34,9 +34,9 @@ describe("地图生成器 - generateTerrainForAction", () => {
 			const showCols = 6  // 显示前6列作为示例
 
 			console.log("\n=== 单步生成（狐狸在第0列，走）===")
-			console.log("层2 (天上):", t[2].slice(0, showCols).map((v, i) => formatCol(v, i <= 1)).join(","))
+			console.log("层0 (天上):", t[0].slice(0, showCols).map((v, i) => formatCol(v, i <= 1)).join(","))
 			console.log("层1 (地上):", t[1].slice(0, showCols).map((v, i) => formatCol(v, i <= 1)).join(","))
-			console.log("层0 (地面):", t[0].slice(0, showCols).map((v, i) => formatCol(v, i <= 1)).join(","))
+			console.log("层2 (地面):", t[2].slice(0, showCols).map((v, i) => formatCol(v, i <= 1)).join(","))
 			console.log("图例: .=未生成, 0=坑, 1=狐狸, 2=平地")
 
 			// 真正用 generateTerrainForAction 跑多步累积生成完整地图
@@ -78,9 +78,9 @@ describe("地图生成器 - generateTerrainForAction", () => {
 			const format = (arr: number[]) => arr.map(v => v === -1 ? "." : v).join(",")
 
 			console.log(`路径: ${path}`)
-			console.log("层2 (天上):", format(fullMap[2]))
+			console.log("层0 (天上):", format(fullMap[0]))
 			console.log("层1 (地上):", format(fullMap[1]))
-			console.log("层0 (地面):", format(fullMap[0]))
+			console.log("层2 (地面):", format(fullMap[2]))
 			console.log("图例: .=未生成, 0=空气/坑, 1=狐狸, 2=平地, 3=史莱姆, 4=恶魔, 5=金币")
 			console.log("")
 
@@ -97,7 +97,7 @@ describe("地图生成器 - generateTerrainForAction", () => {
 
 			// 验证地形结构（走只生成第1列）
 			// 注意：狐狸不在地图上，只检查地面
-			assert.strictEqual(t[0][1], ELEM_GROUND, "第1列地面应该是平地")
+			assert.strictEqual(t[2][1], ELEM_GROUND, "第1列地面应该是平地")
 			// 第2、3列保持空气（未生成，由边界检查阻止跳/远跳）
 		})
 
@@ -126,8 +126,8 @@ describe("地图生成器 - generateTerrainForAction", () => {
 
 			// 验证地形结构（跳生成第1、2列）
 			// 注意：狐狸不在地图上，只检查地面
-			assert.strictEqual(t[0][1], ELEM_AIR, "第1列地面应该是坑（阻止走）")
-			assert.strictEqual(t[0][2], ELEM_GROUND, "第2列地面应该是平地")
+			assert.strictEqual(t[2][1], ELEM_AIR, "第1列地面应该是坑（阻止走）")
+			assert.strictEqual(t[2][2], ELEM_GROUND, "第2列地面应该是平地")
 			// 第3列保持空气（未生成）
 		})
 
@@ -156,9 +156,9 @@ describe("地图生成器 - generateTerrainForAction", () => {
 
 			// 验证地形结构（远跳生成第1、2、3列）
 			// 注意：狐狸不在地图上，只检查地面
-			assert.strictEqual(t[0][1], ELEM_AIR, "第1列地面应该是坑（阻止走）")
-			assert.strictEqual(t[0][2], ELEM_AIR, "第2列地面应该是坑（阻止跳）")
-			assert.strictEqual(t[0][3], ELEM_GROUND, "第3列地面应该是平地")
+			assert.strictEqual(t[2][1], ELEM_AIR, "第1列地面应该是坑（阻止走）")
+			assert.strictEqual(t[2][2], ELEM_AIR, "第2列地面应该是坑（阻止跳）")
+			assert.strictEqual(t[2][3], ELEM_GROUND, "第3列地面应该是平地")
 		})
 
 		it("getLabel 应该返回 2（远跳）", () => {
@@ -183,7 +183,7 @@ describe("地图生成器 - generateTerrainForAction", () => {
 
 			// 验证地形结构
 			// 注意：狐狸不在地图上，只检查地面和装饰
-			assert.strictEqual(t[0][1], ELEM_GROUND, "第1列地面应该是平地")
+			assert.strictEqual(t[2][1], ELEM_GROUND, "第1列地面应该是平地")
 			assert.strictEqual(t[1][1], ELEM_SLIME, "第1列地上应该是史莱姆")
 		})
 

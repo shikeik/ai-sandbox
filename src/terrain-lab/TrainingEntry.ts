@@ -407,6 +407,7 @@ export class TrainingEntry {
 
 	resetView(): void {
 		console.log("TRAINING-ENTRY", "重置视图")
+		this.syncTerrainToGridWorld()
 		this.stopAnimation()
 		this.drawEditor()
 	}
