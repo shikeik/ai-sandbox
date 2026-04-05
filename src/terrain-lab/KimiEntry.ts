@@ -152,7 +152,7 @@ export class KimiEntry {
 		this.updateUI()
 		this.renderViewport()
 		this.updateStatus("地图已生成，点击「Kimi 决策」开始")
-		this.updateLog("地图生成完成，狐狸在起点 (0, 地上层)", "success")
+		this.updateLog("地图生成完成，狐狸在起点 (0, 中层)", "success")
 
 		// 启用按钮
 		const btnStep = document.getElementById("btn-kimi-step") as HTMLButtonElement

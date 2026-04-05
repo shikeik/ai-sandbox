@@ -19,10 +19,10 @@ export function terrainToIndices(t: number[][]): number[] {
 }
 
 // 找到狐狸所在列
-// t[0]=天上, t[1]=地上, t[2]=地面（y↓）
+// t[0]=天空层, t[1]=中层, t[2]=地面层（y↓）
 export function findHeroCol(t: number[][]): number {
 	for (let c = 0; c < NUM_COLS; c++) {
-		if (t[1][c] === ELEM_HERO) return c // 狐狸在地上层(layer=1)
+		if (t[1][c] === ELEM_HERO) return c // 狐狸在中层(layer=1)
 	}
 	return 0 // 默认x0
 }
@@ -30,14 +30,14 @@ export function findHeroCol(t: number[][]): number {
 // ========== 随机元素生成 ==========
 
 export function getLayerPool(layer: number, config: TerrainConfig): number[] {
-	// 层索引：0=天上, 1=地上, 2=地面（y↓ 坐标系）
+	// 层索引：0=天空层, 1=中层, 2=地面层（y↓ 坐标系）
 	const pool = [ELEM_AIR]
 	if (layer === 0) {
-		// 天上层：空气 + 恶魔 + 金币
+		// 天空层：空气 + 恶魔 + 金币
 		if (config.demon) pool.push(ELEM_DEMON)
 		if (config.coin) pool.push(ELEM_COIN)
 	} else if (layer === 1) {
-		// 地上层：空气 + 史莱姆 + 金币 + 狐狸
+		// 中层：空气 + 史莱姆 + 金币 + 狐狸
 		if (config.slime) pool.push(ELEM_SLIME)
 		if (config.coin) pool.push(ELEM_COIN)
 	} else if (layer === 2) {
@@ -110,7 +110,7 @@ export function getActionChecks(t: number[][], heroCol: number, numCols: number 
 	const col2 = heroCol + 2
 	const col3 = heroCol + 3
 
-	// 层定义：t[0]=天上, t[1]=地上, t[2]=地面（y↓ 坐标系）
+	// 层定义：t[0]=天空层, t[1]=中层, t[2]=地面层（y↓ 坐标系）
 	const sky0 = getName(0, col1)
 	const sky1 = getName(0, col2)
 	const sky2 = getName(0, col3)
@@ -127,29 +127,29 @@ export function getActionChecks(t: number[][], heroCol: number, numCols: number 
 		walkReasons.push(bounds.walk.reason!)
 	} else {
 		walkReasons.push(ground0 !== "平地" ? `前1(x${col1})地面不是平地` : null)
-		// 注意：走不检查天上恶魔（在地上走路不影响）
-		walkReasons.push(mid0 === "史莱姆" ? `前1(x${col1})地上有史莱姆` : null)
+		// 注意：走不检查天空层恶魔（在中层走路不影响）
+		walkReasons.push(mid0 === "史莱姆" ? `前1(x${col1})中层有史莱姆` : null)
 	}
 
 	const jumpReasons: (string | null)[] = []
 	if (!bounds.jump.inBounds) {
 		jumpReasons.push(bounds.jump.reason!)
 	} else {
-		jumpReasons.push(sky0 === "恶魔" ? `前1(x${col1})天上有恶魔` : null)
+		jumpReasons.push(sky0 === "恶魔" ? `前1(x${col1})天空层有恶魔` : null)
 		jumpReasons.push(ground1 !== "平地" ? `前2(x${col2})地面不是平地` : null)
-		jumpReasons.push(sky1 === "恶魔" ? `前2(x${col2})天上有恶魔` : null)
-		jumpReasons.push(mid1 === "史莱姆" ? `前2(x${col2})地上有史莱姆` : null)
+		jumpReasons.push(sky1 === "恶魔" ? `前2(x${col2})天空层有恶魔` : null)
+		jumpReasons.push(mid1 === "史莱姆" ? `前2(x${col2})中层有史莱姆` : null)
 	}
 
 	const longJumpReasons: (string | null)[] = []
 	if (!bounds.longJump.inBounds) {
 		longJumpReasons.push(bounds.longJump.reason!)
 	} else {
-		longJumpReasons.push(sky0 === "恶魔" ? `前1(x${col1})天上有恶魔` : null)
-		longJumpReasons.push(sky1 === "恶魔" ? `前2(x${col2})天上有恶魔` : null)
+		longJumpReasons.push(sky0 === "恶魔" ? `前1(x${col1})天空层有恶魔` : null)
+		longJumpReasons.push(sky1 === "恶魔" ? `前2(x${col2})天空层有恶魔` : null)
 		longJumpReasons.push(ground2 !== "平地" ? `前3(x${col3})地面不是平地` : null)
-		longJumpReasons.push(sky2 === "恶魔" ? `前3(x${col3})天上有恶魔` : null)
-		longJumpReasons.push(mid2 === "史莱姆" ? `前3(x${col3})地上有史莱姆` : null)
+		longJumpReasons.push(sky2 === "恶魔" ? `前3(x${col3})天空层有恶魔` : null)
+		longJumpReasons.push(mid2 === "史莱姆" ? `前3(x${col3})中层有史莱姆` : null)
 	}
 
 	const walkAttackReasons: (string | null)[] = []
@@ -326,7 +326,7 @@ export function generateTerrainForAction(
 
 	// 注意：狐狸不在地图上，由调用方根据坐标渲染
 	// 只确保狐狸脚下是平地（用于合法性检查）
-	// t[0]=天上, t[1]=地上, t[2]=地面（y↓）
+	// t[0]=天空层, t[1]=中层, t[2]=地面层（y↓）
 	t[2][heroCol] = ELEM_GROUND
 
 	// 候选池（根据层）- 恶魔权重x3（60%概率），史莱姆权重x2
@@ -356,20 +356,20 @@ export function generateTerrainForAction(
 		case 0: // 走（+1格）- x+1是目标平地
 			// 地面层(layer=2)：第1列必须是平地
 			t[2][heroCol + 1] = ELEM_GROUND
-			// 天上层(layer=0)：第1列生成（走对天上无限制，可以从池子选）
+			// 天空层(layer=0)：第1列生成（走对天空层无限制，可以从池子选）
 			if (t[0][heroCol + 1] === ELEM_AIR || t[0][heroCol + 1] === -1) {
 				t[0][heroCol + 1] = pick(skyPool)
 			}
 			// minimal模式：只生成第1列（目标列）
 			// 非minimal模式：生成第2、3列作为装饰
 			if (!minimal) {
-				// 地上层(layer=1)装饰
+				// 中层(layer=1)装饰
 				if (t[1][heroCol + 1] === ELEM_AIR || t[1][heroCol + 1] === -1) {
 					t[1][heroCol + 1] = pick(midPool, [ELEM_SLIME])
 				}
 				if (t[1][heroCol + 2] === ELEM_AIR || t[1][heroCol + 2] === -1) t[1][heroCol + 2] = pick(midPool)
 				if (t[1][heroCol + 3] === ELEM_AIR || t[1][heroCol + 3] === -1) t[1][heroCol + 3] = pick(midPool)
-				// 天上层(layer=0)装饰
+				// 天空层(layer=0)装饰
 				if (t[0][heroCol + 2] === ELEM_AIR || t[0][heroCol + 2] === -1) t[0][heroCol + 2] = pick(skyPool)
 				if (t[0][heroCol + 3] === ELEM_AIR || t[0][heroCol + 3] === -1) t[0][heroCol + 3] = pick(skyPool)
 			}
@@ -379,7 +379,7 @@ export function generateTerrainForAction(
 			// 地面层(layer=2)
 			t[2][heroCol + 1] = ELEM_AIR
 			t[2][heroCol + 2] = ELEM_GROUND
-			// 天上层(layer=0)：第1、2列排除恶魔（跳要求天上无恶魔）
+			// 天空层(layer=0)：第1、2列排除恶魔（跳要求天空层无恶魔）
 			if (t[0][heroCol + 1] === ELEM_AIR || t[0][heroCol + 1] === -1) {
 				t[0][heroCol + 1] = pick(skyPool, [ELEM_DEMON])
 			}
@@ -401,12 +401,12 @@ export function generateTerrainForAction(
 			t[2][heroCol + 1] = ELEM_AIR
 			t[2][heroCol + 2] = ELEM_AIR
 			t[2][heroCol + 3] = ELEM_GROUND
-			// 地上层(layer=1)：第1、2列只在未生成时设置
+			// 中层(layer=1)：第1、2列只在未生成时设置
 			if (t[1][heroCol + 1] === ELEM_AIR || t[1][heroCol + 1] === -1) t[1][heroCol + 1] = pick(midPool)
 			if (t[1][heroCol + 2] === ELEM_AIR || t[1][heroCol + 2] === -1) t[1][heroCol + 2] = pick(midPool)
 			// 第3列移除史莱姆
 			if (t[1][heroCol + 3] === ELEM_AIR || t[1][heroCol + 3] === -1) t[1][heroCol + 3] = pick(midPool, [ELEM_SLIME])
-			// 天上层(layer=0)：第1、2、3列只在未生成时设置（移除恶魔）
+			// 天空层(layer=0)：第1、2、3列只在未生成时设置（移除恶魔）
 			if (t[0][heroCol + 1] === ELEM_AIR || t[0][heroCol + 1] === -1) t[0][heroCol + 1] = pick(skyPool, [ELEM_DEMON])
 			if (t[0][heroCol + 2] === ELEM_AIR || t[0][heroCol + 2] === -1) t[0][heroCol + 2] = pick(skyPool, [ELEM_DEMON])
 			if (t[0][heroCol + 3] === ELEM_AIR || t[0][heroCol + 3] === -1) t[0][heroCol + 3] = pick(skyPool, [ELEM_DEMON])
@@ -419,9 +419,9 @@ export function generateTerrainForAction(
 			}
 			// 地面层(layer=2)
 			t[2][heroCol + 1] = ELEM_GROUND
-			// 地上层(layer=1)：必须有史莱姆（走A要求），强制设置
+			// 中层(layer=1)：必须有史莱姆（走A要求），强制设置
 			t[1][heroCol + 1] = ELEM_SLIME
-			// 天上层(layer=0)：只在未生成时设置
+			// 天空层(layer=0)：只在未生成时设置
 			if (t[0][heroCol + 1] === ELEM_AIR || t[0][heroCol + 1] === -1) {
 				t[0][heroCol + 1] = pick(skyPool, [ELEM_DEMON])
 			}

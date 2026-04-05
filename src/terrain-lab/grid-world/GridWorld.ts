@@ -27,7 +27,7 @@ export const DEFAULT_ELEMENTS: ElementDef[] = [
 ]
 
 // 层名称
-const LAYER_NAMES = ["天上", "地上", "地面"]
+const LAYER_NAMES = ["天空层", "中层", "地面层"]
 
 // ========== 格子世界核心类 ==========
 
@@ -284,9 +284,9 @@ export class GridWorld {
 				if (ground0 !== "平地" && ground0 !== "未知") {
 					reasons.push(`前1(x${col1})地面不是平地`)
 				}
-				// 注意：走不检查天上恶魔（在地上走路不影响）
+				// 注意：走不检查天空层恶魔（在中层走路不影响）
 				if (mid0 === "史莱姆") {
-					reasons.push(`前1(x${col1})地上有史莱姆`)
+					reasons.push(`前1(x${col1})中层有史莱姆`)
 				}
 				ok = reasons.length === 0
 				break
@@ -298,16 +298,16 @@ export class GridWorld {
 					reasons.push(`前2(x${col2})超出地图边界`)
 				} else {
 					if (sky0 === "恶魔") {
-						reasons.push(`前1(x${col1})天上有恶魔`)
+						reasons.push(`前1(x${col1})天空层有恶魔`)
 					}
 					if (ground1 !== "平地" && ground1 !== "未知") {
 						reasons.push(`前2(x${col2})地面不是平地`)
 					}
 					if (sky1 === "恶魔") {
-						reasons.push(`前2(x${col2})天上有恶魔`)
+						reasons.push(`前2(x${col2})天空层有恶魔`)
 					}
 					if (mid1 === "史莱姆") {
-						reasons.push(`前2(x${col2})地上有史莱姆`)
+						reasons.push(`前2(x${col2})中层有史莱姆`)
 					}
 				}
 				ok = reasons.length === 0
@@ -320,19 +320,19 @@ export class GridWorld {
 					reasons.push(`前3(x${col3})超出地图边界`)
 				} else {
 					if (sky0 === "恶魔") {
-						reasons.push(`前1(x${col1})天上有恶魔`)
+						reasons.push(`前1(x${col1})天空层有恶魔`)
 					}
 					if (sky1 === "恶魔") {
-						reasons.push(`前2(x${col2})天上有恶魔`)
+						reasons.push(`前2(x${col2})天空层有恶魔`)
 					}
 					if (ground2 !== "平地" && ground2 !== "未知") {
 						reasons.push(`前3(x${col3})地面不是平地`)
 					}
 					if (sky2 === "恶魔") {
-						reasons.push(`前3(x${col3})天上有恶魔`)
+						reasons.push(`前3(x${col3})天空层有恶魔`)
 					}
 					if (mid2 === "史莱姆") {
-						reasons.push(`前3(x${col3})地上有史莱姆`)
+						reasons.push(`前3(x${col3})中层有史莱姆`)
 					}
 				}
 				ok = reasons.length === 0
@@ -342,7 +342,7 @@ export class GridWorld {
 				targetCol = col1
 				isJump = false
 				if (mid0 !== "史莱姆") {
-					reasons.push(`前1(x${col1})地上没有史莱姆`)
+					reasons.push(`前1(x${col1})中层没有史莱姆`)
 				}
 				if (ground0 !== "平地" && ground0 !== "未知") {
 					reasons.push(`前1(x${col1})地面不是平地`)

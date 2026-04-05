@@ -8,13 +8,15 @@ const RULES = JSON.parse(readFileSync(join(__dirname, 'rules.json'), 'utf-8'))
 // 简化的规则（非美观用，纯文字）
 const SIMPLE_RULES = {
 	ids: { 0: '空气', 1: '狐狸', 2: '平地', 3: '史莱姆', 4: '恶魔', 5: '金币' },
+	layers: { 0: '天空层', 1: '中层', 2: '地面层' },
+	actionIds: { 0: '走', 1: '跳', 2: '远跳', 3: '走A' },
 	actions: {
-		走: '地面+1==2 且 地上+1!=3',
-		跳: '地面+2==2 且 天上+1/+2!=4 且 地上+2!=3',
-		远跳: '地面+3==2 且 天上+1/+2/+3!=4 且 地上+3!=3',
-		走A: '地上+1==3 且 地面+1==2'
+		走: '地面层+1==2 且 中层+1!=3',
+		跳: '地面层+2==2 且 天空层+1/+2!=4 且 中层+2!=3',
+		远跳: '地面层+3==2 且 天空层+1/+2/+3!=4 且 中层+3!=3',
+		走A: '中层+1==3 且 地面层+1==2'
 	},
-	hint: 'grid[2]是地面层，看grid[2][2,3,4]的值(2=平地)决定走/跳/远跳'
+	hint: 'grid[0]=天空层, grid[1]=中层, grid[2]=地面层。action可用数字: 0=走,1=跳,2=远跳,3=走A'
 }
 
 export function buildResponse(result, requestId) {
@@ -47,8 +49,9 @@ export function formatJsonCompact(obj) {
 	// 简化规则
 	lines.push('  "rules": {')
 	lines.push(`    "ids": {"0":"空气","1":"狐狸","2":"平地","3":"史莱姆","4":"恶魔","5":"金币"},`)
-	lines.push(`    "actions": {"走":"地面+1==2","跳":"地面+2==2","远跳":"地面+3==2","走A":"地上+1==3"},`)
-	lines.push(`    "hint": "grid[2]是地面层，值2是平地，看右侧+1/+2/+3决定动作"`)
+	lines.push(`    "actionIds": {"0":"走","1":"跳","2":"远跳","3":"走A"},`)
+	lines.push(`    "actions": {"走":"地面层+1==2","跳":"地面层+2==2","远跳":"地面层+3==2","走A":"中层+1==3"},`)
+	lines.push(`    "hint": "grid[0]=天空层,grid[1]=中层,grid[2]=地面层。action:0=走,1=跳,2=远跳,3=走A"`)
 	lines.push('  },')
 	
 	lines.push(`  "requestId": ${obj.requestId}`)
@@ -88,8 +91,8 @@ export function formatPretty(result, requestId) {
 		lines.push('')
 		lines.push('🗺️  视野 (5×3):')
 		// 数字转 emoji
-		lines.push(`天上: ${g[0].map(c => EMOJIS[c] || '?').join('')}`)
-		lines.push(`地上: ${g[1].map(c => EMOJIS[c] || '?').join('')}`)
+		lines.push(`天空: ${g[0].map(c => EMOJIS[c] || '?').join('')}`)
+		lines.push(`中层: ${g[1].map(c => EMOJIS[c] || '?').join('')}`)
 		lines.push(`地面: ${g[2].map(c => EMOJIS[c] || '?').join('')}`)
 		lines.push('')
 		lines.push('图例: ' + Object.entries(R.elements).map(([k,v]) => `${k}=${EMOJIS[k]}${v}`).join(' '))

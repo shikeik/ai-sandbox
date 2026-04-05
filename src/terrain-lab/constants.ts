@@ -18,15 +18,15 @@ export const ELEMENTS: { id: number; name: ElementType; emoji: string }[] = [
   { id: ELEM_COIN, name: "金币", emoji: "🪙" },
 ]
 
-// 层限制：0=天上，1=地上，2=地面
+// 层限制：0=天空层，1=中层，2=地面层
 export const LAYER_LIMITS: number[][] = [
-  [ELEM_AIR, ELEM_DEMON, ELEM_COIN],           // 天上: 空气, 恶魔, 金币
-  [ELEM_AIR, ELEM_HERO, ELEM_SLIME, ELEM_COIN], // 地上: 空气, 狐狸, 史莱姆, 金币
-  [ELEM_AIR, ELEM_GROUND],                      // 地面: 空气, 平地
+  [ELEM_AIR, ELEM_DEMON, ELEM_COIN],           // 天空层: 空气, 恶魔, 金币
+  [ELEM_AIR, ELEM_HERO, ELEM_SLIME, ELEM_COIN], // 中层: 空气, 狐狸, 史莱姆, 金币
+  [ELEM_AIR, ELEM_GROUND],                      // 地面层: 空气, 平地
 ]
 
 // ========== 网络架构常量 ==========
-export const NUM_LAYERS = 3        // 层数（天上、地上、地面）
+export const NUM_LAYERS = 3        // 层数（天空层、中层、地面层）
 export const NUM_COLS = 5          // 列数（x0-x4）
 export const NUM_ELEMENTS = 6      // 元素种类数
 export const EMBED_DIM = 2         // 元素向量维度
@@ -69,7 +69,7 @@ export const EMBED_SIZE_MAX = 2
 
 // ========== 其他常量 ==========
 export const ACTIONS: ActionType[] = ["走", "跳", "远跳", "走A"]
-export const ROW_NAMES = ["天上", "地上", "地面"]
+export const ROW_NAMES = ["天空层", "中层", "地面层"]
 export const LR = 0.1   // hidden=32 需要更大学习率
 
 // ========== 无监督学习配置（在这里改数值）==========

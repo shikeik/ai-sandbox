@@ -111,7 +111,7 @@ export class MapGeneratorEntry {
 		this.currentHeroCol = 0
 		this.generationHistory = []
 
-		// 设置起点（层索引：0=天上, 1=地上, 2=地面）
+		// 设置起点（层索引：0=天空层, 1=中层, 2=地面层）
 		this.generatedMap[2][0] = ELEM_GROUND  // 狐狸脚下是平地
 		console.log("地图初始化完成 | 起点第0列")
 

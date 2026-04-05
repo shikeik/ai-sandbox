@@ -385,8 +385,8 @@
 				
 				// 初始化全空气地图
 				this.grid = [
-					Array(this.mapLength).fill(ELEM_AIR),  // 天上层
-					Array(this.mapLength).fill(ELEM_AIR),  // 地上层
+					Array(this.mapLength).fill(ELEM_AIR),  // 天空层
+					Array(this.mapLength).fill(ELEM_AIR),  // 中层
 					Array(this.mapLength).fill(ELEM_AIR)   // 地面层
 				]
 				
@@ -575,7 +575,7 @@
 				document.getElementById('col-labels').innerHTML = labels
 
 				// 网格 - 层信息硬编码（rules.json 是数组格式）
-				const layerNames = ['天上', '地上', '地面']
+				const layerNames = ['天空层', '中层', '地面层']
 				const layerChecks = ['跳/远跳检查恶魔', '走A检查史莱姆', '所有动作检查平地']
 				let html = ''
 				for (let row = 0; row < 3; row++) {
@@ -664,7 +664,14 @@
 			import.meta.hot.on('api-request', async (data) => {
 				logs.add(`📥 请求 #${data.id}: ${JSON.stringify(data.body)}`, 'incoming')
 
-				const { action } = data.body
+				let { action } = data.body
+				
+				// 支持数字ID：0=走, 1=跳, 2=远跳, 3=走A
+				const actionIdMap = { 0: '走', 1: '跳', 2: '远跳', 3: '走A' }
+				if (typeof action === 'number' || /^[0-3]$/.test(action)) {
+					action = actionIdMap[parseInt(action)] || action
+				}
+				
 				let result
 
 				if (action === 'reset') {

@@ -54,8 +54,8 @@ export interface AppState {
 export function createInitialState(): AppState {
 	return {
 		terrain: [
-			Array(NUM_COLS).fill(ELEM_AIR),                    // 天上: 全空气
-			[ELEM_HERO, ...Array(NUM_COLS - 1).fill(ELEM_AIR)], // 地上: 狐狸默认在x0（编辑器初始状态，数据生成时位置随机）
+			Array(NUM_COLS).fill(ELEM_AIR),                    // 天空层: 全空气
+			[ELEM_HERO, ...Array(NUM_COLS - 1).fill(ELEM_AIR)], // 中层: 狐狸默认在x0（编辑器初始状态，数据生成时位置随机）
 			[ELEM_GROUND, ELEM_GROUND, ...Array(NUM_COLS - 2).fill(ELEM_AIR)], // 地面
 		],
 		selectedBrush: ELEM_AIR,

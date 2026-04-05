@@ -108,7 +108,7 @@ export class GridWorldEditor {
 
 		if (!allowed.includes(brush)) {
 			const elem = this.elements[brush]
-			const layerNames = ["天上", "地上", "地面"]
+			const layerNames = ["天空层", "中层", "地面层"]
 			return {
 				ok: false,
 				message: `❌ ${elem?.name ?? "未知元素"}不能放在${layerNames[row]}层`,

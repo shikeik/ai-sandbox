@@ -275,7 +275,7 @@ export class GridWorldRenderer {
 	private drawLayerLabels(layout: LayoutMetrics): void {
 		if (!this.ctx) return
 
-		const layerNames = ["天上", "地上", "地面"]
+		const layerNames = ["天空层", "中层", "地面层"]
 		const { cellH, gapY, startX, startY } = layout
 
 		this.ctx.fillStyle = "#9aa0a6"
@@ -315,7 +315,7 @@ export class GridWorldRenderer {
 		if (!this.ctx) return
 
 		const { cellW, cellH, gapX, gapY, startX, startY } = layout
-		const heroRow = 1  // 狐狸在地上层
+		const heroRow = 1  // 狐狸在中层
 
 		const x = startX + screenCol * (cellW + gapX) + cellW / 2
 		const y = startY + heroRow * (cellH + gapY) + cellH / 2
