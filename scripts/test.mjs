@@ -8,6 +8,27 @@
 // 使用: npm run test:ts -- terrain-lab/debug-generate  (跑单个 TS 测试文件)
 
 import { spawn } from "child_process"
+import { readdirSync, statSync } from "fs"
+import { join, extname } from "path"
+
+// 简单的递归获取文件函数
+function getFiles(dir, pattern) {
+	const files = []
+	const items = readdirSync(dir)
+	
+	for (const item of items) {
+		const fullPath = join(dir, item)
+		const stat = statSync(fullPath)
+		
+		if (stat.isDirectory()) {
+			files.push(...getFiles(fullPath, pattern))
+		} else if (pattern.test(fullPath)) {
+			files.push(fullPath)
+		}
+	}
+	
+	return files
+}
 
 const args = process.argv.slice(2)
 const command = process.env.TEST_COMMAND || "test"
@@ -16,10 +37,13 @@ let testArgs = []
 
 if (command === "test:all") {
 	// 跑所有测试 (unit + slow)
-	testArgs = ["test/unit/**/*.test.ts", "test/slow/**/*.test.ts"]
+	testArgs = [
+		...getFiles("test/unit", /\.test\.ts$/),
+		...getFiles("test/slow", /\.test\.ts$/)
+	]
 } else if (command === "test:slow") {
 	// 只跑慢速测试
-	testArgs = ["test/slow/**/*.test.ts"]
+	testArgs = getFiles("test/slow", /\.test\.ts$/)
 } else if (command === "test:ts") {
 	// 跑 TS 测试
 	const tsFile = args[0]
@@ -28,7 +52,7 @@ if (command === "test:all") {
 		testArgs = [`test/ts/${tsFile}.ts`]
 	} else {
 		// 所有 TS 测试
-		testArgs = ["test/ts/**/*.ts"]
+		testArgs = getFiles("test/ts", /\.ts$/)
 	}
 	// TS 测试用 node 直接运行，不是 --test 模式
 	const child = spawn("npx", ["tsx", ...testArgs], { stdio: "inherit" })
@@ -41,7 +65,7 @@ if (command === "test:all") {
 		console.error("错误: 请指定目录名，如: npm run test:dir terrain-lab")
 		process.exit(1)
 	}
-	testArgs = [`test/unit/${dirName}/*.test.ts`]
+	testArgs = getFiles(`test/unit/${dirName}`, /\.test\.ts$/)
 } else {
 	// 默认: 只跑单元测试 (test/unit/)
 	const testFile = args[0]
@@ -50,8 +74,13 @@ if (command === "test:all") {
 		testArgs = [`test/unit/${testFile}.test.ts`]
 	} else {
 		// 所有单元测试
-		testArgs = ["test/unit/**/*.test.ts"]
+		testArgs = getFiles("test/unit", /\.test\.ts$/)
 	}
+}
+
+if (testArgs.length === 0) {
+	console.log("没有找到测试文件")
+	process.exit(0)
 }
 
 console.log(`运行测试: ${testArgs.join(" ")}`)
