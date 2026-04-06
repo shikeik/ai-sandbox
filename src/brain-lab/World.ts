@@ -300,12 +300,7 @@ export class World {
 				const oldPos = { ...hero }
 				const targetX = hero.x - 1
 				
-				// 检查是否撞墙（目标格子是墙）
-				if (this.isWall(targetX, hero.y)) {
-					logs.push(`[WORLD] 向左跳跃失败：撞到墙(${targetX},${hero.y})`)
-					break
-				}
-
+				// 跳跃不检查撞墙（抛物线可以越过墙）
 				const landingY = this.findJumpLandingY(targetX, hero.y)
 				logs.push(`[WORLD] 向左跳跃: 从(${hero.x},${hero.y}) → x=${targetX}, 落点y=${landingY}`)
 
@@ -341,16 +336,13 @@ export class World {
 				const oldPos = { ...hero }
 				const targetX = hero.x + 1
 				
-				// 检查是否撞墙
-				if (this.isWall(targetX, hero.y)) {
-					logs.push(`[WORLD] 向右跳跃失败：撞到墙(${targetX},${hero.y})`)
-					break
-				}
-
+				// 跳跃不检查撞墙（抛物线可以越过墙）
+				// 只需要检查落点
 				const landingY = this.findJumpLandingY(targetX, hero.y)
 				logs.push(`[WORLD] 向右跳跃: 从(${hero.x},${hero.y}) → x=${targetX}, 落点y=${landingY}`)
 
 				if (landingY < 0) {
+					// 坠入虚空
 					logs.push(`[WORLD] 右跳后坠入虚空！`)
 					hero.x = targetX
 					hero.y = -1
@@ -363,6 +355,7 @@ export class World {
 					})
 					dead = true
 				} else {
+					// 正常落地
 					hero.x = targetX
 					hero.y = landingY
 					animations.push({
