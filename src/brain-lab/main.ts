@@ -22,6 +22,7 @@ class BrainLabUI {
 			this.logger = new Logger("[BRAIN-LAB]")
 			this.consolePanel = new ConsolePanel("#console-panel", this.logger)
 			this.consolePanel.init()
+			this.consolePanel.open()  // 默认展开控制台
 			
 			console.log("[BRAIN-LAB] [MAIN] 初始化Brain Lab UI...")
 			
