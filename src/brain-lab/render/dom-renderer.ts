@@ -357,7 +357,7 @@ export class DOMRenderer {
 		// 3. 尖刺
 		const initialSpikeY = spikeY !== undefined ? spikeY : 4
 		const spikeDisplayY = height - 1 - initialSpikeY
-		this.spikeElement = this.createGameObject("spike", "🔺", 4, spikeDisplayY, 40)
+		this.spikeElement = this.createGameObject("spike", "🔻", 4, spikeDisplayY, 40)
 		container.appendChild(this.spikeElement)
 	}
 
