@@ -116,7 +116,7 @@ export class DOMRenderer {
 				position: relative;
 				margin: 0 auto;
 				background: #0a0a14;
-				border-radius: 8px;
+				border-radius: 12px;
 				border: 1px solid #2a2a3e;
 			">
 				<!-- 位置显示（中上部） -->
