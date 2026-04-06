@@ -32,8 +32,6 @@ export interface ActionResult {
 	animations: AnimationEvent[]
 	logs: string[]
 	triggeredButton?: boolean
-	/** 环境动画（后台播放，不阻塞玩家） */
-	environmentAnimations?: AnimationEvent[]
 }
 
 /** 动作名称映射（用于显示） */

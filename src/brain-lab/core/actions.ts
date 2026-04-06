@@ -72,18 +72,15 @@ export function executeAction(
 
 	// 检查按钮触发
 	let triggeredButton = false
-	let environmentAnimations: AnimationEvent[] | undefined
 	if (checkButtonTrigger(state, hero.x, hero.y)) {
 		triggeredButton = true
 		handleButtonTrigger(ctx)
-		// 获取环境动画（如果有）
-		environmentAnimations = (ctx as any).environmentAnimations
 	}
 
 	// 检查是否到达终点
 	const reachedGoal = checkGoalReached(state, hero.x, hero.y)
 
-	return { reachedGoal, dead: false, animations, logs, triggeredButton, environmentAnimations }
+	return { reachedGoal, dead: false, animations, logs, triggeredButton }
 }
 
 /** 处理左移 */
@@ -347,7 +344,11 @@ function handleJump(ctx: ActionContext): void {
 function handleButtonTrigger(ctx: ActionContext): void {
 	const { state, hero, animations, logs } = ctx
 
-	// 按钮按下动画（玩家必须等待的视觉反馈）
+	state.triggers[0] = true
+	state.spikeFalling = true
+
+	logs.push("[WORLD] 按钮触发！尖刺开始坠落...")
+
 	animations.push({
 		type: "BUTTON_PRESS",
 		target: "button",
@@ -355,25 +356,17 @@ function handleButtonTrigger(ctx: ActionContext): void {
 		duration: ANIMATION_DURATION.buttonPress
 	})
 
-	// 立即触发状态变化
-	logs.push("[WORLD] 按钮触发！尖刺开始坠落...")
-	state.triggers[0] = true
-	state.spikeFalling = true
-
-	// 环境动画（后台播放，不阻塞玩家）
-	const envAnimations: AnimationEvent[] = []
-
 	// 尖刺坠落
 	const spikeFromY = state.spikeY ?? 4
 	const spikeToY = 1
 
-	envAnimations.push({
+	animations.push({
 		type: "SPIKE_FALL",
 		target: "spike",
 		from: { x: 4, y: spikeFromY },
 		to: { x: 4, y: spikeToY },
 		duration: ANIMATION_DURATION.spikeFall,
-		delay: 0
+		delay: ANIMATION_DURATION.buttonPress
 	})
 
 	state.spikeY = spikeToY
@@ -383,7 +376,7 @@ function handleButtonTrigger(ctx: ActionContext): void {
 	if (killedEnemies.length > 0) {
 		logs.push(`[WORLD] 尖刺击杀 ${killedEnemies.length} 个敌人！`)
 		killedEnemies.forEach((enemy) => {
-			envAnimations.push({
+			animations.push({
 				type: "ENEMY_DIE",
 				target: `enemy-${enemy.x}-${enemy.y}`,
 				from: { ...enemy },
@@ -395,16 +388,13 @@ function handleButtonTrigger(ctx: ActionContext): void {
 	}
 
 	// 尖刺继续坠落到底
-	envAnimations.push({
+	animations.push({
 		type: "SPIKE_FALL",
 		target: "spike",
 		from: { x: 4, y: spikeToY },
 		to: { x: 4, y: 0 },
 		duration: ANIMATION_DURATION.spikeFallFast,
-		delay: ANIMATION_DURATION.spikeFall
+		delay: ANIMATION_DURATION.spikeFall + ANIMATION_DURATION.buttonPress
 	})
 	state.spikeY = 0
-
-	// 将环境动画存入上下文（稍后添加到 ActionResult）
-	;(ctx as any).environmentAnimations = envAnimations
 }
