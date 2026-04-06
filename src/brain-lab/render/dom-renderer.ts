@@ -201,10 +201,10 @@ export class DOMRenderer {
 			})
 		}
 
-		// 更新尖刺位置
+		// 更新尖刺位置（跳过正在下落的尖刺，让CSS动画控制位置）
 		spikes.forEach((spike, idx) => {
 			const spikeEl = this.spikeElements.get(`spike-${idx}`)
-			if (spikeEl) {
+			if (spikeEl && !spike.falling) {
 				const spikeDisplayY = height - 1 - spike.currentY
 				const targetTop = spikeDisplayY * (this.config.cellSize + this.config.gap)
 				spikeEl.style.top = `${targetTop}px`
@@ -328,6 +328,57 @@ export class DOMRenderer {
 		}
 		// 等待过渡完成
 		await new Promise(resolve => setTimeout(resolve, duration))
+	}
+
+	/**
+	 * 获取尖刺当前旋转角度
+	 */
+	private getSpikeRotation(spikeEl: HTMLElement): number {
+		const transform = spikeEl.style.transform
+		const match = transform.match(/rotate\(([-\d.]+)deg\)/)
+		return match ? parseFloat(match[1]) : 0
+	}
+
+	/**
+	 * 演出镜头：实时跟随尖刺下落（读取计算样式获取实时位置）
+	 * @param spikeEl 尖刺元素
+	 * @param duration 跟随时长（毫秒）
+	 * @returns Promise，跟随完成后 resolve
+	 */
+	async cinematicFollowSpike(spikeEl: HTMLElement, duration: number): Promise<void> {
+		const startTime = performance.now()
+		const viewportWidth = this.viewportElement?.clientWidth || this.config.viewportWidth
+		const viewportHeight = this.viewportElement?.clientHeight || this.config.viewportHeight
+
+		// 使用 requestAnimationFrame 实时更新相机
+		return new Promise((resolve) => {
+			const frame = () => {
+				const elapsed = performance.now() - startTime
+
+				// 使用 getComputedStyle 获取计算后的实时位置（包含 CSS transition）
+				const computedStyle = window.getComputedStyle(spikeEl)
+				const spikePixelX = parseFloat(computedStyle.left) + this.config.cellSize / 2
+				const spikePixelY = parseFloat(computedStyle.top) + this.config.cellSize / 2
+
+				// 相机目标位置（让尖刺在视口中央）
+				this.cameraX = spikePixelX - viewportWidth / 2
+				this.cameraY = spikePixelY - viewportHeight / 2
+
+				// 直接应用相机（不使用 transition，实现实时跟随）
+				if (this.worldContentElement) {
+					this.worldContentElement.style.transition = "none"
+					this.worldContentElement.style.transform = 
+						`translate(${-this.cameraX}px, ${-this.cameraY}px)`
+				}
+
+				if (elapsed < duration) {
+					requestAnimationFrame(frame)
+				} else {
+					resolve()
+				}
+			}
+			requestAnimationFrame(frame)
+		})
 	}
 
 	/**
@@ -516,40 +567,102 @@ export class DOMRenderer {
 				await new Promise(resolve => setTimeout(resolve, waitTime))
 			}
 
+			// 过滤掉已被演出模式处理的动画
+			const filteredGroup = group.filter(a => !a._cinematicHandled && !a._cinematicPlayed)
+
 			// 检查是否有演出镜头动画（按钮触发）
-			const cinematicAnim = group.find(a => 
+			const cinematicAnim = filteredGroup.find(a => 
 				a.type === "BUTTON_PRESS" && a.payload?.cinematic
 			)
 
 			if (cinematicAnim) {
-				// 演出镜头模式：先移动镜头到击杀区域
-				const { cinematicTargetX, cinematicTargetY, cinematicDuration, waitDuration } = cinematicAnim.payload
+				// 新演出模式：缓动到尖刺 -> 实时跟随下落 -> 缓动回玩家
+				const { spikeIdx, spikeStartY, spikeTargetY, cinematicDuration, followDuration, waitDuration } = cinematicAnim.payload
 				const height = this.getGridHeight()
+				const cellSize = this.config.cellSize + this.config.gap
 
-				// 计算目标像素位置
-				const targetPixelX = cinematicTargetX * (this.config.cellSize + this.config.gap)
-				const targetPixelY = (height - 1 - cinematicTargetY) * (this.config.cellSize + this.config.gap)
+				// 获取尖刺元素和位置
+				const spikeEl = this.spikeElements.get(`spike-${spikeIdx}`)
+				const spikeX = spikeEl ? parseFloat(spikeEl.style.left || "0") / cellSize : 0
+
+				// 计算尖刺像素位置（X固定，Y变化）
+				const spikePixelX = spikeX * cellSize
+				const spikeStartPixelY = (height - 1 - spikeStartY) * cellSize
+
+				// 获取所有尖刺动画（区分两个阶段）
+				const allSpikeAnims = animations.filter(a => 
+					a.type === "SPIKE_FALL" && a.target === `spike-${spikeIdx}`
+				)
+				
+				// 第一阶段：目标 y >= 0（敌人位置），第二阶段：目标 y < 0（虚空）
+				const spikeAnim1 = allSpikeAnims.find(a => (a.to?.y ?? -1) >= 0)
+				const spikeAnim2 = allSpikeAnims.find(a => (a.to?.y ?? 0) < 0)
+
+				// 获取敌人死亡动画
+				const enemyDieAnim = animations.find(a => a.type === "ENEMY_DIE")
+
+				// 标记这些动画为已处理（跳过自动分组播放）
+				if (spikeAnim1) spikeAnim1._cinematicHandled = true
+				if (spikeAnim2) spikeAnim2._cinematicHandled = true
+				if (enemyDieAnim) enemyDieAnim._cinematicHandled = true
 
 				// 播放按钮动画
-				await Promise.all(group.map(anim => this.playSingleAnimation(anim)))
+				await Promise.all(filteredGroup.map(anim => this.playSingleAnimation(anim)))
 
-				// 演出镜头移动到击杀区域
-				await this.cinematicMoveTo(targetPixelX, targetPixelY, cinematicDuration)
+				// 1. 缓动到尖刺起始位置
+				await this.cinematicMoveTo(spikePixelX, spikeStartPixelY, cinematicDuration)
 
-				// 等待尖刺坠落完成
+				// 2. 开始第一阶段尖刺下落动画（落到敌人位置）
+				if (spikeAnim1) {
+					this.playSingleAnimation(spikeAnim1)
+				}
+
+				// 3. 实时跟随尖刺下落（600ms）
+				if (spikeEl) {
+					await this.cinematicFollowSpike(spikeEl, followDuration)
+				} else {
+					await new Promise(resolve => setTimeout(resolve, followDuration))
+				}
+
+				// 4. 停顿期间（300ms）：尖刺停在恶魔位置，播放敌人死亡动画
+				
+				// 强制固定尖刺在第一阶段目标位置（只改top，保留transform旋转）
+				if (spikeEl && spikeAnim1?.to) {
+					const height = this.getGridHeight()
+					const targetDisplayY = height - 1 - spikeAnim1.to.y
+					const targetTop = targetDisplayY * (this.config.cellSize + this.config.gap)
+					spikeEl.style.transition = "top 0s"  // 只冻结top，保留transform
+					spikeEl.style.top = `${targetTop}px`
+				}
+				
+				if (enemyDieAnim) {
+					this.playSingleAnimation(enemyDieAnim)
+				}
+				
+				// 停顿等待
 				await new Promise(resolve => setTimeout(resolve, waitDuration))
+				
+				// 停顿结束后，开始第二阶段尖刺下落
+				if (spikeAnim2) {
+					this.playSingleAnimation(spikeAnim2)
+				}
+				
+				// 继续跟随尖刺第二阶段下落到虚空
+				if (spikeEl && spikeAnim2) {
+					await this.cinematicFollowSpike(spikeEl, spikeAnim2.duration)
+				}
 
-				// 结束演出模式，相机自动跟随玩家
+				// 5. 结束演出模式，缓动回玩家位置
 				await this.endCinematic(600)
 
-				// 更新最后结束时间（演出镜头时间也计入）
-				lastGroupEndTime = groupDelay + cinematicDuration + waitDuration + 600
+				// 更新最后结束时间
+				lastGroupEndTime = groupDelay + cinematicDuration + followDuration + waitDuration + 600
 			} else {
-				// 普通模式：直接执行动画
-				await Promise.all(group.map(anim => this.playSingleAnimation(anim)))
+				// 普通模式：直接执行动画（跳过已被演出模式处理的）
+				await Promise.all(filteredGroup.map(anim => this.playSingleAnimation(anim)))
 
 				// 更新最后结束时间
-				const groupMaxDuration = Math.max(...group.map(a => a.duration))
+				const groupMaxDuration = Math.max(...filteredGroup.map(a => a.duration))
 				lastGroupEndTime = groupDelay + groupMaxDuration
 			}
 		}
@@ -755,11 +868,17 @@ export class DOMRenderer {
 
 		const targetTop = targetDisplayY * (this.config.cellSize + this.config.gap)
 
+		// 计算旋转：累积旋转角度
+		const currentRotation = this.getSpikeRotation(spikeEl)
+		const targetRotation = currentRotation + 360
+
 		spikeEl.style.transition = `all ${anim.duration}ms cubic-bezier(0.4, 0, 1, 1)`
 		spikeEl.style.top = `${targetTop}px`
-		spikeEl.style.transform = "rotate(360deg)"
+		spikeEl.style.transform = `rotate(${targetRotation}deg)`
 
-		if (anim.to.y <= 1) {
+		// 只在落到地面/敌人位置时触发粒子效果（y >= 0 且不是落入虚空）
+		// 第二阶段落到虚空（y = -1）不触发粒子
+		if (anim.to.y >= 0) {
 			setTimeout(() => {
 				// 从 target 中提取 x 坐标（如 "spike-0" -> 使用第一个尖刺的x）
 				const spikeIdx = parseInt(anim.target.split("-")[1]) || 0

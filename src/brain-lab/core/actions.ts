@@ -468,11 +468,8 @@ function handleButtonTrigger(ctx: ActionContext, playerAnimDuration: number, but
 	const spikeToY = enemyBelow ? enemyBelow.y : -1  // 有敌人就砸到敌人位置，否则直接落入虚空
 	const SPIKE_PAUSE = 300 // 尖刺砸到敌人后的停顿时间
 
-	// 计算演出镜头目标位置（尖刺与敌人的中间，或虚空落点）
-	const cinematicTargetY = enemyBelow ? (spike.currentY + enemyBelow.y) / 2 : spike.currentY / 2
-	const cinematicTargetX = spike.x
-
 	// 按钮动画在玩家动画结束后开始（包含演出镜头信息）
+	// 相机会：1.缓动到尖刺位置 -> 2.实时跟随尖刺下落 -> 3.缓动回玩家位置
 	animations.push({
 		type: "BUTTON_PRESS",
 		target: `button-${buttonIdx}`,
@@ -481,10 +478,12 @@ function handleButtonTrigger(ctx: ActionContext, playerAnimDuration: number, but
 		delay: playerAnimDuration,
 		payload: {
 			cinematic: true,
-			cinematicTargetX,
-			cinematicTargetY,
-			cinematicDuration: 800,  // 镜头移动时长
-			waitDuration: ANIMATION_DURATION.spikeFall + SPIKE_PAUSE  // 等待尖刺坠落完成
+			spikeIdx: buttonIdx,           // 要跟踪的尖刺索引
+			spikeStartY: spike.currentY,   // 尖刺起始Y位置
+			spikeTargetY: spikeToY,        // 尖刺目标Y位置
+			cinematicDuration: 500,        // 镜头移动到尖刺位置的时间
+			followDuration: ANIMATION_DURATION.spikeFall,  // 跟随尖刺下落的时间
+			waitDuration: SPIKE_PAUSE      // 停顿时间
 		}
 	})
 
@@ -521,5 +520,6 @@ function handleButtonTrigger(ctx: ActionContext, playerAnimDuration: number, but
 		delay: playerAnimDuration + ANIMATION_DURATION.buttonPress + ANIMATION_DURATION.spikeFall + SPIKE_PAUSE
 	})
 
-	spike.currentY = -1  // 尖刺落入虚空
+	// 注意：spike.currentY 不应该在这里更新，因为动画还没开始
+	// 动画完成后会在渲染层更新位置
 }
