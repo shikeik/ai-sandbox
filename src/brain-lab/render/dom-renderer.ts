@@ -1,26 +1,20 @@
 // ========== DOM渲染器 ==========
 
-import { ELEM } from "./types.js"
+import type { WorldState, AnimationEvent, BrainDecision, Position } from "../types/index.js"
+import { Element } from "../types/index.js"
+import { RENDER_CONFIG, ANIMATION_DURATION } from "../config.js"
 
-interface AnimationEvent {
-	type: "HERO_MOVE" | "HERO_JUMP" | "HERO_FALL" | "SPIKE_FALL" | "ENEMY_DIE" | "BUTTON_PRESS"
-	target: string
-	from: { x: number; y: number }
-	to?: { x: number; y: number }
-	duration: number
-	delay?: number
-	payload?: any
+/** 渲染器配置 */
+interface RendererConfig {
+	cellSize: number
+	gap: number
+	viewportWidth: number
+	viewportHeight: number
 }
 
-interface WorldState {
-	grid: number[][]
-	hero: { x: number; y: number }
-	enemies: { x: number; y: number }[]
-	triggers: boolean[]
-	spikeY?: number
-	spikeFalling?: boolean
-}
-
+/**
+ * DOM 渲染器 - 负责将世界状态渲染为 DOM
+ */
 export class DOMRenderer {
 	private worldContainer: HTMLElement
 	private brainContainer: HTMLElement
@@ -30,34 +24,41 @@ export class DOMRenderer {
 	private enemyElements: Map<string, HTMLElement> = new Map()
 	private spikeElement: HTMLElement | null = null
 
-	private cellSize: number = 36
-	private gap: number = 4
+	private config: RendererConfig
 	private animating: boolean = false
 
 	// 相机系统
 	private cameraX: number = 0
 	private cameraY: number = 0
-	private viewportWidth: number = 0
-	private viewportHeight: number = 0
 	private worldWidth: number = 0
 	private worldHeight: number = 0
 
 	constructor(worldId: string, brainId: string) {
 		this.worldContainer = document.getElementById(worldId)!
 		this.brainContainer = document.getElementById(brainId)!
-		this.updateViewportSize()
-		window.addEventListener("resize", () => this.updateViewportSize())
+		this.config = this.createConfig()
+		window.addEventListener("resize", () => {
+			this.config = this.createConfig()
+		})
 	}
 
-	private updateViewportSize(): void {
-		// 获取容器可用宽度（减去padding）
+	/**
+	 * 创建渲染配置
+	 */
+	private createConfig(): RendererConfig {
 		const containerWidth = this.worldContainer.parentElement?.clientWidth || window.innerWidth
-		// 确保最小宽度，避免负数
-		this.viewportWidth = Math.max(320, Math.min(containerWidth - 32, 400)) // 最小320px，最大400px
-		this.viewportHeight = 220 // 视口高度
+		return {
+			...RENDER_CONFIG,
+			viewportWidth: Math.max(
+				RENDER_CONFIG.minViewportWidth,
+				Math.min(containerWidth - 32, RENDER_CONFIG.viewportWidth)
+			),
+		}
 	}
 
-	// ========== 初始化渲染 ==========
+	/**
+	 * 从 API 数据渲染世界
+	 */
 	renderWorldFromAPI(data: any): void {
 		try {
 			const state: WorldState = {
@@ -66,89 +67,91 @@ export class DOMRenderer {
 				enemies: data.enemies || [],
 				triggers: data.triggers || [],
 				spikeY: data.spikeY,
-				spikeFalling: data.spikeFalling
+				spikeFalling: data.spikeFalling,
 			}
 
 			if (!state.grid || !state.hero) {
 				return
 			}
 
-			const { grid } = state
-			const height = grid.length
-			const width = grid[0].length
-
-			// 清空容器
-			this.worldContainer.innerHTML = ""
-			this.enemyElements.clear()
-
-			// 计算世界尺寸
-			this.worldWidth = width * (this.cellSize + this.gap) - this.gap
-			this.worldHeight = height * (this.cellSize + this.gap) - this.gap
-
-			// 计算初始相机位置（聚焦英雄）- 传入已知高度
-			this.updateCameraWithHeight(state.hero.x, state.hero.y, height)
-
-			// 创建视口结构
-			this.worldContainer.innerHTML = `
-				<div class="world-viewport" style="
-					width: ${this.viewportWidth}px;
-					height: ${this.viewportHeight}px;
-					overflow: hidden;
-					position: relative;
-					margin: 0 auto;
-					background: #0a0a14;
-					border-radius: 12px;
-					border: 2px solid #2a2a3e;
-				">
-					<div class="world-content" style="
-						position: absolute;
-						width: ${this.worldWidth}px;
-						height: ${this.worldHeight}px;
-						transform: translate(${-this.cameraX}px, ${-this.cameraY}px);
-						transition: transform 0.3s ease-out;
-					">
-						<div class="layer-grid"></div>
-						<div class="layer-objects"></div>
-						<div class="layer-effects"></div>
-					</div>
-				</div>
-			`
-
-			this.viewportElement = this.worldContainer.querySelector(".world-viewport") as HTMLElement
-			this.worldContentElement = this.worldContainer.querySelector(".world-content") as HTMLElement
-
-			const gridLayer = this.worldContainer.querySelector(".layer-grid") as HTMLElement
-			const objectsLayer = this.worldContainer.querySelector(".layer-objects") as HTMLElement
-
-			// 1. 渲染静态格子背景
-			this.renderGrid(gridLayer, state)
-
-			// 2. 渲染动态对象
-			this.renderObjects(objectsLayer, state)
-
-		} catch (err: any) {
+			this.renderWorld(state)
+		} catch {
 			// 静默处理渲染错误
 		}
 	}
 
-	// 更新相机位置（让英雄保持在视口中央）
-	private updateCamera(heroX: number, heroY: number): void {
-		const height = this.getGridHeight()
-		this.updateCameraWithHeight(heroX, heroY, height)
+	/**
+	 * 渲染世界
+	 */
+	private renderWorld(state: WorldState): void {
+		const { grid, hero, enemies, triggers, spikeY } = state
+		const height = grid.length
+		const width = grid[0].length
+
+		// 清空容器
+		this.worldContainer.innerHTML = ""
+		this.enemyElements.clear()
+
+		// 计算世界尺寸
+		this.worldWidth = width * (this.config.cellSize + this.config.gap) - this.config.gap
+		this.worldHeight = height * (this.config.cellSize + this.config.gap) - this.config.gap
+
+		// 计算初始相机位置
+		this.updateCamera(hero.x, hero.y, height)
+
+		// 创建视口结构
+		this.worldContainer.innerHTML = `
+			<div class="world-viewport" style="
+				width: ${this.config.viewportWidth}px;
+				height: ${this.config.viewportHeight}px;
+				overflow: hidden;
+				position: relative;
+				margin: 0 auto;
+				background: #0a0a14;
+				border-radius: 12px;
+				border: 2px solid #2a2a3e;
+			">
+				<div class="world-content" style="
+					position: absolute;
+					width: ${this.worldWidth}px;
+					height: ${this.worldHeight}px;
+					transform: translate(${-this.cameraX}px, ${-this.cameraY}px);
+					transition: transform 0.3s ease-out;
+				">
+					<div class="layer-grid"></div>
+					<div class="layer-objects"></div>
+					<div class="layer-effects"></div>
+				</div>
+			</div>
+		`
+
+		this.viewportElement = this.worldContainer.querySelector(".world-viewport") as HTMLElement
+		this.worldContentElement = this.worldContainer.querySelector(".world-content") as HTMLElement
+
+		const gridLayer = this.worldContainer.querySelector(".layer-grid") as HTMLElement
+		const objectsLayer = this.worldContainer.querySelector(".layer-objects") as HTMLElement
+
+		// 渲染静态格子背景
+		this.renderGrid(gridLayer, grid, triggers, height, width)
+
+		// 渲染动态对象
+		this.renderObjects(objectsLayer, hero, enemies, spikeY, height)
 	}
 
-	// 使用已知高度更新相机（避免DOM查询）
-	private updateCameraWithHeight(heroX: number, heroY: number, height: number): void {
-		const heroPixelX = heroX * (this.cellSize + this.gap)
-		const heroPixelY = (height - 1 - heroY) * (this.cellSize + this.gap)
+	/**
+	 * 更新相机位置
+	 */
+	private updateCamera(heroX: number, heroY: number, height: number): void {
+		const heroPixelX = heroX * (this.config.cellSize + this.config.gap)
+		const heroPixelY = (height - 1 - heroY) * (this.config.cellSize + this.config.gap)
 
 		// 目标相机位置（让英雄在中央）
-		let targetCameraX = heroPixelX - this.viewportWidth / 2 + this.cellSize / 2
-		let targetCameraY = heroPixelY - this.viewportHeight / 2 + this.cellSize / 2
+		let targetCameraX = heroPixelX - this.config.viewportWidth / 2 + this.config.cellSize / 2
+		let targetCameraY = heroPixelY - this.config.viewportHeight / 2 + this.config.cellSize / 2
 
-		// 边界限制（不能看到世界外面）
-		const maxCameraX = Math.max(0, this.worldWidth - this.viewportWidth)
-		const maxCameraY = Math.max(0, this.worldHeight - this.viewportHeight)
+		// 边界限制
+		const maxCameraX = Math.max(0, this.worldWidth - this.config.viewportWidth)
+		const maxCameraY = Math.max(0, this.worldHeight - this.config.viewportHeight)
 		targetCameraX = Math.max(0, Math.min(targetCameraX, maxCameraX))
 		targetCameraY = Math.max(0, Math.min(targetCameraY, maxCameraY))
 
@@ -156,25 +159,34 @@ export class DOMRenderer {
 		this.cameraY = targetCameraY
 	}
 
-	// 应用相机变换
+	/**
+	 * 应用相机变换
+	 */
 	private applyCamera(): void {
 		if (this.worldContentElement) {
 			this.worldContentElement.style.transform = `translate(${-this.cameraX}px, ${-this.cameraY}px)`
 		}
 	}
 
-	// 平滑移动相机到目标位置
+	/**
+	 * 平滑移动相机
+	 */
 	private smoothCameraTo(heroX: number, heroY: number): void {
-		this.updateCamera(heroX, heroY)
+		const height = this.getGridHeight()
+		this.updateCamera(heroX, heroY, height)
 		this.applyCamera()
 	}
 
-	// 渲染静态格子背景
-	private renderGrid(container: HTMLElement, state: WorldState): void {
-		const { grid, triggers } = state
-		const height = grid.length
-		const width = grid[0].length
-
+	/**
+	 * 渲染静态格子背景
+	 */
+	private renderGrid(
+		container: HTMLElement,
+		grid: number[][],
+		triggers: boolean[],
+		height: number,
+		width: number
+	): void {
 		container.style.cssText = `
 			width: ${this.worldWidth}px;
 			height: ${this.worldHeight}px;
@@ -185,48 +197,53 @@ export class DOMRenderer {
 			const logicY = height - 1 - displayY
 			for (let logicX = 0; logicX < width; logicX++) {
 				const cell = grid[logicY][logicX]
-				// 按钮格子特殊处理：如果已触发，不渲染图标
-				const isTriggeredButton = cell === ELEM.BUTTON && triggers[0]
+				const isTriggeredButton = cell === Element.BUTTON && triggers[0]
 				const cellEl = this.createCell(cell, logicX, displayY, isTriggeredButton)
 				container.appendChild(cellEl)
 			}
 		}
 	}
 
-	// 创建单个格子
-	private createCell(cellType: number, logicX: number, displayY: number, isTriggeredButton: boolean = false): HTMLElement {
+	/**
+	 * 创建单个格子
+	 */
+	private createCell(
+		cellType: number,
+		logicX: number,
+		displayY: number,
+		isTriggeredButton: boolean = false
+	): HTMLElement {
 		const el = document.createElement("div")
 		el.className = "cell"
 		el.dataset.x = String(logicX)
 		el.dataset.y = String(displayY)
 
-		const left = logicX * (this.cellSize + this.gap)
-		const top = displayY * (this.cellSize + this.gap)
+		const left = logicX * (this.config.cellSize + this.config.gap)
+		const top = displayY * (this.config.cellSize + this.config.gap)
 		el.style.cssText = `
 			position: absolute;
 			left: ${left}px;
 			top: ${top}px;
-			width: ${this.cellSize}px;
-			height: ${this.cellSize}px;
+			width: ${this.config.cellSize}px;
+			height: ${this.config.cellSize}px;
 		`
 
 		switch (cellType) {
-			case 0:
+			case Element.AIR:
 				el.classList.add("air")
 				break
-			case 2:
+			case Element.PLATFORM:
 				el.classList.add("platform")
 				break
-			case 4:
+			case Element.GOAL:
 				el.classList.add("goal")
 				el.innerHTML = "🏁"
 				break
-			case 5:
+			case Element.SPIKE:
 				el.classList.add("air")
 				break
-			case 6:
+			case Element.BUTTON:
 				el.classList.add("button-base")
-				// 按钮图标作为子元素，已触发时不渲染
 				if (!isTriggeredButton) {
 					el.innerHTML = "<div class=\"button-icon\">🔘</div>"
 				}
@@ -236,11 +253,16 @@ export class DOMRenderer {
 		return el
 	}
 
-	// 渲染动态对象
-	private renderObjects(container: HTMLElement, state: WorldState): void {
-		const { hero, enemies, grid, spikeY } = state
-		const height = grid.length
-
+	/**
+	 * 渲染动态对象
+	 */
+	private renderObjects(
+		container: HTMLElement,
+		hero: Position,
+		enemies: Position[],
+		spikeY: number | undefined,
+		height: number
+	): void {
 		container.style.cssText = `
 			width: ${this.worldWidth}px;
 			height: ${this.worldHeight}px;
@@ -255,7 +277,7 @@ export class DOMRenderer {
 		container.appendChild(this.heroElement)
 
 		// 2. 敌人
-		enemies.forEach((enemy, i) => {
+		enemies.forEach((enemy) => {
 			const enemyDisplayY = height - 1 - enemy.y
 			const key = `enemy-${enemy.x}-${enemy.y}`
 			const el = this.createGameObject(key, "👿", enemy.x, enemyDisplayY, 20)
@@ -270,22 +292,30 @@ export class DOMRenderer {
 		container.appendChild(this.spikeElement)
 	}
 
-	// 创建游戏对象
-	private createGameObject(id: string, content: string, logicX: number, displayY: number, zIndex: number): HTMLElement {
+	/**
+	 * 创建游戏对象
+	 */
+	private createGameObject(
+		id: string,
+		content: string,
+		logicX: number,
+		displayY: number,
+		zIndex: number
+	): HTMLElement {
 		const el = document.createElement("div")
 		el.className = `game-object ${id}`
 		el.dataset.id = id
 		el.innerHTML = content
 
-		const left = logicX * (this.cellSize + this.gap)
-		const top = displayY * (this.cellSize + this.gap)
+		const left = logicX * (this.config.cellSize + this.config.gap)
+		const top = displayY * (this.config.cellSize + this.config.gap)
 
 		el.style.cssText = `
 			position: absolute;
 			left: ${left}px;
 			top: ${top}px;
-			width: ${this.cellSize}px;
-			height: ${this.cellSize}px;
+			width: ${this.config.cellSize}px;
+			height: ${this.config.cellSize}px;
 			z-index: ${zIndex};
 			display: flex;
 			align-items: center;
@@ -297,7 +327,9 @@ export class DOMRenderer {
 		return el
 	}
 
-	// ========== 动画执行 ==========
+	/**
+	 * 播放动画序列
+	 */
 	async playAnimations(animations: AnimationEvent[]): Promise<void> {
 		if (this.animating || !animations.length) return
 		this.animating = true
@@ -312,6 +344,9 @@ export class DOMRenderer {
 		this.animating = false
 	}
 
+	/**
+	 * 按 delay 分组
+	 */
 	private groupByDelay(animations: AnimationEvent[]): AnimationEvent[][] {
 		const groups: Map<number, AnimationEvent[]> = new Map()
 
@@ -326,6 +361,9 @@ export class DOMRenderer {
 			.map(([_, anims]) => anims)
 	}
 
+	/**
+	 * 播放单个动画
+	 */
 	private playSingleAnimation(anim: AnimationEvent): Promise<void> {
 		return new Promise((resolve) => {
 			setTimeout(() => {
@@ -354,13 +392,13 @@ export class DOMRenderer {
 		})
 	}
 
-	// 英雄移动动画（带相机跟随）- 水平平移
+	/**
+	 * 英雄移动动画
+	 */
 	private animateHeroMove(anim: AnimationEvent): void {
 		if (!this.heroElement || !anim.to) return
 
 		const height = this.getGridHeight()
-
-		// 处理虚空（y=-1）：渲染在屏幕下方
 		let targetDisplayY: number
 		if (anim.to.y < 0) {
 			targetDisplayY = height + 2
@@ -368,65 +406,57 @@ export class DOMRenderer {
 			targetDisplayY = height - 1 - anim.to.y
 		}
 
-		const left = anim.to.x * (this.cellSize + this.gap)
-		const top = targetDisplayY * (this.cellSize + this.gap)
+		const left = anim.to.x * (this.config.cellSize + this.config.gap)
+		const top = targetDisplayY * (this.config.cellSize + this.config.gap)
 
-		// 水平平移使用 ease-out
 		this.heroElement.style.transition = `left ${anim.duration}ms ease-out`
 		this.heroElement.style.left = `${left}px`
 
-		// 如果Y也变化，同时更新top
 		if (anim.from.y !== anim.to.y) {
 			this.heroElement.style.transition = `all ${anim.duration}ms ease-out`
 			this.heroElement.style.top = `${top}px`
 		}
 
-		// 相机跟随
 		this.smoothCameraTo(anim.to.x, Math.max(0, anim.to.y))
 	}
 
-	// 英雄跳跃动画 - Fox-Jump同款抛物线
+	/**
+	 * 英雄跳跃动画 - 抛物线
+	 */
 	private animateHeroJump(anim: AnimationEvent): void {
 		if (!this.heroElement || !anim.to) return
 		const height = this.getGridHeight()
 
-		// 处理虚空坠落（y=-1）：渲染在屏幕下方
 		let targetDisplayY: number
 		if (anim.to.y < 0) {
-			targetDisplayY = height + Math.abs(anim.to.y)  // 虚空：渲染在地图下方
+			targetDisplayY = height + Math.abs(anim.to.y)
 		} else {
 			targetDisplayY = height - 1 - anim.to.y
 		}
 
 		const startLeft = parseFloat(this.heroElement.style.left) || 0
 		const startTop = parseFloat(this.heroElement.style.top) || 0
-		const targetLeft = anim.to.x * (this.cellSize + this.gap)
-		const targetTop = targetDisplayY * (this.cellSize + this.gap)
+		const targetLeft = anim.to.x * (this.config.cellSize + this.config.gap)
+		const targetTop = targetDisplayY * (this.config.cellSize + this.config.gap)
 
 		const startTime = performance.now()
 		const duration = anim.duration
-		const jumpHeight = 40  // 抛物线最高点偏移量
+		const jumpHeight = 40
 
 		const animate = (now: number) => {
 			const elapsed = now - startTime
 			const progress = Math.min(elapsed / duration, 1)
 
-			// 线性水平移动
 			const currentLeft = startLeft + (targetLeft - startLeft) * progress
-
-			// 抛物线垂直运动：4 * p * (1-p) 在 p=0.5 时达到最大值1
 			const parabola = 4 * progress * (1 - progress)
 			const verticalOffset = parabola * jumpHeight
-
-			// 当前高度 = 起点到终点的线性插值 + 抛物线偏移
 			const currentTop = startTop + (targetTop - startTop) * progress - verticalOffset
 
 			this.heroElement!.style.left = `${currentLeft}px`
 			this.heroElement!.style.top = `${currentTop}px`
 
-			// 相机跟随（基于逻辑坐标）
-			const currentLogicX = currentLeft / (this.cellSize + this.gap)
-			const currentLogicY = height - 1 - (currentTop + verticalOffset) / (this.cellSize + this.gap)
+			const currentLogicX = currentLeft / (this.config.cellSize + this.config.gap)
+			const currentLogicY = height - 1 - (currentTop + verticalOffset) / (this.config.cellSize + this.config.gap)
 			this.smoothCameraTo(currentLogicX, currentLogicY)
 
 			if (progress < 1) {
@@ -437,35 +467,37 @@ export class DOMRenderer {
 		requestAnimationFrame(animate)
 	}
 
-	// 英雄坠落动画（带相机跟随）- 直线坠落
+	/**
+	 * 英雄坠落动画
+	 */
 	private animateHeroFall(anim: AnimationEvent): void {
 		if (!this.heroElement || !anim.to) return
 		const height = this.getGridHeight()
 
-		// 处理虚空坠落（y=-1）：渲染在屏幕下方
 		let targetDisplayY: number
 		if (anim.to.y < 0) {
-			targetDisplayY = height + 2  // 虚空：渲染在地图下方2格处
+			targetDisplayY = height + 2
 		} else {
 			targetDisplayY = height - 1 - anim.to.y
 		}
 
-		const targetTop = targetDisplayY * (this.cellSize + this.gap)
+		const targetTop = targetDisplayY * (this.config.cellSize + this.config.gap)
 
-		// 使用CSS transition实现直线加速坠落
 		this.heroElement.style.transition = `top ${anim.duration}ms cubic-bezier(0.5, 0, 1, 1)`
 		this.heroElement.style.top = `${targetTop}px`
 
-		// 相机跟随
 		this.smoothCameraTo(anim.to.x, Math.max(0, anim.to.y))
 	}
 
+	/**
+	 * 尖刺坠落动画
+	 */
 	private animateSpikeFall(anim: AnimationEvent): void {
 		if (!this.spikeElement || !anim.to) return
 		const height = this.getGridHeight()
 		const targetDisplayY = height - 1 - anim.to.y
 
-		const targetTop = targetDisplayY * (this.cellSize + this.gap)
+		const targetTop = targetDisplayY * (this.config.cellSize + this.config.gap)
 
 		this.spikeElement.style.transition = `all ${anim.duration}ms cubic-bezier(0.4, 0, 1, 1)`
 		this.spikeElement.style.top = `${targetTop}px`
@@ -478,6 +510,9 @@ export class DOMRenderer {
 		}
 	}
 
+	/**
+	 * 敌人死亡动画
+	 */
 	private animateEnemyDie(anim: AnimationEvent): void {
 		const key = anim.target
 		const el = this.enemyElements.get(key)
@@ -493,15 +528,16 @@ export class DOMRenderer {
 		}, anim.duration)
 	}
 
+	/**
+	 * 按钮按下动画
+	 */
 	private animateButtonPress(anim: AnimationEvent): void {
-		// 通过坐标找到按钮格子里的图标
 		const height = this.getGridHeight()
 		const displayY = height - 1 - anim.from.y
 		const selector = `.cell[data-x="${anim.from.x}"][data-y="${displayY}"] .button-icon`
 		const buttonIcon = this.worldContainer.querySelector(selector) as HTMLElement
 
 		if (buttonIcon) {
-			// 给图标添加按下动画（原来的样式）
 			buttonIcon.style.transition = `all ${anim.duration}ms ease`
 			buttonIcon.style.transform = "scale(0.8)"
 			buttonIcon.style.filter = "brightness(0.7)"
@@ -510,12 +546,15 @@ export class DOMRenderer {
 		this.createRippleEffect(anim.from.x, displayY)
 	}
 
+	/**
+	 * 创建撞击效果
+	 */
 	private createImpactEffect(logicX: number, displayY: number): void {
 		const effectsLayer = this.worldContainer.querySelector(".layer-effects") as HTMLElement
 		if (!effectsLayer) return
 
-		const left = logicX * (this.cellSize + this.gap) + this.cellSize / 2
-		const top = displayY * (this.cellSize + this.gap) + this.cellSize / 2
+		const left = logicX * (this.config.cellSize + this.config.gap) + this.config.cellSize / 2
+		const top = displayY * (this.config.cellSize + this.config.gap) + this.config.cellSize / 2
 
 		for (let i = 0; i < 6; i++) {
 			const particle = document.createElement("div")
@@ -546,12 +585,15 @@ export class DOMRenderer {
 		}
 	}
 
+	/**
+	 * 创建涟漪效果
+	 */
 	private createRippleEffect(logicX: number, displayY: number): void {
 		const effectsLayer = this.worldContainer.querySelector(".layer-effects") as HTMLElement
 		if (!effectsLayer) return
 
-		const left = logicX * (this.cellSize + this.gap) + this.cellSize / 2
-		const top = displayY * (this.cellSize + this.gap) + this.cellSize / 2
+		const left = logicX * (this.config.cellSize + this.config.gap) + this.config.cellSize / 2
+		const top = displayY * (this.config.cellSize + this.config.gap) + this.config.cellSize / 2
 
 		const ripple = document.createElement("div")
 		ripple.className = "ripple"
@@ -577,24 +619,23 @@ export class DOMRenderer {
 		}).onfinish = () => ripple.remove()
 	}
 
+	/**
+	 * 获取地图高度
+	 */
 	private getGridHeight(): number {
-		return this.worldContainer.querySelector(".layer-grid")?.children.length
-			? Math.ceil(this.worldContainer.querySelector(".layer-grid")!.children.length / 10)
-			: 6
+		const grid = this.worldContainer.querySelector(".layer-grid")
+		if (!grid) return 6
+		const childCount = grid.children.length
+		return childCount ? Math.ceil(childCount / 10) : 6
 	}
 
-	// ========== 大脑思考渲染 ==========
+	/**
+	 * 渲染大脑思考
+	 */
 	renderImaginationFromAPI(data: any): void {
 		if (!data.decision) return
 
-		const actionNames: Record<string, string> = {
-			LEFT: "⬅️ 左移",
-			RIGHT: "➡️ 右移",
-			JUMP: "⬆️ 跳跃",
-			WAIT: "⏸️ 等待",
-		}
-
-		const decision = data.decision
+		const decision = data.decision as BrainDecision
 
 		const html = `
 			<div class="brain-reasoning">
@@ -604,10 +645,10 @@ export class DOMRenderer {
 			<div class="brain-cards">
 				<div class="cards-title">🎲 想象的${decision.imaginations?.length || 0}种可能</div>
 				<div class="cards-grid">
-					${(decision.imaginations || []).map((img: any) => `
-						<div class="imagination-card ${img.action === decision.action ? "selected" : ""}">
-							<div class="card-action">${actionNames[img.action] || img.action}</div>
-							<div class="card-pos">预测位置: (${img.predictedPos?.x}, ${img.predictedPos?.y})</div>
+					${(decision.imaginations || []).map((img) => `
+						<div class="imagination-card ${img.action === decision.selectedAction ? "selected" : ""}">
+							<div class="card-action">${this.getActionDisplayName(img.action)}</div>
+							<div class="card-pos">预测位置: (${img.predictedState.hero.x}, ${img.predictedState.hero.y})</div>
 							<div class="card-reward">奖励: ${img.predictedReward > 0 ? "+" : ""}${img.predictedReward}</div>
 							${img.killedEnemy ? "<div class=\"card-bonus\">✨ 击杀敌人!</div>" : ""}
 						</div>
@@ -619,6 +660,22 @@ export class DOMRenderer {
 		this.brainContainer.innerHTML = html
 	}
 
+	/**
+	 * 获取动作显示名称
+	 */
+	private getActionDisplayName(action: string): string {
+		const names: Record<string, string> = {
+			LEFT: "⬅️ 左移",
+			RIGHT: "➡️ 右移",
+			JUMP: "⬆️ 跳跃",
+			WAIT: "⏸️ 等待",
+		}
+		return names[action] || action
+	}
+
+	/**
+	 * 清空大脑面板
+	 */
 	clearBrainPanel(): void {
 		this.brainContainer.innerHTML = `
 			<div class="brain-placeholder">
@@ -626,12 +683,5 @@ export class DOMRenderer {
 				观察AI如何想象未来并决策
 			</div>
 		`
-	}
-
-	showMessage(msg: string): void {
-		const el = document.getElementById("message")!
-		el.textContent = msg
-		el.classList.add("show")
-		setTimeout(() => el.classList.remove("show"), 2000)
 	}
 }
