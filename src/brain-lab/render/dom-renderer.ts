@@ -245,7 +245,9 @@ export class DOMRenderer {
 	 */
 	private updateCamera(heroX: number, heroY: number, height: number): void {
 		const heroPixelX = heroX * (this.config.cellSize + this.config.gap)
-		const heroPixelY = (height - 1 - heroY) * (this.config.cellSize + this.config.gap)
+		// 限制 heroY 在有效范围内，防止跳太高时相机计算错误
+		const clampedHeroY = Math.max(0, Math.min(heroY, height - 1))
+		const heroPixelY = (height - 1 - clampedHeroY) * (this.config.cellSize + this.config.gap)
 
 		// 获取实际视口尺寸（使用配置值作为后备）
 		const viewportWidth = this.viewportElement?.clientWidth || this.config.viewportWidth
@@ -626,10 +628,12 @@ export class DOMRenderer {
 			this.heroElement!.style.left = `${currentLeft}px`
 			this.heroElement!.style.top = `${currentTop}px`
 
-			// 相机跟随：基于当前显示位置计算逻辑坐标
+			// 相机跟随：基于当前显示位置计算逻辑坐标（限制在地图范围内）
 			const currentLogicX = currentLeft / (this.config.cellSize + this.config.gap)
-			const currentLogicY = height - 1 - currentTop / (this.config.cellSize + this.config.gap)
-			this.smoothCameraTo(currentLogicX, Math.max(0, currentLogicY))
+			let currentLogicY = height - 1 - currentTop / (this.config.cellSize + this.config.gap)
+			// 限制Y范围，防止跳太高时相机计算错误
+			currentLogicY = Math.max(0, Math.min(currentLogicY, height - 1))
+			this.smoothCameraTo(currentLogicX, currentLogicY)
 
 			if (progress < 1) {
 				requestAnimationFrame(animate)
