@@ -22,7 +22,7 @@ class BrainLabUI {
 			this.consolePanel = new ConsolePanel("#console-panel", this.logger)
 			this.consolePanel.init()
 			
-			this.logger.info("MAIN", "初始化Brain Lab UI...")
+			console.log("[BRAIN-LAB] [MAIN] 初始化Brain Lab UI...")
 			
 			// 检查容器
 			const worldContainer = document.getElementById("world-container")
@@ -35,7 +35,7 @@ class BrainLabUI {
 				throw new Error("找不到 brain-container 元素")
 			}
 			
-			this.logger.info("MAIN", "容器检查通过")
+			console.log("[BRAIN-LAB] [MAIN] 容器检查通过")
 			
 			this.renderer = new DOMRenderer("world-container", "brain-container")
 			this.bindControls()
@@ -43,7 +43,7 @@ class BrainLabUI {
 			// 初始渲染
 			this.refreshState()
 			
-			this.logger.info("MAIN", "Brain Lab UI初始化完成")
+			console.log("[BRAIN-LAB] [MAIN] Brain Lab UI初始化完成")
 			
 			// 暴露调试API
 			;(window as any).brainLabDebug = {
@@ -76,7 +76,7 @@ class BrainLabUI {
 
 	async refreshState(): Promise<void> {
 		try {
-			this.logger.info("API", "获取状态...")
+			console.log("[BRAIN-LAB] [API] 获取状态...")
 			const res = await fetch(`${API_BASE}/state`)
 			
 			if (!res.ok) {
@@ -84,7 +84,7 @@ class BrainLabUI {
 			}
 			
 			const data = await res.json()
-			this.logger.info("API", `获取状态成功: hero=(${data.hero?.x},${data.hero?.y})`)
+			console.log(`[BRAIN-LAB] [API] 获取状态成功: hero=(${data.hero?.x},${data.hero?.y})`)
 			
 			// 检查数据
 			if (!data.gridRaw && !data.grid) {
@@ -92,10 +92,10 @@ class BrainLabUI {
 			}
 			
 			this.renderer.renderWorldFromAPI(data)
-			this.logger.info("RENDER", "世界渲染完成")
+			console.log("[BRAIN-LAB] [RENDER] 世界渲染完成")
 			
 		} catch (err: any) {
-			this.logger.error("API", "获取状态失败:", err.message)
+			console.error("[BRAIN-LAB] [API] 获取状态失败:", err.message)
 			console.error("[BrainLabUI] 获取状态失败:", err)
 		}
 	}
@@ -103,24 +103,24 @@ class BrainLabUI {
 	async step(): Promise<void> {
 		if (this.isRunning) return
 		this.isRunning = true
-		this.logger.info("GAME", "执行AI步骤...")
+		console.log("[BRAIN-LAB] [GAME] 执行AI步骤...")
 
 		try {
 			const res = await fetch(`${API_BASE}/step`, { method: 'POST' })
 			const data = await res.json()
 			
-			this.logger.info("BRAIN", `决策: ${data.decision?.action}`)
-			this.logger.info("GAME", `新位置: (${data.result?.newPos?.x}, ${data.result?.newPos?.y})`)
+			console.log(`[BRAIN-LAB] [BRAIN] 决策: ${data.decision?.action}`)
+			console.log(`[BRAIN-LAB] [GAME] 新位置: (${data.result?.newPos?.x}, ${data.result?.newPos?.y})`)
 
 			this.renderer.renderImaginationFromAPI(data)
 			await this.refreshState()
 
 			if (data.result?.reachedGoal) {
-				this.logger.info("GAME", "🎉 到达终点！")
+				console.log("[BRAIN-LAB] [GAME] 🎉 到达终点！")
 				this.stopAuto()
 			}
 		} catch (err: any) {
-			this.logger.error("API", "步骤失败:", err.message)
+			console.error("[BRAIN-LAB] [API] 步骤失败:", err.message)
 		}
 
 		this.isRunning = false
@@ -130,7 +130,7 @@ class BrainLabUI {
 		if (this.autoPlayInterval) {
 			this.stopAuto()
 		} else {
-			this.logger.info("GAME", "开始自动运行")
+			console.log("[BRAIN-LAB] [GAME] 开始自动运行")
 			document.getElementById("btn-auto")!.textContent = "⏸️ 暂停"
 			this.autoPlayInterval = window.setInterval(() => this.step(), 1500)
 		}
@@ -146,13 +146,13 @@ class BrainLabUI {
 
 	async reset(): Promise<void> {
 		this.stopAuto()
-		this.logger.info("GAME", "重置游戏...")
+		console.log("[BRAIN-LAB] [GAME] 重置游戏...")
 		try {
 			await fetch(`${API_BASE}/reset`, { method: 'POST' })
 			await this.refreshState()
 			this.renderer.clearBrainPanel()
 		} catch (err: any) {
-			this.logger.error("API", "重置失败:", err.message)
+			console.error("[BRAIN-LAB] [API] 重置失败:", err.message)
 		}
 	}
 
@@ -164,9 +164,9 @@ class BrainLabUI {
 				body: JSON.stringify({ depth })
 			})
 			document.getElementById("depth-value")!.textContent = depth.toString()
-			this.logger.info("CONFIG", `想象深度: ${depth}`)
+			console.log(`[BRAIN-LAB] [CONFIG] 想象深度: ${depth}`)
 		} catch (err: any) {
-			this.logger.error("API", "设置深度失败:", err.message)
+			console.error("[BRAIN-LAB] [API] 设置深度失败:", err.message)
 		}
 	}
 }
