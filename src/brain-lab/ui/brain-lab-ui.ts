@@ -29,6 +29,7 @@ export class BrainLabUI {
 	private currentState: any = null
 	private currentTab: TabType = "ai"
 	private currentLevel: LevelName = "default"
+	private toastTimeout: number | null = null
 
 	constructor() {
 		try {
@@ -63,7 +64,7 @@ export class BrainLabUI {
 		} catch (err: any) {
 			const container = document.getElementById("world-container")
 			if (container) {
-				container.innerHTML = `<div style="color:red;padding:20px;">初始化错误: ${err.message}</div>`
+				container.innerHTML = `<div style="color:red;padding:20px;">初始化错误: ${(err as Error).message}</div>`
 			}
 		}
 	}
@@ -296,7 +297,7 @@ export class BrainLabUI {
 			const data = await res.json()
 
 			if (data.error) {
-				this.showMessage(`❌ ${data.error}`)
+				this.showToast(`❌ ${data.error}`)
 				this.isRunning = false
 				return
 			}
@@ -339,7 +340,7 @@ export class BrainLabUI {
 			await fetch(`${API_BASE}/reset`, { method: "POST" })
 			await this.refreshState()
 			this.updateManualPosition({ x: 1, y: 1 })
-			this.showMessage("🔄 游戏已重置")
+			this.showToast("🔄 游戏已重置")
 		} catch {
 			// 静默处理错误
 		}
@@ -373,10 +374,10 @@ export class BrainLabUI {
 			// 刷新状态并强制渲染新地图
 			await this.refreshState()
 			this.updateManualPosition({ x: 1, y: 1 })
-			this.showMessage(`🗺️ 已切换到：${levelData.name}`)
+			this.showToast(`🗺️ 已切换到：${levelData.name}`)
 		} catch {
 			// 静默处理错误
-			this.showMessage("❌ 切换关卡失败")
+			this.showToast("❌ 切换关卡失败")
 		}
 	}
 
@@ -597,12 +598,25 @@ export class BrainLabUI {
 	}
 
 	/**
-	 * 显示消息
+	 * 显示 Toast 提示
+	 * 新 Toast 会直接顶掉旧 Toast，重新计时
 	 */
-	private showMessage(msg: string): void {
+	private showToast(msg: string): void {
 		const el = document.getElementById("message")!
+
+		// 清除旧的 timeout，防止快速消失
+		if (this.toastTimeout) {
+			clearTimeout(this.toastTimeout)
+		}
+
+		// 更新内容并显示
 		el.textContent = msg
 		el.classList.add("show")
-		setTimeout(() => el.classList.remove("show"), 2000)
+
+		// 设置新的 timeout
+		this.toastTimeout = window.setTimeout(() => {
+			el.classList.remove("show")
+			this.toastTimeout = null
+		}, 2000)
 	}
 }
