@@ -116,21 +116,21 @@ export class DOMRenderer {
 				position: relative;
 				margin: 0 auto;
 				background: #0a0a14;
-				border-radius: 12px;
-				border: 2px solid #2a2a3e;
+				border-radius: 8px;
+				border: 1px solid #2a2a3e;
 			">
 				<!-- 位置显示（中上部） -->
 				<div class="position-hud" style="
 					position: absolute;
-					top: 12px;
+					top: 6px;
 					left: 50%;
 					transform: translateX(-50%);
 					background: rgba(0, 0, 0, 0.7);
 					backdrop-filter: blur(4px);
-					padding: 6px 16px;
-					border-radius: 20px;
+					padding: 3px 10px;
+					border-radius: 12px;
 					border: 1px solid rgba(255, 255, 255, 0.1);
-					font-size: 14px;
+					font-size: 10px;
 					font-weight: 500;
 					color: #fff;
 					z-index: 100;
@@ -417,7 +417,7 @@ export class DOMRenderer {
 			display: flex;
 			align-items: center;
 			justify-content: center;
-			font-size: 24px;
+			font-size: 16px;
 			transition: none;
 		`
 

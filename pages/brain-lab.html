@@ -17,39 +17,39 @@
 			background: #0a0a14;
 			color: #fff;
 			min-height: 100vh;
-			padding: 12px;
-			padding-bottom: 100px;
+			padding: 6px;
+			padding-bottom: 60px;
 		}
 
 		/* 标题 */
 		.header {
 			text-align: center;
-			margin-bottom: 16px;
+			margin-bottom: 8px;
 		}
 
 		.header h1 {
-			font-size: 22px;
+			font-size: 16px;
 			color: #64b5f6;
-			margin-bottom: 4px;
+			margin-bottom: 2px;
 		}
 
 		.header p {
-			font-size: 13px;
+			font-size: 11px;
 			color: #888;
 		}
 
 		/* 游戏世界区域 */
 		.world-section {
 			background: #151520;
-			border-radius: 16px;
-			padding: 16px;
-			margin-bottom: 16px;
+			border-radius: 10px;
+			padding: 8px;
+			margin-bottom: 8px;
 		}
 
 		.world-title {
-			font-size: 14px;
+			font-size: 11px;
 			color: #888;
-			margin-bottom: 12px;
+			margin-bottom: 6px;
 			display: flex;
 			justify-content: space-between;
 		}
@@ -75,13 +75,13 @@
 
 		/* 格子样式 */
 		.cell {
-			width: 36px;
-			height: 36px;
-			border-radius: 8px;
+			width: 24px;
+			height: 24px;
+			border-radius: 5px;
 			display: flex;
 			align-items: center;
 			justify-content: center;
-			font-size: 20px;
+			font-size: 14px;
 		}
 
 		/* 格子类型 */
@@ -116,7 +116,7 @@
 		.cell.goal {
 			background: transparent;
 			border: none;
-			font-size: 24px;
+			font-size: 16px;
 			display: flex;
 			align-items: center;
 			justify-content: center;
@@ -147,17 +147,17 @@
 
 		/* 按钮图标 */
 		.button-icon {
-			width: 28px;
-			height: 28px;
+			width: 18px;
+			height: 18px;
 			background: radial-gradient(circle, #b779d6 0%, #9b59b6 70%);
 			border-radius: 50%;
 			box-shadow: 
-				0 4px 8px rgba(155, 89, 182, 0.4),
-				inset 0 -2px 4px rgba(0,0,0,0.2);
+				0 2px 4px rgba(155, 89, 182, 0.4),
+				inset 0 -1px 2px rgba(0,0,0,0.2);
 			display: flex;
 			align-items: center;
 			justify-content: center;
-			font-size: 16px;
+			font-size: 10px;
 		}
 
 		/* 粒子效果 */
@@ -185,35 +185,35 @@
 		/* 操作区域（Tab切换） */
 		.control-section {
 			background: #151520;
-			border-radius: 16px;
-			padding: 16px;
-			margin-bottom: 16px;
+			border-radius: 10px;
+			padding: 8px;
+			margin-bottom: 8px;
 		}
 
 		/* Tab头部 */
 		.tab-header {
 			display: flex;
-			gap: 8px;
-			margin-bottom: 16px;
-			border-bottom: 2px solid #2a2a3e;
-			padding-bottom: 12px;
+			gap: 6px;
+			margin-bottom: 8px;
+			border-bottom: 1px solid #2a2a3e;
+			padding-bottom: 6px;
 		}
 
 		.tab-btn {
 			flex: 1;
-			padding: 12px;
+			padding: 6px;
 			background: transparent;
-			border: 2px solid transparent;
-			border-radius: 12px;
+			border: 1px solid transparent;
+			border-radius: 8px;
 			color: #888;
-			font-size: 14px;
+			font-size: 11px;
 			font-weight: 600;
 			cursor: pointer;
 			transition: all 0.2s;
 			display: flex;
 			align-items: center;
 			justify-content: center;
-			gap: 6px;
+			gap: 4px;
 		}
 
 		.tab-btn:hover {
@@ -240,27 +240,27 @@
 		.ai-controls {
 			display: flex;
 			flex-direction: column;
-			gap: 12px;
+			gap: 6px;
 		}
 
 		.ai-buttons {
 			display: flex;
-			gap: 10px;
+			gap: 6px;
 		}
 
 		.btn {
 			flex: 1;
-			padding: 14px 16px;
+			padding: 8px 10px;
 			border: none;
-			border-radius: 12px;
-			font-size: 14px;
+			border-radius: 8px;
+			font-size: 11px;
 			font-weight: 600;
 			cursor: pointer;
 			transition: all 0.2s;
 			display: flex;
 			align-items: center;
 			justify-content: center;
-			gap: 6px;
+			gap: 4px;
 		}
 
 		.btn-primary {
@@ -296,13 +296,13 @@
 		.slider-row {
 			display: flex;
 			align-items: center;
-			gap: 12px;
-			padding-top: 8px;
+			gap: 8px;
+			padding-top: 4px;
 			border-top: 1px solid #2a2a3e;
 		}
 
 		.slider-label {
-			font-size: 13px;
+			font-size: 10px;
 			color: #888;
 			white-space: nowrap;
 		}
@@ -310,26 +310,26 @@
 		.slider {
 			flex: 1;
 			-webkit-appearance: none;
-			height: 6px;
-			border-radius: 3px;
+			height: 4px;
+			border-radius: 2px;
 			background: #2a2a3e;
 			outline: none;
 		}
 
 		.slider::-webkit-slider-thumb {
 			-webkit-appearance: none;
-			width: 20px;
-			height: 20px;
+			width: 14px;
+			height: 14px;
 			border-radius: 50%;
 			background: #9b59b6;
 			cursor: pointer;
 		}
 
 		.slider-value {
-			font-size: 15px;
+			font-size: 11px;
 			color: #9b59b6;
 			font-weight: bold;
-			min-width: 20px;
+			min-width: 16px;
 			text-align: center;
 		}
 
@@ -337,25 +337,25 @@
 		.manual-controls {
 			display: flex;
 			flex-direction: column;
-			gap: 16px;
+			gap: 8px;
 		}
 
 		/* D-Pad方向键 */
 		.dpad {
 			display: grid;
 			grid-template-columns: repeat(5, 1fr);
-			gap: 8px;
-			width: 280px;
+			gap: 4px;
+			width: 180px;
 			margin: 0 auto;
 		}
 
 		.dpad-btn {
 			aspect-ratio: 1;
 			background: #2a2a3e;
-			border: 2px solid #3a3a4e;
-			border-radius: 12px;
+			border: 1px solid #3a3a4e;
+			border-radius: 6px;
 			color: #fff;
-			font-size: 24px;
+			font-size: 14px;
 			cursor: pointer;
 			transition: all 0.1s;
 			display: flex;
@@ -382,17 +382,17 @@
 		/* 动作按钮行 */
 		.action-buttons {
 			display: flex;
-			gap: 12px;
+			gap: 8px;
 			justify-content: center;
 		}
 
 		.action-btn {
-			padding: 14px 28px;
+			padding: 8px 16px;
 			background: #9b59b6;
 			border: none;
-			border-radius: 12px;
+			border-radius: 6px;
 			color: white;
-			font-size: 16px;
+			font-size: 11px;
 			font-weight: 600;
 			cursor: pointer;
 			transition: all 0.2s;
@@ -431,71 +431,71 @@
 		.legend {
 			display: flex;
 			flex-wrap: wrap;
-			gap: 12px;
-			padding-top: 12px;
+			gap: 8px;
+			padding-top: 6px;
 			border-top: 1px solid #2a2a3e;
 		}
 
 		.legend-item {
 			display: flex;
 			align-items: center;
-			gap: 6px;
-			font-size: 12px;
+			gap: 4px;
+			font-size: 10px;
 			color: #888;
 		}
 
 		.legend-icon {
-			width: 20px;
-			height: 20px;
-			border-radius: 4px;
+			width: 14px;
+			height: 14px;
+			border-radius: 3px;
 			display: flex;
 			align-items: center;
 			justify-content: center;
-			font-size: 12px;
+			font-size: 9px;
 		}
 
 		/* 大脑思考区域（现在在Tab内） */
 		.brain-panel {
 			background: #0a0a14;
-			border-radius: 12px;
-			padding: 12px;
-			margin-bottom: 12px;
+			border-radius: 8px;
+			padding: 6px;
+			margin-bottom: 6px;
 		}
 
 		.brain-title {
-			font-size: 14px;
+			font-size: 11px;
 			color: #9b59b6;
-			margin-bottom: 12px;
+			margin-bottom: 6px;
 			display: flex;
 			align-items: center;
-			gap: 8px;
+			gap: 4px;
 		}
 
 		.brain-reasoning {
 			background: #151520;
-			border-radius: 8px;
-			padding: 10px;
-			margin-bottom: 12px;
-		}
-
-		.reason-title {
-			font-size: 11px;
-			color: #64b5f6;
+			border-radius: 6px;
+			padding: 6px;
 			margin-bottom: 6px;
 		}
 
+		.reason-title {
+			font-size: 9px;
+			color: #64b5f6;
+			margin-bottom: 4px;
+		}
+
 		.reason-text {
-			font-size: 13px;
-			line-height: 1.5;
+			font-size: 10px;
+			line-height: 1.4;
 			color: #ddd;
 		}
 
 		.brain-cards {
-			margin-top: 12px;
+			margin-top: 6px;
 		}
 
 		.cards-title {
-			font-size: 11px;
+			font-size: 9px;
 			color: #888;
 			margin-bottom: 10px;
 		}
@@ -503,14 +503,14 @@
 		.cards-grid {
 			display: grid;
 			grid-template-columns: 1fr 1fr;
-			gap: 8px;
+			gap: 4px;
 		}
 
 		.imagination-card {
 			background: #151520;
-			border-radius: 8px;
-			padding: 10px;
-			border: 2px solid transparent;
+			border-radius: 5px;
+			padding: 5px;
+			border: 1px solid transparent;
 			transition: all 0.2s;
 		}
 
@@ -524,37 +524,37 @@
 		}
 
 		.card-action {
-			font-size: 13px;
-			font-weight: bold;
-			margin-bottom: 4px;
-		}
-
-		.card-pos {
 			font-size: 10px;
-			color: #888;
+			font-weight: bold;
 			margin-bottom: 2px;
 		}
 
+		.card-pos {
+			font-size: 8px;
+			color: #888;
+			margin-bottom: 1px;
+		}
+
 		.card-reward {
-			font-size: 12px;
+			font-size: 9px;
 			color: #f39c12;
 			font-weight: bold;
 		}
 
 		.card-bonus {
-			font-size: 10px;
+			font-size: 8px;
 			color: #2ecc71;
-			margin-top: 4px;
+			margin-top: 2px;
 		}
 
 		/* 初始状态提示 */
 		.brain-placeholder {
 			background: #0a0a14;
-			border-radius: 12px;
-			padding: 24px;
+			border-radius: 8px;
+			padding: 12px;
 			text-align: center;
 			color: #666;
-			font-size: 14px;
+			font-size: 11px;
 		}
 
 		/* 消息提示 */
@@ -565,9 +565,9 @@
 			transform: translate(-50%, -50%);
 			background: rgba(46, 204, 113, 0.9);
 			color: white;
-			padding: 16px 32px;
-			border-radius: 12px;
-			font-size: 16px;
+			padding: 10px 20px;
+			border-radius: 8px;
+			font-size: 12px;
 			font-weight: bold;
 			opacity: 0;
 			pointer-events: none;

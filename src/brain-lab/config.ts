@@ -10,11 +10,11 @@ export const DEFAULT_WORLD_SIZE = {
 
 /** 渲染配置 */
 export const RENDER_CONFIG = {
-	cellSize: 36,      // 格子大小（像素）
-	gap: 4,            // 格子间距（像素）
-	viewportWidth: 400,   // 视口宽度（像素）
-	viewportHeight: 220,  // 视口高度（像素）
-	minViewportWidth: 320, // 最小视口宽度
+	cellSize: 24,      // 格子大小（像素）- 缩小
+	gap: 2,            // 格子间距（像素）- 缩小
+	viewportWidth: 280,   // 视口宽度（像素）- 缩小
+	viewportHeight: 150,  // 视口高度（像素）- 缩小
+	minViewportWidth: 240, // 最小视口宽度 - 缩小
 } as const
 
 /** 动画时长配置（毫秒） */
