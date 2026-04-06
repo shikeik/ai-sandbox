@@ -11,28 +11,51 @@ export class DOMRenderer {
 
 	// 从API数据渲染世界
 	renderWorldFromAPI(data: any): void {
-		const grid = data.gridRaw || data.grid
-		const hero = data.hero
-		const enemies = data.enemies || []
-		const height = grid.length
-		const width = grid[0].length
-
-		let html = '<div class="grid">'
-		
-		// 从上到下渲染（y=height-1 到 y=0）
-		for (let y = height - 1; y >= 0; y--) {
-			html += '<div class="row">'
-			for (let x = 0; x < width; x++) {
-				const cell = grid[y][x]
-				const heroHere = hero.x === x && hero.y === y
-				const enemyHere = enemies.some((e: any) => e.x === x && e.y === y)
-				html += this.renderCell(cell, heroHere, enemyHere)
+		try {
+			console.log("[DOMRenderer] renderWorldFromAPI 开始", data)
+			
+			const grid = data.gridRaw || data.grid
+			if (!grid) {
+				console.error("[DOMRenderer] 错误: 没有grid数据")
+				this.worldContainer.innerHTML = '<div style="color:red">错误: 没有grid数据</div>'
+				return
 			}
+			
+			const hero = data.hero
+			if (!hero) {
+				console.error("[DOMRenderer] 错误: 没有hero数据")
+				this.worldContainer.innerHTML = '<div style="color:red">错误: 没有hero数据</div>'
+				return
+			}
+			
+			const enemies = data.enemies || []
+			const height = grid.length
+			const width = grid[0].length
+			
+			console.log(`[DOMRenderer] 渲染 ${width}x${height} 网格, hero=(${hero.x},${hero.y})`)
+
+			let html = '<div class="grid">'
+			
+			// 从上到下渲染（y=height-1 到 y=0）
+			for (let y = height - 1; y >= 0; y--) {
+				html += '<div class="row">'
+				for (let x = 0; x < width; x++) {
+					const cell = grid[y][x]
+					const heroHere = hero.x === x && hero.y === y
+					const enemyHere = enemies.some((e: any) => e.x === x && e.y === y)
+					html += this.renderCell(cell, heroHere, enemyHere)
+				}
+				html += '</div>'
+			}
+			
 			html += '</div>'
+			this.worldContainer.innerHTML = html
+			console.log("[DOMRenderer] 渲染完成")
+			
+		} catch (err: any) {
+			console.error("[DOMRenderer] 渲染错误:", err)
+			this.worldContainer.innerHTML = `<div style="color:red">渲染错误: ${err.message}</div>`
 		}
-		
-		html += '</div>'
-		this.worldContainer.innerHTML = html
 	}
 
 	private renderCell(cellType: number, hero: boolean, enemy: boolean): string {
