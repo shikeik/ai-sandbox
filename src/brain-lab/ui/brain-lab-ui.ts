@@ -489,12 +489,12 @@ export class BrainLabUI {
 		await this.refreshState()
 		this.updateManualPosition({ x: 1, y: 1 })
 
-		await this._delay(400)
+		await this._delay(200)
 
 		// 渐亮（快速：400ms）
-		overlay.style.transition = "opacity 0.4s ease-in-out"
+		overlay.style.transition = "opacity 0.5s ease-in-out"
 		overlay.style.opacity = "0"
-		await this._delay(400)
+		await this._delay(500)
 
 		worldContainer.style.position = originalPosition
 		this.isRunning = false
