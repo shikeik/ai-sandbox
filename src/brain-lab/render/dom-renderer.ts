@@ -241,13 +241,17 @@ export class DOMRenderer {
 		const heroPixelX = heroX * (this.config.cellSize + this.config.gap)
 		const heroPixelY = (height - 1 - heroY) * (this.config.cellSize + this.config.gap)
 
+		// 获取实际视口尺寸（使用配置值作为后备）
+		const viewportWidth = this.viewportElement?.clientWidth || this.config.viewportWidth
+		const viewportHeight = this.viewportElement?.clientHeight || this.config.viewportHeight
+
 		// 目标相机位置（让英雄在中央）
-		let targetCameraX = heroPixelX - this.config.viewportWidth / 2 + this.config.cellSize / 2
-		let targetCameraY = heroPixelY - this.config.viewportHeight / 2 + this.config.cellSize / 2
+		let targetCameraX = heroPixelX - viewportWidth / 2 + this.config.cellSize / 2
+		let targetCameraY = heroPixelY - viewportHeight / 2 + this.config.cellSize / 2
 
 		// 边界限制
-		const maxCameraX = Math.max(0, this.worldWidth - this.config.viewportWidth)
-		const maxCameraY = Math.max(0, this.worldHeight - this.config.viewportHeight)
+		const maxCameraX = Math.max(0, this.worldWidth - viewportWidth)
+		const maxCameraY = Math.max(0, this.worldHeight - viewportHeight)
 		targetCameraX = Math.max(0, Math.min(targetCameraX, maxCameraX))
 		targetCameraY = Math.max(0, Math.min(targetCameraY, maxCameraY))
 
@@ -269,6 +273,10 @@ export class DOMRenderer {
 	 */
 	private smoothCameraTo(heroX: number, heroY: number): void {
 		const height = this.getGridHeight()
+		// 确保 viewportElement 已设置
+		if (!this.viewportElement) {
+			this.viewportElement = this.worldContainer.querySelector(".world-viewport") as HTMLElement
+		}
 		this.updateCamera(heroX, heroY, height)
 		this.applyCamera()
 	}
