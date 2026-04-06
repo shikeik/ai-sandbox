@@ -27,6 +27,7 @@ export function createPhysicsContext(state: WorldState, width: number, height: n
  */
 export function isWall(ctx: PhysicsContext, x: number, y: number): boolean {
 	if (x < 0 || x >= ctx.width || y < 0 || y >= ctx.height) return true  // 边界也是墙
+	if (!ctx.grid[y]) return true  // 行不存在视为墙
 	const cell = ctx.grid[y][x]
 	return cell === Element.PLATFORM || cell === Element.BUTTON
 	// GOAL 不是墙，可以走进去
@@ -39,6 +40,7 @@ export function isWall(ctx: PhysicsContext, x: number, y: number): boolean {
 export function hasSupport(ctx: PhysicsContext, x: number, y: number): boolean {
 	if (y < 0) return false
 	if (y === 0) return true  // 地面层总有支撑
+	if (y > ctx.height) return false  // 超出地图高度
 	const cell = ctx.grid[y - 1][x]
 	return cell === Element.PLATFORM || cell === Element.BUTTON
 	// GOAL 不是支撑，玩家站在终点上会落下
@@ -53,8 +55,11 @@ export function findJumpLandingY(
 	targetX: number, 
 	fromY: number
 ): number {
+	// 边界检查
+	if (targetX < 0 || targetX >= ctx.width) return -1
+
 	const maxReachY = fromY + 2  // 跳跃最高能到达的Y（玩家位置）
-	const platformSearchStart = maxReachY - 1  // 对应的平台Y
+	const platformSearchStart = Math.min(maxReachY - 1, ctx.height - 1)  // 限制在地图范围内
 
 	// 从高往低扫描平台
 	for (let py = platformSearchStart; py >= 0; py--) {
