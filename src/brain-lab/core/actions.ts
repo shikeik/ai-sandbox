@@ -373,6 +373,7 @@ function handleButtonTrigger(ctx: ActionContext, playerAnimDuration: number): vo
 	// 尖刺坠落（紧接按钮动画）
 	const spikeFromY = state.spikeY ?? 4
 	const spikeToY = 1
+	const SPIKE_PAUSE = 300 // 尖刺砸到敌人后的停顿时间
 
 	animations.push({
 		type: "SPIKE_FALL",
@@ -385,7 +386,7 @@ function handleButtonTrigger(ctx: ActionContext, playerAnimDuration: number): vo
 
 	state.spikeY = spikeToY
 
-	// 击杀敌人
+	// 击杀敌人（尖刺砸到后停顿一下再死）
 	const killedEnemies = state.enemies.filter(e => e.x === 4 && e.y === spikeToY)
 	if (killedEnemies.length > 0) {
 		logs.push(`[WORLD] 尖刺击杀 ${killedEnemies.length} 个敌人！`)
@@ -395,20 +396,20 @@ function handleButtonTrigger(ctx: ActionContext, playerAnimDuration: number): vo
 				target: `enemy-${enemy.x}-${enemy.y}`,
 				from: { ...enemy },
 				duration: ANIMATION_DURATION.enemyDie,
-				delay: playerAnimDuration + ANIMATION_DURATION.buttonPress + ANIMATION_DURATION.spikeFall
+				delay: playerAnimDuration + ANIMATION_DURATION.buttonPress + ANIMATION_DURATION.spikeFall + SPIKE_PAUSE
 			})
 		})
 		state.enemies = state.enemies.filter(e => !(e.x === 4 && e.y === spikeToY))
 	}
 
-	// 尖刺继续坠落到底
+	// 尖刺继续坠落到底（停顿后再落下）
 	animations.push({
 		type: "SPIKE_FALL",
 		target: "spike",
 		from: { x: 4, y: spikeToY },
 		to: { x: 4, y: 0 },
 		duration: ANIMATION_DURATION.spikeFallFast,
-		delay: playerAnimDuration + ANIMATION_DURATION.buttonPress + ANIMATION_DURATION.spikeFall
+		delay: playerAnimDuration + ANIMATION_DURATION.buttonPress + ANIMATION_DURATION.spikeFall + SPIKE_PAUSE
 	})
 	state.spikeY = 0
 }

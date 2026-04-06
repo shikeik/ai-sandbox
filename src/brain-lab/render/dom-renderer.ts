@@ -682,9 +682,18 @@ export class DOMRenderer {
 		const buttonIcon = this.worldContainer.querySelector(selector) as HTMLElement
 
 		if (buttonIcon) {
+			// 第一阶段：按下缩小
 			buttonIcon.style.transition = `all ${anim.duration}ms ease`
 			buttonIcon.style.transform = "scale(0.8)"
 			buttonIcon.style.filter = "brightness(0.7)"
+
+			// 第二阶段：淡出消失（更平滑）
+			setTimeout(() => {
+				buttonIcon.style.transition = "opacity 300ms ease-out"
+				buttonIcon.style.opacity = "0"
+				// 完全消失后移除元素
+				setTimeout(() => buttonIcon.remove(), 300)
+			}, anim.duration)
 		}
 
 		this.createRippleEffect(anim.from.x, displayY)
