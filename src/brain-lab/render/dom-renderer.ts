@@ -203,6 +203,15 @@ export class DOMRenderer {
 			}
 		}
 
+		// 重置所有终点旗子的样式（清除可能残留的发光效果）
+		const goalCells = this.worldContainer.querySelectorAll(".cell.goal")
+		goalCells.forEach((cell) => {
+			const el = cell as HTMLElement
+			el.style.transform = ""
+			el.style.filter = ""
+			el.style.transition = ""
+		})
+
 		// 平滑移动相机到新位置（使用 transition）
 		this.smoothCameraTo(hero.x, Math.max(0, hero.y))
 	}
@@ -720,11 +729,11 @@ export class DOMRenderer {
 			// 创建庆祝粒子效果
 			this.createConfettiEffect(anim.from.x, displayY)
 
-			// 动画结束后恢复（但保持发光）
+			// 动画结束后完全恢复正常（不保留发光）
 			setTimeout(() => {
 				goalCell.style.transition = "all 300ms ease-out"
 				goalCell.style.transform = "scale(1)"
-				goalCell.style.filter = "drop-shadow(0 0 10px #f1c40f)"
+				goalCell.style.filter = ""  // 清除发光效果
 			}, anim.duration)
 		}
 	}

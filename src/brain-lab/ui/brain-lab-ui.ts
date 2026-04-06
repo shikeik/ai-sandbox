@@ -299,17 +299,17 @@ export class BrainLabUI {
 				return
 			}
 
+			// 检查胜利（在刷新状态前处理，保持玩家在终点位置）
+			if (data.result?.reachedGoal) {
+				await this.handleVictory()
+				return
+			}
+
 			// 刷新状态
 			await this.refreshState()
 
 			// 更新手动模式的位置显示
 			this.updateManualPosition(data.to)
-
-			// 检查胜利
-			if (data.result?.reachedGoal) {
-				await this.handleVictory()
-				return
-			}
 
 		} catch {
 			// 静默处理错误
@@ -428,27 +428,28 @@ export class BrainLabUI {
 			worldContainer.style.position = "relative"
 		}
 
-		// 创建或获取奖杯元素
-		let trophyEl = document.getElementById("brain-lab-trophy") as HTMLElement
-		if (!trophyEl) {
-			trophyEl = document.createElement("div")
-			trophyEl.id = "brain-lab-trophy"
-			trophyEl.textContent = "🏆"
-			trophyEl.style.cssText = `
-				position: absolute;
-				top: 50%;
-				left: 50%;
-				transform: translate(-50%, -50%);
-				font-size: 56px;
-				font-weight: bold;
-				text-shadow: 0 0 30px #f1c40f;
-				opacity: 0;
-				pointer-events: none;
-				z-index: 2000;
-				transition: opacity 0.4s ease-in-out;
-			`
-			worldContainer.appendChild(trophyEl)
-		}
+		// 移除可能残留的旧奖杯（确保干净状态）
+		const oldTrophy = document.getElementById("brain-lab-trophy")
+		if (oldTrophy) oldTrophy.remove()
+
+		// 创建新奖杯元素
+		const trophyEl = document.createElement("div")
+		trophyEl.id = "brain-lab-trophy"
+		trophyEl.textContent = "🏆"
+		trophyEl.style.cssText = `
+			position: absolute;
+			top: 50%;
+			left: 50%;
+			transform: translate(-50%, -50%);
+			font-size: 56px;
+			font-weight: bold;
+			text-shadow: 0 0 30px #f1c40f;
+			opacity: 0;
+			pointer-events: none;
+			z-index: 2000;
+			transition: opacity 0.4s ease-in-out;
+		`
+		worldContainer.appendChild(trophyEl)
 
 		// 创建或复用遮罩
 		let overlay = document.querySelector(".brain-lab-overlay") as HTMLElement
@@ -470,24 +471,30 @@ export class BrainLabUI {
 
 		void overlay.offsetHeight
 
-		// 同时显示奖杯和开始渐暗
+		// 同时显示奖杯和开始渐暗（双倍时间：1.2s）
 		trophyEl.style.opacity = "1"
+		overlay.style.transition = "opacity 1.2s ease-in-out"
 		overlay.style.opacity = "1"
 
-		await this._delay(600)
+		await this._delay(1200)
 
-		// 渐暗完成后：隐藏奖杯 + 重置游戏
+		// 渐暗完成后：隐藏奖杯
 		trophyEl.style.opacity = "0"
+
+		// 等渐隐动画完成后移除奖杯，再重置游戏
+		await this._delay(400)
+		trophyEl.remove()
+
 		await fetch(`${API_BASE}/reset`, { method: "POST" })
 		await this.refreshState()
 		this.updateManualPosition({ x: 1, y: 1 })
 
-		await this._delay(200)
+		await this._delay(400)
 
-		// 渐亮
-		overlay.style.transition = "opacity 0.6s ease-in-out"
+		// 渐亮（快速：400ms）
+		overlay.style.transition = "opacity 0.4s ease-in-out"
 		overlay.style.opacity = "0"
-		await this._delay(600)
+		await this._delay(400)
 
 		worldContainer.style.position = originalPosition
 		this.isRunning = false
