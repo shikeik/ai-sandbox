@@ -67,8 +67,10 @@ export class DOMRenderer {
 	private updateViewportSize(): void {
 		// 获取容器可用宽度（减去padding）
 		const containerWidth = this.worldContainer.parentElement?.clientWidth || window.innerWidth
-		this.viewportWidth = Math.min(containerWidth - 32, 400) // 最大400px，留边距
+		// 确保最小宽度，避免负数
+		this.viewportWidth = Math.max(320, Math.min(containerWidth - 32, 400)) // 最小320px，最大400px
 		this.viewportHeight = 220 // 视口高度
+		console.log(`[VIEWPORT] 更新视口尺寸: ${this.viewportWidth}x${this.viewportHeight}`)
 	}
 
 	// ========== 初始化渲染 ==========
