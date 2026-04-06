@@ -61,13 +61,18 @@ export class Predictor {
 		}
 
 		// 检查是否踩到按钮触发机关
-		if (checkButtonTrigger(newState, hero.x, hero.y)) {
-			newState.triggers[0] = true
-			// 机关触发：杀死下方敌人（左下坐标系，y更小是下方）
-			newState.enemies = newState.enemies.filter(e => {
-				// 如果敌人在按钮正下方（同一x，y更小），被杀死
-				return !(e.x === hero.x && e.y < hero.y)
-			})
+		const buttonIdx = checkButtonTrigger(newState, hero.x, hero.y)
+		if (buttonIdx >= 0) {
+			newState.triggers[buttonIdx] = true
+			// 获取对应尖刺
+			const spike = newState.spikes[buttonIdx]
+			if (spike) {
+				spike.triggered = true
+				// 机关触发：杀死尖刺下方的敌人
+				newState.enemies = newState.enemies.filter(e => {
+					return !(e.x === spike.x && e.y <= 1)  // 尖刺落到y=1层杀死敌人
+				})
+			}
 		}
 
 		newState.hero = hero
