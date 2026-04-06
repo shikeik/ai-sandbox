@@ -141,6 +141,12 @@ export class BrainLabUI {
 				await this.renderer.playAnimations(data.animations)
 			}
 
+			// 检查死亡
+			if (data.result?.dead) {
+				await this.handleDeath()
+				return
+			}
+
 			// 动画完成后刷新状态
 			await this.refreshState()
 
@@ -291,6 +297,11 @@ export class BrainLabUI {
 			this.updateManualPosition(data.to)
 
 			// 检查结果
+			if (data.result?.dead) {
+				// 死亡：显示效果后自动重置
+				await this.handleDeath()
+				return
+			}
 			if (data.result?.reachedGoal) {
 				this.showMessage("🎉 恭喜到达终点！")
 			}
@@ -314,6 +325,47 @@ export class BrainLabUI {
 		} catch {
 			// 静默处理错误
 		}
+	}
+
+	/**
+	 * 处理死亡
+	 */
+	private async handleDeath(): Promise<void> {
+		// 显示死亡效果
+		this.showMessage("💀 坠入虚空！")
+
+		// 等待消息显示
+		await new Promise(resolve => setTimeout(resolve, 800))
+
+		// 渐暗效果
+		const worldContainer = document.getElementById("world-container")
+		if (worldContainer) {
+			worldContainer.style.transition = "opacity 0.3s ease"
+			worldContainer.style.opacity = "0"
+		}
+
+		// 等待渐暗完成
+		await new Promise(resolve => setTimeout(resolve, 300))
+
+		// 重置游戏
+		await fetch(`${API_BASE}/reset`, { method: "POST" })
+		await this.refreshState()
+		this.updateManualPosition({ x: 1, y: 1 })
+
+		// 渐亮效果
+		if (worldContainer) {
+			worldContainer.style.opacity = "1"
+		}
+
+		// 等待渐亮完成
+		await new Promise(resolve => setTimeout(resolve, 300))
+
+		// 清除过渡效果
+		if (worldContainer) {
+			worldContainer.style.transition = ""
+		}
+
+		this.isRunning = false
 	}
 
 	/**

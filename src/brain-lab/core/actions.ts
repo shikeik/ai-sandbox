@@ -36,7 +36,6 @@ export function executeAction(
 	const hero = { ...state.hero }
 	const animations: AnimationEvent[] = []
 	const logs: string[] = []
-	const dead = false
 
 	const ctx: ActionContext = {
 		state, hero, animations, logs, width, height
@@ -63,7 +62,9 @@ export function executeAction(
 			break
 	}
 
-	if (dead) {
+	// 检查是否坠入虚空（死亡）
+	if (hero.y < 0) {
+		logs.push("[WORLD] 玩家坠入虚空，游戏结束！")
 		return { reachedGoal: false, dead: true, animations, logs }
 	}
 

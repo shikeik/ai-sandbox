@@ -216,7 +216,8 @@ async function doStep() {
 			newPos: newState.hero,
 			enemiesRemaining: newState.enemies.length,
 			reachedGoal: actionResult.reachedGoal,
-			triggered: newState.triggers
+			triggered: newState.triggers,
+			dead: actionResult.dead
 		}
 	}
 }
@@ -262,7 +263,8 @@ function doMove(action: string) {
 		result: {
 			enemiesRemaining: newState.enemies.length,
 			triggeredButton: newState.triggers[0],
-			reachedGoal: actionResult.reachedGoal
+			reachedGoal: actionResult.reachedGoal,
+			dead: actionResult.dead
 		}
 	}
 }
