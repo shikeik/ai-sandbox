@@ -16,52 +16,43 @@ class BrainLabUI {
 	private currentTab: "ai" | "manual" = "ai"
 
 	constructor() {
-		console.log("[BrainLabUI] 初始化开始...")
-		
 		try {
 			// 初始化日志系统
 			this.logger = new Logger("[BRAIN-LAB]")
 			this.consolePanel = new ConsolePanel("#console-panel", this.logger)
 			this.consolePanel.init()
 			this.consolePanel.open()
-			
-			console.log("[BRAIN-LAB] [MAIN] 初始化Brain Lab UI...")
-			
+
 			// 检查容器
 			const worldContainer = document.getElementById("world-container")
 			const brainContainer = document.getElementById("brain-container")
-			
+
 			if (!worldContainer) {
 				throw new Error("找不到 world-container 元素")
 			}
 			if (!brainContainer) {
 				throw new Error("找不到 brain-container 元素")
 			}
-			
-			console.log("[BRAIN-LAB] [MAIN] 容器检查通过")
-			
+
 			this.renderer = new DOMRenderer("world-container", "brain-container")
 			this.bindTabControls()
 			this.bindAIControls()
 			this.bindManualControls()
-			
+
 			// 初始渲染
 			this.refreshState()
-			
-			console.log("[BRAIN-LAB] [MAIN] Brain Lab UI初始化完成")
-			
+
 			// 暴露调试API
 			;(window as any).brainLabDebug = {
 				step: () => this.step(),
 				reset: () => this.reset(),
 				state: () => this.refreshState(),
 				move: (action: string) => this.manualMove(action),
-				logs: () => fetch(`${API_BASE}/logs`, {method: "POST"}).then(r => r.json()),
-				clearLogs: () => fetch(`${API_BASE}/clear-logs`, {method: "POST"})
+				logs: () => fetch(`${API_BASE}/logs`, { method: "POST" }).then(r => r.json()),
+				clearLogs: () => fetch(`${API_BASE}/clear-logs`, { method: "POST" })
 			}
-			
+
 		} catch (err: any) {
-			console.error("[BrainLabUI] 初始化失败:", err)
 			const container = document.getElementById("world-container")
 			if (container) {
 				container.innerHTML = `<div style="color:red;padding:20px;">初始化错误: ${err.message}</div>`
@@ -82,7 +73,6 @@ class BrainLabUI {
 
 	private switchTab(tab: "ai" | "manual"): void {
 		this.currentTab = tab
-		console.log(`[BRAIN-LAB] [UI] 切换到${tab === "ai" ? "AI" : "手动"}模式`)
 
 		// 更新Tab按钮状态
 		document.querySelectorAll(".tab-btn").forEach(btn => {
@@ -128,7 +118,7 @@ class BrainLabUI {
 		// 键盘控制
 		document.addEventListener("keydown", (e) => {
 			if (this.currentTab !== "manual") return
-			
+
 			switch (e.key) {
 				case "ArrowLeft":
 				case "a":
@@ -173,7 +163,6 @@ class BrainLabUI {
 	async manualMove(action: string): Promise<void> {
 		if (this.isRunning) return
 		this.isRunning = true
-		console.log(`[BRAIN-LAB] [MANUAL] 手动移动: ${action}`)
 
 		try {
 			const res = await fetch(`${API_BASE}/move`, {
@@ -184,14 +173,10 @@ class BrainLabUI {
 			const data = await res.json()
 
 			if (data.error) {
-				console.error(`[BRAIN-LAB] [MANUAL] 错误: ${data.error}`)
 				this.showMessage(`❌ ${data.error}`)
 				this.isRunning = false
 				return
 			}
-
-			console.log(`[BRAIN-LAB] [MANUAL] 移动成功: (${data.from?.x},${data.from?.y}) -> (${data.to?.x},${data.to?.y})`)
-			console.log(`[BRAIN-LAB] [MANUAL] 动画事件: ${data.animations?.length || 0}个`)
 
 			// 播放动画
 			if (data.animations && data.animations.length > 0) {
@@ -206,18 +191,16 @@ class BrainLabUI {
 
 			// 检查是否到达终点
 			if (data.result?.reachedGoal) {
-				console.log("[BRAIN-LAB] [MANUAL] 🎉 到达终点！")
 				this.showMessage("🎉 恭喜到达终点！")
 			}
 
 			// 检查是否触发按钮
 			if (data.result?.triggeredButton) {
-				console.log("[BRAIN-LAB] [MANUAL] ⚡ 触发按钮！")
 				this.showMessage("⚡ 按钮已触发！")
 			}
 
 		} catch (err: any) {
-			console.error("[BRAIN-LAB] [MANUAL] 移动失败:", err.message)
+			// 静默处理错误
 		}
 
 		this.isRunning = false
@@ -225,14 +208,13 @@ class BrainLabUI {
 
 	// ========== 手动重置 ==========
 	async manualReset(): Promise<void> {
-		console.log("[BRAIN-LAB] [MANUAL] 手动重置游戏...")
 		try {
 			await fetch(`${API_BASE}/reset`, { method: "POST" })
 			await this.refreshState()
 			this.updateManualPosition({ x: 1, y: 1 })
 			this.showMessage("🔄 游戏已重置")
 		} catch (err: any) {
-			console.error("[BRAIN-LAB] [MANUAL] 重置失败:", err.message)
+			// 静默处理错误
 		}
 	}
 
@@ -247,34 +229,29 @@ class BrainLabUI {
 	// ========== 状态刷新 ==========
 	async refreshState(): Promise<void> {
 		try {
-			console.log("[BRAIN-LAB] [API] 获取状态...")
 			const res = await fetch(`${API_BASE}/state`)
-			
+
 			if (!res.ok) {
 				throw new Error(`HTTP ${res.status}: ${res.statusText}`)
 			}
-			
+
 			const data = await res.json()
 			this.currentState = data
-			
-			console.log(`[BRAIN-LAB] [API] 获取状态成功: hero=(${data.hero?.x},${data.hero?.y})`)
-			
+
 			// 检查数据
 			if (!data.gridRaw && !data.grid) {
 				throw new Error("API返回数据缺少gridRaw/grid字段")
 			}
-			
+
 			this.renderer.renderWorldFromAPI(data)
-			
+
 			// 更新手动模式的位置显示
 			if (data.hero) {
 				this.updateManualPosition(data.hero)
 			}
-			
-			console.log("[BRAIN-LAB] [RENDER] 世界渲染完成")
-			
+
 		} catch (err: any) {
-			console.error("[BRAIN-LAB] [API] 获取状态失败:", err.message)
+			// 静默处理错误
 		}
 	}
 
@@ -282,14 +259,10 @@ class BrainLabUI {
 	async step(): Promise<void> {
 		if (this.isRunning) return
 		this.isRunning = true
-		console.log("[BRAIN-LAB] [GAME] 执行AI步骤...")
 
 		try {
 			const res = await fetch(`${API_BASE}/step`, { method: "POST" })
 			const data = await res.json()
-			
-			console.log(`[BRAIN-LAB] [BRAIN] 决策: ${data.decision?.action}`)
-			console.log(`[BRAIN-LAB] [GAME] 动画事件: ${data.animations?.length || 0}个`)
 
 			// 渲染大脑思考
 			this.renderer.renderImaginationFromAPI(data)
@@ -303,11 +276,10 @@ class BrainLabUI {
 			await this.refreshState()
 
 			if (data.result?.reachedGoal) {
-				console.log("[BRAIN-LAB] [GAME] 🎉 到达终点！")
 				this.stopAuto()
 			}
 		} catch (err: any) {
-			console.error("[BRAIN-LAB] [API] 步骤失败:", err.message)
+			// 静默处理错误
 		}
 
 		this.isRunning = false
@@ -318,7 +290,6 @@ class BrainLabUI {
 		if (this.autoPlayInterval) {
 			this.stopAuto()
 		} else {
-			console.log("[BRAIN-LAB] [GAME] 开始自动运行")
 			document.getElementById("btn-auto")!.textContent = "⏸️ 暂停"
 			this.autoPlayInterval = window.setInterval(() => this.step(), 2000)
 		}
@@ -335,13 +306,12 @@ class BrainLabUI {
 	// ========== 重置游戏 ==========
 	async reset(): Promise<void> {
 		this.stopAuto()
-		console.log("[BRAIN-LAB] [GAME] 重置游戏...")
 		try {
 			await fetch(`${API_BASE}/reset`, { method: "POST" })
 			await this.refreshState()
 			this.renderer.clearBrainPanel()
 		} catch (err: any) {
-			console.error("[BRAIN-LAB] [API] 重置失败:", err.message)
+			// 静默处理错误
 		}
 	}
 
@@ -354,9 +324,8 @@ class BrainLabUI {
 				body: JSON.stringify({ depth })
 			})
 			document.getElementById("depth-value")!.textContent = depth.toString()
-			console.log(`[BRAIN-LAB] [CONFIG] 想象深度: ${depth}`)
 		} catch (err: any) {
-			console.error("[BRAIN-LAB] [API] 设置深度失败:", err.message)
+			// 静默处理错误
 		}
 	}
 
@@ -371,6 +340,5 @@ class BrainLabUI {
 
 // 启动
 document.addEventListener("DOMContentLoaded", () => {
-	console.log("[BrainLabUI] DOM加载完成")
 	new BrainLabUI()
 })
