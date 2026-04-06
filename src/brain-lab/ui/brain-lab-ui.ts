@@ -613,10 +613,10 @@ export class BrainLabUI {
 		el.textContent = msg
 		el.classList.add("show")
 
-		// 设置新的 timeout
+		// 设置新的 timeout（1.5秒后消失）
 		this.toastTimeout = window.setTimeout(() => {
 			el.classList.remove("show")
 			this.toastTimeout = null
-		}, 2000)
+		}, 1500)
 	}
 }
