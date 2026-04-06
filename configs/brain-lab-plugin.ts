@@ -107,6 +107,14 @@ export const brainLabPlugin = {
 						game.clearLogs()
 						result = { cleared: true }
 						break
+					case '/test-render':
+						// 返回测试用的渲染数据
+						result = {
+							test: 'render',
+							html: '<div style="color:green;padding:10px;">测试渲染成功</div>',
+							state: getState()
+						}
+						break
 					default:
 						res.writeHead(404)
 						res.end(JSON.stringify({ error: 'Unknown endpoint' }))
