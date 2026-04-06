@@ -63,12 +63,12 @@ export function formatJsonCompact(obj) {
 // Emoji 映射（美观输出用）
 const EMOJIS = { 0: '⬛', 1: '🦊', 2: '🟩', 3: '🦠', 4: '👿', 5: '🪙' }
 
-// 把规则中的数字ID替换成emoji+文字
+// 把规则中的数字ID替换成emoji
 function emojifyRule(text) {
 	return text
-		.replace(/\(2\)/g, '🟩平地(2)')
-		.replace(/\(3\)/g, '🦠史莱姆(3)')
-		.replace(/\(4\)/g, '👿恶魔(4)')
+		.replace(/\(2\)/g, '🟩')
+		.replace(/\(3\)/g, '🦠')
+		.replace(/\(4\)/g, '👿')
 }
 
 export function formatPretty(result, requestId) {

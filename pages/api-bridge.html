@@ -291,8 +291,27 @@
 		<div class="info-card">
 			<strong>💡 使用方法：</strong><br>
 			1. 确保此页面保持打开<br>
-			2. 在终端运行：<code>node scripts/api-bridge/kimi-cli.mjs 走</code><br>
-			3. 或使用 curl：<code>curl -X POST http://localhost:4000/api/kimi?pretty -d '{"action":"走"}'</code>
+			2. 在终端运行指令控制游戏：<br>
+			<br>
+			<strong>🎮 可用指令（文字）：</strong><br>
+			<code>node scripts/api-bridge/kimi-cli.mjs 走</code> — 向右移动1格<br>
+			<code>node scripts/api-bridge/kimi-cli.mjs 跳</code> — 向右跳跃2格<br>
+			<code>node scripts/api-bridge/kimi-cli.mjs 远跳</code> — 向右远跳3格<br>
+			<code>node scripts/api-bridge/kimi-cli.mjs 走A</code> — 移动1格并攻击史莱姆<br>
+			<code>node scripts/api-bridge/kimi-cli.mjs reset</code> — 重置游戏<br>
+			<code>node scripts/api-bridge/kimi-cli.mjs viewport</code> — 仅获取视野<br>
+			<br>
+			<strong>🔢 可用指令（curl）：</strong><br>
+			<code>curl -X POST http://localhost:4000/api/kimi -d '{"action":"走"}'</code> — 走<br>
+			<code>curl -X POST http://localhost:4000/api/kimi -d '{"action":"跳"}'</code> — 跳<br>
+			<code>curl -X POST http://localhost:4000/api/kimi -d '{"action":"远跳"}'</code> — 远跳<br>
+			<code>curl -X POST http://localhost:4000/api/kimi -d '{"action":"走A"}'</code> — 走A<br>
+			<code>curl -X POST http://localhost:4000/api/kimi -d '{"action":"reset"}'</code> — 重置游戏<br>
+			<code>curl -X POST http://localhost:4000/api/kimi -d '{"action":"viewport"}'</code> — 仅获取视野<br>
+			<br>
+			<strong>🎨 输出格式：</strong><br>
+			<code>curl "http://localhost:4000/api/kimi?pretty" -d '{"action":"走"}'</code> — 美观格式（带emoji）<br>
+			默认 — JSON格式（纯文字，适合AI解析）
 		</div>
 
 		<div class="info-card" style="background: rgba(255,193,7,0.1); border-color: rgba(255,193,7,0.3);">
@@ -376,6 +395,7 @@
 				this.status = '就绪'
 				this.viewportWidth = 5
 				this.grid = []
+				this.isDead = false
 				this.reset()
 			}
 
@@ -467,6 +487,7 @@
 				this.heroCol = 0
 				this.steps = 0
 				this.status = '就绪'
+				this.isDead = false
 				this.generateMap()
 				this.render()
 				return this.getViewport()
@@ -474,6 +495,11 @@
 
 			// 执行动作（强制执行，不管合不合法）
 			executeAction(action) {
+				// 死亡后锁定，只能重置
+				if (this.isDead) {
+					return { success: false, death: true, deathReason: '游戏已结束，请重置', locked: true }
+				}
+
 				const ELEM_AIR = 0, ELEM_HERO = 1, ELEM_GROUND = 2, ELEM_SLIME = 3, ELEM_DEMON = 4, ELEM_COIN = 5
 				const moveMap = { '走': 1, '跳': 2, '远跳': 3, '走A': 1 }
 				const move = moveMap[action] || 1
@@ -523,8 +549,10 @@
 				// 更新状态
 				if (death) {
 					this.status = '💀 游戏结束: ' + deathReason
+					this.isDead = true
 				} else if (this.heroCol >= this.mapLength - 1) {
 					this.status = '🎉 胜利！'
+					this.isDead = true  // 胜利后也锁定，防止继续行动
 				} else {
 					this.status = '进行中'
 				}
@@ -570,7 +598,7 @@
 				const vp = this.getViewport()
 
 				// 列标签 - 显示相对狐狸的位置 [-1, 0, +1, +2, +3]
-				const colLabels = ['-1', '▼', '+1', '+2', '+3']
+				const colLabels = ['\t', '-1', '▼', '+1', '+2', '+3', String(this.heroCol+4)]
 				const labels = colLabels.map(l => `<div class="col-label">${l}</div>`).join('')
 				document.getElementById('col-labels').innerHTML = labels
 
@@ -596,6 +624,14 @@
 				document.getElementById('hero-pos').textContent = `${this.heroCol} / ${this.mapLength - 1}`
 				document.getElementById('step-count').textContent = this.steps
 				document.getElementById('game-status').textContent = this.status
+				
+				// 死亡或胜利后禁用动作按钮
+				const actionButtons = document.querySelectorAll('.btn-group button:not(.secondary):not(.danger)')
+				actionButtons.forEach(btn => {
+					btn.disabled = this.isDead
+					btn.style.opacity = this.isDead ? '0.5' : '1'
+					btn.style.cursor = this.isDead ? 'not-allowed' : 'pointer'
+				})
 			}
 		}
 
