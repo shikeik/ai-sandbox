@@ -361,10 +361,16 @@ export class BrainLabUI {
 				body: JSON.stringify({ level: this.currentLevel }),
 			})
 
+			// 清除旧的视图，强制重新渲染
+			const worldContainer = document.getElementById("world-container")
+			if (worldContainer) {
+				worldContainer.innerHTML = ""
+			}
+
 			// 重新初始化渲染器（因为世界尺寸可能改变）
 			this.renderer = new DOMRenderer("world-container", "brain-container")
 
-			// 刷新状态
+			// 刷新状态并强制渲染新地图
 			await this.refreshState()
 			this.updateManualPosition({ x: 1, y: 1 })
 			this.showMessage(`🗺️ 已切换到：${levelData.name}`)
