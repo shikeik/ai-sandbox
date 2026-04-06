@@ -84,8 +84,8 @@ export class DOMRenderer {
 			this.worldWidth = width * (this.cellSize + this.gap) - this.gap
 			this.worldHeight = height * (this.cellSize + this.gap) - this.gap
 
-			// 计算初始相机位置（聚焦英雄）
-			this.updateCamera(state.hero.x, state.hero.y)
+			// 计算初始相机位置（聚焦英雄）- 传入已知高度
+			this.updateCameraWithHeight(state.hero.x, state.hero.y, height)
 
 			// 创建视口结构
 			this.worldContainer.innerHTML = `
@@ -132,8 +132,14 @@ export class DOMRenderer {
 
 	// 更新相机位置（让英雄保持在视口中央）
 	private updateCamera(heroX: number, heroY: number): void {
+		const height = this.getGridHeight()
+		this.updateCameraWithHeight(heroX, heroY, height)
+	}
+
+	// 使用已知高度更新相机（避免DOM查询）
+	private updateCameraWithHeight(heroX: number, heroY: number, height: number): void {
 		const heroPixelX = heroX * (this.cellSize + this.gap)
-		const heroPixelY = (this.getGridHeight() - 1 - heroY) * (this.cellSize + this.gap)
+		const heroPixelY = (height - 1 - heroY) * (this.cellSize + this.gap)
 
 		// 目标相机位置（让英雄在中央）
 		let targetCameraX = heroPixelX - this.viewportWidth / 2 + this.cellSize / 2
