@@ -1,4 +1,5 @@
-// ========== 世界管理器 - 重构版 ==========
+// ========== 世界管理器 - Fox-Jump式物理 ==========
+// 玩家站在空中，脚下必须有平台支撑，否则会坠落
 
 import { WorldState, Pos, ELEM } from "./types.js"
 
@@ -14,6 +15,7 @@ export interface AnimationEvent {
 
 export interface ActionResult {
 	reachedGoal: boolean
+	dead: boolean
 	animations: AnimationEvent[]
 	logs: string[]
 }
@@ -29,57 +31,48 @@ export class World {
 		this.state = this.createInitialState()
 	}
 
-	// 创建初始世界 - 重设计机关谜题
-	// 使用左下坐标系：y=0是地面，y=height-1是天空
+	// 创建初始世界 - Fox-Jump式物理
+	// y=0是地面层（平台），玩家站在y=1（空中，脚下有平台支撑）
 	private createInitialState(): WorldState {
-		// 创建空网格
 		const grid: number[][] = Array(this.height).fill(0).map(() =>
 			Array(this.width).fill(ELEM.AIR)
 		)
 
 		// ========== 地面层 y=0 ==========
-		for (let x = 0; x < this.width; x++) {
+		// 地面平台定义哪些x位置有支撑
+		// x=1: 起始平台
+		// x=2: 连接
+		// x=4: 敌人平台
+		// x=6,7,8,9: 右侧终点区
+		grid[0][1] = ELEM.PLATFORM
+		grid[0][2] = ELEM.PLATFORM
+		grid[0][4] = ELEM.PLATFORM  // 敌人站立的地方
+		for (let x = 6; x < this.width; x++) {
 			grid[0][x] = ELEM.PLATFORM
 		}
+		grid[0][8] = ELEM.GOAL  // 终点在地面层
 
-		// ========== 左侧起始区 y=1 ==========
-		grid[1][1] = ELEM.PLATFORM  // 狐狸起始位置
-		grid[1][2] = ELEM.PLATFORM  // 连接
-
-		// ========== 中央危险区 y=1 ==========
-		// 敌人在这里巡逻，需要机关清除
-		grid[1][4] = ELEM.PLATFORM  // 敌人站立的平台
-		// 注意：x=3,5留空，形成左右缺口，狐狸不能直接走过去
-
-		// ========== 上层按钮平台 y=2 ==========
-		// 设计：需要从左侧跳上去
+		// ========== 中层平台 y=1 ==========
+		// 上层按钮平台，需要跳跃才能到达
 		for (let x = 2; x <= 5; x++) {
 			if (x === 4) {
-				grid[2][x] = ELEM.BUTTON  // 中央按钮
+				grid[1][x] = ELEM.BUTTON
 			} else {
-				grid[2][x] = ELEM.PLATFORM
+				grid[1][x] = ELEM.PLATFORM
 			}
 		}
 
-		// ========== 右侧终点区 y=1 ==========
-		// 需要先清除敌人才能安全通过
-		for (let x = 6; x < this.width; x++) {
-			grid[1][x] = ELEM.PLATFORM
-		}
-		grid[1][8] = ELEM.GOAL  // 终点
-
-		// ========== 天空层 - 悬挂的尖刺 y=4 ==========
-		// 尖刺在按钮正上方，距离地面4格，距离按钮2格
-		// 这样坠落时有明显的视觉过程
+		// ========== 天空层 y=4 ==========
+		// 悬挂的尖刺
 		grid[4][4] = ELEM.SPIKE
 
 		return {
 			grid,
-			hero: { x: 1, y: 1 },
-			enemies: [{ x: 4, y: 1 }],  // 敌人在中央平台
-			triggers: [false],  // 按钮是否被触发
-			spikeFalling: false,  // 尖刺是否正在坠落
-			spikeY: 4,  // 尖刺当前y坐标（初始悬挂高度）
+			hero: { x: 1, y: 1 },  // 玩家站在y=1（空中），脚下y=0有平台
+			enemies: [{ x: 4, y: 1 }],  // 敌人也站在y=1
+			triggers: [false],
+			spikeFalling: false,
+			spikeY: 4,
 		}
 	}
 
@@ -95,78 +88,132 @@ export class World {
 		}
 	}
 
-	// 执行动作（确定性）- 返回动画事件列表
+	// 检查指定位置是否有支撑（平台/按钮/终点）
+	private hasSupport(x: number, y: number): boolean {
+		if (y < 0) return false
+		const cell = this.state.grid[y][x]
+		return cell === ELEM.PLATFORM || cell === ELEM.BUTTON || cell === ELEM.GOAL
+	}
+
+	// 寻找玩家下方的支撑平台y坐标
+	private findGroundY(x: number, startY: number): number {
+		// 从startY往下找，找第一个支撑平台
+		for (let y = startY; y >= 0; y--) {
+			if (this.hasSupport(x, y)) {
+				return y
+			}
+		}
+		return -1  // 没有支撑（会坠落死亡）
+	}
+
+	// 执行动作（Fox-Jump式物理）
 	executeAction(action: string): ActionResult {
 		const hero = { ...this.state.hero }
 		const animations: AnimationEvent[] = []
 		const logs: string[] = []
+		let dead = false
 
 		switch (action) {
 			case "LEFT":
 				if (hero.x > 0) {
-					const oldPos = { ...hero }
+					const oldX = hero.x
 					hero.x--
-					hero.y = this.findPlatformY(hero.x, hero.y)
 					
-					// 检测是否需要坠落
-					if (hero.y < oldPos.y) {
+					// 检查新位置脚下是否有支撑
+					const groundY = this.findGroundY(hero.x, hero.y)
+					if (groundY < 0) {
+						// 坠落死亡
+						logs.push(`[WORLD] 向左移动后脚下没有支撑，坠落！`)
 						animations.push({
 							type: "HERO_FALL",
 							target: "hero",
-							from: { x: hero.x, y: oldPos.y },
-							to: { x: hero.x, y: hero.y },
-							duration: 300 + (oldPos.y - hero.y) * 100
+							from: { x: hero.x, y: hero.y },
+							to: { x: hero.x, y: -1 },
+							duration: 500
 						})
+						dead = true
 					} else {
-						animations.push({
-							type: "HERO_MOVE",
-							target: "hero",
-							from: oldPos,
-							to: { ...hero },
-							duration: 250
-						})
+						// 下落到支撑点上方
+						const oldY = hero.y
+						hero.y = groundY + 1
+						
+						if (hero.y < oldY) {
+							animations.push({
+								type: "HERO_FALL",
+								target: "hero",
+								from: { x: hero.x, y: oldY },
+								to: { x: hero.x, y: hero.y },
+								duration: 300
+							})
+						} else {
+							animations.push({
+								type: "HERO_MOVE",
+								target: "hero",
+								from: { x: oldX, y: hero.y },
+								to: { x: hero.x, y: hero.y },
+								duration: 250
+							})
+						}
 					}
 				}
 				break
 
 			case "RIGHT":
 				if (hero.x < this.width - 1) {
-					const oldPos = { ...hero }
+					const oldX = hero.x
 					hero.x++
-					hero.y = this.findPlatformY(hero.x, hero.y)
 					
-					// 检测是否需要坠落
-					if (hero.y < oldPos.y) {
+					// 检查新位置脚下是否有支撑
+					const groundY = this.findGroundY(hero.x, hero.y)
+					if (groundY < 0) {
+						logs.push(`[WORLD] 向右移动后脚下没有支撑，坠落！`)
 						animations.push({
 							type: "HERO_FALL",
 							target: "hero",
-							from: { x: hero.x, y: oldPos.y },
-							to: { x: hero.x, y: hero.y },
-							duration: 300 + (oldPos.y - hero.y) * 100
+							from: { x: hero.x, y: hero.y },
+							to: { x: hero.x, y: -1 },
+							duration: 500
 						})
+						dead = true
 					} else {
-						animations.push({
-							type: "HERO_MOVE",
-							target: "hero",
-							from: oldPos,
-							to: { ...hero },
-							duration: 250
-						})
+						// 下落到支撑点上方
+						const oldY = hero.y
+						hero.y = groundY + 1
+						
+						if (hero.y < oldY) {
+							animations.push({
+								type: "HERO_FALL",
+								target: "hero",
+								from: { x: hero.x, y: oldY },
+								to: { x: hero.x, y: hero.y },
+								duration: 300
+							})
+						} else {
+							animations.push({
+								type: "HERO_MOVE",
+								target: "hero",
+								from: { x: oldX, y: hero.y },
+								to: { x: hero.x, y: hero.y },
+								duration: 250
+							})
+						}
 					}
 				}
 				break
 
 			case "JUMP": {
 				const oldPos = { ...hero }
+				// 跳跃：x+2，y+1（上到更高层）
 				const jumpX = Math.min(this.width - 1, hero.x + 2)
+				const jumpY = hero.y + 1
 				
-				// 尝试上到更高层（平台或按钮）- 左下坐标系，y+1是更高
-				const upperY = hero.y + 1
-				if (upperY < this.height && 
-				    (this.state.grid[upperY][jumpX] === ELEM.PLATFORM ||
-				     this.state.grid[upperY][jumpX] === ELEM.BUTTON)) {
+				// 检查目标位置是否有支撑
+				const groundY = this.findGroundY(jumpX, jumpY)
+				if (groundY >= 0) {
+					// 可以跳到目标位置
 					hero.x = jumpX
-					hero.y = upperY
+					hero.y = groundY + 1
+					
 					animations.push({
 						type: "HERO_JUMP",
 						target: "hero",
@@ -175,58 +222,52 @@ export class World {
 						duration: 500
 					})
 				} else {
+					// 没有支撑，坠落
+					logs.push(`[WORLD] 跳跃后脚下没有支撑，坠落！`)
 					hero.x = jumpX
-					hero.y = this.findPlatformY(hero.x, hero.y)
-					
-					if (hero.y < oldPos.y) {
-						animations.push({
-							type: "HERO_JUMP",
-							target: "hero",
-							from: oldPos,
-							to: { x: hero.x, y: oldPos.y },  // 跳到半空
-							duration: 250
-						})
-						animations.push({
-							type: "HERO_FALL",
-							target: "hero",
-							from: { x: hero.x, y: oldPos.y },
-							to: { ...hero },
-							duration: 300 + (oldPos.y - hero.y) * 100,
-							delay: 250
-						})
-					} else {
-						animations.push({
-							type: "HERO_JUMP",
-							target: "hero",
-							from: oldPos,
-							to: { ...hero },
-							duration: 500
-						})
-					}
+					animations.push({
+						type: "HERO_JUMP",
+						target: "hero",
+						from: oldPos,
+						to: { x: jumpX, y: oldPos.y },
+						duration: 250
+					})
+					animations.push({
+						type: "HERO_FALL",
+						target: "hero",
+						from: { x: jumpX, y: oldPos.y },
+						to: { x: jumpX, y: -1 },
+						duration: 500,
+						delay: 250
+					})
+					dead = true
 				}
 				break
 			}
 		}
 
+		if (dead) {
+			return { reachedGoal: false, dead: true, animations, logs }
+		}
+
 		// 更新英雄位置
 		this.state.hero = hero
 
-		// 检查按钮触发
-		if (this.state.grid[hero.y][hero.x] === ELEM.BUTTON && !this.state.triggers[0]) {
+		// 检查按钮触发（玩家踩在中层平台的按钮上）
+		if (this.state.grid[hero.y - 1][hero.x] === ELEM.BUTTON && !this.state.triggers[0]) {
 			this.state.triggers[0] = true
 			this.state.spikeFalling = true
 			
 			logs.push("[WORLD] 按钮触发！尖刺开始坠落...")
 			
-			// 按钮按下动画
 			animations.push({
 				type: "BUTTON_PRESS",
 				target: "button",
-				from: { x: hero.x, y: hero.y },
+				from: { x: hero.x, y: hero.y - 1 },
 				duration: 200
 			})
 			
-			// 尖刺坠落动画
+			// 尖刺坠落
 			const spikeFromY = this.state.spikeY ?? 4
 			const spikeToY = 1  // 坠落到敌人高度
 			
@@ -236,33 +277,27 @@ export class World {
 				from: { x: 4, y: spikeFromY },
 				to: { x: 4, y: spikeToY },
 				duration: 600,
-				delay: 200  // 按钮触发后延迟
+				delay: 200
 			})
 			
-			// 更新尖刺位置
 			this.state.spikeY = spikeToY
 			
-			// 检查是否击杀敌人
+			// 击杀敌人
 			const killedEnemies = this.state.enemies.filter(e => e.x === 4 && e.y === spikeToY)
 			if (killedEnemies.length > 0) {
 				logs.push(`[WORLD] 尖刺击杀 ${killedEnemies.length} 个敌人！`)
-				
-				// 敌人死亡动画
 				killedEnemies.forEach((enemy, i) => {
 					animations.push({
 						type: "ENEMY_DIE",
 						target: `enemy-${enemy.x}-${enemy.y}`,
 						from: { ...enemy },
 						duration: 400,
-						delay: 600  // 尖刺落地后
+						delay: 600
 					})
 				})
-				
-				// 移除被杀死的敌人
 				this.state.enemies = this.state.enemies.filter(e => !(e.x === 4 && e.y === spikeToY))
 			}
 			
-			// 尖刺继续坠落（可选：留在地面或消失）
 			animations.push({
 				type: "SPIKE_FALL",
 				target: "spike",
@@ -276,26 +311,12 @@ export class World {
 
 		// 检查是否到达终点
 		let reachedGoal = false
-		if (this.state.grid[hero.y][hero.x] === ELEM.GOAL) {
+		if (this.state.grid[hero.y - 1][hero.x] === ELEM.GOAL) {
 			logs.push("[WORLD] 到达终点！")
 			reachedGoal = true
 		}
 
-		return { reachedGoal, animations, logs }
-	}
-
-	// 寻找某x列的最近平台y坐标（从下往上找，返回平台所在y）
-	private findPlatformY(x: number, startY: number): number {
-		// 从startY往下找（y减小），找第一个能支撑的平台
-		for (let y = startY; y >= 0; y--) {
-			if (this.state.grid[y][x] === ELEM.PLATFORM ||
-			    this.state.grid[y][x] === ELEM.BUTTON ||
-			    this.state.grid[y][x] === ELEM.GOAL) {
-				return y  // 站在平台上（包括终点）
-			}
-		}
-		// 如果没找到，返回地面
-		return 0
+		return { reachedGoal, dead: false, animations, logs }
 	}
 
 	reset(): void {
