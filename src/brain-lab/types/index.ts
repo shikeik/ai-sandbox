@@ -17,7 +17,7 @@ export type {
 } from "./action.js"
 
 // 世界
-export type { WorldState, WorldSize, LevelData } from "./world.js"
+export type { WorldState, WorldSize, LevelData, SpikeState } from "./world.js"
 
 // AI
 export type { 

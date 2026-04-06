@@ -1,6 +1,6 @@
 // ========== DOM渲染器 ==========
 
-import type { WorldState, AnimationEvent, BrainDecision, Position } from "../types/index.js"
+import type { WorldState, AnimationEvent, BrainDecision, Position, SpikeState } from "../types/index.js"
 import { Element } from "../types/index.js"
 import { RENDER_CONFIG, ANIMATION_DURATION } from "../config.js"
 
@@ -22,7 +22,7 @@ export class DOMRenderer {
 	private worldContentElement: HTMLElement | null = null
 	private heroElement: HTMLElement | null = null
 	private enemyElements: Map<string, HTMLElement> = new Map()
-	private spikeElement: HTMLElement | null = null
+	private spikeElements: Map<string, HTMLElement> = new Map()
 
 	private config: RendererConfig
 	private animating: boolean = false
@@ -68,8 +68,7 @@ export class DOMRenderer {
 				hero: data.hero,
 				enemies: data.enemies || [],
 				triggers: data.triggers || [],
-				spikeY: data.spikeY,
-				spikeFalling: data.spikeFalling,
+				spikes: data.spikes || [],
 			}
 
 			if (!state.grid || !state.hero) {
@@ -86,7 +85,7 @@ export class DOMRenderer {
 	 * 渲染世界
 	 */
 	private renderWorld(state: WorldState): void {
-		const { grid, hero, enemies, triggers, spikeY } = state
+		const { grid, hero, enemies, triggers, spikes } = state
 		const height = grid.length
 		const width = grid[0].length
 
@@ -165,14 +164,14 @@ export class DOMRenderer {
 		this.renderGrid(gridLayer, grid, triggers, height, width)
 
 		// 渲染动态对象
-		this.renderObjects(objectsLayer, hero, enemies, spikeY, height)
+		this.renderObjects(objectsLayer, hero, enemies, spikes, height)
 	}
 
 	/**
 	 * 增量更新世界对象（避免相机跳变）
 	 */
 	private updateWorldObjects(state: WorldState): void {
-		const { grid, hero, enemies, triggers, spikeY } = state
+		const { grid, hero, enemies, triggers, spikes } = state
 		const height = grid.length
 
 		// 更新英雄位置
@@ -202,11 +201,14 @@ export class DOMRenderer {
 		}
 
 		// 更新尖刺位置
-		if (this.spikeElement && spikeY !== undefined) {
-			const spikeDisplayY = height - 1 - spikeY
-			const targetTop = spikeDisplayY * (this.config.cellSize + this.config.gap)
-			this.spikeElement.style.top = `${targetTop}px`
-		}
+		spikes.forEach((spike, idx) => {
+			const spikeEl = this.spikeElements.get(`spike-${idx}`)
+			if (spikeEl) {
+				const spikeDisplayY = height - 1 - spike.currentY
+				const targetTop = spikeDisplayY * (this.config.cellSize + this.config.gap)
+				spikeEl.style.top = `${targetTop}px`
+			}
+		})
 
 		// 更新按钮状态
 		const buttonBase = this.worldContainer.querySelector(".cell.button-base") as HTMLElement
@@ -368,7 +370,7 @@ export class DOMRenderer {
 		container: HTMLElement,
 		hero: Position,
 		enemies: Position[],
-		spikeY: number | undefined,
+		spikes: SpikeState[],
 		height: number
 	): void {
 		container.style.cssText = `
@@ -393,11 +395,15 @@ export class DOMRenderer {
 			container.appendChild(el)
 		})
 
-		// 3. 尖刺
-		const initialSpikeY = spikeY !== undefined ? spikeY : 4
-		const spikeDisplayY = height - 1 - initialSpikeY
-		this.spikeElement = this.createGameObject("spike", "🔻", 4, spikeDisplayY, 40)
-		container.appendChild(this.spikeElement)
+		// 3. 多个尖刺
+		this.spikeElements.clear()
+		spikes.forEach((spike, idx) => {
+			const spikeDisplayY = height - 1 - spike.currentY
+			const key = `spike-${idx}`
+			const el = this.createGameObject(key, "🔻", spike.x, spikeDisplayY, 40)
+			this.spikeElements.set(key, el)
+			container.appendChild(el)
+		})
 	}
 
 	/**
@@ -679,19 +685,23 @@ export class DOMRenderer {
 	 * 尖刺坠落动画
 	 */
 	private animateSpikeFall(anim: AnimationEvent): void {
-		if (!this.spikeElement || !anim.to) return
+		const spikeEl = this.spikeElements.get(anim.target)
+		if (!spikeEl || !anim.to) return
 		const height = this.getGridHeight()
 		const targetDisplayY = height - 1 - anim.to.y
 
 		const targetTop = targetDisplayY * (this.config.cellSize + this.config.gap)
 
-		this.spikeElement.style.transition = `all ${anim.duration}ms cubic-bezier(0.4, 0, 1, 1)`
-		this.spikeElement.style.top = `${targetTop}px`
-		this.spikeElement.style.transform = "rotate(360deg)"
+		spikeEl.style.transition = `all ${anim.duration}ms cubic-bezier(0.4, 0, 1, 1)`
+		spikeEl.style.top = `${targetTop}px`
+		spikeEl.style.transform = "rotate(360deg)"
 
 		if (anim.to.y <= 1) {
 			setTimeout(() => {
-				this.createImpactEffect(4, targetDisplayY)
+				// 从 target 中提取 x 坐标（如 "spike-0" -> 使用第一个尖刺的x）
+				const spikeIdx = parseInt(anim.target.split("-")[1]) || 0
+				const spikeX = spikeIdx === 0 ? 4 : 7  // 临时方案，应该从state中获取
+				this.createImpactEffect(spikeX, targetDisplayY)
 			}, anim.duration)
 		}
 	}

@@ -101,9 +101,29 @@ export function findPlatformY(grid: number[][], x: number, startY: number): numb
 
 /**
  * 检查是否触发按钮
+ * @returns 按钮索引，如果没有触发则返回 -1
  */
-export function checkButtonTrigger(state: WorldState, x: number, y: number): boolean {
-	return y > 0 && state.grid[y - 1][x] === Element.BUTTON && !state.triggers[0]
+export function checkButtonTrigger(state: WorldState, x: number, y: number): number {
+	if (y <= 0) return -1
+	if (state.grid[y - 1][x] !== Element.BUTTON) return -1
+
+	// 找到这个按钮对应的索引（按x坐标排序后匹配）
+	const buttons: { x: number; y: number; idx: number }[] = []
+	for (let py = 0; py < state.grid.length; py++) {
+		for (let px = 0; px < state.grid[py].length; px++) {
+			if (state.grid[py][px] === Element.BUTTON) {
+				buttons.push({ x: px, y: py, idx: buttons.length })
+			}
+		}
+	}
+	buttons.sort((a, b) => a.x - b.x)
+
+	// 找到当前按钮的索引
+	const btn = buttons.find(b => b.x === x && b.y === y - 1)
+	if (!btn) return -1
+
+	// 检查是否已触发
+	return !state.triggers[btn.idx] ? btn.idx : -1
 }
 
 /**
