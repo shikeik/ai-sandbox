@@ -238,6 +238,7 @@ function stopTimerUpdate(): void {
 function bindToolbarButtons(): void {
 	const btnToggle = document.getElementById("btn-toggle")
 	const btnFullscreen = document.getElementById("btn-fullscreen")
+	const btnNeuron = document.getElementById("btn-neuron")
 	const btnConsole = document.getElementById("btn-console")
 
 	if (btnToggle) {
@@ -256,6 +257,14 @@ function bindToolbarButtons(): void {
 		document.addEventListener("fullscreenchange", updateFullscreenBtn)
 		document.addEventListener("webkitfullscreenchange", updateFullscreenBtn)
 		btnFullscreen.addEventListener("click", () => EPS.fullscreen())
+	}
+
+	if (btnNeuron) {
+		btnNeuron.classList.toggle("active", viewManager!.getVisible())
+		btnNeuron.addEventListener("click", () => {
+			viewManager!.toggle()
+			btnNeuron.classList.toggle("active", viewManager!.getVisible())
+		})
 	}
 
 	if (btnConsole) {

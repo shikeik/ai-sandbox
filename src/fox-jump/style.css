@@ -174,6 +174,31 @@ html, body {
 	border-bottom-color: #0f0;
 }
 
+/* ---------- 神经元区域抽屉 ---------- */
+#neuron-area {
+	flex: 1;
+	background: var(--color-bg-neuron);
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	border-bottom: 2px solid var(--color-border);
+	position: relative;
+	overflow: hidden;
+	transition: flex 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+	            opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+#neuron-area.collapsed {
+	flex: 0 0 0;
+	opacity: 0;
+	border-bottom: none;
+}
+
+#neuron-area.collapsed > * {
+	display: none;
+}
+
 /* ---------- 云朵装饰 ---------- */
 .cloud {
 	position: absolute;
@@ -262,11 +287,17 @@ html, body {
 
 /* ---------- 游戏区域 ---------- */
 #game-area {
-	flex: 0 0 40%;
+	flex: 1;
 	background: var(--color-bg-game);
 	position: relative;
 	overflow: hidden;
 	border-bottom: 2px solid var(--color-border);
+	transition: flex 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* 当神经元区域隐藏时，游戏区域占据所有剩余空间 */
+#game-container.neuron-collapsed #game-area {
+	flex: 4;
 }
 
 #game-info {
@@ -378,17 +409,6 @@ html, body {
 }
 
 /* ---------- 神经元区域 ---------- */
-#neuron-area {
-	flex: 1;
-	background: var(--color-bg-neuron);
-	display: flex;
-	flex-direction: column;
-	align-items: center;
-	justify-content: center;
-	border-bottom: 2px solid var(--color-border);
-	position: relative;
-}
-
 #neuron-placeholder {
 	width: 90%;
 	height: 85%;

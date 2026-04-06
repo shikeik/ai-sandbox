@@ -64,6 +64,7 @@ declare global {
 
 export class NeuronAreaManager {
 	private container: HTMLElement
+	private gameContainer: HTMLElement
 	private currentView: NetworkView | null = null
 	private currentMode: string
 	private currentSpeed: string
@@ -77,6 +78,7 @@ export class NeuronAreaManager {
 	private exploreItems: HTMLElement[] = []
 	private weightSliders: Record<string, HTMLInputElement> = {}
 	private weightToggles: Record<string, HTMLInputElement> = {}
+	private isVisible: boolean = true
 
 	onModeChange?: (mode: "player" | "ai" | "train") => void
 	onSpeedChange?: (speed: string) => void
@@ -93,6 +95,13 @@ export class NeuronAreaManager {
 			throw new Error(`NeuronAreaManager: 找不到元素 #${containerId}`)
 		}
 		this.container = el
+		
+		const gameContainer = document.getElementById("game-container")
+		if (!gameContainer) {
+			throw new Error("NeuronAreaManager: 找不到元素 #game-container")
+		}
+		this.gameContainer = gameContainer
+		
 		this.currentMode = window.AI_CONFIG?.DEFAULT_MODE || "player"
 		this.currentSpeed = window.AI_CONFIG?.DEFAULT_SPEED || "step"
 		this.currentExploreMode = "none"
@@ -504,6 +513,46 @@ export class NeuronAreaManager {
 		const isOpen = menu.style.display === "none"
 		menu.style.display = isOpen ? "block" : "none"
 		btn.classList.toggle("active", isOpen)
+	}
+
+	/**
+	 * 切换神经元区域显隐
+	 */
+	toggle(): void {
+		this.isVisible = !this.isVisible
+		this._updateCollapsedState()
+		console.log("NEURON_UI", `面板显隐切换 | ${this.isVisible ? "显示" : "隐藏"}`)
+	}
+
+	/**
+	 * 显示神经元区域
+	 */
+	show(): void {
+		this.isVisible = true
+		this._updateCollapsedState()
+	}
+
+	/**
+	 * 隐藏神经元区域
+	 */
+	hide(): void {
+		this.isVisible = false
+		this._updateCollapsedState()
+	}
+
+	/**
+	 * 同步折叠状态到 DOM
+	 */
+	private _updateCollapsedState(): void {
+		this.container.classList.toggle("collapsed", !this.isVisible)
+		this.gameContainer.classList.toggle("neuron-collapsed", !this.isVisible)
+	}
+
+	/**
+	 * 获取当前显隐状态
+	 */
+	getVisible(): boolean {
+		return this.isVisible
 	}
 
 	render(

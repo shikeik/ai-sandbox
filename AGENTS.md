@@ -449,6 +449,18 @@ Vite 配置中通过 `rollupOptions.input` 定义 4 个入口：
 
 npm 脚本已更新以指向新位置。
 
+### 11.9 神经元区域抽屉切换
+
+顶部工具栏的 🧠 按钮可切换神经元区域（`#neuron-area`）的显隐：
+- 显示时：占据 `flex: 1` 空间，展示网络可视化和控制菜单
+- 隐藏时：`flex: 0 0 0`，游戏区域自动扩展，获得更大画面
+- 状态会同步到按钮的 `active` class（绿色高亮表示显示中）
+
+相关代码：
+- `NeuronAreaManager.toggle()` / `show()` / `hide()` / `getVisible()`
+- 样式：`#neuron-area` 和 `#neuron-area.collapsed`
+- 按钮绑定：`main.ts` 中的 `bindToolbarButtons()`
+
 ---
 
 *最后更新：2026-04-06*
