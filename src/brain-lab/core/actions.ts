@@ -36,7 +36,6 @@ export function executeAction(
 	const hero = { ...state.hero }
 	const animations: AnimationEvent[] = []
 	const logs: string[] = []
-	const dead = false
 
 	const ctx: ActionContext = {
 		state, hero, animations, logs, width, height
@@ -63,12 +62,15 @@ export function executeAction(
 			break
 	}
 
-	if (dead) {
-		return { reachedGoal: false, dead: true, animations, logs }
-	}
-
 	// 更新英雄位置
 	state.hero = hero
+
+	// 检查是否坠入虚空（死亡）
+	const dead = hero.y < 0
+	if (dead) {
+		logs.push("[WORLD] 玩家坠入虚空，游戏结束！")
+		return { reachedGoal: false, dead: true, animations, logs }
+	}
 
 	// 计算玩家动画总时长（用于按钮触发延迟）
 	let playerAnimDuration = 0

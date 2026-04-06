@@ -561,7 +561,9 @@ export class DOMRenderer {
 
 		const startTime = performance.now()
 		const duration = anim.duration
-		const jumpHeight = 40
+		// 虚空坠落时使用更大的抛物线高度，让上升更明显
+		const isVoidFall = targetPos.y < 0
+		const jumpHeight = isVoidFall ? 80 : 40
 
 		const animate = (now: number) => {
 			const elapsed = now - startTime
