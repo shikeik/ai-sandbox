@@ -113,12 +113,6 @@
 			border-radius: 2px;
 		}
 
-		/* 按钮底座 */
-		.cell.button-base {
-			background: rgba(155, 89, 182, 0.2);
-			border: 2px dashed rgba(155, 89, 182, 0.3);
-		}
-
 		.cell.goal {
 			background: transparent;
 			border: none;
@@ -142,13 +136,28 @@
 			filter: drop-shadow(0 2px 4px rgba(231, 76, 60, 0.6));
 		}
 
-		/* 按钮物体 */
-		.button-obj {
+		/* 按钮底座 */
+		.cell.button-base {
+			background: rgba(155, 89, 182, 0.2);
+			border: 2px dashed rgba(155, 89, 182, 0.3);
+			display: flex;
+			align-items: center;
+			justify-content: center;
+		}
+
+		/* 按钮图标 */
+		.button-icon {
+			width: 28px;
+			height: 28px;
 			background: radial-gradient(circle, #b779d6 0%, #9b59b6 70%);
 			border-radius: 50%;
 			box-shadow: 
 				0 4px 8px rgba(155, 89, 182, 0.4),
 				inset 0 -2px 4px rgba(0,0,0,0.2);
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			font-size: 16px;
 		}
 
 		/* 粒子效果 */

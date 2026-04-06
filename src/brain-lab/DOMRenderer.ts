@@ -1,5 +1,6 @@
 // ========== DOM渲染器 - 相机跟随+断言版 ==========
 
+import { ELEM } from "./types.js"
 import { 
 	assert, 
 	assertEq, 
@@ -43,7 +44,6 @@ export class DOMRenderer {
 	private heroElement: HTMLElement | null = null
 	private enemyElements: Map<string, HTMLElement> = new Map()
 	private spikeElement: HTMLElement | null = null
-	private buttonElement: HTMLElement | null = null
 	
 	private cellSize: number = 36
 	private gap: number = 4
@@ -227,7 +227,7 @@ export class DOMRenderer {
 
 	// 渲染静态格子背景
 	private renderGrid(container: HTMLElement, state: WorldState): void {
-		const { grid } = state
+		const { grid, triggers } = state
 		const height = grid.length
 		const width = grid[0].length
 
@@ -241,14 +241,16 @@ export class DOMRenderer {
 			const logicY = height - 1 - displayY
 			for (let logicX = 0; logicX < width; logicX++) {
 				const cell = grid[logicY][logicX]
-				const cellEl = this.createCell(cell, logicX, displayY)
+				// 按钮格子特殊处理：如果已触发，不渲染图标
+				const isTriggeredButton = cell === ELEM.BUTTON && triggers[0]
+				const cellEl = this.createCell(cell, logicX, displayY, isTriggeredButton)
 				container.appendChild(cellEl)
 			}
 		}
 	}
 
 	// 创建单个格子
-	private createCell(cellType: number, logicX: number, displayY: number): HTMLElement {
+	private createCell(cellType: number, logicX: number, displayY: number, isTriggeredButton: boolean = false): HTMLElement {
 		const el = document.createElement("div")
 		el.className = "cell"
 		el.dataset.x = String(logicX)
@@ -280,6 +282,10 @@ export class DOMRenderer {
 				break
 			case 6:
 				el.classList.add("button-base")
+				// 按钮图标作为子元素，已触发时不渲染
+				if (!isTriggeredButton) {
+					el.innerHTML = "<div class=\"button-icon\">🔘</div>"
+				}
 				break
 		}
 
@@ -324,18 +330,6 @@ export class DOMRenderer {
 		container.appendChild(this.spikeElement)
 		console.log(`[RENDER]   尖刺: 逻辑(${4},${initialSpikeY}) -> 显示(${4},${spikeDisplayY})`)
 
-		// 4. 按钮
-		if (!state.triggers[0]) {
-			const buttonDisplayY = height - 1 - 2
-			this.buttonElement = this.createGameObject("button", "🔘", 4, buttonDisplayY, 25)
-			this.buttonElement.classList.add("button-obj")
-			container.appendChild(this.buttonElement)
-			console.log(`[RENDER]   按钮: 逻辑(${4},${2}) -> 显示(${4},${buttonDisplayY})`)
-		} else {
-			this.buttonElement = null
-			console.log("[RENDER]   按钮: 已触发，不渲染")
-		}
-		
 		console.log("[RENDER] 动态对象渲染完成")
 	}
 
@@ -579,13 +573,20 @@ export class DOMRenderer {
 	}
 
 	private animateButtonPress(anim: AnimationEvent): void {
-		if (!this.buttonElement) return
+		// 通过坐标找到按钮格子里的图标
+		const height = this.getGridHeight()
+		const displayY = height - 1 - anim.from.y
+		const selector = `.cell[data-x="${anim.from.x}"][data-y="${displayY}"] .button-icon`
+		const buttonIcon = this.worldContainer.querySelector(selector) as HTMLElement
+		
+		if (buttonIcon) {
+			// 给图标添加按下动画（原来的样式）
+			buttonIcon.style.transition = `all ${anim.duration}ms ease`
+			buttonIcon.style.transform = "scale(0.8)"
+			buttonIcon.style.filter = "brightness(0.7)"
+		}
 
-		this.buttonElement.style.transition = `all ${anim.duration}ms ease`
-		this.buttonElement.style.transform = "scale(0.8)"
-		this.buttonElement.style.filter = "brightness(0.7)"
-
-		this.createRippleEffect(anim.from.x, this.getGridHeight() - 1 - anim.from.y)
+		this.createRippleEffect(anim.from.x, displayY)
 	}
 
 	private createImpactEffect(logicX: number, displayY: number): void {
