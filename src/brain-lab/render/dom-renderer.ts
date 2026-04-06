@@ -427,16 +427,18 @@ export class DOMRenderer {
 		if (!this.heroElement || !anim.to) return
 		const height = this.getGridHeight()
 
+		// 保存目标位置到局部变量，避免闭包中的 undefined 检查问题
+		const targetPos = anim.to
 		let targetDisplayY: number
-		if (anim.to.y < 0) {
-			targetDisplayY = height + Math.abs(anim.to.y)
+		if (targetPos.y < 0) {
+			targetDisplayY = height + Math.abs(targetPos.y)
 		} else {
-			targetDisplayY = height - 1 - anim.to.y
+			targetDisplayY = height - 1 - targetPos.y
 		}
 
 		const startLeft = parseFloat(this.heroElement.style.left) || 0
 		const startTop = parseFloat(this.heroElement.style.top) || 0
-		const targetLeft = anim.to.x * (this.config.cellSize + this.config.gap)
+		const targetLeft = targetPos.x * (this.config.cellSize + this.config.gap)
 		const targetTop = targetDisplayY * (this.config.cellSize + this.config.gap)
 
 		const startTime = performance.now()
@@ -447,7 +449,10 @@ export class DOMRenderer {
 			const elapsed = now - startTime
 			const progress = Math.min(elapsed / duration, 1)
 
+			// 水平线性插值
 			const currentLeft = startLeft + (targetLeft - startLeft) * progress
+
+			// 抛物线垂直运动
 			const parabola = 4 * progress * (1 - progress)
 			const verticalOffset = parabola * jumpHeight
 			const currentTop = startTop + (targetTop - startTop) * progress - verticalOffset
@@ -455,12 +460,19 @@ export class DOMRenderer {
 			this.heroElement!.style.left = `${currentLeft}px`
 			this.heroElement!.style.top = `${currentTop}px`
 
+			// 相机跟随：基于当前显示位置计算逻辑坐标
 			const currentLogicX = currentLeft / (this.config.cellSize + this.config.gap)
-			const currentLogicY = height - 1 - (currentTop + verticalOffset) / (this.config.cellSize + this.config.gap)
-			this.smoothCameraTo(currentLogicX, currentLogicY)
+			const currentLogicY = height - 1 - currentTop / (this.config.cellSize + this.config.gap)
+			this.smoothCameraTo(currentLogicX, Math.max(0, currentLogicY))
 
 			if (progress < 1) {
 				requestAnimationFrame(animate)
+			} else {
+				// 动画结束：精确对齐到目标位置，避免浮点误差
+				this.heroElement!.style.left = `${targetLeft}px`
+				this.heroElement!.style.top = `${targetTop}px`
+				// 最终相机位置精确对齐
+				this.smoothCameraTo(targetPos.x, Math.max(0, targetPos.y))
 			}
 		}
 
