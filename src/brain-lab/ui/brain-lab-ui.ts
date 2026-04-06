@@ -294,9 +294,6 @@ export class BrainLabUI {
 			if (data.result?.reachedGoal) {
 				this.showMessage("🎉 恭喜到达终点！")
 			}
-			if (data.result?.triggeredButton) {
-				this.showMessage("⚡ 按钮已触发！")
-			}
 
 		} catch {
 			// 静默处理错误
