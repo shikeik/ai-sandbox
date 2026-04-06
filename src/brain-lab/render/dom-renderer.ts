@@ -34,6 +34,7 @@ export class DOMRenderer {
 	private cameraY: number = 0
 	private worldWidth: number = 0
 	private worldHeight: number = 0
+	private isCinematicMode: boolean = false  // 演出镜头模式
 
 	constructor(worldId: string, brainId: string) {
 		this.worldContainer = document.getElementById(worldId)!
@@ -269,6 +270,9 @@ export class DOMRenderer {
 	 * 平滑移动相机
 	 */
 	private smoothCameraTo(heroX: number, heroY: number): void {
+		// 演出镜头模式下不跟随玩家
+		if (this.isCinematicMode) return
+
 		const height = this.getGridHeight()
 		// 确保 viewportElement 已设置
 		if (!this.viewportElement) {
@@ -276,6 +280,54 @@ export class DOMRenderer {
 		}
 		this.updateCamera(heroX, heroY, height)
 		this.applyCamera()
+	}
+
+	/**
+	 * 演出镜头：移动到指定位置
+	 * @param targetX 目标X坐标（像素）
+	 * @param targetY 目标Y坐标（像素）
+	 * @param duration 动画时长（毫秒）
+	 * @returns Promise，动画完成后 resolve
+	 */
+	async cinematicMoveTo(targetX: number, targetY: number, duration: number = 800): Promise<void> {
+		this.isCinematicMode = true
+
+		const viewportWidth = this.viewportElement?.clientWidth || this.config.viewportWidth
+		const viewportHeight = this.viewportElement?.clientHeight || this.config.viewportHeight
+
+		// 目标相机位置（让目标点在视口中央）
+		const targetCameraX = targetX - viewportWidth / 2 + this.config.cellSize / 2
+		const targetCameraY = targetY - viewportHeight / 2 + this.config.cellSize / 2
+
+		const startCameraX = this.cameraX
+		const startCameraY = this.cameraY
+
+		// 使用 CSS transition 实现平滑移动
+		if (this.worldContentElement) {
+			this.worldContentElement.style.transition = `transform ${duration}ms cubic-bezier(0.4, 0, 0.2, 1)`
+		}
+
+		this.cameraX = targetCameraX
+		this.cameraY = targetCameraY
+		this.applyCamera()
+
+		// 等待动画完成
+		await new Promise(resolve => setTimeout(resolve, duration))
+	}
+
+	/**
+	 * 演出镜头：缓动回当前相机位置（结束演出模式）
+	 * @param duration 动画时长（毫秒）
+	 * @returns Promise，动画完成后 resolve
+	 */
+	async endCinematic(duration: number = 600): Promise<void> {
+		// 结束演出模式，相机将自动跟随玩家
+		this.isCinematicMode = false
+		if (this.worldContentElement) {
+			this.worldContentElement.style.transition = `transform ${duration}ms ease-out`
+		}
+		// 等待过渡完成
+		await new Promise(resolve => setTimeout(resolve, duration))
 	}
 
 	/**
@@ -464,22 +516,42 @@ export class DOMRenderer {
 				await new Promise(resolve => setTimeout(resolve, waitTime))
 			}
 
-			// TEMP日志：玩家动画结束
-			if (groupDelay === playerMaxEndTime && playerMaxEndTime > 0) {
-				console.log(`[TEMP] 玩家动画结束 (时间: ${Date.now()})`)
+			// 检查是否有演出镜头动画（按钮触发）
+			const cinematicAnim = group.find(a => 
+				a.type === "BUTTON_PRESS" && a.payload?.cinematic
+			)
+
+			if (cinematicAnim) {
+				// 演出镜头模式：先移动镜头到击杀区域
+				const { cinematicTargetX, cinematicTargetY, cinematicDuration, waitDuration } = cinematicAnim.payload
+				const height = this.getGridHeight()
+
+				// 计算目标像素位置
+				const targetPixelX = cinematicTargetX * (this.config.cellSize + this.config.gap)
+				const targetPixelY = (height - 1 - cinematicTargetY) * (this.config.cellSize + this.config.gap)
+
+				// 播放按钮动画
+				await Promise.all(group.map(anim => this.playSingleAnimation(anim)))
+
+				// 演出镜头移动到击杀区域
+				await this.cinematicMoveTo(targetPixelX, targetPixelY, cinematicDuration)
+
+				// 等待尖刺坠落完成
+				await new Promise(resolve => setTimeout(resolve, waitDuration))
+
+				// 结束演出模式，相机自动跟随玩家
+				await this.endCinematic(600)
+
+				// 更新最后结束时间（演出镜头时间也计入）
+				lastGroupEndTime = groupDelay + cinematicDuration + waitDuration + 600
+			} else {
+				// 普通模式：直接执行动画
+				await Promise.all(group.map(anim => this.playSingleAnimation(anim)))
+
+				// 更新最后结束时间
+				const groupMaxDuration = Math.max(...group.map(a => a.duration))
+				lastGroupEndTime = groupDelay + groupMaxDuration
 			}
-
-			// TEMP日志：按钮动画开始
-			if (groupDelay === buttonStartTime && buttonStartTime > 0) {
-				console.log(`[TEMP] 按钮动画开始 (时间: ${Date.now()})`)
-			}
-
-			// 执行该组所有动画
-			await Promise.all(group.map(anim => this.playSingleAnimation(anim)))
-
-			// 更新最后结束时间
-			const groupMaxDuration = Math.max(...group.map(a => a.duration))
-			lastGroupEndTime = groupDelay + groupMaxDuration
 		}
 
 		this.animating = false
