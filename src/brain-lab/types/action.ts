@@ -3,7 +3,7 @@
 import type { Position } from "./position.js"
 
 /** 玩家动作类型 */
-export type ActionType = "LEFT" | "RIGHT" | "JUMP" | "WAIT" | "JUMP_LEFT" | "JUMP_RIGHT"
+export type ActionType = "LEFT" | "RIGHT" | "JUMP" | "WAIT" | "JUMP_LEFT" | "JUMP_RIGHT" | "JUMP_LEFT_FAR" | "JUMP_RIGHT_FAR"
 
 /** 动画事件类型 */
 export type AnimationType = 
@@ -43,4 +43,6 @@ export const ACTION_NAMES: Record<string, string> = {
 	WAIT: "⏸️ 等待",
 	JUMP_LEFT: "↖️ 向左跳",
 	JUMP_RIGHT: "↗️ 向右跳",
+	JUMP_LEFT_FAR: "⬅️↖️ 左远跳",
+	JUMP_RIGHT_FAR: "↗️➡️ 右远跳",
 }

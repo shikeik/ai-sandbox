@@ -54,6 +54,12 @@ export function executeAction(
 		case "JUMP_RIGHT":
 			handleJumpRight(ctx)
 			break
+		case "JUMP_LEFT_FAR":
+			handleJumpLeftFar(ctx)
+			break
+		case "JUMP_RIGHT_FAR":
+			handleJumpRightFar(ctx)
+			break
 		case "JUMP":
 			handleJump(ctx)
 			break
@@ -301,6 +307,82 @@ function handleJumpRight(ctx: ActionContext): void {
 	if (landingY < 0) {
 		// 坠入虚空
 		logs.push("[WORLD] 右跳后坠入虚空！")
+		hero.x = targetX
+		hero.y = -1
+		animations.push({
+			type: "HERO_JUMP",
+			target: "hero",
+			from: oldPos,
+			to: { x: targetX, y: -1 },
+			duration: ANIMATION_DURATION.heroJumpLong
+		})
+		ctx.hero = hero
+	} else {
+		// 正常落地
+		hero.x = targetX
+		hero.y = landingY
+		animations.push({
+			type: "HERO_JUMP",
+			target: "hero",
+			from: oldPos,
+			to: { ...hero },
+			duration: ANIMATION_DURATION.heroJump
+		})
+	}
+}
+
+/** 处理向左远跳（x-2） */
+function handleJumpLeftFar(ctx: ActionContext): void {
+	const { hero, animations, logs, state, width, height } = ctx
+	const oldPos = { ...hero }
+	const targetX = hero.x - 2
+
+	const physics = createPhysicsContext(state, width, height)
+
+	const landingY = findJumpLandingY(physics, targetX, hero.y)
+	logs.push(`[WORLD] 向左远跳: 从(${hero.x},${hero.y}) → x=${targetX}, 落点y=${landingY}`)
+
+	if (landingY < 0) {
+		// 坠入虚空
+		logs.push("[WORLD] 左远跳后坠入虚空！")
+		hero.x = targetX
+		hero.y = -1
+		animations.push({
+			type: "HERO_JUMP",
+			target: "hero",
+			from: oldPos,
+			to: { x: targetX, y: -1 },
+			duration: ANIMATION_DURATION.heroJumpLong
+		})
+		ctx.hero = hero
+	} else {
+		// 正常落地
+		hero.x = targetX
+		hero.y = landingY
+		animations.push({
+			type: "HERO_JUMP",
+			target: "hero",
+			from: oldPos,
+			to: { ...hero },
+			duration: ANIMATION_DURATION.heroJump
+		})
+	}
+}
+
+/** 处理向右远跳（x+2） */
+function handleJumpRightFar(ctx: ActionContext): void {
+	const { hero, animations, logs, state, width, height } = ctx
+	const oldPos = { ...hero }
+	const targetX = hero.x + 2
+
+	const physics = createPhysicsContext(state, width, height)
+
+	const landingY = findJumpLandingY(physics, targetX, hero.y)
+	logs.push(`[WORLD] 向右远跳: 从(${hero.x},${hero.y}) → x=${targetX}, 落点y=${landingY}`)
+
+	if (landingY < 0) {
+		// 坠入虚空
+		logs.push("[WORLD] 右远跳后坠入虚空！")
 		hero.x = targetX
 		hero.y = -1
 		animations.push({

@@ -95,6 +95,8 @@ export class Brain {
 			WAIT: "等待",
 			JUMP_LEFT: "向左跳",
 			JUMP_RIGHT: "向右跳",
+			JUMP_LEFT_FAR: "左远跳",
+			JUMP_RIGHT_FAR: "右远跳",
 		}
 
 		let reason = `选择「${actionNames[best.action]}」，因为：`
