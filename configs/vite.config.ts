@@ -1,11 +1,14 @@
 import { resolve } from 'path'
-import { buildResponse, formatJsonCompact, formatPretty } from './scripts/api-bridge/formatter.mjs'
+import { buildResponse, formatJsonCompact, formatPretty } from '../scripts/api-bridge/formatter.mjs'
 
 // ========== API Bridge 插件 ==========
 // 职责：HTTP 路由 + WebSocket 桥接（通用配置，无业务逻辑）
 
 const pendingRequests = new Map()
 let requestId = 0
+
+// 项目根目录（vite.config.ts 现在在 configs/ 目录下）
+const rootDir = resolve(__dirname, '..')
 
 const apiBridgePlugin = {
 	name: 'api-bridge',
@@ -91,28 +94,27 @@ export default {
 		assetsDir: 'assets',
 		rollupOptions: {
 			input: {
-				index: resolve(__dirname, 'index.html'),
-				'fox-jump': resolve(__dirname, 'pages/fox-jump.html'),
-				'terrain-lab': resolve(__dirname, 'pages/terrain-lab.html'),
-				'mlp-teaching': resolve(__dirname, 'pages/mlp-teaching.html'),
-				'metrics-dashboard': resolve(__dirname, 'pages/metrics-dashboard.html'),
-				'model-comparison': resolve(__dirname, 'pages/model-comparison.html'),
-				'api-bridge': resolve(__dirname, 'pages/api-bridge.html')
+				index: resolve(rootDir, 'index.html'),
+				'fox-jump': resolve(rootDir, 'pages/fox-jump.html'),
+				'terrain-lab': resolve(rootDir, 'pages/terrain-lab.html'),
+				'mlp-teaching': resolve(rootDir, 'pages/mlp-teaching.html'),
+				
+				'api-bridge': resolve(rootDir, 'pages/api-bridge.html')
 			}
 		}
 	},
 	plugins: [apiBridgePlugin],
 	resolve: {
 		alias: {
-			'@': resolve(__dirname, 'src'),
-			'@engine': resolve(__dirname, 'src/engine'),
-			'@fox-jump': resolve(__dirname, 'src/fox-jump'),
-			'@game': resolve(__dirname, 'src/fox-jump/game'),
-			'@render': resolve(__dirname, 'src/fox-jump/render'),
-			'@ai': resolve(__dirname, 'src/fox-jump/ai'),
-			'@views': resolve(__dirname, 'src/fox-jump/views'),
-			'@utils': resolve(__dirname, 'src/fox-jump/utils'),
-			'@managers': resolve(__dirname, 'src/fox-jump/managers')
+			'@': resolve(rootDir, 'src'),
+			'@engine': resolve(rootDir, 'src/engine'),
+			'@fox-jump': resolve(rootDir, 'src/fox-jump'),
+			'@game': resolve(rootDir, 'src/fox-jump/game'),
+			'@render': resolve(rootDir, 'src/fox-jump/render'),
+			'@ai': resolve(rootDir, 'src/fox-jump/ai'),
+			'@views': resolve(rootDir, 'src/fox-jump/views'),
+			'@utils': resolve(rootDir, 'src/fox-jump/utils'),
+			'@managers': resolve(rootDir, 'src/fox-jump/managers')
 		},
 		extensions: ['.mjs', '.js', '.mts', '.ts', '.jsx', '.tsx', '.json']
 	},
@@ -121,8 +123,10 @@ export default {
 		include: ['src/**/*.ts', 'src/**/*.js']
 	},
 	optimizeDeps: {
-		esbuildOptions: {
-			resolveExtensions: ['.ts', '.js']
+		rolldownOptions: {
+			resolve: {
+				extensions: ['.ts', '.js']
+			}
 		}
 	}
 }
