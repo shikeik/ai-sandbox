@@ -290,6 +290,12 @@ export class BrainLabUI {
 				await this.renderer.playAnimations(data.animations)
 			}
 
+			// 检查死亡（死亡时不刷新状态，保持玩家在虚空位置）
+			if (data.result?.dead) {
+				await this.handleDeath()
+				return
+			}
+
 			// 刷新状态
 			await this.refreshState()
 
@@ -297,11 +303,6 @@ export class BrainLabUI {
 			this.updateManualPosition(data.to)
 
 			// 检查结果
-			if (data.result?.dead) {
-				// 死亡：显示效果后自动重置
-				await this.handleDeath()
-				return
-			}
 			if (data.result?.reachedGoal) {
 				this.showMessage("🎉 恭喜到达终点！")
 			}
@@ -328,44 +329,94 @@ export class BrainLabUI {
 	}
 
 	/**
-	 * 处理死亡
+	 * 处理死亡 - 同时显示骷髅头和渐暗，渐亮时间拉长
+	 * 渐暗: 400ms, 停顿: 100ms, 渐亮: 800ms
 	 */
 	private async handleDeath(): Promise<void> {
-		// 显示死亡效果
-		this.showMessage("💀 坠入虚空！")
-
-		// 等待消息显示
-		await new Promise(resolve => setTimeout(resolve, 800))
-
-		// 渐暗效果
 		const worldContainer = document.getElementById("world-container")
-		if (worldContainer) {
-			worldContainer.style.transition = "opacity 0.3s ease"
-			worldContainer.style.opacity = "0"
+		if (!worldContainer) return
+
+		// 确保 world-container 有定位（用于绝对定位子元素）
+		const originalPosition = worldContainer.style.position
+		if (!originalPosition || originalPosition === "static") {
+			worldContainer.style.position = "relative"
 		}
 
-		// 等待渐暗完成
-		await new Promise(resolve => setTimeout(resolve, 300))
+		// 创建或获取骷髅头元素
+		let skullEl = document.getElementById("brain-lab-skull") as HTMLElement
+		if (!skullEl) {
+			skullEl = document.createElement("div")
+			skullEl.id = "brain-lab-skull"
+			skullEl.textContent = "💀"
+			skullEl.style.cssText = `
+				position: absolute;
+				top: 50%;
+				left: 50%;
+				transform: translate(-50%, -50%);
+				font-size: 48px;
+				font-weight: bold;
+				text-shadow: 0 0 30px #e74c3c;
+				opacity: 0;
+				pointer-events: none;
+				z-index: 2000;
+				transition: opacity 0.4s ease-in-out;
+			`
+			worldContainer.appendChild(skullEl)
+		}
 
-		// 重置游戏
+		// 创建转场遮罩（如果不存在）
+		let overlay = document.querySelector(".brain-lab-overlay") as HTMLElement
+		if (!overlay) {
+			overlay = document.createElement("div")
+			overlay.className = "brain-lab-overlay"
+			overlay.style.cssText = `
+				position: absolute;
+				inset: 0;
+				background: #000;
+				opacity: 0;
+				pointer-events: none;
+				z-index: 1600;
+				transition: opacity 0.4s ease-in-out;
+				border-radius: 12px;
+			`
+			worldContainer.appendChild(overlay)
+		}
+
+		// 强制重绘确保 transition 生效
+		void overlay.offsetHeight
+
+		// 同时显示骷髅头和开始渐暗
+		skullEl.style.opacity = "1"
+		overlay.style.opacity = "1"
+
+		// 等待渐暗完成（1200ms）
+		await this._delay(600)
+
+		// 渐暗完成后：隐藏骷髅头 + 重置游戏
+		skullEl.style.opacity = "0"
 		await fetch(`${API_BASE}/reset`, { method: "POST" })
 		await this.refreshState()
 		this.updateManualPosition({ x: 1, y: 1 })
 
-		// 渐亮效果
-		if (worldContainer) {
-			worldContainer.style.opacity = "1"
-		}
+		// 停顿（100ms）
+		await this._delay(200)
 
-		// 等待渐亮完成
-		await new Promise(resolve => setTimeout(resolve, 300))
+		// 渐亮（拉长到800ms）
+		overlay.style.transition = "opacity 0.6s ease-in-out"
+		overlay.style.opacity = "0"
+		await this._delay(600)
 
-		// 清除过渡效果
-		if (worldContainer) {
-			worldContainer.style.transition = ""
-		}
+		// 恢复原始定位
+		worldContainer.style.position = originalPosition
 
 		this.isRunning = false
+	}
+
+	/**
+	 * 延迟辅助函数
+	 */
+	private _delay(ms: number): Promise<void> {
+		return new Promise(resolve => setTimeout(resolve, ms))
 	}
 
 	/**
