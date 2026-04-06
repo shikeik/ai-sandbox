@@ -186,11 +186,20 @@ export class DOMRenderer {
 			this.spikeElement.style.top = `${targetTop}px`
 		}
 
-		// 更新按钮状态（如果已触发）
-		if (triggers[0]) {
-			const buttonCell = this.worldContainer.querySelector(".cell.button-base .button-icon") as HTMLElement
-			if (buttonCell) {
-				buttonCell.remove()
+		// 更新按钮状态
+		const buttonBase = this.worldContainer.querySelector(".cell.button-base") as HTMLElement
+		if (buttonBase) {
+			const buttonIcon = buttonBase.querySelector(".button-icon")
+			if (triggers[0]) {
+				// 已触发：移除图标
+				if (buttonIcon) {
+					buttonIcon.remove()
+				}
+			} else {
+				// 未触发：添加图标（如果不存在）
+				if (!buttonIcon) {
+					buttonBase.innerHTML = "<div class=\"button-icon\">🔘</div>"
+				}
 			}
 		}
 
