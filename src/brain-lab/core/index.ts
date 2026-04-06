@@ -7,7 +7,12 @@ export { GameWorld } from "./game-world.js"
 export { Predictor } from "./predictor.js"
 
 // 关卡相关
-export { createStateFromLevel, cloneState } from "./level.js"
+export { 
+	createStateFromLevel, 
+	cloneState,
+	setCurrentLevel,
+	getCurrentLevel,
+} from "./level.js"
 
 // 物理规则
 export {

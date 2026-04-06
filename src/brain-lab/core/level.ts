@@ -2,13 +2,30 @@
 
 import type { LevelData, WorldState, Position } from "../types/index.js"
 import { Element } from "../types/index.js"
-import { DEFAULT_LEVEL_MAP, CHAR_MAP, SPECIAL_CHARS } from "../config.js"
+import { DEFAULT_LEVEL_MAP, ADVANCED_LEVEL_MAP, CHAR_MAP, SPECIAL_CHARS } from "../config.js"
+
+/** 当前使用的关卡 */
+let currentLevel: LevelData = DEFAULT_LEVEL_MAP
+
+/**
+ * 设置当前关卡
+ */
+export function setCurrentLevel(level: LevelData): void {
+	currentLevel = level
+}
+
+/**
+ * 获取当前关卡
+ */
+export function getCurrentLevel(): LevelData {
+	return currentLevel
+}
 
 /**
  * 从关卡数据创建初始世界状态
  * 使用 map 实际尺寸作为世界宽高，配置值仅作后备
  */
-export function createStateFromLevel(level: LevelData = DEFAULT_LEVEL_MAP): WorldState {
+export function createStateFromLevel(level: LevelData = currentLevel): WorldState {
 	const { map } = level
 	const height = map.length
 	const width = height > 0 ? map[0].length : 0
