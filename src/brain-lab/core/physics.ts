@@ -23,11 +23,13 @@ export function createPhysicsContext(state: WorldState, width: number, height: n
 
 /**
  * 检查指定格子是否是墙（有碰撞）
+ * 终点不是墙，可以走进去触发胜利
  */
 export function isWall(ctx: PhysicsContext, x: number, y: number): boolean {
 	if (x < 0 || x >= ctx.width || y < 0 || y >= ctx.height) return true  // 边界也是墙
 	const cell = ctx.grid[y][x]
-	return cell === Element.PLATFORM || cell === Element.BUTTON || cell === Element.GOAL
+	return cell === Element.PLATFORM || cell === Element.BUTTON
+	// GOAL 不是墙，可以走进去
 }
 
 /**

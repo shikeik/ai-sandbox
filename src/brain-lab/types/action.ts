@@ -13,6 +13,7 @@ export type AnimationType =
 	| "SPIKE_FALL" 
 	| "ENEMY_DIE" 
 	| "BUTTON_PRESS"
+	| "GOAL_REACHED"
 
 /** 动画事件 */
 export interface AnimationEvent {

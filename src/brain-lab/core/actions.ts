@@ -90,6 +90,16 @@ export function executeAction(
 
 	// 检查是否到达终点
 	const reachedGoal = checkGoalReached(state, hero.x, hero.y)
+	if (reachedGoal) {
+		// 终点旗子动画
+		animations.push({
+			type: "GOAL_REACHED",
+			target: "goal",
+			from: { x: hero.x, y: hero.y },
+			duration: 600,
+			delay: playerAnimDuration
+		})
+	}
 
 	return { reachedGoal, dead: false, animations, logs, triggeredButton }
 }

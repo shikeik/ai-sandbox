@@ -490,6 +490,9 @@ export class DOMRenderer {
 			case "BUTTON_PRESS":
 				this.animateButtonPress(anim)
 				break
+			case "GOAL_REACHED":
+				this.animateGoalReached(anim)
+				break
 		}
 		// 等待动画实际持续时间
 		return new Promise(resolve => setTimeout(resolve, anim.duration))
@@ -697,6 +700,75 @@ export class DOMRenderer {
 		}
 
 		this.createRippleEffect(anim.from.x, displayY)
+	}
+
+	/**
+	 * 终点到达动画 - 旗子欢呼效果
+	 */
+	private animateGoalReached(anim: AnimationEvent): void {
+		const height = this.getGridHeight()
+		const displayY = height - 1 - anim.from.y
+		const selector = `.cell[data-x="${anim.from.x}"][data-y="${displayY}"]`
+		const goalCell = this.worldContainer.querySelector(selector) as HTMLElement
+
+		if (goalCell) {
+			// 旗子弹跳缩放+发光效果
+			goalCell.style.transition = `all ${anim.duration}ms ease-out`
+			goalCell.style.transform = "scale(1.3)"
+			goalCell.style.filter = "drop-shadow(0 0 20px #f1c40f) brightness(1.3)"
+
+			// 创建庆祝粒子效果
+			this.createConfettiEffect(anim.from.x, displayY)
+
+			// 动画结束后恢复（但保持发光）
+			setTimeout(() => {
+				goalCell.style.transition = "all 300ms ease-out"
+				goalCell.style.transform = "scale(1)"
+				goalCell.style.filter = "drop-shadow(0 0 10px #f1c40f)"
+			}, anim.duration)
+		}
+	}
+
+	/**
+	 * 创建庆祝彩纸效果
+	 */
+	private createConfettiEffect(logicX: number, displayY: number): void {
+		const effectsLayer = this.worldContainer.querySelector(".layer-effects") as HTMLElement
+		if (!effectsLayer) return
+
+		const left = logicX * (this.config.cellSize + this.config.gap) + this.config.cellSize / 2
+		const top = displayY * (this.config.cellSize + this.config.gap) + this.config.cellSize / 2
+
+		// 彩纸颜色
+		const colors = ["#f1c40f", "#e74c3c", "#3498db", "#2ecc71", "#9b59b6"]
+
+		for (let i = 0; i < 12; i++) {
+			const particle = document.createElement("div")
+			particle.className = "confetti-particle"
+			particle.style.cssText = `
+				position: absolute;
+				left: ${left}px;
+				top: ${top}px;
+				width: 8px;
+				height: 8px;
+				background: ${colors[i % colors.length]};
+				border-radius: 50%;
+				z-index: 100;
+			`
+			effectsLayer.appendChild(particle)
+
+			const angle = (i / 12) * Math.PI * 2
+			const distance = 40 + Math.random() * 30
+			const duration = 600 + Math.random() * 200
+
+			particle.animate([
+				{ transform: "translate(0,0) scale(1)", opacity: 1 },
+				{ transform: `translate(${Math.cos(angle) * distance}px, ${Math.sin(angle) * distance}px) scale(0)`, opacity: 0 }
+			], {
+				duration,
+				easing: "ease-out"
+			}).onfinish = () => particle.remove()
+		}
 	}
 
 	/**
