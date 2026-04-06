@@ -276,7 +276,7 @@ async function doStep() {
 }
 
 function doMove(action: string) {
-	const validActions = ['LEFT', 'RIGHT', 'JUMP', 'WAIT']
+	const validActions = ['LEFT', 'RIGHT', 'JUMP', 'JUMP_LEFT', 'JUMP_RIGHT', 'WAIT']
 	
 	// 断言：动作有效
 	assert(validActions.includes(action), `动作 ${action} 应是有效值`, { validActions, action })

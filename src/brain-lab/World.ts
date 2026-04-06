@@ -135,19 +135,28 @@ export class World {
 			case "LEFT":
 				if (hero.x > 0) {
 					const oldX = hero.x
+					const oldY = hero.y
 					hero.x--
 					
 					// 检查新位置脚下是否有支撑
 					const groundY = this.findGroundY(hero.x, hero.y)
 					if (groundY < 0) {
-						// 坠落死亡
+						// 坠落死亡：先水平移动，再坠入虚空
 						logs.push(`[WORLD] 向左移动后脚下没有支撑，坠落！`)
+						animations.push({
+							type: "HERO_MOVE",
+							target: "hero",
+							from: { x: oldX, y: oldY },
+							to: { x: hero.x, y: oldY },
+							duration: 150
+						})
 						animations.push({
 							type: "HERO_FALL",
 							target: "hero",
-							from: { x: hero.x, y: hero.y },
+							from: { x: hero.x, y: oldY },
 							to: { x: hero.x, y: -1 },
-							duration: 500
+							duration: 500,
+							delay: 150
 						})
 						dead = true
 					} else {
@@ -188,18 +197,28 @@ export class World {
 			case "RIGHT":
 				if (hero.x < this.width - 1) {
 					const oldX = hero.x
+					const oldY = hero.y
 					hero.x++
 					
 					// 检查新位置脚下是否有支撑
 					const groundY = this.findGroundY(hero.x, hero.y)
 					if (groundY < 0) {
+						// 坠落死亡：先水平移动，再坠入虚空
 						logs.push(`[WORLD] 向右移动后脚下没有支撑，坠落！`)
+						animations.push({
+							type: "HERO_MOVE",
+							target: "hero",
+							from: { x: oldX, y: oldY },
+							to: { x: hero.x, y: oldY },
+							duration: 150
+						})
 						animations.push({
 							type: "HERO_FALL",
 							target: "hero",
-							from: { x: hero.x, y: hero.y },
+							from: { x: hero.x, y: oldY },
 							to: { x: hero.x, y: -1 },
-							duration: 500
+							duration: 500,
+							delay: 150
 						})
 						dead = true
 					} else {
