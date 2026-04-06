@@ -105,6 +105,8 @@ export class WorldModel {
 			hero: { ...state.hero },
 			enemies: [...state.enemies],
 			triggers: [...state.triggers],
+			spikeFalling: state.spikeFalling,
+			spikeY: state.spikeY,
 		}
 	}
 }

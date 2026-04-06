@@ -22,8 +22,8 @@ class GameInstance {
 	}
 
 	reset() {
-		this.world = new this.World(10, 5)
-		this.brain = new this.Brain(10, 5)
+		this.world = new this.World(10, 6)  // 高度6，给尖刺更多空间
+		this.brain = new this.Brain(10, 6)
 		this.stepCount = 0
 		this.log("SYSTEM", "游戏已重置")
 	}
@@ -108,7 +108,6 @@ export const brainLabPlugin = {
 						result = { cleared: true }
 						break
 					case '/test-render':
-						// 返回测试用的渲染数据
 						result = {
 							test: 'render',
 							html: '<div style="color:green;padding:10px;">测试渲染成功</div>',
@@ -134,13 +133,14 @@ export const brainLabPlugin = {
 
 function getState() {
 	const state = game.world.getState()
-	game.log("API", "获取状态")
 	return {
 		timestamp: Date.now(),
 		step: game.stepCount,
 		hero: state.hero,
 		enemies: state.enemies,
 		triggers: state.triggers,
+		spikeY: state.spikeY,
+		spikeFalling: state.spikeFalling,
 		gridVisual: state.grid.map((row: number[]) => 
 			row.map((c: number) => ['空', '狐', '台', '敌', '终', '刺', '钮'][c] || '?').join('')
 		),
@@ -149,17 +149,20 @@ function getState() {
 }
 
 async function doStep() {
-	const state = game.world.getState()
+	const prevState = game.world.getState()
 	game.log("BRAIN", `Step ${game.stepCount + 1}: AI思考中...`)
 	
-	const decision = game.brain.think(state)
+	const decision = game.brain.think(prevState)
 	game.log("BRAIN", `决策: ${decision.selectedAction}`)
 	
-	const reachedGoal = game.world.executeAction(decision.selectedAction)
+	const actionResult = game.world.executeAction(decision.selectedAction)
 	game.stepCount++
 	
 	const newState = game.world.getState()
 	game.log("GAME", `执行后位置: (${newState.hero.x}, ${newState.hero.y}), 敌人: ${newState.enemies.length}`)
+
+	// 添加动画日志
+	actionResult.logs.forEach((log: string) => game.log("WORLD", log))
 
 	return {
 		type: 'AI_STEP',
@@ -171,13 +174,14 @@ async function doStep() {
 				action: img.action,
 				predictedPos: img.predictedState.hero,
 				predictedReward: Math.round(img.predictedReward * 10) / 10,
-				killedEnemy: img.predictedState.enemies.length < state.enemies.length
+				killedEnemy: img.predictedState.enemies.length < prevState.enemies.length
 			}))
 		},
+		animations: actionResult.animations,
 		result: {
 			newPos: newState.hero,
 			enemiesRemaining: newState.enemies.length,
-			reachedGoal,
+			reachedGoal: actionResult.reachedGoal,
 			triggered: newState.triggers
 		}
 	}
@@ -191,21 +195,25 @@ function doMove(action: string) {
 	}
 
 	game.log("GAME", `手动移动: ${action}`)
-	const state = game.world.getState()
-	const reachedGoal = game.world.executeAction(action)
+	const prevState = game.world.getState()
+	const actionResult = game.world.executeAction(action)
 	game.stepCount++
 	const newState = game.world.getState()
+
+	// 添加动画日志
+	actionResult.logs.forEach((log: string) => game.log("WORLD", log))
 
 	return {
 		type: 'MANUAL_MOVE',
 		step: game.stepCount,
 		action,
-		from: state.hero,
+		from: prevState.hero,
 		to: newState.hero,
+		animations: actionResult.animations,
 		result: {
 			enemiesRemaining: newState.enemies.length,
 			triggeredButton: newState.triggers[0],
-			reachedGoal
+			reachedGoal: actionResult.reachedGoal
 		}
 	}
 }

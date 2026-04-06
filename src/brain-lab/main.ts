@@ -1,4 +1,4 @@
-// ========== Brain Lab 主入口 ==========
+// ========== Brain Lab 主入口 - 动画版 ==========
 
 import { DOMRenderer } from "./DOMRenderer.js"
 import { Logger } from "../engine/utils/Logger.js"
@@ -12,6 +12,7 @@ class BrainLabUI {
 	private autoPlayInterval: number | null = null
 	private logger!: Logger
 	private consolePanel!: ConsolePanel
+	private currentState: any = null
 
 	constructor() {
 		console.log("[BrainLabUI] 初始化开始...")
@@ -84,6 +85,8 @@ class BrainLabUI {
 			}
 			
 			const data = await res.json()
+			this.currentState = data
+			
 			console.log(`[BRAIN-LAB] [API] 获取状态成功: hero=(${data.hero?.x},${data.hero?.y})`)
 			
 			// 检查数据
@@ -96,7 +99,6 @@ class BrainLabUI {
 			
 		} catch (err: any) {
 			console.error("[BRAIN-LAB] [API] 获取状态失败:", err.message)
-			console.error("[BrainLabUI] 获取状态失败:", err)
 		}
 	}
 
@@ -110,9 +112,17 @@ class BrainLabUI {
 			const data = await res.json()
 			
 			console.log(`[BRAIN-LAB] [BRAIN] 决策: ${data.decision?.action}`)
-			console.log(`[BRAIN-LAB] [GAME] 新位置: (${data.result?.newPos?.x}, ${data.result?.newPos?.y})`)
+			console.log(`[BRAIN-LAB] [GAME] 动画事件: ${data.animations?.length || 0}个`)
 
+			// 渲染大脑思考
 			this.renderer.renderImaginationFromAPI(data)
+
+			// 播放动画
+			if (data.animations && data.animations.length > 0) {
+				await this.renderer.playAnimations(data.animations)
+			}
+
+			// 动画完成后刷新状态
 			await this.refreshState()
 
 			if (data.result?.reachedGoal) {
@@ -132,7 +142,7 @@ class BrainLabUI {
 		} else {
 			console.log("[BRAIN-LAB] [GAME] 开始自动运行")
 			document.getElementById("btn-auto")!.textContent = "⏸️ 暂停"
-			this.autoPlayInterval = window.setInterval(() => this.step(), 1500)
+			this.autoPlayInterval = window.setInterval(() => this.step(), 2000)  // 增加间隔适应动画
 		}
 	}
 

@@ -54,19 +54,25 @@
 			justify-content: space-between;
 		}
 
-		/* 格子世界 */
-		.grid {
+		/* 世界层容器 */
+		.world-layers {
+			position: relative;
 			display: flex;
-			flex-direction: column;
-			gap: 4px;
-		}
-
-		.row {
-			display: flex;
-			gap: 4px;
 			justify-content: center;
 		}
 
+		.layer-grid, .layer-objects, .layer-effects {
+			position: absolute;
+			top: 0;
+			left: 50%;
+			transform: translateX(-50%);
+		}
+
+		.layer-objects, .layer-effects {
+			pointer-events: none;
+		}
+
+		/* 格子样式 */
 		.cell {
 			width: 36px;
 			height: 36px;
@@ -75,45 +81,92 @@
 			align-items: center;
 			justify-content: center;
 			font-size: 20px;
-			transition: all 0.2s;
 		}
 
 		/* 格子类型 */
 		.cell.air {
-			background: #1a1a2e;
+			background: rgba(26, 26, 46, 0.5);
+			border: 1px dashed rgba(100, 100, 150, 0.2);
 		}
 
+		/* 平台 - 立体感 */
 		.cell.platform {
-			background: #2ecc71;
-			box-shadow: 0 2px 8px rgba(46, 204, 113, 0.3);
+			background: linear-gradient(180deg, #3ddc84 0%, #27ae60 100%);
+			border-top: 3px solid #5eec9d;
+			border-bottom: 3px solid #1e8449;
+			box-shadow: 
+				0 4px 8px rgba(46, 204, 113, 0.3),
+				inset 0 1px 0 rgba(255,255,255,0.3);
+			position: relative;
 		}
 
-		.cell.button {
-			background: #9b59b6;
-			box-shadow: 0 2px 8px rgba(155, 89, 182, 0.3);
+		.cell.platform::before {
+			content: '';
+			position: absolute;
+			top: 4px;
+			left: 4px;
+			right: 4px;
+			height: 3px;
+			background: rgba(255,255,255,0.3);
+			border-radius: 2px;
+		}
+
+		/* 按钮底座 */
+		.cell.button-base {
+			background: rgba(155, 89, 182, 0.2);
+			border: 2px dashed rgba(155, 89, 182, 0.3);
 		}
 
 		.cell.goal {
-			background: #f39c12;
-			box-shadow: 0 2px 8px rgba(243, 156, 18, 0.3);
+			background: linear-gradient(180deg, #f5b041 0%, #d68910 100%);
+			border-top: 3px solid #f8c471;
+			border-bottom: 3px solid #9c640c;
+			box-shadow: 0 4px 8px rgba(243, 156, 18, 0.3);
 		}
 
-		.cell.spike {
-			background: #1a1a2e;
+		/* 游戏对象 */
+		.game-object {
+			transition: none;
+			filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
 		}
 
-		.cell.has-hero {
-			font-size: 24px;
-			animation: bounce 0.5s ease;
+		.game-object.hero {
+			filter: drop-shadow(0 3px 6px rgba(52, 152, 219, 0.5));
 		}
 
-		.cell.has-enemy {
-			background: rgba(231, 76, 60, 0.3);
+		.game-object.spike {
+			filter: drop-shadow(0 2px 4px rgba(231, 76, 60, 0.6));
 		}
 
+		/* 按钮物体 */
+		.button-obj {
+			background: radial-gradient(circle, #b779d6 0%, #9b59b6 70%);
+			border-radius: 50%;
+			box-shadow: 
+				0 4px 8px rgba(155, 89, 182, 0.4),
+				inset 0 -2px 4px rgba(0,0,0,0.2);
+		}
+
+		/* 粒子效果 */
+		.particle {
+			pointer-events: none;
+		}
+
+		/* 动画关键帧 */
 		@keyframes bounce {
 			0%, 100% { transform: translateY(0); }
 			50% { transform: translateY(-4px); }
+		}
+
+		@keyframes pulse {
+			0%, 100% { opacity: 1; }
+			50% { opacity: 0.6; }
+		}
+
+		@keyframes shake {
+			0%, 100% { transform: translateX(0); }
+			25% { transform: translateX(-2px); }
+			75% { transform: translateX(2px); }
 		}
 
 		/* 大脑区域 */

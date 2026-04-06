@@ -28,6 +28,8 @@ export interface WorldState {
 	hero: Pos             // 主角位置
 	enemies: Pos[]        // 敌人位置（可能被机关杀死）
 	triggers: boolean[]   // 机关触发状态
+	spikeFalling?: boolean  // 尖刺是否正在坠落
+	spikeY?: number        // 尖刺当前y坐标
 }
 
 // 想象结果
