@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+	<title>Brain Lab - 有大脑的AI</title>
+	<link rel="stylesheet" href="/src/engine/console/console.css">
+	<style>
+		* {
+			margin: 0;
+			padding: 0;
+			box-sizing: border-box;
+		}
+
+		body {
+			font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+			background: #0a0a14;
+			color: #fff;
+			min-height: 100vh;
+			padding: 12px;
+			padding-bottom: 100px;
+		}
+
+		/* 标题 */
+		.header {
+			text-align: center;
+			margin-bottom: 16px;
+		}
+
+		.header h1 {
+			font-size: 22px;
+			color: #64b5f6;
+			margin-bottom: 4px;
+		}
+
+		.header p {
+			font-size: 13px;
+			color: #888;
+		}
+
+		/* 游戏世界区域 */
+		.world-section {
+			background: #151520;
+			border-radius: 16px;
+			padding: 16px;
+			margin-bottom: 16px;
+		}
+
+		.world-title {
+			font-size: 14px;
+			color: #888;
+			margin-bottom: 12px;
+			display: flex;
+			justify-content: space-between;
+		}
+
+		/* 格子世界 */
+		.grid {
+			display: flex;
+			flex-direction: column;
+			gap: 4px;
+		}
+
+		.row {
+			display: flex;
+			gap: 4px;
+			justify-content: center;
+		}
+
+		.cell {
+			width: 36px;
+			height: 36px;
+			border-radius: 8px;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			font-size: 20px;
+			transition: all 0.2s;
+		}
+
+		/* 格子类型 */
+		.cell.air {
+			background: #1a1a2e;
+		}
+
+		.cell.platform {
+			background: #2ecc71;
+			box-shadow: 0 2px 8px rgba(46, 204, 113, 0.3);
+		}
+
+		.cell.button {
+			background: #9b59b6;
+			box-shadow: 0 2px 8px rgba(155, 89, 182, 0.3);
+		}
+
+		.cell.goal {
+			background: #f39c12;
+			box-shadow: 0 2px 8px rgba(243, 156, 18, 0.3);
+		}
+
+		.cell.spike {
+			background: #1a1a2e;
+		}
+
+		.cell.has-hero {
+			font-size: 24px;
+			animation: bounce 0.5s ease;
+		}
+
+		.cell.has-enemy {
+			background: rgba(231, 76, 60, 0.3);
+		}
+
+		@keyframes bounce {
+			0%, 100% { transform: translateY(0); }
+			50% { transform: translateY(-4px); }
+		}
+
+		/* 大脑区域 */
+		.brain-section {
+			background: #151520;
+			border-radius: 16px;
+			padding: 16px;
+			margin-bottom: 16px;
+		}
+
+		.brain-title {
+			font-size: 16px;
+			color: #9b59b6;
+			margin-bottom: 12px;
+			display: flex;
+			align-items: center;
+			gap: 8px;
+		}
+
+		/* 决策理由 */
+		.brain-reasoning {
+			background: #0a0a14;
+			border-radius: 12px;
+			padding: 12px;
+			margin-bottom: 16px;
+		}
+
+		.reason-title {
+			font-size: 12px;
+			color: #64b5f6;
+			margin-bottom: 8px;
+		}
+
+		.reason-text {
+			font-size: 14px;
+			line-height: 1.6;
+			color: #ddd;
+		}
+
+		/* 想象卡片 */
+		.brain-cards {
+			margin-top: 12px;
+		}
+
+		.cards-title {
+			font-size: 12px;
+			color: #888;
+			margin-bottom: 10px;
+		}
+
+		.cards-grid {
+			display: grid;
+			grid-template-columns: 1fr 1fr;
+			gap: 10px;
+		}
+
+		.imagination-card {
+			background: #0a0a14;
+			border-radius: 12px;
+			padding: 12px;
+			border: 2px solid transparent;
+			transition: all 0.2s;
+		}
+
+		.imagination-card.selected {
+			border-color: #2ecc71;
+			background: rgba(46, 204, 113, 0.1);
+		}
+
+		.imagination-card:not(.selected) {
+			opacity: 0.6;
+		}
+
+		.card-action {
+			font-size: 14px;
+			font-weight: bold;
+			margin-bottom: 6px;
+		}
+
+		.card-pos {
+			font-size: 11px;
+			color: #888;
+			margin-bottom: 4px;
+		}
+
+		.card-reward {
+			font-size: 13px;
+			color: #f39c12;
+			font-weight: bold;
+		}
+
+		.card-bonus {
+			font-size: 11px;
+			color: #2ecc71;
+			margin-top: 6px;
+		}
+
+		/* 控制区 */
+		.controls-section {
+			background: #151520;
+			border-radius: 16px;
+			padding: 16px;
+		}
+
+		.controls-row {
+			display: flex;
+			gap: 10px;
+			margin-bottom: 16px;
+		}
+
+		.btn {
+			flex: 1;
+			padding: 14px 20px;
+			border: none;
+			border-radius: 12px;
+			font-size: 15px;
+			font-weight: 600;
+			cursor: pointer;
+			transition: all 0.2s;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			gap: 6px;
+		}
+
+		.btn-primary {
+			background: #3498db;
+			color: white;
+		}
+
+		.btn-primary:active {
+			background: #2980b9;
+			transform: scale(0.98);
+		}
+
+		.btn-secondary {
+			background: #2ecc71;
+			color: white;
+		}
+
+		.btn-secondary:active {
+			background: #27ae60;
+			transform: scale(0.98);
+		}
+
+		.btn-danger {
+			background: #e74c3c;
+			color: white;
+		}
+
+		.btn-danger:active {
+			background: #c0392b;
+			transform: scale(0.98);
+		}
+
+		/* 滑块 */
+		.slider-row {
+			display: flex;
+			align-items: center;
+			gap: 12px;
+			padding-top: 8px;
+			border-top: 1px solid #2a2a3e;
+		}
+
+		.slider-label {
+			font-size: 13px;
+			color: #888;
+			white-space: nowrap;
+		}
+
+		.slider {
+			flex: 1;
+			-webkit-appearance: none;
+			height: 6px;
+			border-radius: 3px;
+			background: #2a2a3e;
+			outline: none;
+		}
+
+		.slider::-webkit-slider-thumb {
+			-webkit-appearance: none;
+			width: 20px;
+			height: 20px;
+			border-radius: 50%;
+			background: #9b59b6;
+			cursor: pointer;
+		}
+
+		.slider-value {
+			font-size: 15px;
+			color: #9b59b6;
+			font-weight: bold;
+			min-width: 20px;
+			text-align: center;
+		}
+
+		/* 图例 */
+		.legend {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 12px;
+			margin-top: 12px;
+			padding-top: 12px;
+			border-top: 1px solid #2a2a3e;
+		}
+
+		.legend-item {
+			display: flex;
+			align-items: center;
+			gap: 6px;
+			font-size: 12px;
+			color: #888;
+		}
+
+		.legend-icon {
+			width: 20px;
+			height: 20px;
+			border-radius: 4px;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			font-size: 12px;
+		}
+
+		/* 消息提示 */
+		.message {
+			position: fixed;
+			top: 50%;
+			left: 50%;
+			transform: translate(-50%, -50%);
+			background: rgba(46, 204, 113, 0.9);
+			color: white;
+			padding: 16px 32px;
+			border-radius: 12px;
+			font-size: 16px;
+			font-weight: bold;
+			opacity: 0;
+			pointer-events: none;
+			transition: opacity 0.3s;
+			z-index: 100;
+		}
+
+		.message.show {
+			opacity: 1;
+		}
+
+		/* 初始状态提示 */
+		.brain-placeholder {
+			background: #0a0a14;
+			border-radius: 12px;
+			padding: 24px;
+			text-align: center;
+			color: #666;
+			font-size: 14px;
+		}
+	</style>
+</head>
+<body>
+	<!-- 标题 -->
+	<div class="header">
+		<h1>🧠 Brain Lab</h1>
+		<p>能看到AI在思考的实验室</p>
+	</div>
+
+	<!-- 游戏世界 -->
+	<div class="world-section">
+		<div class="world-title">
+			<span>🎮 游戏世界</span>
+			<span style="color: #666;">左下坐标系</span>
+		</div>
+		<div id="world-container"></div>
+	</div>
+
+	<!-- 大脑思考 -->
+	<div class="brain-section">
+		<div class="brain-title">🧠 大脑思考</div>
+		<div id="brain-container">
+			<div class="brain-placeholder">
+				点击「单步」按钮<br>
+				观察AI如何想象未来并决策
+			</div>
+		</div>
+	</div>
+
+	<!-- 控制区 -->
+	<div class="controls-section">
+		<div class="controls-row">
+			<button id="btn-step" class="btn btn-primary">👣 单步</button>
+			<button id="btn-auto" class="btn btn-secondary">▶️ 自动</button>
+			<button id="btn-reset" class="btn btn-danger">🔄 重置</button>
+		</div>
+		
+		<div class="slider-row">
+			<span class="slider-label">想象深度</span>
+			<input type="range" id="depth-slider" class="slider" min="1" max="5" value="3">
+			<span class="slider-value" id="depth-value">3</span>
+		</div>
+
+		<div class="legend">
+			<div class="legend-item">
+				<div class="legend-icon" style="background: #2ecc71;"></div>
+				<span>平台</span>
+			</div>
+			<div class="legend-item">
+				<div class="legend-icon" style="background: #9b59b6;">🔘</div>
+				<span>按钮</span>
+			</div>
+			<div class="legend-item">
+				<div class="legend-icon" style="background: #f39c12;">🏁</div>
+				<span>终点</span>
+			</div>
+			<div class="legend-item">
+				<div class="legend-icon" style="background: rgba(231, 76, 60, 0.3);">👿</div>
+				<span>敌人</span>
+			</div>
+			<div class="legend-item">
+				<div class="legend-icon" style="background: #3498db;">🦊</div>
+				<span>狐狸</span>
+			</div>
+		</div>
+	</div>
+
+	<!-- 控制台面板 -->
+	<div id="console-panel" class="console-panel"></div>
+
+	<!-- 消息 -->
+	<div id="message" class="message"></div>
+
+	<script type="module" src="/src/brain-lab/main.ts"></script>
+</body>
+</html>

@@ -1,5 +1,6 @@
 import { resolve } from 'path'
 import { buildResponse, formatJsonCompact, formatPretty } from '../scripts/api-bridge/formatter.mjs'
+import { brainLabPlugin } from './brain-lab-plugin.ts'
 
 // ========== API Bridge 插件 ==========
 // 职责：HTTP 路由 + WebSocket 桥接（通用配置，无业务逻辑）
@@ -99,11 +100,12 @@ export default {
 				'terrain-lab': resolve(rootDir, 'pages/terrain-lab.html'),
 				'mlp-teaching': resolve(rootDir, 'pages/mlp-teaching.html'),
 				
-				'api-bridge': resolve(rootDir, 'pages/api-bridge.html')
+				'api-bridge': resolve(rootDir, 'pages/api-bridge.html'),
+				'brain-lab': resolve(rootDir, 'pages/brain-lab.html')
 			}
 		}
 	},
-	plugins: [apiBridgePlugin],
+	plugins: [apiBridgePlugin, brainLabPlugin],
 	resolve: {
 		alias: {
 			'@': resolve(rootDir, 'src'),
