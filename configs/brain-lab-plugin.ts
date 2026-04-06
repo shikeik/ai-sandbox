@@ -212,6 +212,7 @@ async function doStep() {
 			}))
 		},
 		animations: actionResult.animations,
+		environmentAnimations: actionResult.environmentAnimations,
 		result: {
 			newPos: newState.hero,
 			enemiesRemaining: newState.enemies.length,
@@ -259,6 +260,7 @@ function doMove(action: string) {
 		from: prevState.hero,
 		to: newState.hero,
 		animations: actionResult.animations,
+		environmentAnimations: actionResult.environmentAnimations,
 		result: {
 			enemiesRemaining: newState.enemies.length,
 			triggeredButton: newState.triggers[0],

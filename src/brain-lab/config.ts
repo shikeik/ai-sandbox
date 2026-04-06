@@ -25,10 +25,10 @@ export const ANIMATION_DURATION = {
 	heroJumpLong: 600,
 	heroFall: 300,
 	heroFallLong: 500,
-	spikeFall: 600,
-	spikeFallFast: 300,
-	enemyDie: 400,
-	buttonPress: 200,
+	spikeFall: 400,       // 尖刺坠落：600 -> 400
+	spikeFallFast: 200,   // 尖刺快速坠落：300 -> 200
+	enemyDie: 300,        // 敌人死亡：400 -> 300
+	buttonPress: 150,     // 按钮按下：200 -> 150
 	cameraTransition: 300,
 } as const
 

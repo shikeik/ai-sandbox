@@ -397,12 +397,30 @@ export class DOMRenderer {
 	}
 
 	/**
-	 * 播放动画序列
+	 * 播放动画序列（包含环境动画）
 	 */
-	async playAnimations(animations: AnimationEvent[]): Promise<void> {
-		if (this.animating || !animations.length) return
-		this.animating = true
+	async playAnimations(
+		animations: AnimationEvent[],
+		environmentAnimations?: AnimationEvent[]
+	): Promise<void> {
+		if (this.animating) return
 
+		// 播放玩家相关动画（必须等待）
+		if (animations.length > 0) {
+			await this.playPlayerAnimations(animations)
+		}
+
+		// 环境动画在后台播放（不阻塞）
+		if (environmentAnimations && environmentAnimations.length > 0) {
+			this.playEnvironmentAnimations(environmentAnimations)
+		}
+	}
+
+	/**
+	 * 播放玩家相关动画（阻塞）
+	 */
+	private async playPlayerAnimations(animations: AnimationEvent[]): Promise<void> {
+		this.animating = true
 		const groups = this.groupByDelay(animations)
 
 		for (let i = 0; i < groups.length; i++) {
@@ -411,6 +429,23 @@ export class DOMRenderer {
 		}
 
 		this.animating = false
+	}
+
+	/**
+	 * 播放环境动画（后台，不阻塞）
+	 */
+	private playEnvironmentAnimations(animations: AnimationEvent[]): void {
+		const groups = this.groupByDelay(animations)
+
+		// 异步播放，不等待
+		const playNextGroup = async (index: number) => {
+			if (index >= groups.length) return
+			const group = groups[index]
+			await Promise.all(group.map(anim => this.playSingleAnimation(anim)))
+			playNextGroup(index + 1)
+		}
+
+		playNextGroup(0)
 	}
 
 	/**

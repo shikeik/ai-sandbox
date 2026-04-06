@@ -136,9 +136,12 @@ export class BrainLabUI {
 			// 渲染大脑思考
 			this.renderer.renderImaginationFromAPI(data)
 
-			// 播放动画
+			// 播放动画（环境动画在后台播放，不阻塞）
 			if (data.animations && data.animations.length > 0) {
-				await this.renderer.playAnimations(data.animations)
+				await this.renderer.playAnimations(data.animations, data.result?.environmentAnimations)
+			} else if (data.result?.environmentAnimations) {
+				// 只有环境动画时也在后台播放
+				this.renderer.playAnimations([], data.result.environmentAnimations)
 			}
 
 			// 动画完成后刷新状态
@@ -279,9 +282,11 @@ export class BrainLabUI {
 				return
 			}
 
-			// 播放动画
+			// 播放动画（环境动画在后台播放，不阻塞玩家）
 			if (data.animations && data.animations.length > 0) {
-				await this.renderer.playAnimations(data.animations)
+				await this.renderer.playAnimations(data.animations, data.result?.environmentAnimations)
+			} else if (data.result?.environmentAnimations) {
+				this.renderer.playAnimations([], data.result.environmentAnimations)
 			}
 
 			// 刷新状态
