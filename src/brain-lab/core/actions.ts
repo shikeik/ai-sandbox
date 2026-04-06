@@ -510,15 +510,17 @@ function handleButtonTrigger(ctx: ActionContext, playerAnimDuration: number, but
 		state.enemies = state.enemies.filter(e => !(e.x === enemyBelow.x && e.y === enemyBelow.y))
 	}
 
-	// 尖刺第二阶段：停顿后继续坠落到底或虚空
-	animations.push({
-		type: "SPIKE_FALL",
-		target: `spike-${buttonIdx}`,
-		from: { x: spike.x, y: spikeToY },
-		to: { x: spike.x, y: -1 },  // 落入虚空
-		duration: ANIMATION_DURATION.spikeFallFast,
-		delay: playerAnimDuration + ANIMATION_DURATION.buttonPress + ANIMATION_DURATION.spikeFall + SPIKE_PAUSE
-	})
+	// 尖刺第二阶段：有敌人时才需要停顿后继续坠落，无敌人直接落入虚空（已在第一阶段完成）
+	if (enemyBelow) {
+		animations.push({
+			type: "SPIKE_FALL",
+			target: `spike-${buttonIdx}`,
+			from: { x: spike.x, y: spikeToY },
+			to: { x: spike.x, y: -1 },  // 落入虚空
+			duration: ANIMATION_DURATION.spikeFallFast,
+			delay: playerAnimDuration + ANIMATION_DURATION.buttonPress + ANIMATION_DURATION.spikeFall + SPIKE_PAUSE
+		})
+	}
 
 	// 注意：spike.currentY 不应该在这里更新，因为动画还没开始
 	// 动画完成后会在渲染层更新位置

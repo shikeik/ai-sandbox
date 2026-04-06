@@ -878,11 +878,10 @@ export class DOMRenderer {
 
 		// 只在落到地面/敌人位置时触发粒子效果（y >= 0 且不是落入虚空）
 		// 第二阶段落到虚空（y = -1）不触发粒子
-		if (anim.to.y >= 0) {
+		if (anim.to && anim.to.y >= 0) {
 			setTimeout(() => {
-				// 从 target 中提取 x 坐标（如 "spike-0" -> 使用第一个尖刺的x）
-				const spikeIdx = parseInt(anim.target.split("-")[1]) || 0
-				const spikeX = spikeIdx === 0 ? 4 : 7  // 临时方案，应该从state中获取
+				// 使用动画中的 x 坐标
+				const spikeX = anim.to!.x
 				this.createImpactEffect(spikeX, targetDisplayY)
 			}, anim.duration)
 		}
