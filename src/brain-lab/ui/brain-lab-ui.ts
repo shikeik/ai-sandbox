@@ -514,12 +514,12 @@ export class BrainLabUI {
 	}
 
 	/**
-	 * 更新手动模式位置显示
+	 * 更新手动模式位置显示（游戏视图内的 HUD）
 	 */
 	private updateManualPosition(pos: { x: number; y: number }): void {
-		const posEl = document.getElementById("manual-position")
-		if (posEl) {
-			posEl.textContent = `(${pos.x}, ${pos.y})`
+		const hud = document.querySelector(".position-hud")
+		if (hud) {
+			hud.textContent = `(${pos.x}, ${pos.y})`
 		}
 	}
 
