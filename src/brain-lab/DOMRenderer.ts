@@ -1,4 +1,20 @@
-// ========== DOM渲染器 - 相机跟随版 ==========
+// ========== DOM渲染器 - 相机跟随+断言版 ==========
+
+import { 
+	assert, 
+	assertEq, 
+	assertExists, 
+	assertInRange,
+	assertValidCamera,
+	assertValidPosition,
+	assertCoordinateConversion,
+	setAssertLevel,
+	setAssertStopOnFail
+} from './Assert.js'
+
+// 设置断言级别（开发时verbose，生产时error-only）
+setAssertLevel('verbose')
+setAssertStopOnFail(false)
 
 interface AnimationEvent {
 	type: "HERO_MOVE" | "HERO_JUMP" | "HERO_FALL" | "SPIKE_FALL" | "ENEMY_DIE" | "BUTTON_PRESS"
@@ -58,6 +74,9 @@ export class DOMRenderer {
 	// ========== 初始化渲染 ==========
 	renderWorldFromAPI(data: any): void {
 		try {
+			console.log("[RENDER] ========================================")
+			console.log("[RENDER] 开始渲染世界")
+			
 			const state: WorldState = {
 				grid: data.gridRaw || data.grid,
 				hero: data.hero,
@@ -67,25 +86,48 @@ export class DOMRenderer {
 				spikeFalling: data.spikeFalling
 			}
 
+			// 断言：必要数据存在
+			assertExists(state.grid, "grid数据")
+			assertExists(state.hero, "hero数据")
+
 			if (!state.grid || !state.hero) {
-				console.error("[DOMRenderer] 缺少grid或hero数据")
+				console.error("[RENDER] 错误: 缺少grid或hero数据")
 				return
 			}
+
+			const { grid } = state
+			const height = grid.length
+			const width = grid[0].length
+			
+			console.log(`[RENDER] 地图尺寸: ${width}x${height}`)
+			console.log(`[RENDER] 玩家逻辑位置: (${state.hero.x}, ${state.hero.y})`)
+			console.log(`[RENDER] 玩家数量: ${state.enemies.length}`)
+			console.log(`[RENDER] 尖刺Y位置: ${state.spikeY}`)
+			console.log(`[RENDER] 按钮触发: ${state.triggers[0]}`)
+			console.log(`[RENDER] 视口尺寸: ${this.viewportWidth}x${this.viewportHeight}px`)
+
+			// 断言：地图尺寸正确
+			assertEq(width, 10, "地图宽度")
+			assertEq(height, 6, "地图高度")
+			
+			// 断言：英雄位置有效
+			assertValidPosition(state.hero.x, state.hero.y, width, height, "API返回英雄位置")
 
 			// 清空容器
 			this.worldContainer.innerHTML = ''
 			this.enemyElements.clear()
 
-			const { grid } = state
-			const height = grid.length
-			const width = grid[0].length
-
 			// 计算世界尺寸
 			this.worldWidth = width * (this.cellSize + this.gap) - this.gap
 			this.worldHeight = height * (this.cellSize + this.gap) - this.gap
+			console.log(`[RENDER] 世界像素尺寸: ${this.worldWidth}x${this.worldHeight}px`)
 
 			// 计算初始相机位置（聚焦英雄）- 传入已知高度
 			this.updateCameraWithHeight(state.hero.x, state.hero.y, height)
+			console.log(`[RENDER] 相机位置: (${this.cameraX.toFixed(1)}, ${this.cameraY.toFixed(1)})`)
+			
+			// 断言：相机位置有效
+			assertValidCamera(this.cameraX, this.cameraY, this.worldWidth, this.worldHeight, this.viewportWidth, this.viewportHeight)
 
 			// 创建视口结构
 			this.worldContainer.innerHTML = `
@@ -138,19 +180,34 @@ export class DOMRenderer {
 
 	// 使用已知高度更新相机（避免DOM查询）
 	private updateCameraWithHeight(heroX: number, heroY: number, height: number): void {
+		// 断言：输入参数有效
+		assertInRange(heroX, 0, 9, "updateCamera heroX")
+		assertInRange(heroY, 0, 5, "updateCamera heroY")
+		assertEq(height, 6, "updateCamera gridHeight")
+		
 		const heroPixelX = heroX * (this.cellSize + this.gap)
 		const heroPixelY = (height - 1 - heroY) * (this.cellSize + this.gap)
+		
+		console.log(`[CAMERA] 英雄像素位置: (${heroPixelX}, ${heroPixelY})`)
 
 		// 目标相机位置（让英雄在中央）
 		let targetCameraX = heroPixelX - this.viewportWidth / 2 + this.cellSize / 2
 		let targetCameraY = heroPixelY - this.viewportHeight / 2 + this.cellSize / 2
+		console.log(`[CAMERA] 目标相机位置(未限制): (${targetCameraX.toFixed(1)}, ${targetCameraY.toFixed(1)})`)
 
 		// 边界限制（不能看到世界外面）
-		targetCameraX = Math.max(0, Math.min(targetCameraX, this.worldWidth - this.viewportWidth))
-		targetCameraY = Math.max(0, Math.min(targetCameraY, this.worldHeight - this.viewportHeight))
+		const maxCameraX = Math.max(0, this.worldWidth - this.viewportWidth)
+		const maxCameraY = Math.max(0, this.worldHeight - this.viewportHeight)
+		targetCameraX = Math.max(0, Math.min(targetCameraX, maxCameraX))
+		targetCameraY = Math.max(0, Math.min(targetCameraY, maxCameraY))
+		console.log(`[CAMERA] 最大相机位置: (${maxCameraX.toFixed(1)}, ${maxCameraY.toFixed(1)})`)
 
 		this.cameraX = targetCameraX
 		this.cameraY = targetCameraY
+		
+		// 断言：相机位置在有效范围内
+		assertInRange(this.cameraX, 0, maxCameraX + 0.1, "最终cameraX")
+		assertInRange(this.cameraY, 0, maxCameraY + 0.1, "最终cameraY")
 	}
 
 	// 应用相机变换
@@ -231,6 +288,8 @@ export class DOMRenderer {
 	private renderObjects(container: HTMLElement, state: WorldState): void {
 		const { hero, enemies, grid, spikeY } = state
 		const height = grid.length
+		
+		console.log(`[RENDER] 渲染动态对象...`)
 
 		container.style.cssText = `
 			width: ${this.worldWidth}px;
@@ -241,28 +300,41 @@ export class DOMRenderer {
 		`
 
 		// 1. 英雄
-		this.heroElement = this.createGameObject('hero', '🦊', hero.x, height - 1 - hero.y, 30)
+		const heroDisplayY = height - 1 - hero.y
+		this.heroElement = this.createGameObject('hero', '🦊', hero.x, heroDisplayY, 30)
 		container.appendChild(this.heroElement)
+		console.log(`[RENDER]   英雄: 逻辑(${hero.x},${hero.y}) -> 显示(${hero.x},${heroDisplayY})`)
 
 		// 2. 敌人
-		enemies.forEach((enemy) => {
+		enemies.forEach((enemy, i) => {
+			const enemyDisplayY = height - 1 - enemy.y
 			const key = `enemy-${enemy.x}-${enemy.y}`
-			const el = this.createGameObject(key, '👿', enemy.x, height - 1 - enemy.y, 20)
+			const el = this.createGameObject(key, '👿', enemy.x, enemyDisplayY, 20)
 			this.enemyElements.set(key, el)
 			container.appendChild(el)
+			console.log(`[RENDER]   敌人[${i}]: 逻辑(${enemy.x},${enemy.y}) -> 显示(${enemy.x},${enemyDisplayY})`)
 		})
 
 		// 3. 尖刺
 		const initialSpikeY = spikeY !== undefined ? spikeY : 4
-		this.spikeElement = this.createGameObject('spike', '🔺', 4, height - 1 - initialSpikeY, 40)
+		const spikeDisplayY = height - 1 - initialSpikeY
+		this.spikeElement = this.createGameObject('spike', '🔺', 4, spikeDisplayY, 40)
 		container.appendChild(this.spikeElement)
+		console.log(`[RENDER]   尖刺: 逻辑(${4},${initialSpikeY}) -> 显示(${4},${spikeDisplayY})`)
 
 		// 4. 按钮
 		if (!state.triggers[0]) {
-			this.buttonElement = this.createGameObject('button', '🔘', 4, height - 1 - 2, 25)
+			const buttonDisplayY = height - 1 - 2
+			this.buttonElement = this.createGameObject('button', '🔘', 4, buttonDisplayY, 25)
 			this.buttonElement.classList.add('button-obj')
 			container.appendChild(this.buttonElement)
+			console.log(`[RENDER]   按钮: 逻辑(${4},${2}) -> 显示(${4},${buttonDisplayY})`)
+		} else {
+			this.buttonElement = null
+			console.log(`[RENDER]   按钮: 已触发，不渲染`)
 		}
+		
+		console.log(`[RENDER] 动态对象渲染完成`)
 	}
 
 	// 创建游戏对象
@@ -297,12 +369,20 @@ export class DOMRenderer {
 		if (this.animating || !animations.length) return
 		this.animating = true
 
-		const groups = this.groupByDelay(animations)
+		console.log(`[ANIM] ========================================`)
+		console.log(`[ANIM] 开始播放动画序列，共${animations.length}个动画`)
 		
-		for (const group of groups) {
+		const groups = this.groupByDelay(animations)
+		console.log(`[ANIM] 按delay分组: ${groups.length}组`)
+		
+		for (let i = 0; i < groups.length; i++) {
+			const group = groups[i]
+			const delay = group[0].delay || 0
+			console.log(`[ANIM] 组[${i + 1}/${groups.length}]: ${group.length}个动画, delay=${delay}ms`)
 			await Promise.all(group.map(anim => this.playSingleAnimation(anim)))
 		}
 
+		console.log(`[ANIM] 动画序列播放完成`)
 		this.animating = false
 	}
 
@@ -321,6 +401,7 @@ export class DOMRenderer {
 	}
 
 	private playSingleAnimation(anim: AnimationEvent): Promise<void> {
+		console.log(`[ANIM]   播放动画: ${anim.type} [${anim.target}] ${anim.from.x},${anim.from.y} -> ${anim.to?.x ?? '-' },${anim.to?.y ?? '-'} (${anim.duration}ms)`)
 		return new Promise((resolve) => {
 			setTimeout(() => {
 				switch (anim.type) {
@@ -351,11 +432,21 @@ export class DOMRenderer {
 	// 英雄移动动画（带相机跟随）
 	private animateHeroMove(anim: AnimationEvent): void {
 		if (!this.heroElement || !anim.to) return
+		
+		// 断言：动画目标位置有效
+		assertValidPosition(anim.to.x, anim.to.y, 10, 6, "HERO_MOVE目标位置")
+		assertEq(anim.from.x, Math.round(parseFloat(this.heroElement.style.left) / (this.cellSize + this.gap)), "HERO_MOVE起始X应匹配当前位置")
+		
 		const height = this.getGridHeight()
 		const targetDisplayY = height - 1 - anim.to.y
 		
+		// 断言：坐标转换正确
+		assertCoordinateConversion(anim.to.x, anim.to.y, height, targetDisplayY)
+		
 		const left = anim.to.x * (this.cellSize + this.gap)
 		const top = targetDisplayY * (this.cellSize + this.gap)
+		
+		console.log(`[ANIM]     HERO_MOVE: 逻辑(${anim.to.x},${anim.to.y}) -> 像素(${left},${top})`)
 
 		this.heroElement.style.transition = `all ${anim.duration}ms ease-out`
 		this.heroElement.style.left = `${left}px`
