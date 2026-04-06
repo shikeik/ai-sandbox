@@ -14,8 +14,7 @@
 - **🦊 单层感知机演示**（`fox-jump`）：玩家控制一只纯 CSS 绘制的狐狸，在 32 格横版地形中右移或跳跃躲避坑洞。可切换为 AI 控制/AI 训练模式，实时观察一个 4→3 单层神经网络的权重变化。
 - **📐 地形实验室**（`terrain-lab`）：监督学习与无监督学习演示。支持地形编辑、带隐藏层的 MLP（多层感知机）动作预测、批量训练、课程学习与可视化（含 Embedding 空间、训练快照、执念曲线）。
 - **🧮 MLP 神经网络教学**（`mlp-teaching`）：前向传播与反向传播的可视化教学页面。该页面为独立的单文件 HTML，无 TypeScript 源码，所有逻辑与样式均内联在 `pages/mlp-teaching.html` 中。
-- **📊 指标仪表盘**（`metrics-dashboard`）：实时训练监控，展示损失曲线、准确率、动作分布可视化等训练指标。
-- **⚖️ 模型对比**（`model-comparison`）：双模型并排对比，支持时间轴播放、双Y轴图表、差异分析。
+- **🔌 API 桥接**（`api-bridge`）：HTTP + WebSocket 桥接，支持外部 CLI 工具与浏览器页面通信。
 
 ---
 
@@ -36,23 +35,26 @@
 ## 3. 目录结构
 
 ```
-├── index.html                      # 导航入口页（选择五个演示模块）
+├── index.html                      # 导航入口页（选择四个演示模块）
 ├── package.json                    # npm 配置，脚本定义
-├── vite.config.ts                  # 多页面 Rollup 配置 + 路径别名
-├── tsconfig.json                   # TypeScript 严格模式、ES2020
-├── tsconfig.node.json              # Node 配置引用
-├── eslint.config.ts                # ESLint 规则（双引号、无分号、禁止 var）
-├── TODO.md                         # 项目待办与已知问题
+├── package-lock.json               # npm 依赖锁定文件
+├── configs/                        # 配置文件目录
+│   ├── vite.config.ts              # 多页面 Rollup 配置 + 路径别名
+│   ├── tsconfig.json               # TypeScript 严格模式、ES2020
+│   ├── tsconfig.node.json          # Node 配置引用
+│   └── eslint.config.ts            # ESLint 规则（双引号、无分号、禁止 var）
 ├── deploy.sh                       # 腾讯云服务器部署脚本
 ├── scripts/
 │   ├── build-single-file.mjs       # 将 Vite 构建产物内联为单文件 HTML
-│   └── test.mjs                    # 测试脚本包装器
+│   ├── test.mjs                    # 测试脚本包装器
+│   ├── fix_logs.sh                 # 日志修复脚本
+│   └── api-bridge/                 # API 桥接相关脚本
+│       └── formatter.mjs           # 响应格式化工具
 ├── pages/                          # 多页面 HTML 入口
 │   ├── fox-jump.html               # 狐狸跳跃游戏页
 │   ├── terrain-lab.html            # 地形实验室页
 │   ├── mlp-teaching.html           # MLP 教学页（独立内联页面，无 TS 源码）
-│   ├── metrics-dashboard.html      # 指标仪表盘页
-│   └── model-comparison.html       # 模型对比页
+│   └── api-bridge.html             # API 桥接页
 ├── src/
 │   ├── types.d.ts                  # 全局类型声明（CSS 导入、Vite HMR）
 │   ├── engine/                     # 共享引擎层
@@ -94,6 +96,7 @@
 │   │   ├── TrainingEntry.ts        # 训练 Tab 入口
 │   │   ├── ChallengeEntry.ts       # 连续挑战 Tab 入口
 │   │   ├── MapGeneratorEntry.ts    # 地图生成器 Tab 入口
+│   │   ├── KimiEntry.ts            # Kimi API 桥接 Tab 入口
 │   │   ├── state.ts                # 全局状态管理
 │   │   ├── constants.ts            # 网络维度、元素类型、动作常量、课程阶段
 │   │   ├── types.ts                # 类型定义
@@ -102,7 +105,6 @@
 │   │   ├── unsupervised.ts         # 无监督学习梯度累积与奖励计算
 │   │   ├── terrain.ts              # 地形编码、合法性检查、数据集生成
 │   │   ├── renderer.ts             # Canvas 绘制（地形网格、Emoji、MLP 图）
-│   │   ├── animation.ts            # 狐狸动作动画路径计算
 │   │   ├── utils.ts                # 数学工具
 │   │   ├── training-engine.ts      # 训练引擎核心
 │   │   ├── snapshot-manager.ts     # 训练快照管理
@@ -115,24 +117,15 @@
 │   │   ├── map-renderer.ts         # 地图渲染器
 │   │   ├── ui-manager.ts           # UI 管理器
 │   │   ├── gradients.ts            # 梯度计算
-│   │   └── utils/                  # 工具函数
-│   ├── metrics-dashboard/          # 指标仪表盘
-│   │   ├── main.ts                 # 入口
-│   │   ├── metrics-store.ts        # 指标数据存储
-│   │   ├── ui-manager.ts           # UI 管理器
-│   │   ├── constants.ts            # 常量配置
-│   │   ├── types.ts                # 类型定义
-│   │   ├── components/             # UI 组件
-│   │   │   ├── MetricCard.ts
-│   │   │   └── LoadingButton.ts
-│   │   ├── charts/                 # 图表组件
-│   │   │   └── line-chart.ts
-│   │   └── utils/                  # 工具函数
-│   │       └── data-formatter.ts
-│   └── model-comparison/           # 模型对比
-│       ├── main.ts                 # 入口
-│       ├── timeline-controller.ts  # 时间轴控制器
-│       └── ui-manager.ts           # UI 管理器
+│   │   └── grid-world/             # 格子世界系统
+│   │       ├── index.ts            # 入口
+│   │       ├── GridWorld.ts        # 核心逻辑
+│   │       ├── GridWorldEditor.ts  # 编辑器
+│   │       ├── GridWorldRenderer.ts # 渲染器
+│   │       ├── GridWorldAnimator.ts # 动画器
+│   │       └── types.ts            # 类型定义
+│   └── api-bridge/                 # API 桥接
+│       └── main.ts                 # API 桥接入口
 ├── test/                           # 测试目录
 │   ├── unit/                       # 单元测试
 │   │   └── map-generator.test.ts   # 地图生成器测试
@@ -246,8 +239,9 @@ npm run test:dir <目录名>          # 跑指定目录下的单元测试
 - `[MAIN]` — 主入口
 - `[HMR]` — 热更新
 - `[SUP]` / `[UNS]` / `[PREDICT]` — terrain-lab 训练与预测
-- `[METRICS]` — 指标仪表盘
-- `[MODEL-COMP]` — 模型对比
+- `[TRAINING]` — 训练入口
+- `[CHALLENGE]` — 挑战模式
+- `[MAP-GEN]` — 地图生成器
 
 ---
 
@@ -333,10 +327,11 @@ npm run test:slow
 
 ### 8.3 地形实验室（`terrain-lab`）
 
-**三个 Tab 入口**：
+**四个 Tab 入口**：
 - `TrainingEntry`：监督学习/无监督学习训练页
 - `ChallengeEntry`：连续地图挑战页
 - `MapGeneratorEntry`：地图生成器页
+- `KimiEntry`：Kimi API 桥接页
 
 **监督学习 + 无监督学习演示页面**：
 - **地形编辑器**：5 列 × 3 层网格，支持放置空气、狐狸、平地、史莱姆、恶魔、金币
@@ -350,6 +345,12 @@ npm run test:slow
 - **课程学习**：5 阶段渐进解锁（平地大道→坑洞→史莱姆→恶魔→金币），每阶段 6000 条数据，支持监督/无监督两种模式
 - **连续挑战**：扩展的地图挑战模式，支持动画播放
 
+**格子世界系统**（`grid-world/`）：
+- `GridWorld`：核心逻辑，管理地形网格、狐狸位置、动作执行
+- `GridWorldEditor`：编辑器，支持画笔绘制、层限制
+- `GridWorldRenderer`：渲染器，绘制网格、元素 Emoji、动画
+- `GridWorldAnimator`：动画器，处理狐狸移动/跳跃/远跳动画
+
 ### 8.4 MLP 教学（`mlp-teaching`）
 
 独立 HTML 页面（`pages/mlp-teaching.html`），**无构建步骤**，所有 CSS 与 JavaScript 均内联：
@@ -357,25 +358,19 @@ npm run test:slow
 - 可交互设置输入值、目标输出、学习率
 - 实时显示计算过程与权重更新
 
-### 8.5 指标仪表盘（`metrics-dashboard`）
+### 8.5 API 桥接（`api-bridge`）
 
-- 实时展示训练指标：Loss、准确率、合法率、Epsilon
-- 支持时间范围切换（1/10/100 步）
-- 折线图可视化
-- 模拟数据生成功能
-
-### 8.6 模型对比（`model-comparison`）
-
-- 双模型（Model A / Model B）并排对比
-- 时间轴播放控制（播放/暂停/步进/重置）
-- 双Y轴图表展示
-- 差异分析面板
+HTTP + WebSocket 桥接页面（`pages/api-bridge.html`）：
+- 接收外部 HTTP POST 请求（如 CLI、curl）
+- 通过 WebSocket 转发给浏览器页面处理
+- 支持请求/响应模式，超时 30 秒
+- 用于外部工具与浏览器页面的双向通信
 
 ---
 
 ## 9. 多页面入口与导航
 
-Vite 配置中通过 `rollupOptions.input` 定义 6 个入口：
+Vite 配置中通过 `rollupOptions.input` 定义 4 个入口：
 
 | 入口 | HTML | 说明 |
 |------|------|------|
@@ -383,8 +378,7 @@ Vite 配置中通过 `rollupOptions.input` 定义 6 个入口：
 | `fox-jump` | `pages/fox-jump.html` | 单层感知机演示 |
 | `terrain-lab` | `pages/terrain-lab.html` | 地形实验室 |
 | `mlp-teaching` | `pages/mlp-teaching.html` | MLP 教学 |
-| `metrics-dashboard` | `pages/metrics-dashboard.html` | 指标仪表盘 |
-| `model-comparison` | `pages/model-comparison.html` | 模型对比 |
+| `api-bridge` | `pages/api-bridge.html` | API 桥接 |
 
 `npm run build` 在 `dist/` 中生成对应的多页面资源。
 
@@ -408,8 +402,7 @@ Vite 配置中通过 `rollupOptions.input` 定义 6 个入口：
 | `dist/game.html` | fox-jump 兼容别名 |
 | `dist/terrain-lab.html` | 地形实验室 |
 | `dist/mlp-teaching.html` | MLP 教学（本身已是单文件，再次复制）|
-| `dist/metrics-dashboard.html` | 指标仪表盘 |
-| `dist/model-comparison.html` | 模型对比 |
+| `dist/api-bridge.html` | API 桥接页面 |
 
 ---
 
@@ -443,16 +436,19 @@ Vite 配置中通过 `rollupOptions.input` 定义 6 个入口：
 
 `terrain-lab` 采用多入口类架构：
 - `main.ts` 管理 Tab 切换和全局状态
-- `TrainingEntry` / `ChallengeEntry` / `MapGeneratorEntry` 各自独立管理对应 Tab 的生命周期
+- `TrainingEntry` / `ChallengeEntry` / `MapGeneratorEntry` / `KimiEntry` 各自独立管理对应 Tab 的生命周期
 - 网络参数更新通过回调 `onNetworkUpdated` 同步
 
+### 11.8 配置文件位置
+
+所有配置文件已移至 `configs/` 目录，包括：
+- `vite.config.ts`
+- `tsconfig.json`
+- `tsconfig.node.json`
+- `eslint.config.ts`
+
+npm 脚本已更新以指向新位置。
+
 ---
 
-## 12. 待办事项
-
-详见 `TODO.md`，主要方向：
-- terrain-lab Tab 拆分：监督学习页 + 连续挑战页 + 地图生成器页（已完成）
-
----
-
-*最后更新：2026-04-05*
+*最后更新：2026-04-06*
