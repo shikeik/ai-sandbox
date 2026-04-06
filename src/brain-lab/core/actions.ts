@@ -70,11 +70,21 @@ export function executeAction(
 	// 更新英雄位置
 	state.hero = hero
 
-	// 检查按钮触发
+	// 计算玩家动画总时长（用于按钮触发延迟）
+	let playerAnimDuration = 0
+	if (animations.length > 0) {
+		// 找到最后一个动画的结束时间
+		playerAnimDuration = animations.reduce((maxEnd, anim) => {
+			const endTime = (anim.delay || 0) + anim.duration
+			return Math.max(maxEnd, endTime)
+		}, 0)
+	}
+
+	// 检查按钮触发（在玩家动画结束后）
 	let triggeredButton = false
 	if (checkButtonTrigger(state, hero.x, hero.y)) {
 		triggeredButton = true
-		handleButtonTrigger(ctx)
+		handleButtonTrigger(ctx, playerAnimDuration)
 	}
 
 	// 检查是否到达终点
@@ -340,8 +350,10 @@ function handleJump(ctx: ActionContext): void {
 	// 否则原地不动（已经是最高的了）
 }
 
-/** 处理按钮触发效果 */
-function handleButtonTrigger(ctx: ActionContext): void {
+/** 处理按钮触发效果
+ * @param playerAnimDuration 玩家动画时长，按钮动画应在此之后开始
+ */
+function handleButtonTrigger(ctx: ActionContext, playerAnimDuration: number): void {
 	const { state, hero, animations, logs } = ctx
 
 	state.triggers[0] = true
@@ -349,14 +361,16 @@ function handleButtonTrigger(ctx: ActionContext): void {
 
 	logs.push("[WORLD] 按钮触发！尖刺开始坠落...")
 
+	// 按钮动画在玩家动画结束后开始
 	animations.push({
 		type: "BUTTON_PRESS",
 		target: "button",
 		from: { x: hero.x, y: hero.y - 1 },
-		duration: ANIMATION_DURATION.buttonPress
+		duration: ANIMATION_DURATION.buttonPress,
+		delay: playerAnimDuration
 	})
 
-	// 尖刺坠落
+	// 尖刺坠落（紧接按钮动画）
 	const spikeFromY = state.spikeY ?? 4
 	const spikeToY = 1
 
@@ -366,7 +380,7 @@ function handleButtonTrigger(ctx: ActionContext): void {
 		from: { x: 4, y: spikeFromY },
 		to: { x: 4, y: spikeToY },
 		duration: ANIMATION_DURATION.spikeFall,
-		delay: ANIMATION_DURATION.buttonPress
+		delay: playerAnimDuration + ANIMATION_DURATION.buttonPress
 	})
 
 	state.spikeY = spikeToY
@@ -381,7 +395,7 @@ function handleButtonTrigger(ctx: ActionContext): void {
 				target: `enemy-${enemy.x}-${enemy.y}`,
 				from: { ...enemy },
 				duration: ANIMATION_DURATION.enemyDie,
-				delay: ANIMATION_DURATION.spikeFall
+				delay: playerAnimDuration + ANIMATION_DURATION.buttonPress + ANIMATION_DURATION.spikeFall
 			})
 		})
 		state.enemies = state.enemies.filter(e => !(e.x === 4 && e.y === spikeToY))
@@ -394,7 +408,7 @@ function handleButtonTrigger(ctx: ActionContext): void {
 		from: { x: 4, y: spikeToY },
 		to: { x: 4, y: 0 },
 		duration: ANIMATION_DURATION.spikeFallFast,
-		delay: ANIMATION_DURATION.spikeFall + ANIMATION_DURATION.buttonPress
+		delay: playerAnimDuration + ANIMATION_DURATION.buttonPress + ANIMATION_DURATION.spikeFall
 	})
 	state.spikeY = 0
 }
