@@ -404,8 +404,9 @@ export class DOMRenderer {
 		this.animating = true
 
 		const groups = this.groupByDelay(animations)
+		let lastGroupEndTime = 0
 
-		// 找出玩家动画的最大结束时间
+		// 找出玩家动画的最大结束时间（用于TEMP日志）
 		const playerAnimations = animations.filter(a => 
 			a.type === "HERO_MOVE" || a.type === "HERO_JUMP" || a.type === "HERO_FALL"
 		)
@@ -413,7 +414,7 @@ export class DOMRenderer {
 			? Math.max(...playerAnimations.map(a => (a.delay || 0) + a.duration))
 			: 0
 
-		// 找出按钮动画的开始时间
+		// 找出按钮动画的开始时间（用于TEMP日志）
 		const buttonAnim = animations.find(a => a.type === "BUTTON_PRESS")
 		const buttonStartTime = buttonAnim ? (buttonAnim.delay || 0) : -1
 
@@ -421,17 +422,28 @@ export class DOMRenderer {
 			const group = groups[i]
 			const groupDelay = group[0].delay || 0
 
-			// 检查是否到达玩家动画结束时间点
-			if (groupDelay >= playerMaxEndTime && playerMaxEndTime > 0) {
-				console.log(`[TEMP] 玩家动画结束 (时间: ${playerMaxEndTime}ms)`)
+			// 等待到该组应该开始的时间
+			const waitTime = groupDelay - lastGroupEndTime
+			if (waitTime > 0) {
+				await new Promise(resolve => setTimeout(resolve, waitTime))
 			}
 
-			// 检查是否到达按钮动画开始时间点
-			if (groupDelay >= buttonStartTime && buttonStartTime > 0) {
-				console.log(`[TEMP] 按钮动画开始 (时间: ${buttonStartTime}ms)`)
+			// TEMP日志：玩家动画结束
+			if (groupDelay === playerMaxEndTime && playerMaxEndTime > 0) {
+				console.log(`[TEMP] 玩家动画结束 (时间: ${Date.now()})`)
 			}
 
+			// TEMP日志：按钮动画开始
+			if (groupDelay === buttonStartTime && buttonStartTime > 0) {
+				console.log(`[TEMP] 按钮动画开始 (时间: ${Date.now()})`)
+			}
+
+			// 执行该组所有动画
 			await Promise.all(group.map(anim => this.playSingleAnimation(anim)))
+
+			// 更新最后结束时间
+			const groupMaxDuration = Math.max(...group.map(a => a.duration))
+			lastGroupEndTime = groupDelay + groupMaxDuration
 		}
 
 		this.animating = false
@@ -455,34 +467,32 @@ export class DOMRenderer {
 	}
 
 	/**
-	 * 播放单个动画
+	 * 播放单个动画（注意：delay 已由外层分组处理，这里不再重复等待）
 	 */
 	private playSingleAnimation(anim: AnimationEvent): Promise<void> {
-		return new Promise((resolve) => {
-			setTimeout(() => {
-				switch (anim.type) {
-					case "HERO_MOVE":
-						this.animateHeroMove(anim)
-						break
-					case "HERO_JUMP":
-						this.animateHeroJump(anim)
-						break
-					case "HERO_FALL":
-						this.animateHeroFall(anim)
-						break
-					case "SPIKE_FALL":
-						this.animateSpikeFall(anim)
-						break
-					case "ENEMY_DIE":
-						this.animateEnemyDie(anim)
-						break
-					case "BUTTON_PRESS":
-						this.animateButtonPress(anim)
-						break
-				}
-				setTimeout(resolve, anim.duration)
-			}, anim.delay || 0)
-		})
+		// 立即执行动画（CSS transition 会处理视觉变化）
+		switch (anim.type) {
+			case "HERO_MOVE":
+				this.animateHeroMove(anim)
+				break
+			case "HERO_JUMP":
+				this.animateHeroJump(anim)
+				break
+			case "HERO_FALL":
+				this.animateHeroFall(anim)
+				break
+			case "SPIKE_FALL":
+				this.animateSpikeFall(anim)
+				break
+			case "ENEMY_DIE":
+				this.animateEnemyDie(anim)
+				break
+			case "BUTTON_PRESS":
+				this.animateButtonPress(anim)
+				break
+		}
+		// 等待动画实际持续时间
+		return new Promise(resolve => setTimeout(resolve, anim.duration))
 	}
 
 	/**
