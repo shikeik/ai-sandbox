@@ -27,7 +27,7 @@ export function setAssertStopOnFail(stop: boolean) {
 export function assert(
 	condition: boolean,
 	message: string,
-	context?: Record<string, any>
+	context?: Record<string, unknown>
 ): boolean {
 	const passed = condition
 

@@ -4,6 +4,7 @@ import { DOMRenderer } from "../render/index.js"
 import { Logger } from "../../engine/utils/Logger.js"
 import { ConsolePanel } from "../../engine/console/ConsolePanel.js"
 import { DEFAULT_LEVEL_MAP, ADVANCED_LEVEL_MAP } from "../config.js"
+import type { APIStateResponse, APIStepResponse, APIMoveResponse } from "../types/api.js"
 
 const API_BASE = "/api/brain-lab"
 
@@ -26,7 +27,7 @@ export class BrainLabUI {
 	private autoPlayInterval: number | null = null
 	private logger!: Logger
 	private consolePanel!: ConsolePanel
-	private currentState: any = null
+	private currentState: APIStateResponse | null = null
 	private currentTab: TabType = "ai"
 	private currentLevel: LevelName = "default"
 	private toastTimeout: number | null = null
@@ -61,10 +62,11 @@ export class BrainLabUI {
 			// 暴露调试API
 			this.exposeDebugAPI()
 
-		} catch (err: any) {
+		} catch (err: unknown) {
 			const container = document.getElementById("world-container")
 			if (container) {
-				container.innerHTML = `<div style="color:red;padding:20px;">初始化错误: ${(err as Error).message}</div>`
+				const message = err instanceof Error ? err.message : String(err)
+				container.innerHTML = `<div style="color:red;padding:20px;">初始化错误: ${message}</div>`
 			}
 		}
 	}
@@ -73,7 +75,7 @@ export class BrainLabUI {
 	 * 暴露调试 API
 	 */
 	private exposeDebugAPI(): void {
-		;(window as any).brainLabDebug = {
+		;(window as unknown as Record<string, unknown>).brainLabDebug = {
 			step: () => this.step(),
 			reset: () => this.reset(),
 			state: () => this.refreshState(),
@@ -136,7 +138,7 @@ export class BrainLabUI {
 
 		try {
 			const res = await fetch(`${API_BASE}/step`, { method: "POST" })
-			const data = await res.json()
+			const data = await res.json() as APIMoveResponse
 
 			// 渲染大脑思考
 			this.renderer.renderImaginationFromAPI(data)
@@ -294,7 +296,7 @@ export class BrainLabUI {
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ action })
 			})
-			const data = await res.json()
+			const data = await res.json() as APIMoveResponse
 
 			if (data.error) {
 				this.showToast(`❌ ${data.error}`)
@@ -579,7 +581,7 @@ export class BrainLabUI {
 				throw new Error(`HTTP ${res.status}: ${res.statusText}`)
 			}
 
-			const data = await res.json()
+			const data = await res.json() as APIMoveResponse
 			this.currentState = data
 
 			if (!data.gridRaw && !data.grid) {

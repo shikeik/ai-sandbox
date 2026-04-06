@@ -98,6 +98,9 @@ export default [
 				// 导入/导出
 				import: 'readonly',
 				export: 'readonly',
+
+				// Node.js 全局变量
+				Buffer: 'readonly',
 			},
 		},
 		plugins: {

@@ -23,7 +23,7 @@ export interface AnimationEvent {
 	to?: Position
 	duration: number
 	delay?: number
-	payload?: any
+	payload?: unknown
 	/** 演出模式标记：已被处理 */
 	_cinematicHandled?: boolean
 	/** 演出模式标记：已播放 */

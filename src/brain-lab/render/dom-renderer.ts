@@ -1,6 +1,7 @@
 // ========== DOM渲染器 ==========
 
 import type { WorldState, AnimationEvent, BrainDecision, Position, SpikeState } from "../types/index.js"
+import type { APIStateResponse, APIStepResponse } from "../types/api.js"
 import { Element } from "../types/index.js"
 import { RENDER_CONFIG, ANIMATION_DURATION } from "../config.js"
 
@@ -62,17 +63,17 @@ export class DOMRenderer {
 	/**
 	 * 从 API 数据渲染世界
 	 */
-	renderWorldFromAPI(data: any): void {
+	renderWorldFromAPI(data: APIStateResponse): void {
 		try {
 			const state: WorldState = {
-				grid: data.gridRaw || data.grid,
+				grid: data.gridRaw || [],
 				hero: data.hero,
 				enemies: data.enemies || [],
 				triggers: data.triggers || [],
 				spikes: data.spikes || [],
 			}
 
-			if (!state.grid || !state.hero) {
+			if (!state.grid.length || !state.hero) {
 				return
 			}
 
@@ -1084,10 +1085,10 @@ export class DOMRenderer {
 	/**
 	 * 渲染大脑思考
 	 */
-	renderImaginationFromAPI(data: any): void {
+	renderImaginationFromAPI(data: APIStepResponse): void {
 		if (!data.decision) return
 
-		const decision = data.decision as BrainDecision
+		const decision = data.decision
 
 		const html = `
 			<div class="brain-reasoning">
