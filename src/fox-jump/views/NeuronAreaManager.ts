@@ -64,7 +64,6 @@ declare global {
 
 export class NeuronAreaManager {
 	private container: HTMLElement
-	private gameContainer: HTMLElement
 	private currentView: NetworkView | null = null
 	private currentMode: string
 	private currentSpeed: string
@@ -95,13 +94,6 @@ export class NeuronAreaManager {
 			throw new Error(`NeuronAreaManager: 找不到元素 #${containerId}`)
 		}
 		this.container = el
-		
-		const gameContainer = document.getElementById("game-container")
-		if (!gameContainer) {
-			throw new Error("NeuronAreaManager: 找不到元素 #game-container")
-		}
-		this.gameContainer = gameContainer
-		
 		this.currentMode = window.AI_CONFIG?.DEFAULT_MODE || "player"
 		this.currentSpeed = window.AI_CONFIG?.DEFAULT_SPEED || "step"
 		this.currentExploreMode = "none"
@@ -545,7 +537,6 @@ export class NeuronAreaManager {
 	 */
 	private _updateCollapsedState(): void {
 		this.container.classList.toggle("collapsed", !this.isVisible)
-		this.gameContainer.classList.toggle("neuron-collapsed", !this.isVisible)
 	}
 
 	/**

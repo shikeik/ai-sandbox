@@ -80,16 +80,8 @@ html, body {
 	position: relative;
 }
 
-/* 顶部区域：控制栏 + 控制台 */
-.top-section {
-	flex-shrink: 0;
-	display: flex;
-	flex-direction: column;
-	z-index: 3010;
-}
-
-/* 游戏主容器：扣除顶部区域后的剩余空间 */
-#game-container {
+/* 主容器：四区域 flex 布局（控制台 + 游戏 + 神经元 + 控制） */
+#main-container {
 	flex: 1;
 	display: flex;
 	flex-direction: column;
@@ -155,28 +147,37 @@ html, body {
 	margin-left: 8px;
 }
 
-/* ---------- 控制台面板 ---------- */
+/* ---------- 控制台面板（默认收起 0%，展开 25%）---------- */
 .console-panel {
-	height: 0;
+	flex: 0 0 0%;
 	background: rgba(15, 15, 35, 0.98);
 	border-bottom: 1px solid transparent;
 	overflow: hidden;
-	transition: height 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+	transition: flex 0.3s cubic-bezier(0.4, 0, 0.2, 1),
 	            border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 	display: flex;
 	flex-direction: column;
-	flex-shrink: 0;
 	z-index: 3000;
 }
 
 .console-panel.open {
-	height: 22%;
+	flex: 0 0 25%;
 	border-bottom-color: #0f0;
 }
 
-/* ---------- 神经元区域抽屉 ---------- */
+/* ---------- 游戏区域（可扩展，占据剩余空间）---------- */
+#game-area {
+	flex: 2;
+	background: var(--color-bg-game);
+	position: relative;
+	overflow: hidden;
+	border-bottom: 2px solid var(--color-border);
+	transition: flex 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ---------- 神经元区域（可扩展，可收缩至 0%）---------- */
 #neuron-area {
-	flex: 1;
+	flex: 2;
 	background: var(--color-bg-neuron);
 	display: flex;
 	flex-direction: column;
@@ -190,7 +191,7 @@ html, body {
 }
 
 #neuron-area.collapsed {
-	flex: 0 0 0;
+	flex: 0;
 	opacity: 0;
 	border-bottom: none;
 }
@@ -283,21 +284,6 @@ html, body {
 @keyframes float {
 	0% { transform: translateX(-150px); }
 	100% { transform: translateX(calc(100vw + 150px)); }
-}
-
-/* ---------- 游戏区域 ---------- */
-#game-area {
-	flex: 1;
-	background: var(--color-bg-game);
-	position: relative;
-	overflow: hidden;
-	border-bottom: 2px solid var(--color-border);
-	transition: flex 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-/* 当神经元区域隐藏时，游戏区域占据所有剩余空间 */
-#game-container.neuron-collapsed #game-area {
-	flex: 4;
 }
 
 #game-info {

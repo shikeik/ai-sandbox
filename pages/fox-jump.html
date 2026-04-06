@@ -10,41 +10,39 @@
 <body>
 	<div class="ever-portrait active" id="ep-container">
 		<div id="app">
-			<!-- 顶部区域：控制栏 + 控制台 -->
-			<div class="top-section">
-				<div class="control-bar">
-					<button class="ctrl-btn icon-only" id="btn-toggle" title="恒竖切换">↻</button>
-					<button class="ctrl-btn icon-only" id="btn-fullscreen" title="全屏">⛶</button>
-					<button class="ctrl-btn icon-only" id="btn-neuron" title="神经元面板">🧠</button>
-					<button class="ctrl-btn icon-only" id="btn-console" title="控制台">🖥️</button>
-					<button class="ctrl-btn icon-only" id="btn-reload" title="刷新页面">🔄</button>
-					<div class="eps-status" id="eps-st">-</div>
-					<div id="neuron-menu-container"></div>
-				</div>
+			<!-- 控制栏 -->
+			<div class="control-bar">
+				<button class="ctrl-btn icon-only" id="btn-toggle" title="恒竖切换">↻</button>
+				<button class="ctrl-btn icon-only" id="btn-fullscreen" title="全屏">⛶</button>
+				<button class="ctrl-btn icon-only" id="btn-neuron" title="神经元面板">🧠</button>
+				<button class="ctrl-btn icon-only" id="btn-console" title="控制台">🖥️</button>
+				<button class="ctrl-btn icon-only" id="btn-reload" title="刷新页面">🔄</button>
+				<div class="eps-status" id="eps-st">-</div>
+				<div id="neuron-menu-container"></div>
 			</div>
 
-			<!-- 控制台面板 -->
-			<div class="console-panel" id="console-panel">
-				<div class="console-toolbar">
-					<button class="ctrl-btn icon-only active" id="btn-autoscroll" title="自动滚动">⬇️</button>
-					<button class="ctrl-btn icon-only" id="btn-filter-console" title="筛选">🔍</button>
-					<button class="ctrl-btn icon-only" id="btn-clear-console" title="清空">🗑️</button>
-					<button class="ctrl-btn icon-only" id="btn-download-console" title="下载日志">💾</button>
-					<div class="console-filter-menu" id="console-filter-menu">
-						<div class="console-filter-header">
-							<button class="console-filter-header-btn" id="btn-filter-all">全选</button>
-							<button class="console-filter-header-btn" id="btn-filter-none">全不选</button>
+			<!-- 主容器：四区域 flex 布局（控制台 + 游戏 + 神经元 + 控制）-->
+			<div id="main-container">
+
+				<!-- 控制台面板（默认收起，展开时占 20%）-->
+				<div class="console-panel" id="console-panel">
+					<div class="console-toolbar">
+						<button class="ctrl-btn icon-only active" id="btn-autoscroll" title="自动滚动">⬇️</button>
+						<button class="ctrl-btn icon-only" id="btn-filter-console" title="筛选">🔍</button>
+						<button class="ctrl-btn icon-only" id="btn-clear-console" title="清空">🗑️</button>
+						<button class="ctrl-btn icon-only" id="btn-download-console" title="下载日志">💾</button>
+						<div class="console-filter-menu" id="console-filter-menu">
+							<div class="console-filter-header">
+								<button class="console-filter-header-btn" id="btn-filter-all">全选</button>
+								<button class="console-filter-header-btn" id="btn-filter-none">全不选</button>
+							</div>
+							<div class="console-filter-list" id="console-filter-list"></div>
 						</div>
-						<div class="console-filter-list" id="console-filter-list"></div>
 					</div>
+					<div class="console-content" id="console-logs"></div>
 				</div>
-				<div class="console-content" id="console-logs"></div>
-			</div>
 
-			<!-- 游戏主容器：三区域在此容器内分配比例 -->
-			<div id="game-container">
-
-				<!-- 游戏区域 -->
+				<!-- 游戏区域（35%）-->
 				<div id="game-area">
 					<div id="game-info">
 						POS: <span id="pos-display">0</span> | 
@@ -63,7 +61,7 @@
 					</div>
 				</div>
 
-				<!-- 神经元区域 -->
+				<!-- 神经元区域（35%，可收缩）-->
 				<div id="neuron-area">
 					<div id="neuron-placeholder">
 						<div class="neuron-icon">🧠</div>
@@ -72,7 +70,7 @@
 					</div>
 				</div>
 
-				<!-- 控制区域 -->
+				<!-- 控制区域（20%，固定）-->
 				<div id="control-area">
 					<button class="btn" id="btn-right">
 						▶
@@ -87,8 +85,7 @@
 						<span class="btn-label">远跳 (x+3)</span>
 					</button>
 				</div>
-
-			</div><!-- /#game-container -->
+			</div><!-- /#main-container -->
 		</div>
 	</div>
 
