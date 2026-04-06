@@ -3,8 +3,11 @@
 import { DOMRenderer } from "../render/index.js"
 import { Logger } from "../../engine/utils/Logger.js"
 import { ConsolePanel } from "../../engine/console/ConsolePanel.js"
+import { DEFAULT_LEVEL_MAP, ADVANCED_LEVEL_MAP } from "../config.js"
 
 const API_BASE = "/api/brain-lab"
+
+type LevelName = "default" | "advanced"
 
 export type TabType = "ai" | "manual"
 
@@ -25,6 +28,7 @@ export class BrainLabUI {
 	private consolePanel!: ConsolePanel
 	private currentState: any = null
 	private currentTab: TabType = "ai"
+	private currentLevel: LevelName = "default"
 
 	constructor() {
 		try {
@@ -232,6 +236,9 @@ export class BrainLabUI {
 		// 重置按钮
 		document.getElementById("btn-manual-reset")?.addEventListener("click", () => this.manualReset())
 
+		// 关卡切换按钮
+		document.getElementById("btn-switch-level")?.addEventListener("click", () => this.switchLevel())
+
 		// 键盘控制
 		document.addEventListener("keydown", (e) => this.handleKeyDown(e))
 	}
@@ -335,6 +342,35 @@ export class BrainLabUI {
 			this.showMessage("🔄 游戏已重置")
 		} catch {
 			// 静默处理错误
+		}
+	}
+
+	/**
+	 * 切换关卡
+	 */
+	async switchLevel(): Promise<void> {
+		try {
+			// 切换关卡
+			this.currentLevel = this.currentLevel === "default" ? "advanced" : "default"
+			const levelData = this.currentLevel === "default" ? DEFAULT_LEVEL_MAP : ADVANCED_LEVEL_MAP
+
+			// 调用 API 切换关卡
+			await fetch(`${API_BASE}/set-level`, {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ level: this.currentLevel }),
+			})
+
+			// 重新初始化渲染器（因为世界尺寸可能改变）
+			this.renderer = new DOMRenderer("world-container", "brain-container")
+
+			// 刷新状态
+			await this.refreshState()
+			this.updateManualPosition({ x: 1, y: 1 })
+			this.showMessage(`🗺️ 已切换到：${levelData.name}`)
+		} catch {
+			// 静默处理错误
+			this.showMessage("❌ 切换关卡失败")
 		}
 	}
 

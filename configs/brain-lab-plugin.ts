@@ -106,6 +106,9 @@ export const brainLabPlugin = {
 					case '/set-depth':
 						result = doSetDepth(body.depth)
 						break
+					case '/set-level':
+						result = doSetLevel(body.level)
+						break
 					case '/logs':
 						result = { logs: game.getLogs() }
 						break
@@ -312,4 +315,23 @@ function doSetDepth(depth: number) {
 	game.brain.setImagineDepth(depth)
 	game.log("CONFIG", `想象深度设置为: ${depth}`)
 	return { type: 'SET_DEPTH', depth, ok: true }
+}
+
+async function doSetLevel(levelName: string) {
+	const { DEFAULT_LEVEL_MAP, ADVANCED_LEVEL_MAP } = await import('../src/brain-lab/config.js')
+	const { setCurrentLevel } = await import('../src/brain-lab/core/index.js')
+
+	if (levelName === 'default') {
+		setCurrentLevel(DEFAULT_LEVEL_MAP)
+		game.reset()
+		game.log("SYSTEM", `关卡切换为: default (10x5)`)
+		return { type: 'SET_LEVEL', level: 'default', ok: true }
+	} else if (levelName === 'advanced') {
+		setCurrentLevel(ADVANCED_LEVEL_MAP)
+		game.reset()
+		game.log("SYSTEM", `关卡切换为: advanced (12x8)`)
+		return { type: 'SET_LEVEL', level: 'advanced', ok: true }
+	} else {
+		return { error: `Unknown level: ${levelName}` }
+	}
 }
