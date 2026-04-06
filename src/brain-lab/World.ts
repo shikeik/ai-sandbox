@@ -25,7 +25,7 @@ export interface ActionResult {
 const LEVEL_MAP = [
 	"．．．．＾．．．．．",  // y=4 顶层：尖刺悬挂
 	"．．．．．．．．．．",  // y=3
-	"．．．．．．．．．．",  // y=2
+	"．．＃．．．．．．．",  // y=2
 	"．＠＃！＃￠．．￡．",  // y=1：平台、按钮、敌人
 	"．＃＃＃．＃＃＃＃．",  // y=0 底层：地面平台，@是玩家起点
 ]
@@ -110,10 +110,12 @@ export class World {
 	}
 
 	// 检查指定格子是否是墙（有碰撞）
+	// 终点不是墙，可以站上去
 	private isWall(x: number, y: number): boolean {
 		if (x < 0 || x >= this.width || y < 0 || y >= this.height) return true  // 边界也是墙
 		const cell = this.state.grid[y][x]
-		return cell === ELEM.PLATFORM || cell === ELEM.BUTTON || cell === ELEM.GOAL
+		return cell === ELEM.PLATFORM || cell === ELEM.BUTTON
+		// ELEM.GOAL 不是墙，可以站上去
 	}
 
 	// 检查指定位置是否有支撑（平台/按钮/终点）
