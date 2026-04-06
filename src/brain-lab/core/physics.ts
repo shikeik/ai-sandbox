@@ -23,23 +23,23 @@ export function createPhysicsContext(state: WorldState, width: number, height: n
 
 /**
  * 检查指定格子是否是墙（有碰撞）
- * 终点不是墙，可以站上去
  */
 export function isWall(ctx: PhysicsContext, x: number, y: number): boolean {
 	if (x < 0 || x >= ctx.width || y < 0 || y >= ctx.height) return true  // 边界也是墙
 	const cell = ctx.grid[y][x]
-	return cell === Element.PLATFORM || cell === Element.BUTTON
-	// GOAL 不是墙，可以站上去
+	return cell === Element.PLATFORM || cell === Element.BUTTON || cell === Element.GOAL
 }
 
 /**
- * 检查指定位置是否有支撑（平台/按钮/终点）
+ * 检查指定位置是否有支撑（平台/按钮）
+ * 注意：终点不是支撑，玩家会穿过终点落下
  */
 export function hasSupport(ctx: PhysicsContext, x: number, y: number): boolean {
 	if (y < 0) return false
 	if (y === 0) return true  // 地面层总有支撑
 	const cell = ctx.grid[y - 1][x]
-	return cell === Element.PLATFORM || cell === Element.BUTTON || cell === Element.GOAL
+	return cell === Element.PLATFORM || cell === Element.BUTTON
+	// GOAL 不是支撑，玩家站在终点上会落下
 }
 
 /**
@@ -85,9 +85,8 @@ export function findPlatformY(grid: number[][], x: number, startY: number): numb
 	// 从startY往下找（y减小），找第一个能支撑的平台
 	for (let y = startY; y >= 0; y--) {
 		if (grid[y][x] === Element.PLATFORM ||
-		    grid[y][x] === Element.BUTTON ||
-		    grid[y][x] === Element.GOAL) {
-			return y  // 站在平台上（包括终点）
+		    grid[y][x] === Element.BUTTON) {
+			return y  // 站在平台上（终点不是平台）
 		}
 	}
 	return 0  // 默认回到地面
@@ -102,7 +101,12 @@ export function checkButtonTrigger(state: WorldState, x: number, y: number): boo
 
 /**
  * 检查是否到达终点
+ * 玩家身体与终点重叠时触发（终点不是固体，玩家会穿过）
  */
 export function checkGoalReached(state: WorldState, x: number, y: number): boolean {
-	return y > 0 && state.grid[y - 1][x] === Element.GOAL
+	// 检查玩家脚下或当前位置是否是终点
+	if (y > 0 && state.grid[y - 1][x] === Element.GOAL) return true
+	// 玩家正在下落穿过终点时也触发
+	if (y >= 0 && y < state.grid.length && state.grid[y][x] === Element.GOAL) return true
+	return false
 }
