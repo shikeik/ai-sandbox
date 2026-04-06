@@ -1,5 +1,6 @@
 // ========== 世界管理器 - Fox-Jump式物理 ==========
 // 玩家站在空中，脚下必须有平台支撑，否则会坠落
+// 移动时如果目标位置是墙(平台/按钮/终点)，则移动失败
 
 import { WorldState, Pos, ELEM } from "./types.js"
 
@@ -20,6 +21,26 @@ export interface ActionResult {
 	logs: string[]
 }
 
+// 关卡字符地图（视觉从上到下，代码会反转）
+const LEVEL_MAP = [
+	"．．．．＾．．．．．",  // y=4 顶层：尖刺悬挂
+	"．．．．．．．．．．",  // y=3
+	"．．．．．．．．．．",  // y=2
+	"．．＃！＃￠．．．．",  // y=1：平台、按钮、敌人
+	"．．＃＃．＃＃＃＠．",  // y=0 底层：地面平台，@是玩家起点
+]
+
+// 字符映射
+const CHAR_MAP: Record<string, number> = {
+	"．": ELEM.AIR,      // 全角句点 - 空气
+	"＃": ELEM.PLATFORM, // 全角井号 - 平台/墙
+	"！": ELEM.BUTTON,   // 全角叹号 - 按钮
+	"￡": ELEM.GOAL,     // 全角英镑 - 终点
+	"＾": ELEM.SPIKE,    // 全角脱字符 - 尖刺
+	"￠": ELEM.AIR,      // 全角分币 - 敌人（下方需要有平台）
+	"＠": ELEM.AIR,      // 全角at - 玩家起点（下方需要有平台）
+}
+
 export class World {
 	private width: number
 	private height: number
@@ -31,45 +52,53 @@ export class World {
 		this.state = this.createInitialState()
 	}
 
-	// 创建初始世界 - Fox-Jump式物理
-	// y=0是地面层（平台），玩家站在y=1（空中，脚下有平台支撑）
+	// 从字符地图创建世界
 	private createInitialState(): WorldState {
 		const grid: number[][] = Array(this.height).fill(0).map(() =>
 			Array(this.width).fill(ELEM.AIR)
 		)
 
-		// ========== 地面层 y=0 ==========
-		// 地面平台定义哪些x位置有支撑
-		// x=1: 起始平台
-		// x=2: 连接
-		// x=4: 敌人平台
-		// x=6,7,8,9: 右侧终点区
-		grid[0][1] = ELEM.PLATFORM
-		grid[0][2] = ELEM.PLATFORM
-		grid[0][4] = ELEM.PLATFORM  // 敌人站立的地方
-		for (let x = 6; x < this.width; x++) {
-			grid[0][x] = ELEM.PLATFORM
-		}
-		grid[0][8] = ELEM.GOAL  // 终点在地面层
+		let heroPos: Pos = { x: 1, y: 1 }
+		const enemies: Pos[] = []
 
-		// ========== 中层平台 y=1 ==========
-		// 上层按钮平台，需要跳跃才能到达
-		for (let x = 2; x <= 5; x++) {
-			if (x === 4) {
-				grid[1][x] = ELEM.BUTTON
-			} else {
-				grid[1][x] = ELEM.PLATFORM
+		// 解析字符地图（反转：数组第0行是视觉顶层，对应y=height-1）
+		for (let row = 0; row < LEVEL_MAP.length && row < this.height; row++) {
+			const line = LEVEL_MAP[row]
+			const y = this.height - 1 - row  // 反转：视觉顶行 -> 逻辑底行
+
+			for (let x = 0; x < line.length && x < this.width; x++) {
+				const char = line[x]
+				
+				if (char === "＠") {
+					// 玩家起始位置
+					heroPos = { x, y }
+					// 玩家站在平台上方，下方必须是平台
+					grid[y][x] = ELEM.AIR  // 玩家所在格是空气
+				} else if (char === "￠") {
+					// 敌人位置
+					enemies.push({ x, y })
+					grid[y][x] = ELEM.AIR  // 敌人所在格是空气
+				} else if (char === "＾") {
+					// 尖刺（机关，不是墙）
+					grid[y][x] = ELEM.SPIKE
+				} else if (char === "！") {
+					// 按钮
+					grid[y][x] = ELEM.BUTTON
+				} else if (char === "￡") {
+					// 终点
+					grid[y][x] = ELEM.GOAL
+				} else if (char === "＃") {
+					// 平台/墙
+					grid[y][x] = ELEM.PLATFORM
+				}
+				// ．和其他未识别字符保持为 AIR
 			}
 		}
 
-		// ========== 天空层 y=4 ==========
-		// 悬挂的尖刺
-		grid[4][4] = ELEM.SPIKE
-
 		return {
 			grid,
-			hero: { x: 1, y: 1 },  // 玩家站在y=1（空中），脚下y=0有平台
-			enemies: [{ x: 4, y: 1 }],  // 敌人也站在y=1
+			hero: heroPos,
+			enemies,
 			triggers: [false],
 			spikeFalling: false,
 			spikeY: 4,
@@ -88,23 +117,30 @@ export class World {
 		}
 	}
 
+	// 检查指定格子是否是墙（有碰撞）
+	private isWall(x: number, y: number): boolean {
+		if (x < 0 || x >= this.width || y < 0 || y >= this.height) return true  // 边界也是墙
+		const cell = this.state.grid[y][x]
+		return cell === ELEM.PLATFORM || cell === ELEM.BUTTON || cell === ELEM.GOAL
+	}
+
 	// 检查指定位置是否有支撑（平台/按钮/终点）
 	private hasSupport(x: number, y: number): boolean {
 		if (y < 0) return false
-		const cell = this.state.grid[y][x]
+		if (y === 0) return true  // 地面层总有支撑
+		const cell = this.state.grid[y - 1][x]
 		return cell === ELEM.PLATFORM || cell === ELEM.BUTTON || cell === ELEM.GOAL
 	}
 
 	// 寻找指定列中，玩家能站立的落点Y坐标
 	// 跳跃高度2格：从原Y出发，最高能到原Y+2的位置
-	// 返回落点Y（玩家站立位置 = 平台Y + 1），如果没找到返回 -1（虚空）
 	private findJumpLandingY(targetX: number, fromY: number): number {
 		const maxReachY = fromY + 2  // 跳跃最高能到达的Y（玩家位置）
 		const platformSearchStart = maxReachY - 1  // 对应的平台Y
 
 		// 从高往低扫描平台
 		for (let py = platformSearchStart; py >= 0; py--) {
-			if (this.hasSupport(targetX, py)) {
+			if (this.hasSupport(targetX, py + 1)) {
 				return py + 1  // 站在平台上方一格
 			}
 		}
@@ -115,13 +151,12 @@ export class World {
 
 	// 寻找玩家下方的支撑平台y坐标
 	private findGroundY(x: number, startY: number): number {
-		// 从startY往下找，找第一个支撑平台
-		for (let y = startY; y >= 0; y--) {
-			if (this.hasSupport(x, y)) {
+		for (let y = startY - 1; y >= 0; y--) {
+			if (this.hasSupport(x, y + 1)) {
 				return y
 			}
 		}
-		return -1  // 没有支撑（会坠落死亡）
+		return -1  // 没有支撑
 	}
 
 	// 执行动作（Fox-Jump式物理）
@@ -132,17 +167,27 @@ export class World {
 		let dead = false
 
 		switch (action) {
-			case "LEFT":
-				if (hero.x > 0) {
-					const oldX = hero.x
-					const oldY = hero.y
-					hero.x--
-					
-					// 检查新位置脚下是否有支撑
+			case "LEFT": {
+				const oldX = hero.x
+				const oldY = hero.y
+				const targetX = hero.x - 1
+				
+				// 检查是否撞墙（目标格子是墙）
+				if (this.isWall(targetX, hero.y)) {
+					logs.push(`[WORLD] 向左移动失败：撞到墙(${targetX},${hero.y})`)
+					break  // 移动失败，原地不动
+				}
+				
+				// 水平移动
+				hero.x = targetX
+				
+				// 检查新位置脚下是否有支撑
+				if (!this.hasSupport(hero.x, hero.y)) {
+					// 需要坠落
 					const groundY = this.findGroundY(hero.x, hero.y)
 					if (groundY < 0) {
-						// 坠落死亡：先水平移动，再坠入虚空
-						logs.push(`[WORLD] 向左移动后脚下没有支撑，坠落！`)
+						// 坠入虚空
+						logs.push(`[WORLD] 向左移动后脚下没有支撑，坠入虚空！`)
 						animations.push({
 							type: "HERO_MOVE",
 							target: "hero",
@@ -158,53 +203,59 @@ export class World {
 							duration: 500,
 							delay: 150
 						})
+						hero.y = -1
 						dead = true
 					} else {
-						// 有支撑，下落到支撑点上方
+						// 坠落到下方平台
 						hero.y = groundY + 1
-						
-						if (hero.y < oldY) {
-							// 先水平平移，再垂直坠落
-							animations.push({
-								type: "HERO_MOVE",
-								target: "hero",
-								from: { x: oldX, y: oldY },
-								to: { x: hero.x, y: oldY },
-								duration: 150
-							})
-							animations.push({
-								type: "HERO_FALL",
-								target: "hero",
-								from: { x: hero.x, y: oldY },
-								to: { x: hero.x, y: hero.y },
-								duration: 300,
-								delay: 150
-							})
-						} else {
-							// 同高度水平移动
-							animations.push({
-								type: "HERO_MOVE",
-								target: "hero",
-								from: { x: oldX, y: oldY },
-								to: { x: hero.x, y: oldY },
-								duration: 250
-							})
-						}
+						animations.push({
+							type: "HERO_MOVE",
+							target: "hero",
+							from: { x: oldX, y: oldY },
+							to: { x: hero.x, y: oldY },
+							duration: 150
+						})
+						animations.push({
+							type: "HERO_FALL",
+							target: "hero",
+							from: { x: hero.x, y: oldY },
+							to: { x: hero.x, y: hero.y },
+							duration: 300,
+							delay: 150
+						})
+						logs.push(`[WORLD] 向左移动后坠落：从y=${oldY}坠落到y=${hero.y}`)
 					}
+				} else {
+					// 有支撑，同高度水平移动
+					animations.push({
+						type: "HERO_MOVE",
+						target: "hero",
+						from: { x: oldX, y: oldY },
+						to: { x: hero.x, y: oldY },
+						duration: 250
+					})
 				}
 				break
+			}
 
-			case "RIGHT":
-				if (hero.x < this.width - 1) {
-					const oldX = hero.x
-					const oldY = hero.y
-					hero.x++
-					
-					// 检查新位置脚下是否有支撑
+			case "RIGHT": {
+				const oldX = hero.x
+				const oldY = hero.y
+				const targetX = hero.x + 1
+				
+				// 检查是否撞墙
+				if (this.isWall(targetX, hero.y)) {
+					logs.push(`[WORLD] 向右移动失败：撞到墙(${targetX},${hero.y})`)
+					break
+				}
+				
+				hero.x = targetX
+				
+				// 检查新位置脚下是否有支撑
+				if (!this.hasSupport(hero.x, hero.y)) {
 					const groundY = this.findGroundY(hero.x, hero.y)
 					if (groundY < 0) {
-						// 坠落死亡：先水平移动，再坠入虚空
-						logs.push(`[WORLD] 向右移动后脚下没有支撑，坠落！`)
+						logs.push(`[WORLD] 向右移动后脚下没有支撑，坠入虚空！`)
 						animations.push({
 							type: "HERO_MOVE",
 							target: "hero",
@@ -220,54 +271,55 @@ export class World {
 							duration: 500,
 							delay: 150
 						})
+						hero.y = -1
 						dead = true
 					} else {
-						// 有支撑，下落到支撑点上方
 						hero.y = groundY + 1
-						
-						if (hero.y < oldY) {
-							// 先水平平移，再垂直坠落
-							animations.push({
-								type: "HERO_MOVE",
-								target: "hero",
-								from: { x: oldX, y: oldY },
-								to: { x: hero.x, y: oldY },
-								duration: 150
-							})
-							animations.push({
-								type: "HERO_FALL",
-								target: "hero",
-								from: { x: hero.x, y: oldY },
-								to: { x: hero.x, y: hero.y },
-								duration: 300,
-								delay: 150
-							})
-						} else {
-							// 同高度水平移动
-							animations.push({
-								type: "HERO_MOVE",
-								target: "hero",
-								from: { x: oldX, y: oldY },
-								to: { x: hero.x, y: oldY },
-								duration: 250
-							})
-						}
+						animations.push({
+							type: "HERO_MOVE",
+							target: "hero",
+							from: { x: oldX, y: oldY },
+							to: { x: hero.x, y: oldY },
+							duration: 150
+						})
+						animations.push({
+							type: "HERO_FALL",
+							target: "hero",
+							from: { x: hero.x, y: oldY },
+							to: { x: hero.x, y: hero.y },
+							duration: 300,
+							delay: 150
+						})
+						logs.push(`[WORLD] 向右移动后坠落：从y=${oldY}坠落到y=${hero.y}`)
 					}
+				} else {
+					animations.push({
+						type: "HERO_MOVE",
+						target: "hero",
+						from: { x: oldX, y: oldY },
+						to: { x: hero.x, y: oldY },
+						duration: 250
+					})
 				}
 				break
+			}
 
 			case "JUMP_LEFT": {
 				const oldPos = { ...hero }
-				if (hero.x <= 0) break  // 撞墙
-
 				const targetX = hero.x - 1
-				const landingY = this.findJumpLandingY(targetX, hero.y)
+				
+				// 检查是否撞墙（目标格子是墙）
+				if (this.isWall(targetX, hero.y)) {
+					logs.push(`[WORLD] 向左跳跃失败：撞到墙(${targetX},${hero.y})`)
+					break
+				}
 
-				logs.push(`[WORLD] 向左跳跃: 从(${hero.x},${hero.y}) → x=${targetX}, 扫描落点=${landingY}`)
+				const landingY = this.findJumpLandingY(targetX, hero.y)
+				logs.push(`[WORLD] 向左跳跃: 从(${hero.x},${hero.y}) → x=${targetX}, 落点y=${landingY}`)
 
 				if (landingY < 0) {
-					// 虚空死亡 - 抛物线跳到虚空
-					logs.push(`[WORLD] 左跳后下方无平台，坠入虚空！`)
+					// 坠入虚空
+					logs.push(`[WORLD] 左跳后坠入虚空！`)
 					hero.x = targetX
 					hero.y = -1
 					animations.push({
@@ -295,16 +347,19 @@ export class World {
 
 			case "JUMP_RIGHT": {
 				const oldPos = { ...hero }
-				if (hero.x >= this.width - 1) break  // 撞墙
-
 				const targetX = hero.x + 1
-				const landingY = this.findJumpLandingY(targetX, hero.y)
+				
+				// 检查是否撞墙
+				if (this.isWall(targetX, hero.y)) {
+					logs.push(`[WORLD] 向右跳跃失败：撞到墙(${targetX},${hero.y})`)
+					break
+				}
 
-				logs.push(`[WORLD] 向右跳跃: 从(${hero.x},${hero.y}) → x=${targetX}, 扫描落点=${landingY}`)
+				const landingY = this.findJumpLandingY(targetX, hero.y)
+				logs.push(`[WORLD] 向右跳跃: 从(${hero.x},${hero.y}) → x=${targetX}, 落点y=${landingY}`)
 
 				if (landingY < 0) {
-					// 虚空死亡 - 抛物线跳到虚空
-					logs.push(`[WORLD] 右跳后下方无平台，坠入虚空！`)
+					logs.push(`[WORLD] 右跳后坠入虚空！`)
 					hero.x = targetX
 					hero.y = -1
 					animations.push({
@@ -316,7 +371,6 @@ export class World {
 					})
 					dead = true
 				} else {
-					// 正常落地
 					hero.x = targetX
 					hero.y = landingY
 					animations.push({
@@ -331,7 +385,7 @@ export class World {
 			}
 
 			case "JUMP": {
-				// 兼容旧版：直接向上跳（原地起跳找更高平台）
+				// 原地跳跃（向上找更高平台）
 				const oldPos = { ...hero }
 				const landingY = this.findJumpLandingY(hero.x, hero.y)
 
@@ -372,8 +426,8 @@ export class World {
 		// 更新英雄位置
 		this.state.hero = hero
 
-		// 检查按钮触发（玩家踩在中层平台的按钮上）
-		if (this.state.grid[hero.y - 1][hero.x] === ELEM.BUTTON && !this.state.triggers[0]) {
+		// 检查按钮触发
+		if (hero.y > 0 && this.state.grid[hero.y - 1][hero.x] === ELEM.BUTTON && !this.state.triggers[0]) {
 			this.state.triggers[0] = true
 			this.state.spikeFalling = true
 			
@@ -388,7 +442,7 @@ export class World {
 			
 			// 尖刺坠落
 			const spikeFromY = this.state.spikeY ?? 4
-			const spikeToY = 1  // 坠落到敌人高度
+			const spikeToY = 1
 			
 			animations.push({
 				type: "SPIKE_FALL",
@@ -430,7 +484,7 @@ export class World {
 
 		// 检查是否到达终点
 		let reachedGoal = false
-		if (this.state.grid[hero.y - 1][hero.x] === ELEM.GOAL) {
+		if (hero.y > 0 && this.state.grid[hero.y - 1][hero.x] === ELEM.GOAL) {
 			logs.push("[WORLD] 到达终点！")
 			reachedGoal = true
 		}
