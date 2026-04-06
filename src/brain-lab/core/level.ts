@@ -1,6 +1,6 @@
 // ========== 关卡加载与解析 ==========
 
-import type { LevelData, WorldState, Position } from "../types/index.js"
+import type { LevelData, WorldState, Position, SpikeState } from "../types/index.js"
 import { Element } from "../types/index.js"
 import { DEFAULT_LEVEL_MAP, ADVANCED_LEVEL_MAP, CHAR_MAP, SPECIAL_CHARS } from "../config.js"
 
@@ -35,8 +35,10 @@ export function createStateFromLevel(level: LevelData = currentLevel): WorldStat
 
 	let hero: Position = { x: 1, y: 1 }
 	const enemies: Position[] = []
+	const spikes: SpikeState[] = []
+	const buttons: Position[] = []  // 记录按钮位置，用于建立对应关系
 
-	// 解析字符地图（反转：数组第0行是视觉顶层，对应y=height-1）
+	// 第一遍扫描：收集所有元素位置
 	for (let row = 0; row < map.length && row < height; row++) {
 		const line = map[row]
 		const y = height - 1 - row  // 反转：视觉顶行 -> 逻辑底行
@@ -54,6 +56,22 @@ export function createStateFromLevel(level: LevelData = currentLevel): WorldStat
 				enemies.push({ x, y })
 				grid[y][x] = CHAR_MAP[char] ?? Element.AIR
 			}
+			// 尖刺位置（从顶层开始找）
+			else if (char === "＾") {
+				spikes.push({
+					x,
+					initialY: y,
+					currentY: y,
+					falling: false,
+					triggered: false
+				})
+				grid[y][x] = CHAR_MAP[char] ?? Element.SPIKE
+			}
+			// 按钮位置（记录用于建立对应关系）
+			else if (char === "！") {
+				buttons.push({ x, y })
+				grid[y][x] = CHAR_MAP[char] ?? Element.BUTTON
+			}
 			// 其他格子使用 CHAR_MAP 映射
 			else if (char in CHAR_MAP) {
 				grid[y][x] = CHAR_MAP[char]
@@ -62,13 +80,22 @@ export function createStateFromLevel(level: LevelData = currentLevel): WorldStat
 		}
 	}
 
+	// 如果没有找到尖刺，添加默认尖刺
+	if (spikes.length === 0) {
+		spikes.push({ x: 4, initialY: 4, currentY: 4, falling: false, triggered: false })
+	}
+
+	// 按钮和尖刺按x坐标排序后建立对应关系
+	// （按钮x坐标对应最近的下方尖刺）
+	buttons.sort((a, b) => a.x - b.x)
+	spikes.sort((a, b) => a.x - b.x)
+
 	return {
 		grid,
 		hero,
 		enemies,
-		triggers: [false],
-		spikeFalling: false,
-		spikeY: 4,
+		triggers: buttons.map(() => false),  // 每个按钮一个触发状态
+		spikes,
 	}
 }
 
@@ -81,7 +108,6 @@ export function cloneState(state: WorldState): WorldState {
 		hero: { ...state.hero },
 		enemies: [...state.enemies],
 		triggers: [...state.triggers],
-		spikeFalling: state.spikeFalling,
-		spikeY: state.spikeY,
+		spikes: state.spikes.map(s => ({ ...s })),
 	}
 }
