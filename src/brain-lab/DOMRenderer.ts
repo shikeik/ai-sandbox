@@ -10,10 +10,10 @@ import {
 	assertCoordinateConversion,
 	setAssertLevel,
 	setAssertStopOnFail
-} from './Assert.js'
+} from "./Assert.js"
 
 // 设置断言级别（开发时verbose，生产时error-only）
-setAssertLevel('verbose')
+setAssertLevel("verbose")
 setAssertStopOnFail(false)
 
 interface AnimationEvent {
@@ -61,7 +61,7 @@ export class DOMRenderer {
 		this.worldContainer = document.getElementById(worldId)!
 		this.brainContainer = document.getElementById(brainId)!
 		this.updateViewportSize()
-		window.addEventListener('resize', () => this.updateViewportSize())
+		window.addEventListener("resize", () => this.updateViewportSize())
 	}
 
 	private updateViewportSize(): void {
@@ -116,7 +116,7 @@ export class DOMRenderer {
 			assertValidPosition(state.hero.x, state.hero.y, width, height, "API返回英雄位置")
 
 			// 清空容器
-			this.worldContainer.innerHTML = ''
+			this.worldContainer.innerHTML = ""
 			this.enemyElements.clear()
 
 			// 计算世界尺寸
@@ -157,11 +157,11 @@ export class DOMRenderer {
 				</div>
 			`
 
-			this.viewportElement = this.worldContainer.querySelector('.world-viewport') as HTMLElement
-			this.worldContentElement = this.worldContainer.querySelector('.world-content') as HTMLElement
+			this.viewportElement = this.worldContainer.querySelector(".world-viewport") as HTMLElement
+			this.worldContentElement = this.worldContainer.querySelector(".world-content") as HTMLElement
 
-			const gridLayer = this.worldContainer.querySelector('.layer-grid') as HTMLElement
-			const objectsLayer = this.worldContainer.querySelector('.layer-objects') as HTMLElement
+			const gridLayer = this.worldContainer.querySelector(".layer-grid") as HTMLElement
+			const objectsLayer = this.worldContainer.querySelector(".layer-objects") as HTMLElement
 
 			// 1. 渲染静态格子背景
 			this.renderGrid(gridLayer, state)
@@ -249,8 +249,8 @@ export class DOMRenderer {
 
 	// 创建单个格子
 	private createCell(cellType: number, logicX: number, displayY: number): HTMLElement {
-		const el = document.createElement('div')
-		el.className = 'cell'
+		const el = document.createElement("div")
+		el.className = "cell"
 		el.dataset.x = String(logicX)
 		el.dataset.y = String(displayY)
 
@@ -266,20 +266,20 @@ export class DOMRenderer {
 
 		switch (cellType) {
 			case 0:
-				el.classList.add('air')
+				el.classList.add("air")
 				break
 			case 2:
-				el.classList.add('platform')
+				el.classList.add("platform")
 				break
 			case 4:
-				el.classList.add('goal')
-				el.innerHTML = '🏁'
+				el.classList.add("goal")
+				el.innerHTML = "🏁"
 				break
 			case 5:
-				el.classList.add('air')
+				el.classList.add("air")
 				break
 			case 6:
-				el.classList.add('button-base')
+				el.classList.add("button-base")
 				break
 		}
 
@@ -291,7 +291,7 @@ export class DOMRenderer {
 		const { hero, enemies, grid, spikeY } = state
 		const height = grid.length
 		
-		console.log(`[RENDER] 渲染动态对象...`)
+		console.log("[RENDER] 渲染动态对象...")
 
 		container.style.cssText = `
 			width: ${this.worldWidth}px;
@@ -303,7 +303,7 @@ export class DOMRenderer {
 
 		// 1. 英雄
 		const heroDisplayY = height - 1 - hero.y
-		this.heroElement = this.createGameObject('hero', '🦊', hero.x, heroDisplayY, 30)
+		this.heroElement = this.createGameObject("hero", "🦊", hero.x, heroDisplayY, 30)
 		container.appendChild(this.heroElement)
 		console.log(`[RENDER]   英雄: 逻辑(${hero.x},${hero.y}) -> 显示(${hero.x},${heroDisplayY})`)
 
@@ -311,7 +311,7 @@ export class DOMRenderer {
 		enemies.forEach((enemy, i) => {
 			const enemyDisplayY = height - 1 - enemy.y
 			const key = `enemy-${enemy.x}-${enemy.y}`
-			const el = this.createGameObject(key, '👿', enemy.x, enemyDisplayY, 20)
+			const el = this.createGameObject(key, "👿", enemy.x, enemyDisplayY, 20)
 			this.enemyElements.set(key, el)
 			container.appendChild(el)
 			console.log(`[RENDER]   敌人[${i}]: 逻辑(${enemy.x},${enemy.y}) -> 显示(${enemy.x},${enemyDisplayY})`)
@@ -320,28 +320,28 @@ export class DOMRenderer {
 		// 3. 尖刺
 		const initialSpikeY = spikeY !== undefined ? spikeY : 4
 		const spikeDisplayY = height - 1 - initialSpikeY
-		this.spikeElement = this.createGameObject('spike', '🔺', 4, spikeDisplayY, 40)
+		this.spikeElement = this.createGameObject("spike", "🔺", 4, spikeDisplayY, 40)
 		container.appendChild(this.spikeElement)
 		console.log(`[RENDER]   尖刺: 逻辑(${4},${initialSpikeY}) -> 显示(${4},${spikeDisplayY})`)
 
 		// 4. 按钮
 		if (!state.triggers[0]) {
 			const buttonDisplayY = height - 1 - 2
-			this.buttonElement = this.createGameObject('button', '🔘', 4, buttonDisplayY, 25)
-			this.buttonElement.classList.add('button-obj')
+			this.buttonElement = this.createGameObject("button", "🔘", 4, buttonDisplayY, 25)
+			this.buttonElement.classList.add("button-obj")
 			container.appendChild(this.buttonElement)
 			console.log(`[RENDER]   按钮: 逻辑(${4},${2}) -> 显示(${4},${buttonDisplayY})`)
 		} else {
 			this.buttonElement = null
-			console.log(`[RENDER]   按钮: 已触发，不渲染`)
+			console.log("[RENDER]   按钮: 已触发，不渲染")
 		}
 		
-		console.log(`[RENDER] 动态对象渲染完成`)
+		console.log("[RENDER] 动态对象渲染完成")
 	}
 
 	// 创建游戏对象
 	private createGameObject(id: string, content: string, logicX: number, displayY: number, zIndex: number): HTMLElement {
-		const el = document.createElement('div')
+		const el = document.createElement("div")
 		el.className = `game-object ${id}`
 		el.dataset.id = id
 		el.innerHTML = content
@@ -371,7 +371,7 @@ export class DOMRenderer {
 		if (this.animating || !animations.length) return
 		this.animating = true
 
-		console.log(`[ANIM] ========================================`)
+		console.log("[ANIM] ========================================")
 		console.log(`[ANIM] 开始播放动画序列，共${animations.length}个动画`)
 		
 		const groups = this.groupByDelay(animations)
@@ -384,7 +384,7 @@ export class DOMRenderer {
 			await Promise.all(group.map(anim => this.playSingleAnimation(anim)))
 		}
 
-		console.log(`[ANIM] 动画序列播放完成`)
+		console.log("[ANIM] 动画序列播放完成")
 		this.animating = false
 	}
 
@@ -403,26 +403,26 @@ export class DOMRenderer {
 	}
 
 	private playSingleAnimation(anim: AnimationEvent): Promise<void> {
-		console.log(`[ANIM]   播放动画: ${anim.type} [${anim.target}] ${anim.from.x},${anim.from.y} -> ${anim.to?.x ?? '-' },${anim.to?.y ?? '-'} (${anim.duration}ms)`)
+		console.log(`[ANIM]   播放动画: ${anim.type} [${anim.target}] ${anim.from.x},${anim.from.y} -> ${anim.to?.x ?? "-" },${anim.to?.y ?? "-"} (${anim.duration}ms)`)
 		return new Promise((resolve) => {
 			setTimeout(() => {
 				switch (anim.type) {
-					case 'HERO_MOVE':
+					case "HERO_MOVE":
 						this.animateHeroMove(anim)
 						break
-					case 'HERO_JUMP':
+					case "HERO_JUMP":
 						this.animateHeroJump(anim)
 						break
-					case 'HERO_FALL':
+					case "HERO_FALL":
 						this.animateHeroFall(anim)
 						break
-					case 'SPIKE_FALL':
+					case "SPIKE_FALL":
 						this.animateSpikeFall(anim)
 						break
-					case 'ENEMY_DIE':
+					case "ENEMY_DIE":
 						this.animateEnemyDie(anim)
 						break
-					case 'BUTTON_PRESS':
+					case "BUTTON_PRESS":
 						this.animateButtonPress(anim)
 						break
 				}
@@ -513,7 +513,7 @@ export class DOMRenderer {
 			if (progress < 1) {
 				requestAnimationFrame(animate)
 			} else {
-				console.log(`[ANIM]     HERO_JUMP 完成`)
+				console.log("[ANIM]     HERO_JUMP 完成")
 			}
 		}
 
@@ -554,7 +554,7 @@ export class DOMRenderer {
 
 		this.spikeElement.style.transition = `all ${anim.duration}ms cubic-bezier(0.4, 0, 1, 1)`
 		this.spikeElement.style.top = `${targetTop}px`
-		this.spikeElement.style.transform = 'rotate(360deg)'
+		this.spikeElement.style.transform = "rotate(360deg)"
 
 		if (anim.to.y <= 1) {
 			setTimeout(() => {
@@ -569,8 +569,8 @@ export class DOMRenderer {
 		if (!el) return
 
 		el.style.transition = `all ${anim.duration}ms ease-out`
-		el.style.transform = 'scale(1.5) rotate(180deg)'
-		el.style.opacity = '0'
+		el.style.transform = "scale(1.5) rotate(180deg)"
+		el.style.opacity = "0"
 
 		setTimeout(() => {
 			el.remove()
@@ -582,22 +582,22 @@ export class DOMRenderer {
 		if (!this.buttonElement) return
 
 		this.buttonElement.style.transition = `all ${anim.duration}ms ease`
-		this.buttonElement.style.transform = 'scale(0.8)'
-		this.buttonElement.style.filter = 'brightness(0.7)'
+		this.buttonElement.style.transform = "scale(0.8)"
+		this.buttonElement.style.filter = "brightness(0.7)"
 
 		this.createRippleEffect(anim.from.x, this.getGridHeight() - 1 - anim.from.y)
 	}
 
 	private createImpactEffect(logicX: number, displayY: number): void {
-		const effectsLayer = this.worldContainer.querySelector('.layer-effects') as HTMLElement
+		const effectsLayer = this.worldContainer.querySelector(".layer-effects") as HTMLElement
 		if (!effectsLayer) return
 
 		const left = logicX * (this.cellSize + this.gap) + this.cellSize / 2
 		const top = displayY * (this.cellSize + this.gap) + this.cellSize / 2
 
 		for (let i = 0; i < 6; i++) {
-			const particle = document.createElement('div')
-			particle.className = 'particle'
+			const particle = document.createElement("div")
+			particle.className = "particle"
 			particle.style.cssText = `
 				position: absolute;
 				left: ${left}px;
@@ -615,24 +615,24 @@ export class DOMRenderer {
 			const duration = 400 + Math.random() * 200
 
 			particle.animate([
-				{ transform: 'translate(0,0) scale(1)', opacity: 1 },
+				{ transform: "translate(0,0) scale(1)", opacity: 1 },
 				{ transform: `translate(${Math.cos(angle) * distance}px, ${Math.sin(angle) * distance}px) scale(0)`, opacity: 0 }
 			], {
 				duration,
-				easing: 'ease-out'
+				easing: "ease-out"
 			}).onfinish = () => particle.remove()
 		}
 	}
 
 	private createRippleEffect(logicX: number, displayY: number): void {
-		const effectsLayer = this.worldContainer.querySelector('.layer-effects') as HTMLElement
+		const effectsLayer = this.worldContainer.querySelector(".layer-effects") as HTMLElement
 		if (!effectsLayer) return
 
 		const left = logicX * (this.cellSize + this.gap) + this.cellSize / 2
 		const top = displayY * (this.cellSize + this.gap) + this.cellSize / 2
 
-		const ripple = document.createElement('div')
-		ripple.className = 'ripple'
+		const ripple = document.createElement("div")
+		ripple.className = "ripple"
 		ripple.style.cssText = `
 			position: absolute;
 			left: ${left}px;
@@ -647,17 +647,17 @@ export class DOMRenderer {
 		effectsLayer.appendChild(ripple)
 
 		ripple.animate([
-			{ width: '0px', height: '0px', opacity: 1 },
-			{ width: '60px', height: '60px', opacity: 0 }
+			{ width: "0px", height: "0px", opacity: 1 },
+			{ width: "60px", height: "60px", opacity: 0 }
 		], {
 			duration: 600,
-			easing: 'ease-out'
+			easing: "ease-out"
 		}).onfinish = () => ripple.remove()
 	}
 
 	private getGridHeight(): number {
-		return this.worldContainer.querySelector('.layer-grid')?.children.length 
-			? Math.ceil(this.worldContainer.querySelector('.layer-grid')!.children.length / 10)
+		return this.worldContainer.querySelector(".layer-grid")?.children.length 
+			? Math.ceil(this.worldContainer.querySelector(".layer-grid")!.children.length / 10)
 			: 6
 	}
 
@@ -666,30 +666,30 @@ export class DOMRenderer {
 		if (!data.decision) return
 
 		const actionNames: Record<string, string> = {
-			LEFT: '⬅️ 左移',
-			RIGHT: '➡️ 右移',
-			JUMP: '⬆️ 跳跃',
-			WAIT: '⏸️ 等待',
+			LEFT: "⬅️ 左移",
+			RIGHT: "➡️ 右移",
+			JUMP: "⬆️ 跳跃",
+			WAIT: "⏸️ 等待",
 		}
 
 		const decision = data.decision
 		
-		let html = `
+		const html = `
 			<div class="brain-reasoning">
 				<div class="reason-title">💭 决策理由</div>
-				<div class="reason-text">${decision.reasoning || 'AI思考中...'}</div>
+				<div class="reason-text">${decision.reasoning || "AI思考中..."}</div>
 			</div>
 			<div class="brain-cards">
 				<div class="cards-title">🎲 想象的${decision.imaginations?.length || 0}种可能</div>
 				<div class="cards-grid">
 					${(decision.imaginations || []).map((img: any) => `
-						<div class="imagination-card ${img.action === decision.action ? 'selected' : ''}">
+						<div class="imagination-card ${img.action === decision.action ? "selected" : ""}">
 							<div class="card-action">${actionNames[img.action] || img.action}</div>
 							<div class="card-pos">预测位置: (${img.predictedPos?.x}, ${img.predictedPos?.y})</div>
-							<div class="card-reward">奖励: ${img.predictedReward > 0 ? '+' : ''}${img.predictedReward}</div>
-							${img.killedEnemy ? '<div class="card-bonus">✨ 击杀敌人!</div>' : ''}
+							<div class="card-reward">奖励: ${img.predictedReward > 0 ? "+" : ""}${img.predictedReward}</div>
+							${img.killedEnemy ? "<div class=\"card-bonus\">✨ 击杀敌人!</div>" : ""}
 						</div>
-					`).join('')}
+					`).join("")}
 				</div>
 			</div>
 		`
@@ -707,9 +707,9 @@ export class DOMRenderer {
 	}
 
 	showMessage(msg: string): void {
-		const el = document.getElementById('message')!
+		const el = document.getElementById("message")!
 		el.textContent = msg
-		el.classList.add('show')
-		setTimeout(() => el.classList.remove('show'), 2000)
+		el.classList.add("show")
+		setTimeout(() => el.classList.remove("show"), 2000)
 	}
 }

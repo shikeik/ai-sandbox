@@ -1,9 +1,9 @@
 // ========== 断言系统 - 用于验证游戏各环节符合预期 ==========
 
-export type AssertLevel = 'silent' | 'error-only' | 'verbose'
+export type AssertLevel = "silent" | "error-only" | "verbose"
 
 class AssertConfig {
-	static level: AssertLevel = 'verbose'  // 'silent' | 'error-only' | 'verbose'
+	static level: AssertLevel = "verbose"  // 'silent' | 'error-only' | 'verbose'
 	static stopOnFail: boolean = true      // 断言失败时是否停止
 	
 	static setLevel(level: AssertLevel) {
@@ -32,17 +32,17 @@ export function assert(
 	const passed = condition
 	
 	if (passed) {
-		if (AssertConfig.level === 'verbose') {
+		if (AssertConfig.level === "verbose") {
 			console.log(`[ASSERT] ✅ PASS: ${message}`)
 			if (context) {
-				console.log(`[ASSERT]    Context:`, context)
+				console.log("[ASSERT]    Context:", context)
 			}
 		}
 	} else {
 		// 失败时总是输出
 		console.error(`[ASSERT] ❌ FAIL: ${message}`)
 		if (context) {
-			console.error(`[ASSERT]    Context:`, context)
+			console.error("[ASSERT]    Context:", context)
 		}
 		
 		if (AssertConfig.stopOnFail) {
@@ -119,7 +119,7 @@ export function assertValidPosition(
 	y: number,
 	width: number,
 	height: number,
-	name: string = 'Position'
+	name: string = "Position"
 ): boolean {
 	const validX = x >= 0 && x < width
 	const validY = y >= 0 && y < height
@@ -169,7 +169,7 @@ export function assertHeroInViewport(
 	const visibleY = heroPixelY >= cameraY && heroPixelY <= cameraY + viewportHeight - cellSize
 	
 	return assert(visibleX && visibleY,
-		`英雄应在视口内可见`,
+		"英雄应在视口内可见",
 		{ heroX, heroY, heroPixelX, heroPixelY, cameraX, cameraY, viewportWidth, viewportHeight, visibleX, visibleY }
 	)
 }
@@ -195,6 +195,6 @@ export function assertBatch(name: string, assertions: (() => boolean)[]): boolea
 	for (const fn of assertions) {
 		if (!fn()) allPassed = false
 	}
-	console.log(`[ASSERT] ${name}: ${allPassed ? '✅ 全部通过' : '❌ 有失败'}`)
+	console.log(`[ASSERT] ${name}: ${allPassed ? "✅ 全部通过" : "❌ 有失败"}`)
 	return allPassed
 }

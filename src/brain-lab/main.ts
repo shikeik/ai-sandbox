@@ -4,7 +4,7 @@ import { DOMRenderer } from "./DOMRenderer.js"
 import { Logger } from "../engine/utils/Logger.js"
 import { ConsolePanel } from "../engine/console/ConsolePanel.js"
 
-const API_BASE = '/api/brain-lab'
+const API_BASE = "/api/brain-lab"
 
 class BrainLabUI {
 	private renderer!: DOMRenderer
@@ -13,7 +13,7 @@ class BrainLabUI {
 	private logger!: Logger
 	private consolePanel!: ConsolePanel
 	private currentState: any = null
-	private currentTab: 'ai' | 'manual' = 'ai'
+	private currentTab: "ai" | "manual" = "ai"
 
 	constructor() {
 		console.log("[BrainLabUI] 初始化开始...")
@@ -56,8 +56,8 @@ class BrainLabUI {
 				reset: () => this.reset(),
 				state: () => this.refreshState(),
 				move: (action: string) => this.manualMove(action),
-				logs: () => fetch(`${API_BASE}/logs`, {method: 'POST'}).then(r => r.json()),
-				clearLogs: () => fetch(`${API_BASE}/clear-logs`, {method: 'POST'})
+				logs: () => fetch(`${API_BASE}/logs`, {method: "POST"}).then(r => r.json()),
+				clearLogs: () => fetch(`${API_BASE}/clear-logs`, {method: "POST"})
 			}
 			
 		} catch (err: any) {
@@ -71,31 +71,31 @@ class BrainLabUI {
 
 	// ========== Tab切换 ==========
 	private bindTabControls(): void {
-		const tabBtns = document.querySelectorAll('.tab-btn')
+		const tabBtns = document.querySelectorAll(".tab-btn")
 		tabBtns.forEach(btn => {
-			btn.addEventListener('click', () => {
-				const tab = btn.getAttribute('data-tab') as 'ai' | 'manual'
+			btn.addEventListener("click", () => {
+				const tab = btn.getAttribute("data-tab") as "ai" | "manual"
 				this.switchTab(tab)
 			})
 		})
 	}
 
-	private switchTab(tab: 'ai' | 'manual'): void {
+	private switchTab(tab: "ai" | "manual"): void {
 		this.currentTab = tab
-		console.log(`[BRAIN-LAB] [UI] 切换到${tab === 'ai' ? 'AI' : '手动'}模式`)
+		console.log(`[BRAIN-LAB] [UI] 切换到${tab === "ai" ? "AI" : "手动"}模式`)
 
 		// 更新Tab按钮状态
-		document.querySelectorAll('.tab-btn').forEach(btn => {
-			btn.classList.toggle('active', btn.getAttribute('data-tab') === tab)
+		document.querySelectorAll(".tab-btn").forEach(btn => {
+			btn.classList.toggle("active", btn.getAttribute("data-tab") === tab)
 		})
 
 		// 更新内容显示
-		document.querySelectorAll('.tab-content').forEach(content => {
-			content.classList.toggle('active', content.id === `tab-${tab}`)
+		document.querySelectorAll(".tab-content").forEach(content => {
+			content.classList.toggle("active", content.id === `tab-${tab}`)
 		})
 
 		// 如果切换到AI模式，自动刷新一次状态
-		if (tab === 'ai') {
+		if (tab === "ai") {
 			this.refreshState()
 		}
 	}
@@ -127,41 +127,41 @@ class BrainLabUI {
 
 		// 键盘控制
 		document.addEventListener("keydown", (e) => {
-			if (this.currentTab !== 'manual') return
+			if (this.currentTab !== "manual") return
 			
 			switch (e.key) {
-				case 'ArrowLeft':
-				case 'a':
-				case 'A':
+				case "ArrowLeft":
+				case "a":
+				case "A":
 					e.preventDefault()
 					this.manualMove("LEFT")
 					break
-				case 'ArrowRight':
-				case 'd':
-				case 'D':
+				case "ArrowRight":
+				case "d":
+				case "D":
 					e.preventDefault()
 					this.manualMove("RIGHT")
 					break
-				case 'ArrowUp':
-				case 'w':
-				case 'W':
-				case ' ':
+				case "ArrowUp":
+				case "w":
+				case "W":
+				case " ":
 					e.preventDefault()
 					this.manualMove("JUMP")
 					break
-				case 'ArrowDown':
-				case 's':
-				case 'S':
+				case "ArrowDown":
+				case "s":
+				case "S":
 					e.preventDefault()
 					this.manualMove("WAIT")
 					break
-				case 'q':
-				case 'Q':
+				case "q":
+				case "Q":
 					e.preventDefault()
 					this.manualMove("JUMP_LEFT")
 					break
-				case 'e':
-				case 'E':
+				case "e":
+				case "E":
 					e.preventDefault()
 					this.manualMove("JUMP_RIGHT")
 					break
@@ -177,8 +177,8 @@ class BrainLabUI {
 
 		try {
 			const res = await fetch(`${API_BASE}/move`, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ action })
 			})
 			const data = await res.json()
@@ -227,7 +227,7 @@ class BrainLabUI {
 	async manualReset(): Promise<void> {
 		console.log("[BRAIN-LAB] [MANUAL] 手动重置游戏...")
 		try {
-			await fetch(`${API_BASE}/reset`, { method: 'POST' })
+			await fetch(`${API_BASE}/reset`, { method: "POST" })
 			await this.refreshState()
 			this.updateManualPosition({ x: 1, y: 1 })
 			this.showMessage("🔄 游戏已重置")
@@ -285,7 +285,7 @@ class BrainLabUI {
 		console.log("[BRAIN-LAB] [GAME] 执行AI步骤...")
 
 		try {
-			const res = await fetch(`${API_BASE}/step`, { method: 'POST' })
+			const res = await fetch(`${API_BASE}/step`, { method: "POST" })
 			const data = await res.json()
 			
 			console.log(`[BRAIN-LAB] [BRAIN] 决策: ${data.decision?.action}`)
@@ -337,7 +337,7 @@ class BrainLabUI {
 		this.stopAuto()
 		console.log("[BRAIN-LAB] [GAME] 重置游戏...")
 		try {
-			await fetch(`${API_BASE}/reset`, { method: 'POST' })
+			await fetch(`${API_BASE}/reset`, { method: "POST" })
 			await this.refreshState()
 			this.renderer.clearBrainPanel()
 		} catch (err: any) {
@@ -349,8 +349,8 @@ class BrainLabUI {
 	async setDepth(depth: number): Promise<void> {
 		try {
 			await fetch(`${API_BASE}/set-depth`, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ depth })
 			})
 			document.getElementById("depth-value")!.textContent = depth.toString()
@@ -362,10 +362,10 @@ class BrainLabUI {
 
 	// ========== 显示消息 ==========
 	private showMessage(msg: string): void {
-		const el = document.getElementById('message')!
+		const el = document.getElementById("message")!
 		el.textContent = msg
-		el.classList.add('show')
-		setTimeout(() => el.classList.remove('show'), 2000)
+		el.classList.add("show")
+		setTimeout(() => el.classList.remove("show"), 2000)
 	}
 }
 

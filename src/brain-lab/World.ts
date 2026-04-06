@@ -181,7 +181,7 @@ export class World {
 					const groundY = this.findGroundY(hero.x, hero.y)
 					if (groundY < 0) {
 						// 坠入虚空
-						logs.push(`[WORLD] 向左移动后脚下没有支撑，坠入虚空！`)
+						logs.push("[WORLD] 向左移动后脚下没有支撑，坠入虚空！")
 						animations.push({
 							type: "HERO_MOVE",
 							target: "hero",
@@ -249,7 +249,7 @@ export class World {
 				if (!this.hasSupport(hero.x, hero.y)) {
 					const groundY = this.findGroundY(hero.x, hero.y)
 					if (groundY < 0) {
-						logs.push(`[WORLD] 向右移动后脚下没有支撑，坠入虚空！`)
+						logs.push("[WORLD] 向右移动后脚下没有支撑，坠入虚空！")
 						animations.push({
 							type: "HERO_MOVE",
 							target: "hero",
@@ -308,7 +308,7 @@ export class World {
 
 				if (landingY < 0) {
 					// 坠入虚空
-					logs.push(`[WORLD] 左跳后坠入虚空！`)
+					logs.push("[WORLD] 左跳后坠入虚空！")
 					hero.x = targetX
 					hero.y = -1
 					animations.push({
@@ -345,7 +345,7 @@ export class World {
 
 				if (landingY < 0) {
 					// 坠入虚空
-					logs.push(`[WORLD] 右跳后坠入虚空！`)
+					logs.push("[WORLD] 右跳后坠入虚空！")
 					hero.x = targetX
 					hero.y = -1
 					animations.push({
@@ -390,7 +390,7 @@ export class World {
 					})
 				} else if (landingY < 0) {
 					// 虚空
-					logs.push(`[WORLD] 跳跃后坠入虚空！`)
+					logs.push("[WORLD] 跳跃后坠入虚空！")
 					hero.y = -1
 					animations.push({
 						type: "HERO_JUMP",

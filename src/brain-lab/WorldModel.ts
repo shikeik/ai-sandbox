@@ -29,7 +29,7 @@ export class WorldModel {
 				hero.y = this.findPlatformY(newState.grid, hero.x, hero.y)
 				break
 
-			case "JUMP":
+			case "JUMP": {
 				// 跳跃：x+2，尝试上到更高平台
 				const jumpX = Math.min(this.width - 1, hero.x + 2)
 				// 先检查是否能上到更高层（平台或按钮）- 左下坐标系，y+1是更高
@@ -43,6 +43,7 @@ export class WorldModel {
 					hero.y = this.findPlatformY(newState.grid, hero.x, hero.y)
 				}
 				break
+			}
 
 			case "WAIT":
 				// 什么都不发生，但可能触发机关效果

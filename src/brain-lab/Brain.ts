@@ -40,7 +40,7 @@ export class Brain {
 	// 想象：递归推演未来
 	private imagine(state: WorldState, action: ActionType, depth: number): Imagination {
 		// 第一步预测
-		let predictedState = this.worldModel.predict(state, action)
+		const predictedState = this.worldModel.predict(state, action)
 		let totalReward = this.worldModel.evaluate(predictedState)
 		let steps = 1
 
@@ -72,7 +72,7 @@ export class Brain {
 			WAIT: "等待",
 		}
 
-		let reason = `选择「${actionNames[best.action]}」，因为：`;
+		let reason = `选择「${actionNames[best.action]}」，因为：`
 
 		// 分析原因
 		if (best.predictedState.hero.x > all.find(i => i.action === "WAIT")?.predictedState.hero.x!) {
