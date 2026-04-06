@@ -34,7 +34,7 @@ export class World {
 		grid[1][1] = ELEM.PLATFORM
 
 		// 上层平台（y=2，需要跳上去）
-		for (let x = 3; x < 6; x++) {
+		for (let x = 3; x < 7; x++) {  // 扩展到x=6，形成连续平台
 			if (x !== 4) {  // x=4是按钮，不设置平台
 				grid[2][x] = ELEM.PLATFORM
 			}
@@ -42,6 +42,9 @@ export class World {
 
 		// 按钮平台（y=2）
 		grid[2][4] = ELEM.BUTTON
+
+		// 连接桥（y=1，从上层平台连到右侧终点）
+		grid[1][6] = ELEM.PLATFORM  // x=6添加平台，避免直接坠落
 
 		// 右侧平台（终点，y=1）
 		for (let x = 7; x < this.width; x++) {
