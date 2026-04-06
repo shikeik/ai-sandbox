@@ -405,8 +405,32 @@ export class DOMRenderer {
 
 		const groups = this.groupByDelay(animations)
 
+		// 找出玩家动画的最大结束时间
+		const playerAnimations = animations.filter(a => 
+			a.type === "HERO_MOVE" || a.type === "HERO_JUMP" || a.type === "HERO_FALL"
+		)
+		const playerMaxEndTime = playerAnimations.length > 0 
+			? Math.max(...playerAnimations.map(a => (a.delay || 0) + a.duration))
+			: 0
+
+		// 找出按钮动画的开始时间
+		const buttonAnim = animations.find(a => a.type === "BUTTON_PRESS")
+		const buttonStartTime = buttonAnim ? (buttonAnim.delay || 0) : -1
+
 		for (let i = 0; i < groups.length; i++) {
 			const group = groups[i]
+			const groupDelay = group[0].delay || 0
+
+			// 检查是否到达玩家动画结束时间点
+			if (groupDelay >= playerMaxEndTime && playerMaxEndTime > 0) {
+				console.log(`[TEMP] 玩家动画结束 (时间: ${playerMaxEndTime}ms)`)
+			}
+
+			// 检查是否到达按钮动画开始时间点
+			if (groupDelay >= buttonStartTime && buttonStartTime > 0) {
+				console.log(`[TEMP] 按钮动画开始 (时间: ${buttonStartTime}ms)`)
+			}
+
 			await Promise.all(group.map(anim => this.playSingleAnimation(anim)))
 		}
 
