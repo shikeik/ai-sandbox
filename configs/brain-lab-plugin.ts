@@ -16,13 +16,18 @@ class GameInstance {
 		const { Brain } = await import('../src/brain-lab/ai/index.js')
 		this.World = GameWorld
 		this.Brain = Brain
-		this.reset()
+		await this.reset()
 		this.log("SYSTEM", "游戏实例初始化完成")
 	}
 
-	reset() {
-		this.world = new this.World(10, 6)
-		this.brain = new this.Brain(10, 6)
+	async reset() {
+		const { getCurrentLevel } = await import('../src/brain-lab/core/index.js')
+		const level = getCurrentLevel()
+		const height = level.map.length
+		const width = height > 0 ? level.map[0].length : 0
+
+		this.world = new this.World(width, height)
+		this.brain = new this.Brain(width, height)
 		this.stepCount = 0
 		const state = this.world.getState()
 
@@ -31,7 +36,7 @@ class GameInstance {
 		this.log("RESET", `初始位置: (${state.hero.x}, ${state.hero.y})`)
 		this.log("RESET", `敌人位置: [${state.enemies.map((e: any) => `(${e.x},${e.y})`).join(', ')}]`)
 		this.log("RESET", `尖刺位置: (${4}, ${state.spikeY})`)
-		this.log("RESET", `地图尺寸: 10x6`)
+		this.log("RESET", `地图尺寸: ${width}x${height}`)
 	}
 
 	log(tag: string, msg: string) {
@@ -98,7 +103,7 @@ export const brainLabPlugin = {
 						result = doMove(body.action)
 						break
 					case '/reset':
-						result = doReset()
+						result = await doReset()
 						break
 					case '/think':
 						result = doThink()
@@ -272,8 +277,8 @@ function doMove(action: string) {
 	}
 }
 
-function doReset() {
-	game.reset()
+async function doReset() {
+	await game.reset()
 	const state = getState()
 	game.log("API", "POST /reset - 游戏已重置")
 	return { type: 'RESET', step: 0, state }
@@ -323,13 +328,11 @@ async function doSetLevel(levelName: string) {
 
 	if (levelName === 'default') {
 		setCurrentLevel(DEFAULT_LEVEL_MAP)
-		game.reset()
-		game.log("SYSTEM", `关卡切换为: default (10x5)`)
+		await game.reset()
 		return { type: 'SET_LEVEL', level: 'default', ok: true }
 	} else if (levelName === 'advanced') {
 		setCurrentLevel(ADVANCED_LEVEL_MAP)
-		game.reset()
-		game.log("SYSTEM", `关卡切换为: advanced (12x8)`)
+		await game.reset()
 		return { type: 'SET_LEVEL', level: 'advanced', ok: true }
 	} else {
 		return { error: `Unknown level: ${levelName}` }
