@@ -110,11 +110,10 @@ export class DOMRenderer {
 		// 创建视口结构
 		this.worldContainer.innerHTML = `
 			<div class="world-viewport" style="
-				width: ${this.config.viewportWidth}px;
-				height: ${this.config.viewportHeight}px;
+				width: 100%;
+				height: 100%;
 				overflow: hidden;
 				position: relative;
-				margin: 0 auto;
 				background: #0a0a14;
 				border-radius: 12px;
 				border: 1px solid #2a2a3e;
