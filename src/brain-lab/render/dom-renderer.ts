@@ -26,6 +26,8 @@ export class DOMRenderer {
 
 	private config: RendererConfig
 	private animating: boolean = false
+	private currentGridHeight: number = 5
+	private currentGridWidth: number = 10
 
 	// 相机系统
 	private cameraX: number = 0
@@ -103,6 +105,8 @@ export class DOMRenderer {
 		// 计算世界尺寸
 		this.worldWidth = width * (this.config.cellSize + this.config.gap) - this.config.gap
 		this.worldHeight = height * (this.config.cellSize + this.config.gap) - this.config.gap
+		this.currentGridWidth = width
+		this.currentGridHeight = height
 
 		// 计算初始相机位置
 		this.updateCamera(hero.x, hero.y, height)
@@ -883,10 +887,7 @@ export class DOMRenderer {
 	 * 获取地图高度
 	 */
 	private getGridHeight(): number {
-		const grid = this.worldContainer.querySelector(".layer-grid")
-		if (!grid) return 6
-		const childCount = grid.children.length
-		return childCount ? Math.ceil(childCount / 10) : 6
+		return this.currentGridHeight
 	}
 
 	/**
