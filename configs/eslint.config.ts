@@ -128,7 +128,7 @@ export default [
 			}],
 			
 			// 允许 any
-			'@typescript-eslint/no-explicit-any': 'off',
+			'@typescript-eslint/no-explicit-any': 'error',
 			
 			// 关闭无用赋值检查（容易产生误报）
 			'no-useless-assignment': 'off',
