@@ -67,8 +67,10 @@ export class WorldModel {
 	private findPlatformY(grid: number[][], x: number, startY: number): number {
 		// 从startY往下找（y减小），找第一个能支撑的平台
 		for (let y = startY; y >= 0; y--) {
-			if (grid[y][x] === ELEM.PLATFORM || grid[y][x] === ELEM.BUTTON) {
-				return y  // 站在平台上
+			if (grid[y][x] === ELEM.PLATFORM ||
+			    grid[y][x] === ELEM.BUTTON ||
+			    grid[y][x] === ELEM.GOAL) {
+				return y  // 站在平台上（包括终点）
 			}
 		}
 		return 0  // 默认回到地面

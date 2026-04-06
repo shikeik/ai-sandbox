@@ -289,8 +289,9 @@ export class World {
 		// 从startY往下找（y减小），找第一个能支撑的平台
 		for (let y = startY; y >= 0; y--) {
 			if (this.state.grid[y][x] === ELEM.PLATFORM ||
-			    this.state.grid[y][x] === ELEM.BUTTON) {
-				return y  // 站在平台上
+			    this.state.grid[y][x] === ELEM.BUTTON ||
+			    this.state.grid[y][x] === ELEM.GOAL) {
+				return y  // 站在平台上（包括终点）
 			}
 		}
 		// 如果没找到，返回地面
