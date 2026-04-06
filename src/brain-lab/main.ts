@@ -119,6 +119,8 @@ class BrainLabUI {
 		document.getElementById("btn-right")?.addEventListener("click", () => this.manualMove("RIGHT"))
 		document.getElementById("btn-up")?.addEventListener("click", () => this.manualMove("JUMP"))
 		document.getElementById("btn-wait")?.addEventListener("click", () => this.manualMove("WAIT"))
+		document.getElementById("btn-jump-left")?.addEventListener("click", () => this.manualMove("JUMP_LEFT"))
+		document.getElementById("btn-jump-right")?.addEventListener("click", () => this.manualMove("JUMP_RIGHT"))
 
 		// 重置按钮
 		document.getElementById("btn-manual-reset")?.addEventListener("click", () => this.manualReset())
@@ -147,11 +149,21 @@ class BrainLabUI {
 					e.preventDefault()
 					this.manualMove("JUMP")
 					break
+				case 'ArrowDown':
 				case 's':
 				case 'S':
-				case 'Enter':
 					e.preventDefault()
 					this.manualMove("WAIT")
+					break
+				case 'q':
+				case 'Q':
+					e.preventDefault()
+					this.manualMove("JUMP_LEFT")
+					break
+				case 'e':
+				case 'E':
+					e.preventDefault()
+					this.manualMove("JUMP_RIGHT")
 					break
 			}
 		})

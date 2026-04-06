@@ -431,38 +431,51 @@ export class DOMRenderer {
 		})
 	}
 
-	// 英雄移动动画（带相机跟随）
+	// 英雄移动动画（带相机跟随）- 水平平移
 	private animateHeroMove(anim: AnimationEvent): void {
 		if (!this.heroElement || !anim.to) return
 		
-		// 断言：动画目标位置有效
-		assertValidPosition(anim.to.x, anim.to.y, 10, 6, "HERO_MOVE目标位置")
-		assertEq(anim.from.x, Math.round(parseFloat(this.heroElement.style.left) / (this.cellSize + this.gap)), "HERO_MOVE起始X应匹配当前位置")
-		
 		const height = this.getGridHeight()
-		const targetDisplayY = height - 1 - anim.to.y
 		
-		// 断言：坐标转换正确
-		assertCoordinateConversion(anim.to.x, anim.to.y, height, targetDisplayY)
+		// 处理虚空（y=-1）：渲染在屏幕下方
+		let targetDisplayY: number
+		if (anim.to.y < 0) {
+			targetDisplayY = height + 2
+		} else {
+			targetDisplayY = height - 1 - anim.to.y
+		}
 		
 		const left = anim.to.x * (this.cellSize + this.gap)
 		const top = targetDisplayY * (this.cellSize + this.gap)
 		
 		console.log(`[ANIM]     HERO_MOVE: 逻辑(${anim.to.x},${anim.to.y}) -> 像素(${left},${top})`)
 
-		this.heroElement.style.transition = `all ${anim.duration}ms ease-out`
+		// 水平平移使用 ease-out
+		this.heroElement.style.transition = `left ${anim.duration}ms ease-out`
 		this.heroElement.style.left = `${left}px`
-		this.heroElement.style.top = `${top}px`
+		
+		// 如果Y也变化，同时更新top
+		if (anim.from.y !== anim.to.y) {
+			this.heroElement.style.transition = `all ${anim.duration}ms ease-out`
+			this.heroElement.style.top = `${top}px`
+		}
 
 		// 相机跟随
-		this.smoothCameraTo(anim.to.x, anim.to.y)
+		this.smoothCameraTo(anim.to.x, Math.max(0, anim.to.y))
 	}
 
-	// 英雄跳跃动画（带相机跟随）
+	// 英雄跳跃动画 - Fox-Jump同款抛物线
 	private animateHeroJump(anim: AnimationEvent): void {
 		if (!this.heroElement || !anim.to) return
 		const height = this.getGridHeight()
-		const targetDisplayY = height - 1 - anim.to.y
+		
+		// 处理虚空坠落（y=-1）：渲染在屏幕下方
+		let targetDisplayY: number
+		if (anim.to.y < 0) {
+			targetDisplayY = height + Math.abs(anim.to.y)  // 虚空：渲染在地图下方
+		} else {
+			targetDisplayY = height - 1 - anim.to.y
+		}
 		
 		const startLeft = parseFloat(this.heroElement.style.left) || 0
 		const startTop = parseFloat(this.heroElement.style.top) || 0
@@ -471,46 +484,65 @@ export class DOMRenderer {
 
 		const startTime = performance.now()
 		const duration = anim.duration
+		const jumpHeight = 40  // 抛物线最高点偏移量
+
+		console.log(`[ANIM]     HERO_JUMP: (${anim.from.x},${anim.from.y}) → (${anim.to.x},${anim.to.y}), 抛物线高=${jumpHeight}px`)
 
 		const animate = (now: number) => {
 			const elapsed = now - startTime
 			const progress = Math.min(elapsed / duration, 1)
 			
+			// 线性水平移动
 			const currentLeft = startLeft + (targetLeft - startLeft) * progress
-			const jumpHeight = 30
+			
+			// 抛物线垂直运动：4 * p * (1-p) 在 p=0.5 时达到最大值1
 			const parabola = 4 * progress * (1 - progress)
-			const currentTop = startTop + (targetTop - startTop) * progress - parabola * jumpHeight
+			const verticalOffset = parabola * jumpHeight
+			
+			// 当前高度 = 起点到终点的线性插值 + 抛物线偏移
+			const currentTop = startTop + (targetTop - startTop) * progress - verticalOffset
 
 			this.heroElement!.style.left = `${currentLeft}px`
 			this.heroElement!.style.top = `${currentTop}px`
 
-			// 相机跟随
-			this.smoothCameraTo(
-				currentLeft / (this.cellSize + this.gap),
-				height - 1 - (currentTop + jumpHeight * parabola) / (this.cellSize + this.gap)
-			)
+			// 相机跟随（基于逻辑坐标）
+			const currentLogicX = currentLeft / (this.cellSize + this.gap)
+			const currentLogicY = height - 1 - (currentTop + verticalOffset) / (this.cellSize + this.gap)
+			this.smoothCameraTo(currentLogicX, currentLogicY)
 
 			if (progress < 1) {
 				requestAnimationFrame(animate)
+			} else {
+				console.log(`[ANIM]     HERO_JUMP 完成`)
 			}
 		}
 
 		requestAnimationFrame(animate)
 	}
 
-	// 英雄坠落动画（带相机跟随）
+	// 英雄坠落动画（带相机跟随）- 直线坠落
 	private animateHeroFall(anim: AnimationEvent): void {
 		if (!this.heroElement || !anim.to) return
 		const height = this.getGridHeight()
-		const targetDisplayY = height - 1 - anim.to.y
+		
+		// 处理虚空坠落（y=-1）：渲染在屏幕下方
+		let targetDisplayY: number
+		if (anim.to.y < 0) {
+			targetDisplayY = height + 2  // 虚空：渲染在地图下方2格处
+		} else {
+			targetDisplayY = height - 1 - anim.to.y
+		}
 		
 		const targetTop = targetDisplayY * (this.cellSize + this.gap)
 		
+		console.log(`[ANIM]     HERO_FALL: → (${anim.to.x},${anim.to.y}), 显示Y=${targetDisplayY}`)
+
+		// 使用CSS transition实现直线加速坠落
 		this.heroElement.style.transition = `top ${anim.duration}ms cubic-bezier(0.5, 0, 1, 1)`
 		this.heroElement.style.top = `${targetTop}px`
 
 		// 相机跟随
-		this.smoothCameraTo(anim.to.x, anim.to.y)
+		this.smoothCameraTo(anim.to.x, Math.max(0, anim.to.y))
 	}
 
 	private animateSpikeFall(anim: AnimationEvent): void {

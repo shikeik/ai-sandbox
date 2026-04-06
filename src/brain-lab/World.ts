@@ -95,6 +95,24 @@ export class World {
 		return cell === ELEM.PLATFORM || cell === ELEM.BUTTON || cell === ELEM.GOAL
 	}
 
+	// 寻找指定列中，玩家能站立的落点Y坐标
+	// 跳跃高度2格：从原Y出发，最高能到原Y+2的位置
+	// 返回落点Y（玩家站立位置 = 平台Y + 1），如果没找到返回 -1（虚空）
+	private findJumpLandingY(targetX: number, fromY: number): number {
+		const maxReachY = fromY + 2  // 跳跃最高能到达的Y（玩家位置）
+		const platformSearchStart = maxReachY - 1  // 对应的平台Y
+
+		// 从高往低扫描平台
+		for (let py = platformSearchStart; py >= 0; py--) {
+			if (this.hasSupport(targetX, py)) {
+				return py + 1  // 站在平台上方一格
+			}
+		}
+
+		// 整列没有平台，落到虚空
+		return -1
+	}
+
 	// 寻找玩家下方的支撑平台y坐标
 	private findGroundY(x: number, startY: number): number {
 		// 从startY往下找，找第一个支撑平台
@@ -138,12 +156,21 @@ export class World {
 						hero.y = groundY + 1
 						
 						if (hero.y < oldY) {
+							// 先平移，再坠落
+							animations.push({
+								type: "HERO_MOVE",
+								target: "hero",
+								from: { x: oldX, y: oldY },
+								to: { x: hero.x, y: oldY },
+								duration: 150
+							})
 							animations.push({
 								type: "HERO_FALL",
 								target: "hero",
 								from: { x: hero.x, y: oldY },
 								to: { x: hero.x, y: hero.y },
-								duration: 300
+								duration: 300,
+								delay: 150
 							})
 						} else {
 							animations.push({
@@ -181,12 +208,21 @@ export class World {
 						hero.y = groundY + 1
 						
 						if (hero.y < oldY) {
+							// 先平移，再坠落
+							animations.push({
+								type: "HERO_MOVE",
+								target: "hero",
+								from: { x: oldX, y: oldY },
+								to: { x: hero.x, y: oldY },
+								duration: 150
+							})
 							animations.push({
 								type: "HERO_FALL",
 								target: "hero",
 								from: { x: hero.x, y: oldY },
 								to: { x: hero.x, y: hero.y },
-								duration: 300
+								duration: 300,
+								delay: 150
 							})
 						} else {
 							animations.push({
@@ -201,19 +237,32 @@ export class World {
 				}
 				break
 
-			case "JUMP": {
+			case "JUMP_LEFT": {
 				const oldPos = { ...hero }
-				// 跳跃：x+2，y+1（上到更高层）
-				const jumpX = Math.min(this.width - 1, hero.x + 2)
-				const jumpY = hero.y + 1
-				
-				// 检查目标位置是否有支撑
-				const groundY = this.findGroundY(jumpX, jumpY)
-				if (groundY >= 0) {
-					// 可以跳到目标位置
-					hero.x = jumpX
-					hero.y = groundY + 1
-					
+				if (hero.x <= 0) break  // 撞墙
+
+				const targetX = hero.x - 1
+				const landingY = this.findJumpLandingY(targetX, hero.y)
+
+				logs.push(`[WORLD] 向左跳跃: 从(${hero.x},${hero.y}) → x=${targetX}, 扫描落点=${landingY}`)
+
+				if (landingY < 0) {
+					// 虚空死亡 - 抛物线跳到虚空
+					logs.push(`[WORLD] 左跳后下方无平台，坠入虚空！`)
+					hero.x = targetX
+					hero.y = -1
+					animations.push({
+						type: "HERO_JUMP",
+						target: "hero",
+						from: oldPos,
+						to: { x: targetX, y: -1 },
+						duration: 600
+					})
+					dead = true
+				} else {
+					// 正常落地
+					hero.x = targetX
+					hero.y = landingY
 					animations.push({
 						type: "HERO_JUMP",
 						target: "hero",
@@ -221,27 +270,78 @@ export class World {
 						to: { ...hero },
 						duration: 500
 					})
-				} else {
-					// 没有支撑，坠落
-					logs.push(`[WORLD] 跳跃后脚下没有支撑，坠落！`)
-					hero.x = jumpX
+				}
+				break
+			}
+
+			case "JUMP_RIGHT": {
+				const oldPos = { ...hero }
+				if (hero.x >= this.width - 1) break  // 撞墙
+
+				const targetX = hero.x + 1
+				const landingY = this.findJumpLandingY(targetX, hero.y)
+
+				logs.push(`[WORLD] 向右跳跃: 从(${hero.x},${hero.y}) → x=${targetX}, 扫描落点=${landingY}`)
+
+				if (landingY < 0) {
+					// 虚空死亡 - 抛物线跳到虚空
+					logs.push(`[WORLD] 右跳后下方无平台，坠入虚空！`)
+					hero.x = targetX
+					hero.y = -1
 					animations.push({
 						type: "HERO_JUMP",
 						target: "hero",
 						from: oldPos,
-						to: { x: jumpX, y: oldPos.y },
-						duration: 250
+						to: { x: targetX, y: -1 },
+						duration: 600
 					})
+					dead = true
+				} else {
+					// 正常落地
+					hero.x = targetX
+					hero.y = landingY
 					animations.push({
-						type: "HERO_FALL",
+						type: "HERO_JUMP",
 						target: "hero",
-						from: { x: jumpX, y: oldPos.y },
-						to: { x: jumpX, y: -1 },
-						duration: 500,
-						delay: 250
+						from: oldPos,
+						to: { ...hero },
+						duration: 500
+					})
+				}
+				break
+			}
+
+			case "JUMP": {
+				// 兼容旧版：直接向上跳（原地起跳找更高平台）
+				const oldPos = { ...hero }
+				const landingY = this.findJumpLandingY(hero.x, hero.y)
+
+				logs.push(`[WORLD] 原地跳跃: 扫描落点=${landingY}`)
+
+				if (landingY > hero.y) {
+					// 能跳到更高处
+					hero.y = landingY
+					animations.push({
+						type: "HERO_JUMP",
+						target: "hero",
+						from: oldPos,
+						to: { ...hero },
+						duration: 500
+					})
+				} else if (landingY < 0) {
+					// 虚空
+					logs.push(`[WORLD] 跳跃后坠入虚空！`)
+					hero.y = -1
+					animations.push({
+						type: "HERO_JUMP",
+						target: "hero",
+						from: oldPos,
+						to: { x: hero.x, y: -1 },
+						duration: 600
 					})
 					dead = true
 				}
+				// 否则原地不动（已经是最高的了）
 				break
 			}
 		}
@@ -286,7 +386,7 @@ export class World {
 			const killedEnemies = this.state.enemies.filter(e => e.x === 4 && e.y === spikeToY)
 			if (killedEnemies.length > 0) {
 				logs.push(`[WORLD] 尖刺击杀 ${killedEnemies.length} 个敌人！`)
-				killedEnemies.forEach((enemy, i) => {
+				killedEnemies.forEach((enemy) => {
 					animations.push({
 						type: "ENEMY_DIE",
 						target: `enemy-${enemy.x}-${enemy.y}`,
