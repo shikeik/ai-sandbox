@@ -223,7 +223,7 @@ async function doStep() {
 }
 
 function doMove(action: string) {
-	const validActions = ['LEFT', 'RIGHT', 'JUMP', 'JUMP_LEFT', 'JUMP_RIGHT', 'WAIT']
+	const validActions = ['LEFT', 'RIGHT', 'JUMP', 'JUMP_LEFT', 'JUMP_RIGHT', 'JUMP_LEFT_FAR', 'JUMP_RIGHT_FAR', 'WAIT']
 
 	if (!validActions.includes(action)) {
 		game.log("ERROR", `Invalid action: ${action}`)

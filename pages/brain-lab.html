@@ -343,9 +343,9 @@
 		/* D-Pad方向键 */
 		.dpad {
 			display: grid;
-			grid-template-columns: repeat(3, 1fr);
+			grid-template-columns: repeat(5, 1fr);
 			gap: 8px;
-			width: 180px;
+			width: 280px;
 			margin: 0 auto;
 		}
 
@@ -648,14 +648,15 @@
 
 				<!-- D-Pad方向控制 -->
 				<div class="dpad">
+					<button class="dpad-btn" id="btn-jump-left-far" title="左远跳">⬅️↖️</button>
 					<button class="dpad-btn" id="btn-jump-left" title="左跳">↖️</button>
 					<button class="dpad-btn" id="btn-up" title="跳跃">⬆️</button>
 					<button class="dpad-btn" id="btn-jump-right" title="右跳">↗️</button>
+					<button class="dpad-btn" id="btn-jump-right-far" title="右远跳">↗️➡️</button>
+					<div class="dpad-btn empty"></div>
 					<button class="dpad-btn" id="btn-left" title="左移">⬅️</button>
 					<button class="dpad-btn" id="btn-wait" title="等待">⏸️</button>
 					<button class="dpad-btn" id="btn-right" title="右移">➡️</button>
-					<div class="dpad-btn empty"></div>
-					<div class="dpad-btn empty"></div>
 					<div class="dpad-btn empty"></div>
 				</div>
 

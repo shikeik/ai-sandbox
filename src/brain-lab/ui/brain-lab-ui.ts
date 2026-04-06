@@ -226,6 +226,8 @@ export class BrainLabUI {
 		document.getElementById("btn-wait")?.addEventListener("click", () => this.manualMove("WAIT"))
 		document.getElementById("btn-jump-left")?.addEventListener("click", () => this.manualMove("JUMP_LEFT"))
 		document.getElementById("btn-jump-right")?.addEventListener("click", () => this.manualMove("JUMP_RIGHT"))
+		document.getElementById("btn-jump-left-far")?.addEventListener("click", () => this.manualMove("JUMP_LEFT_FAR"))
+		document.getElementById("btn-jump-right-far")?.addEventListener("click", () => this.manualMove("JUMP_RIGHT_FAR"))
 
 		// 重置按钮
 		document.getElementById("btn-manual-reset")?.addEventListener("click", () => this.manualReset())
@@ -258,6 +260,10 @@ export class BrainLabUI {
 			"Q": "JUMP_LEFT",
 			"e": "JUMP_RIGHT",
 			"E": "JUMP_RIGHT",
+			"z": "JUMP_LEFT_FAR",
+			"Z": "JUMP_LEFT_FAR",
+			"c": "JUMP_RIGHT_FAR",
+			"C": "JUMP_RIGHT_FAR",
 		}
 
 		const action = keyMap[e.key]
