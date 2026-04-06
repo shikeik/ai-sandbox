@@ -6,9 +6,12 @@ import { DEFAULT_LEVEL_MAP, CHAR_MAP, SPECIAL_CHARS } from "../config.js"
 
 /**
  * 从关卡数据创建初始世界状态
+ * 使用 map 实际尺寸作为世界宽高，配置值仅作后备
  */
 export function createStateFromLevel(level: LevelData = DEFAULT_LEVEL_MAP): WorldState {
-	const { width, height, map } = level
+	const { map } = level
+	const height = map.length
+	const width = height > 0 ? map[0].length : 0
 	const grid: number[][] = Array(height).fill(0).map(() =>
 		Array(width).fill(Element.AIR)
 	)
