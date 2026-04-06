@@ -26,8 +26,8 @@ const LEVEL_MAP = [
 	"．．．．＾．．．．．",  // y=4 顶层：尖刺悬挂
 	"．．．．．．．．．．",  // y=3
 	"．．．．．．．．．．",  // y=2
-	"．．＃！＃￠．．．．",  // y=1：平台、按钮、敌人
-	"．．＃＃．＃＃＃＠．",  // y=0 底层：地面平台，@是玩家起点
+	"．＠＃！＃￠．．￡．",  // y=1：平台、按钮、敌人
+	"．＃＃＃．＃＃＃＃．",  // y=0 底层：地面平台，@是玩家起点
 ]
 
 // 字符映射
@@ -69,29 +69,21 @@ export class World {
 			for (let x = 0; x < line.length && x < this.width; x++) {
 				const char = line[x]
 				
+				// 特殊标记：玩家起始位置
 				if (char === "＠") {
-					// 玩家起始位置
 					heroPos = { x, y }
-					// 玩家站在平台上方，下方必须是平台
-					grid[y][x] = ELEM.AIR  // 玩家所在格是空气
-				} else if (char === "￠") {
-					// 敌人位置
-					enemies.push({ x, y })
-					grid[y][x] = ELEM.AIR  // 敌人所在格是空气
-				} else if (char === "＾") {
-					// 尖刺（机关，不是墙）
-					grid[y][x] = ELEM.SPIKE
-				} else if (char === "！") {
-					// 按钮
-					grid[y][x] = ELEM.BUTTON
-				} else if (char === "￡") {
-					// 终点
-					grid[y][x] = ELEM.GOAL
-				} else if (char === "＃") {
-					// 平台/墙
-					grid[y][x] = ELEM.PLATFORM
+					grid[y][x] = CHAR_MAP[char] ?? ELEM.AIR
 				}
-				// ．和其他未识别字符保持为 AIR
+				// 特殊标记：敌人位置
+				else if (char === "￠") {
+					enemies.push({ x, y })
+					grid[y][x] = CHAR_MAP[char] ?? ELEM.AIR
+				}
+				// 其他格子使用 CHAR_MAP 映射
+				else if (char in CHAR_MAP) {
+					grid[y][x] = CHAR_MAP[char]
+				}
+				// 未识别字符保持为 AIR（包括 ．）
 			}
 		}
 
