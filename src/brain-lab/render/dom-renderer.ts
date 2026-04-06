@@ -241,30 +241,19 @@ export class DOMRenderer {
 	}
 
 	/**
-	 * 更新相机位置
+	 * 更新相机位置 - 实时跟随玩家，不限制边界
 	 */
 	private updateCamera(heroX: number, heroY: number, height: number): void {
 		const heroPixelX = heroX * (this.config.cellSize + this.config.gap)
-		// 限制 heroY 在有效范围内，防止跳太高时相机计算错误
-		const clampedHeroY = Math.max(0, Math.min(heroY, height - 1))
-		const heroPixelY = (height - 1 - clampedHeroY) * (this.config.cellSize + this.config.gap)
+		const heroPixelY = (height - 1 - heroY) * (this.config.cellSize + this.config.gap)
 
-		// 获取实际视口尺寸（使用配置值作为后备）
+		// 获取实际视口尺寸
 		const viewportWidth = this.viewportElement?.clientWidth || this.config.viewportWidth
 		const viewportHeight = this.viewportElement?.clientHeight || this.config.viewportHeight
 
-		// 目标相机位置（让英雄在中央）
-		let targetCameraX = heroPixelX - viewportWidth / 2 + this.config.cellSize / 2
-		let targetCameraY = heroPixelY - viewportHeight / 2 + this.config.cellSize / 2
-
-		// 边界限制
-		const maxCameraX = Math.max(0, this.worldWidth - viewportWidth)
-		const maxCameraY = Math.max(0, this.worldHeight - viewportHeight)
-		targetCameraX = Math.max(0, Math.min(targetCameraX, maxCameraX))
-		targetCameraY = Math.max(0, Math.min(targetCameraY, maxCameraY))
-
-		this.cameraX = targetCameraX
-		this.cameraY = targetCameraY
+		// 目标相机位置（让英雄在中央），不限制边界
+		this.cameraX = heroPixelX - viewportWidth / 2 + this.config.cellSize / 2
+		this.cameraY = heroPixelY - viewportHeight / 2 + this.config.cellSize / 2
 	}
 
 	/**
@@ -628,11 +617,9 @@ export class DOMRenderer {
 			this.heroElement!.style.left = `${currentLeft}px`
 			this.heroElement!.style.top = `${currentTop}px`
 
-			// 相机跟随：基于当前显示位置计算逻辑坐标（限制在地图范围内）
+			// 相机跟随：基于当前显示位置计算逻辑坐标，不限制范围
 			const currentLogicX = currentLeft / (this.config.cellSize + this.config.gap)
-			let currentLogicY = height - 1 - currentTop / (this.config.cellSize + this.config.gap)
-			// 限制Y范围，防止跳太高时相机计算错误
-			currentLogicY = Math.max(0, Math.min(currentLogicY, height - 1))
+			const currentLogicY = height - 1 - currentTop / (this.config.cellSize + this.config.gap)
 			this.smoothCameraTo(currentLogicX, currentLogicY)
 
 			if (progress < 1) {
