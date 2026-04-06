@@ -88,7 +88,15 @@ export class DOMRenderer {
 		const height = grid.length
 		const width = grid[0].length
 
-		// 清空容器
+		// 检查是否已存在世界（增量更新模式）
+		const existingWorld = this.worldContainer.querySelector(".world-viewport")
+		if (existingWorld) {
+			// 增量更新：只更新动态对象位置，避免相机跳变
+			this.updateWorldObjects(state)
+			return
+		}
+
+		// 全新渲染模式
 		this.worldContainer.innerHTML = ""
 		this.enemyElements.clear()
 
@@ -136,6 +144,58 @@ export class DOMRenderer {
 
 		// 渲染动态对象
 		this.renderObjects(objectsLayer, hero, enemies, spikeY, height)
+	}
+
+	/**
+	 * 增量更新世界对象（避免相机跳变）
+	 */
+	private updateWorldObjects(state: WorldState): void {
+		const { grid, hero, enemies, triggers, spikeY } = state
+		const height = grid.length
+
+		// 更新英雄位置
+		if (this.heroElement) {
+			const heroDisplayY = height - 1 - hero.y
+			const targetLeft = hero.x * (this.config.cellSize + this.config.gap)
+			const targetTop = heroDisplayY * (this.config.cellSize + this.config.gap)
+			this.heroElement.style.left = `${targetLeft}px`
+			this.heroElement.style.top = `${targetTop}px`
+		}
+
+		// 更新敌人（简单的实现：清空重新渲染敌人层）
+		const objectsLayer = this.worldContainer.querySelector(".layer-objects") as HTMLElement
+		if (objectsLayer) {
+			// 保留英雄和尖刺，移除旧敌人
+			this.enemyElements.forEach((el) => el.remove())
+			this.enemyElements.clear()
+
+			// 重新渲染敌人
+			enemies.forEach((enemy) => {
+				const enemyDisplayY = height - 1 - enemy.y
+				const key = `enemy-${enemy.x}-${enemy.y}`
+				const el = this.createGameObject(key, "👿", enemy.x, enemyDisplayY, 20)
+				this.enemyElements.set(key, el)
+				objectsLayer.appendChild(el)
+			})
+		}
+
+		// 更新尖刺位置
+		if (this.spikeElement && spikeY !== undefined) {
+			const spikeDisplayY = height - 1 - spikeY
+			const targetTop = spikeDisplayY * (this.config.cellSize + this.config.gap)
+			this.spikeElement.style.top = `${targetTop}px`
+		}
+
+		// 更新按钮状态（如果已触发）
+		if (triggers[0]) {
+			const buttonCell = this.worldContainer.querySelector(".cell.button-base .button-icon") as HTMLElement
+			if (buttonCell) {
+				buttonCell.remove()
+			}
+		}
+
+		// 平滑移动相机到新位置（使用 transition）
+		this.smoothCameraTo(hero.x, Math.max(0, hero.y))
 	}
 
 	/**
@@ -399,25 +459,40 @@ export class DOMRenderer {
 		if (!this.heroElement || !anim.to) return
 
 		const height = this.getGridHeight()
+		const targetPos = anim.to
 		let targetDisplayY: number
-		if (anim.to.y < 0) {
+		if (targetPos.y < 0) {
 			targetDisplayY = height + 2
 		} else {
-			targetDisplayY = height - 1 - anim.to.y
+			targetDisplayY = height - 1 - targetPos.y
 		}
 
-		const left = anim.to.x * (this.config.cellSize + this.config.gap)
-		const top = targetDisplayY * (this.config.cellSize + this.config.gap)
+		const targetLeft = targetPos.x * (this.config.cellSize + this.config.gap)
+		const targetTop = targetDisplayY * (this.config.cellSize + this.config.gap)
 
-		this.heroElement.style.transition = `left ${anim.duration}ms ease-out`
-		this.heroElement.style.left = `${left}px`
-
-		if (anim.from.y !== anim.to.y) {
+		// 设置 CSS transition
+		if (anim.from.y !== targetPos.y) {
 			this.heroElement.style.transition = `all ${anim.duration}ms ease-out`
-			this.heroElement.style.top = `${top}px`
+			this.heroElement.style.left = `${targetLeft}px`
+			this.heroElement.style.top = `${targetTop}px`
+		} else {
+			this.heroElement.style.transition = `left ${anim.duration}ms ease-out`
+			this.heroElement.style.left = `${targetLeft}px`
 		}
 
-		this.smoothCameraTo(anim.to.x, Math.max(0, anim.to.y))
+		// 相机跟随
+		this.smoothCameraTo(targetPos.x, Math.max(0, targetPos.y))
+
+		// 动画结束后确保精确位置
+		setTimeout(() => {
+			if (this.heroElement) {
+				this.heroElement.style.transition = "none"
+				this.heroElement.style.left = `${targetLeft}px`
+				if (anim.from.y !== targetPos.y) {
+					this.heroElement.style.top = `${targetTop}px`
+				}
+			}
+		}, anim.duration)
 	}
 
 	/**
@@ -486,19 +561,33 @@ export class DOMRenderer {
 		if (!this.heroElement || !anim.to) return
 		const height = this.getGridHeight()
 
+		const targetPos = anim.to
 		let targetDisplayY: number
-		if (anim.to.y < 0) {
+		if (targetPos.y < 0) {
 			targetDisplayY = height + 2
 		} else {
-			targetDisplayY = height - 1 - anim.to.y
+			targetDisplayY = height - 1 - targetPos.y
 		}
 
 		const targetTop = targetDisplayY * (this.config.cellSize + this.config.gap)
 
+		// 使用 CSS transition 实现坠落动画
 		this.heroElement.style.transition = `top ${anim.duration}ms cubic-bezier(0.5, 0, 1, 1)`
 		this.heroElement.style.top = `${targetTop}px`
 
-		this.smoothCameraTo(anim.to.x, Math.max(0, anim.to.y))
+		// 相机跟随到目标位置
+		this.smoothCameraTo(targetPos.x, Math.max(0, targetPos.y))
+
+		// 动画结束后确保精确位置（transition 可能有精度误差）
+		setTimeout(() => {
+			if (this.heroElement) {
+				this.heroElement.style.transition = "none"
+				this.heroElement.style.top = `${targetTop}px`
+				// 强制相机精确对齐
+				this.updateCamera(targetPos.x, Math.max(0, targetPos.y), height)
+				this.applyCamera()
+			}
+		}, anim.duration)
 	}
 
 	/**
