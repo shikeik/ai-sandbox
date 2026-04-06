@@ -472,46 +472,43 @@ function handleButtonTrigger(ctx: ActionContext, playerAnimDuration: number, but
 		delay: playerAnimDuration
 	})
 
-	// 尖刺坠落（紧接按钮动画）
-	const spikeFromY = spike.currentY
-	const spikeToY = 1  // 砸到敌人层
+	// 查找尖刺下方的敌人（动态检测）
+	const enemyBelow = state.enemies.find(e => e.x === spike.x && e.y < spike.currentY)
+	const spikeToY = enemyBelow ? enemyBelow.y : -1  // 有敌人就砸到敌人位置，否则直接落入虚空
 	const SPIKE_PAUSE = 300 // 尖刺砸到敌人后的停顿时间
 
+	// 尖刺第一阶段：坠落到敌人位置（或虚空）
 	animations.push({
 		type: "SPIKE_FALL",
 		target: `spike-${buttonIdx}`,
-		from: { x: spike.x, y: spikeFromY },
+		from: { x: spike.x, y: spike.currentY },
 		to: { x: spike.x, y: spikeToY },
 		duration: ANIMATION_DURATION.spikeFall,
 		delay: playerAnimDuration + ANIMATION_DURATION.buttonPress
 	})
 
-	spike.currentY = spikeToY
-
-	// 击杀敌人（尖刺砸到后停顿一下再死）
-	const killedEnemies = state.enemies.filter(e => e.x === spike.x && e.y === spikeToY)
-	if (killedEnemies.length > 0) {
-		logs.push(`[WORLD] 尖刺击杀 ${killedEnemies.length} 个敌人！`)
-		killedEnemies.forEach((enemy) => {
-			animations.push({
-				type: "ENEMY_DIE",
-				target: `enemy-${enemy.x}-${enemy.y}`,
-				from: { ...enemy },
-				duration: ANIMATION_DURATION.enemyDie,
-				delay: playerAnimDuration + ANIMATION_DURATION.buttonPress + ANIMATION_DURATION.spikeFall + SPIKE_PAUSE
-			})
+	// 击杀敌人（如果有）
+	if (enemyBelow) {
+		logs.push(`[WORLD] 尖刺击杀敌人(${enemyBelow.x}, ${enemyBelow.y})！`)
+		animations.push({
+			type: "ENEMY_DIE",
+			target: `enemy-${enemyBelow.x}-${enemyBelow.y}`,
+			from: { ...enemyBelow },
+			duration: ANIMATION_DURATION.enemyDie,
+			delay: playerAnimDuration + ANIMATION_DURATION.buttonPress + ANIMATION_DURATION.spikeFall + SPIKE_PAUSE
 		})
-		state.enemies = state.enemies.filter(e => !(e.x === spike.x && e.y === spikeToY))
+		state.enemies = state.enemies.filter(e => !(e.x === enemyBelow.x && e.y === enemyBelow.y))
 	}
 
-	// 尖刺继续坠落到底（停顿后再落下）
+	// 尖刺第二阶段：停顿后继续坠落到底或虚空
 	animations.push({
 		type: "SPIKE_FALL",
 		target: `spike-${buttonIdx}`,
 		from: { x: spike.x, y: spikeToY },
-		to: { x: spike.x, y: 0 },
+		to: { x: spike.x, y: -1 },  // 落入虚空
 		duration: ANIMATION_DURATION.spikeFallFast,
 		delay: playerAnimDuration + ANIMATION_DURATION.buttonPress + ANIMATION_DURATION.spikeFall + SPIKE_PAUSE
 	})
-	spike.currentY = 0
+
+	spike.currentY = -1  // 尖刺落入虚空
 }
