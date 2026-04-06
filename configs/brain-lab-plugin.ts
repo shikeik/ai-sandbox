@@ -149,8 +149,7 @@ function getState() {
 		hero: state.hero,
 		enemies: state.enemies,
 		triggers: state.triggers,
-		spikeY: state.spikeY,
-		spikeFalling: state.spikeFalling,
+		spikes: state.spikes,
 		gridVisual: state.grid.map((row: number[]) =>
 			row.map((c: number) => ['空', '狐', '台', '敌', '终', '刺', '钮'][c] || '?').join('')
 		),
