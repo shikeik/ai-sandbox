@@ -51,13 +51,13 @@ export class World {
 		// 终点（y=1）
 		grid[1][this.width - 2] = ELEM.GOAL
 
-		// 尖刺（机关，y=3，在最上方）
-		grid[3][5] = ELEM.SPIKE
+		// 尖刺（机关，y=3，在按钮正上方x=4）
+		grid[3][4] = ELEM.SPIKE
 
 		return {
 			grid,
 			hero: { x: 1, y: 1 },  // 起始位置y=1
-			enemies: [{ x: 6, y: 1 }],  // 敌人挡路，y=1
+			enemies: [{ x: 4, y: 1 }],  // 敌人在按钮正下方x=4
 			triggers: [false],
 		}
 	}
