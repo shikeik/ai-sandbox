@@ -160,12 +160,11 @@ export class World {
 						})
 						dead = true
 					} else {
-						// 下落到支撑点上方
-						const oldY = hero.y
+						// 有支撑，下落到支撑点上方
 						hero.y = groundY + 1
 						
 						if (hero.y < oldY) {
-							// 先平移，再坠落
+							// 先水平平移，再垂直坠落
 							animations.push({
 								type: "HERO_MOVE",
 								target: "hero",
@@ -182,11 +181,12 @@ export class World {
 								delay: 150
 							})
 						} else {
+							// 同高度水平移动
 							animations.push({
 								type: "HERO_MOVE",
 								target: "hero",
-								from: { x: oldX, y: hero.y },
-								to: { x: hero.x, y: hero.y },
+								from: { x: oldX, y: oldY },
+								to: { x: hero.x, y: oldY },
 								duration: 250
 							})
 						}
@@ -222,12 +222,11 @@ export class World {
 						})
 						dead = true
 					} else {
-						// 下落到支撑点上方
-						const oldY = hero.y
+						// 有支撑，下落到支撑点上方
 						hero.y = groundY + 1
 						
 						if (hero.y < oldY) {
-							// 先平移，再坠落
+							// 先水平平移，再垂直坠落
 							animations.push({
 								type: "HERO_MOVE",
 								target: "hero",
@@ -244,11 +243,12 @@ export class World {
 								delay: 150
 							})
 						} else {
+							// 同高度水平移动
 							animations.push({
 								type: "HERO_MOVE",
 								target: "hero",
-								from: { x: oldX, y: hero.y },
-								to: { x: hero.x, y: hero.y },
+								from: { x: oldX, y: oldY },
+								to: { x: hero.x, y: oldY },
 								duration: 250
 							})
 						}
