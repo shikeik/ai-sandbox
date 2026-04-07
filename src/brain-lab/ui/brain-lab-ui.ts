@@ -195,6 +195,13 @@ export class BrainLabUI {
 		this.stopAuto()
 		try {
 			await fetch(`${API_BASE}/reset`, { method: "POST" })
+			
+			// 清除旧视图，强制重新渲染（修复增量更新导致颜色不刷新问题）
+			const worldContainer = document.getElementById("world-container")
+			if (worldContainer) {
+				worldContainer.innerHTML = ""
+			}
+			
 			await this.refreshState()
 			this.renderer.clearBrainPanel()
 		} catch {
@@ -333,6 +340,12 @@ export class BrainLabUI {
 				for (const log of data.logs) {
 					this.logger.log(log.tag, log.msg)
 				}
+			}
+			
+			// 清除旧视图，强制重新渲染（修复增量更新导致颜色不刷新问题）
+			const worldContainer = document.getElementById("world-container")
+			if (worldContainer) {
+				worldContainer.innerHTML = ""
 			}
 			
 			await this.refreshState()
