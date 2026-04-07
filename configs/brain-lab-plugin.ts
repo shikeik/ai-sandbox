@@ -234,11 +234,20 @@ async function doStep() {
 }
 
 function doMove(action: string) {
-	const validActions = ["LEFT", "RIGHT", "JUMP", "JUMP_LEFT", "JUMP_RIGHT", "JUMP_LEFT_FAR", "JUMP_RIGHT_FAR", "WAIT"]
+	// 移动动作
+	const moveActions = ["LEFT", "RIGHT", "JUMP_LEFT", "JUMP_RIGHT", "JUMP_LEFT_FAR", "JUMP_RIGHT_FAR"]
+	// 查询动作（不移动，只返回信息）
+	const queryActions = ["VIEWPORT"]
+	const validActions = [...moveActions, ...queryActions]
 
 	if (!validActions.includes(action)) {
 		game.log("ERROR", `Invalid action: ${action}`)
 		return { error: `Invalid action: ${action}` }
+	}
+
+	// VIEWPORT: 返回当前视野信息，不移动
+	if (action === "VIEWPORT") {
+		return doViewport()
 	}
 
 	game.stepCount++
@@ -339,5 +348,51 @@ async function doSetLevel(levelName: string) {
 		return { type: "SET_LEVEL", level: "advanced", ok: true }
 	} else {
 		return { error: `Unknown level: ${levelName}` }
+	}
+}
+
+function doViewport() {
+	const state = game.world.getState()
+	game.log("VIEWPORT", `查看视野: 玩家(${state.hero.x}, ${state.hero.y})`)
+	
+	// 计算视野范围（以玩家为中心，左右各3格，上下各2格）
+	const viewWidth = 7
+	const viewHeight = 5
+	const halfW = Math.floor(viewWidth / 2)
+	const halfH = Math.floor(viewHeight / 2)
+	
+	const viewport = {
+		x: Math.max(0, state.hero.x - halfW),
+		y: Math.max(0, state.hero.y - halfH),
+		width: viewWidth,
+		height: viewHeight,
+	}
+	
+	// 提取视野内的格子
+	const grid: string[][] = []
+	for (let dy = 0; dy < viewHeight; dy++) {
+		const row: string[] = []
+		for (let dx = 0; dx < viewWidth; dx++) {
+			const gx = viewport.x + dx
+			const gy = viewport.y + dy
+			if (gy < state.grid.length && gx < state.grid[0].length) {
+				const cell = state.grid[gy][gx]
+				const chars = ["空", "狐", "台", "敌", "终", "刺", "钮"]
+				row.push(chars[cell] || "?")
+			} else {
+				row.push("边")
+			}
+		}
+		grid.push(row)
+	}
+	
+	return {
+		type: "VIEWPORT",
+		hero: state.hero,
+		enemies: state.enemies,
+		viewport: {
+			...viewport,
+			grid
+		}
 	}
 }

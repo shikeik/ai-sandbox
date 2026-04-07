@@ -25,7 +25,7 @@ export class Brain {
 	 * 决策：想象所有可能，选择最好的
 	 */
 	think(state: WorldState): BrainDecision {
-		const actions: ActionType[] = ["LEFT", "RIGHT", "JUMP", "WAIT"]
+		const actions: ActionType[] = ["LEFT", "RIGHT", "JUMP_LEFT", "JUMP_RIGHT", "JUMP_LEFT_FAR", "JUMP_RIGHT_FAR"]
 		const imaginations: Imagination[] = []
 
 		// 对每种动作，想象未来
@@ -91,8 +91,6 @@ export class Brain {
 		const actionNames: Record<ActionType, string> = {
 			LEFT: "左移",
 			RIGHT: "右移",
-			JUMP: "跳跃",
-			WAIT: "等待",
 			JUMP_LEFT: "向左跳",
 			JUMP_RIGHT: "向右跳",
 			JUMP_LEFT_FAR: "左远跳",
@@ -102,7 +100,8 @@ export class Brain {
 		let reason = `选择「${actionNames[best.action]}」，因为：`
 
 		// 分析原因
-		if (best.predictedState.hero.x > all.find(i => i.action === "WAIT")?.predictedState.hero.x!) {
+		const stayAction = all.find(i => i.action === "LEFT")
+		if (stayAction && best.predictedState.hero.x > stayAction.predictedState.hero.x) {
 			reason += "可以向前推进；"
 		}
 

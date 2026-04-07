@@ -36,27 +36,16 @@ export class Predictor {
 				hero.x = Math.min(this.width - 1, hero.x + 1)
 				hero.y = findPlatformY(newState.grid, hero.x, hero.y)
 				break
-
-			case "JUMP": {
-				// 跳跃：x+2，尝试上到更高平台
-				const jumpX = Math.min(this.width - 1, hero.x + 2)
-				// 先检查是否能上到更高层（平台或按钮）- 左下坐标系，y+1是更高
-				const upperY = hero.y + 1
-				if (upperY < this.height && 
-				    (newState.grid[upperY][jumpX] === Element.PLATFORM || 
-				     newState.grid[upperY][jumpX] === Element.BUTTON)) {
-					hero.x = jumpX
-					hero.y = upperY
-				} else {
-					// 否则落到同级或下级
-					hero.x = jumpX
-					hero.y = findPlatformY(newState.grid, hero.x, hero.y)
-				}
-				break
-			}
-
-			case "WAIT":
-				// 什么都不发生
+			
+			// TODO: 添加 JUMP_LEFT, JUMP_RIGHT, JUMP_LEFT_FAR, JUMP_RIGHT_FAR 的预测逻辑
+			// 当前暂时作为 RIGHT 处理
+			case "JUMP_LEFT":
+			case "JUMP_RIGHT":
+			case "JUMP_LEFT_FAR":
+			case "JUMP_RIGHT_FAR":
+				// 暂时简化处理：向右移动并下落
+				hero.x = Math.min(this.width - 1, hero.x + 1)
+				hero.y = findPlatformY(newState.grid, hero.x, hero.y)
 				break
 		}
 

@@ -229,8 +229,6 @@ export class BrainLabUI {
 		// 方向键
 		document.getElementById("btn-left")?.addEventListener("click", () => this.manualMove("LEFT"))
 		document.getElementById("btn-right")?.addEventListener("click", () => this.manualMove("RIGHT"))
-		document.getElementById("btn-up")?.addEventListener("click", () => this.manualMove("JUMP"))
-		document.getElementById("btn-wait")?.addEventListener("click", () => this.manualMove("WAIT"))
 		document.getElementById("btn-jump-left")?.addEventListener("click", () => this.manualMove("JUMP_LEFT"))
 		document.getElementById("btn-jump-right")?.addEventListener("click", () => this.manualMove("JUMP_RIGHT"))
 		document.getElementById("btn-jump-left-far")?.addEventListener("click", () => this.manualMove("JUMP_LEFT_FAR"))
@@ -259,13 +257,6 @@ export class BrainLabUI {
 			"ArrowRight": "RIGHT",
 			"d": "RIGHT",
 			"D": "RIGHT",
-			"ArrowUp": "JUMP",
-			"w": "JUMP",
-			"W": "JUMP",
-			" ": "JUMP",
-			"ArrowDown": "WAIT",
-			"s": "WAIT",
-			"S": "WAIT",
 			"q": "JUMP_LEFT",
 			"Q": "JUMP_LEFT",
 			"e": "JUMP_RIGHT",

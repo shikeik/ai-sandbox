@@ -60,12 +60,6 @@ export function executeAction(
 		case "JUMP_RIGHT_FAR":
 			handleJumpRightFar(ctx)
 			break
-		case "JUMP":
-			handleJump(ctx)
-			break
-		case "WAIT":
-			// 什么都不做
-			break
 	}
 
 	// 检查是否坠入虚空（死亡）
@@ -408,41 +402,6 @@ function handleJumpRightFar(ctx: ActionContext): void {
 	}
 }
 
-/** 处理原地跳 */
-function handleJump(ctx: ActionContext): void {
-	const { hero, animations, logs, state, width, height } = ctx
-	const oldPos = { ...hero }
-
-	const physics = createPhysicsContext(state, width, height)
-	const landingY = findJumpLandingY(physics, hero.x, hero.y)
-
-	logs.push(`[WORLD] 原地跳跃: 扫描落点=${landingY}`)
-
-	if (landingY > hero.y) {
-		// 能跳到更高处
-		hero.y = landingY
-		animations.push({
-			type: "HERO_JUMP",
-			target: "hero",
-			from: oldPos,
-			to: { ...hero },
-			duration: ANIMATION_DURATION.heroJump
-		})
-	} else if (landingY < 0) {
-		// 虚空
-		logs.push("[WORLD] 跳跃后坠入虚空！")
-		hero.y = -1
-		animations.push({
-			type: "HERO_JUMP",
-			target: "hero",
-			from: oldPos,
-			to: { x: hero.x, y: -1 },
-			duration: ANIMATION_DURATION.heroJumpLong
-		})
-		ctx.hero = hero
-	}
-	// 否则原地不动（已经是最高的了）
-}
 
 /** 处理按钮触发效果
  * @param playerAnimDuration 玩家动画时长，按钮动画应在此之后开始
