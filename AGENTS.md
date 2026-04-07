@@ -13,6 +13,7 @@
 **核心体验**：
 - **🦊 单层感知机演示**（`fox-jump`）：玩家控制一只纯 CSS 绘制的狐狸，在 32 格横版地形中右移或跳跃躲避坑洞。可切换为 AI 控制/AI 训练模式，实时观察一个 4→3 单层神经网络的权重变化。
 - **📐 地形实验室**（`terrain-lab`）：监督学习与无监督学习演示。支持地形编辑、带隐藏层的 MLP（多层感知机）动作预测、批量训练、课程学习与可视化（含 Embedding 空间、训练快照、执念曲线）。
+- **🧠 Brain Lab**（`brain-lab`）：有大脑的 AI 演示。AI 具备"想象未来"能力，可推演多步动作结果并选择最优决策。支持按钮-尖刺机关交互、敌人击杀、终点达成等机制，提供 HTTP API 供外部工具调用。
 - **🧮 MLP 神经网络教学**（`mlp-teaching`）：前向传播与反向传播的可视化教学页面。该页面为独立的单文件 HTML，无 TypeScript 源码，所有逻辑与样式均内联在 `pages/mlp-teaching.html` 中。
 - **🔌 API 桥接**（`api-bridge`）：HTTP + WebSocket 桥接，支持外部 CLI 工具与浏览器页面通信。
 
@@ -29,32 +30,37 @@
 | **绘图** | Canvas 2D | 神经网络可视化、地形编辑 |
 | **持久化** | localStorage | 保存玩家最佳通关纪录 |
 | **Node 脚本** | ES Module | 原生 `fs` + `child_process` 实现单文件打包 |
+| **测试框架** | node:test | Node.js 内置测试框架，通过 `tsx` 执行 |
 
 ---
 
 ## 3. 目录结构
 
 ```
-├── index.html                      # 导航入口页（选择四个演示模块）
+├── index.html                      # 导航入口页（选择五个演示模块）
 ├── package.json                    # npm 配置，脚本定义
 ├── package-lock.json               # npm 依赖锁定文件
 ├── configs/                        # 配置文件目录
-│   ├── vite.config.ts              # 多页面 Rollup 配置 + 路径别名
+│   ├── vite.config.ts              # 多页面 Rollup 配置 + 路径别名 + API 插件
 │   ├── tsconfig.json               # TypeScript 严格模式、ES2020
 │   ├── tsconfig.node.json          # Node 配置引用
-│   └── eslint.config.ts            # ESLint 规则（双引号、无分号、禁止 var）
+│   ├── eslint.config.ts            # ESLint 规则（双引号、无分号、禁止 var）
+│   └── brain-lab-plugin.ts         # Brain Lab 开发服务器 API 插件
 ├── deploy.sh                       # 腾讯云服务器部署脚本
 ├── scripts/
 │   ├── build-single-file.mjs       # 将 Vite 构建产物内联为单文件 HTML
 │   ├── test.mjs                    # 测试脚本包装器
 │   ├── fix_logs.sh                 # 日志修复脚本
+│   ├── test-brain-lab-api.sh       # Brain Lab API 测试脚本
 │   └── api-bridge/                 # API 桥接相关脚本
-│       └── formatter.mjs           # 响应格式化工具
+│       ├── formatter.mjs           # 响应格式化工具
+│       └── rules.json              # 游戏规则定义
 ├── pages/                          # 多页面 HTML 入口
 │   ├── fox-jump.html               # 狐狸跳跃游戏页
 │   ├── terrain-lab.html            # 地形实验室页
 │   ├── mlp-teaching.html           # MLP 教学页（独立内联页面，无 TS 源码）
-│   └── api-bridge.html             # API 桥接页
+│   ├── api-bridge.html             # API 桥接页
+│   └── brain-lab.html              # Brain Lab 页
 ├── src/
 │   ├── types.d.ts                  # 全局类型声明（CSS 导入、Vite HMR）
 │   ├── engine/                     # 共享引擎层
@@ -65,7 +71,8 @@
 │   │   │   └── console.css         # 控制台样式
 │   │   └── utils/
 │   │       ├── Logger.ts           # 带标签的日志系统
-│   │       └── canvas.ts           # Canvas 工具函数
+│   │       ├── canvas.ts           # Canvas 工具函数
+│   │       └── assert.ts           # 断言工具
 │   ├── fox-jump/                   # 狐狸跳跃游戏
 │   │   ├── main.ts                 # 游戏入口
 │   │   ├── style.css               # 全局样式、布局、UI 控件
@@ -92,7 +99,7 @@
 │   │       ├── SeededRandom.ts     # Mulberry32 种子化随机数
 │   │       └── timeUtils.ts        # 时间格式化
 │   ├── terrain-lab/                # 地形实验室（监督/无监督学习 + MLP）
-│   │   ├── main.ts                 # 地形实验室入口（管理三个 Tab）
+│   │   ├── main.ts                 # 地形实验室入口（管理四个 Tab）
 │   │   ├── TrainingEntry.ts        # 训练 Tab 入口
 │   │   ├── ChallengeEntry.ts       # 连续挑战 Tab 入口
 │   │   ├── MapGeneratorEntry.ts    # 地图生成器 Tab 入口
@@ -124,6 +131,35 @@
 │   │       ├── GridWorldRenderer.ts # 渲染器
 │   │       ├── GridWorldAnimator.ts # 动画器
 │   │       └── types.ts            # 类型定义
+│   ├── brain-lab/                  # Brain Lab（有大脑的 AI）
+│   │   ├── main.ts                 # Brain Lab 入口
+│   │   ├── config.ts               # 配置常量（关卡、动画时长、奖励值）
+│   │   ├── core/                   # 核心游戏逻辑
+│   │   │   ├── index.ts            # 核心模块入口
+│   │   │   ├── game-world.ts       # 游戏世界（状态管理、动作执行）
+│   │   │   ├── actions.ts          # 动作执行逻辑（移动、跳跃）
+│   │   │   ├── level.ts            # 关卡解析与状态创建
+│   │   │   ├── physics.ts          # 物理计算（碰撞检测、抛物线）
+│   │   │   └── predictor.ts        # 状态预测器（用于 AI 想象）
+│   │   ├── ai/                     # AI 大脑
+│   │   │   ├── index.ts            # AI 模块入口
+│   │   │   └── brain.ts            # 大脑决策（想象 + 规划 + 决策）
+│   │   ├── ui/                     # UI 层
+│   │   │   ├── index.ts            # UI 入口
+│   │   │   ├── ui-manager.ts       # UI 管理器
+│   │   │   ├── brain-lab-ui.ts     # Brain Lab 主 UI
+│   │   │   └── transition-manager.ts # 转场管理器
+│   │   ├── render/                 # 渲染层
+│   │   │   ├── index.ts            # 渲染入口
+│   │   │   └── dom-renderer.ts     # DOM 渲染器
+│   │   └── types/                  # 类型定义
+│   │       ├── index.ts            # 类型入口
+│   │       ├── world.ts            # 世界相关类型
+│   │       ├── action.ts           # 动作相关类型
+│   │       ├── ai.ts               # AI 相关类型
+│   │       ├── element.ts          # 元素类型
+│   │       ├── position.ts         # 位置类型
+│   │       └── api.ts              # API 类型
 │   └── api-bridge/                 # API 桥接
 │       └── main.ts                 # API 桥接入口
 ├── test/                           # 测试目录
@@ -137,6 +173,16 @@
 │   └── ts/                         # TypeScript 调试脚本
 │       └── terrain-lab/
 │           └── debug-generate.ts   # 地形生成调试
+├── docs/                           # 文档目录
+│   ├── brain-lab-快速开始.md      # Brain Lab 快速开始指南
+│   ├── brain-lab-redesign.md       # Brain Lab 设计文档
+│   ├── TODO.md                     # 待办事项
+│   ├── 坑与经验/                   # 开发经验总结
+│   ├── 思维备案/                   # 思维备份
+│   ├── 教程/                       # 教程文档
+│   ├── 脚本/                       # 脚本说明
+│   ├── 规范/                       # 代码规范
+│   └── 讨论/                       # 讨论记录
 └── dist/                           # Vite 构建输出目录
 ```
 
@@ -242,6 +288,7 @@ npm run test:dir <目录名>          # 跑指定目录下的单元测试
 - `[TRAINING]` — 训练入口
 - `[CHALLENGE]` — 挑战模式
 - `[MAP-GEN]` — 地图生成器
+- `[BRAIN-LAB]` / `[BRAIN]` / `[STEP]` / `[ACTION]` — Brain Lab 相关
 
 ---
 
@@ -351,14 +398,69 @@ npm run test:slow
 - `GridWorldRenderer`：渲染器，绘制网格、元素 Emoji、动画
 - `GridWorldAnimator`：动画器，处理狐狸移动/跳跃/远跳动画
 
-### 8.4 MLP 教学（`mlp-teaching`）
+### 8.4 Brain Lab（`brain-lab`）
+
+**游戏世界**：基于物理的平台跳跃世界，采用左下坐标系。
+
+**元素类型**：
+- 空气（0）：可通过
+- 狐狸（1）：玩家角色
+- 平台（2）：可站立
+- 敌人（3）：可被尖刺击杀
+- 终点（4）：通关目标
+- 尖刺（5）：危险物，下落会击杀敌人
+- 按钮（6）：触发机关，使对应颜色的尖刺下落
+
+**动作空间**（6 种）：
+- `LEFT`：向左移动一格
+- `RIGHT`：向右移动一格
+- `JUMP_LEFT`：向左跳跃（x-1, y+2）
+- `JUMP_RIGHT`：向右跳跃（x+1, y+2）
+- `JUMP_LEFT_FAR`：向左远跳（x-2, y+2）
+- `JUMP_RIGHT_FAR`：向右远跳（x+2, y+2）
+
+**AI 大脑**（`Brain`）：
+- **想象（Imagine）**：对每个可能的动作，推演未来状态
+- **预测（Predict）**：使用物理引擎预测动作执行后的世界状态
+- **评估（Evaluate）**：计算预测状态的奖励值（距离终点、击杀敌人、避免死亡）
+- **规划（Planning）**：支持多步想象（可配置深度 1-10）
+- **决策（Decide）**：选择预测奖励最高的动作
+
+**奖励设计**：
+- 到达终点：`+1000`
+- 击杀敌人：`+50`
+- 每向右一步：`+10`
+- 死亡：`-100`
+
+**关卡系统**：
+- 默认关卡（10×5）：单按钮单尖刺设计，教学性质
+- 进阶关卡（12×8）：双按钮双尖刺设计，需要策略规划
+
+**HTTP API**（开发服务器）：
+Brain Lab 提供 REST API 供外部工具调用：
+
+| 端点 | 方法 | 说明 |
+|------|------|------|
+| `/api/brain-lab/state` | GET | 获取当前世界状态 |
+| `/api/brain-lab/step` | POST | 执行 AI 单步决策并移动 |
+| `/api/brain-lab/move` | POST | 手动执行动作（action 参数） |
+| `/api/brain-lab/reset` | POST | 重置游戏 |
+| `/api/brain-lab/think` | GET | AI 思考但不执行（返回决策分析） |
+| `/api/brain-lab/set-depth` | POST | 设置 AI 想象深度（1-10） |
+| `/api/brain-lab/set-level` | POST | 切换关卡（default/advanced） |
+| `/api/brain-lab/logs` | GET | 获取最近 200 条日志 |
+| `/api/brain-lab/clear-logs` | POST | 清空日志 |
+
+API 插件位于 `configs/brain-lab-plugin.ts`，仅在开发服务器启用。
+
+### 8.5 MLP 教学（`mlp-teaching`）
 
 独立 HTML 页面（`pages/mlp-teaching.html`），**无构建步骤**，所有 CSS 与 JavaScript 均内联：
 - 网络结构：2 输入 → 2 隐藏（ReLU）→ 1 输出
 - 可交互设置输入值、目标输出、学习率
 - 实时显示计算过程与权重更新
 
-### 8.5 API 桥接（`api-bridge`）
+### 8.6 API 桥接（`api-bridge`）
 
 HTTP + WebSocket 桥接页面（`pages/api-bridge.html`）：
 - 接收外部 HTTP POST 请求（如 CLI、curl）
@@ -366,11 +468,13 @@ HTTP + WebSocket 桥接页面（`pages/api-bridge.html`）：
 - 支持请求/响应模式，超时 30 秒
 - 用于外部工具与浏览器页面的双向通信
 
+Vite 开发服务器配置中的 `apiBridgePlugin` 提供 `/api/kimi` 端点。
+
 ---
 
 ## 9. 多页面入口与导航
 
-Vite 配置中通过 `rollupOptions.input` 定义 4 个入口：
+Vite 配置中通过 `rollupOptions.input` 定义 5 个入口：
 
 | 入口 | HTML | 说明 |
 |------|------|------|
@@ -379,6 +483,7 @@ Vite 配置中通过 `rollupOptions.input` 定义 4 个入口：
 | `terrain-lab` | `pages/terrain-lab.html` | 地形实验室 |
 | `mlp-teaching` | `pages/mlp-teaching.html` | MLP 教学 |
 | `api-bridge` | `pages/api-bridge.html` | API 桥接 |
+| `brain-lab` | `pages/brain-lab.html` | Brain Lab |
 
 `npm run build` 在 `dist/` 中生成对应的多页面资源。
 
@@ -403,6 +508,7 @@ Vite 配置中通过 `rollupOptions.input` 定义 4 个入口：
 | `dist/terrain-lab.html` | 地形实验室 |
 | `dist/mlp-teaching.html` | MLP 教学（本身已是单文件，再次复制）|
 | `dist/api-bridge.html` | API 桥接页面 |
+| `dist/brain-lab.html` | Brain Lab 页面 |
 
 ---
 
@@ -446,6 +552,7 @@ Vite 配置中通过 `rollupOptions.input` 定义 4 个入口：
 - `tsconfig.json`
 - `tsconfig.node.json`
 - `eslint.config.ts`
+- `brain-lab-plugin.ts`
 
 npm 脚本已更新以指向新位置。
 
@@ -461,6 +568,19 @@ npm 脚本已更新以指向新位置。
 - 样式：`#neuron-area` 和 `#neuron-area.collapsed`
 - 按钮绑定：`main.ts` 中的 `bindToolbarButtons()`
 
+### 11.10 Brain Lab 关卡地图定义
+
+关卡使用全角字符定义（`src/brain-lab/config.ts`）：
+- `．`（全角句点）：空气
+- `＃`（全角井号）：平台
+- `！`（全角叹号）：按钮
+- `￡`（全角英镑）：终点
+- `＾`（全角脱字符）：尖刺
+- `￠`（全角分币）：敌人（下方需要平台支撑）
+- `＠`（全角 at）：玩家起点
+
+地图数组在代码中会反转（视觉第 0 行对应代码最后一行），以符合直觉的"从上到下"编辑体验。
+
 ---
 
-*最后更新：2026-04-06*
+*最后更新：2026-04-07*
