@@ -338,7 +338,8 @@ export class BrainLabUI {
 			// 将服务器日志输出到客户端 ConsolePanel
 			if (data.logs) {
 				for (const log of data.logs) {
-					this.logger.log(log.tag, log.msg)
+					// Logger.log() 的 tag 固定是 logger.name，所以把服务器 tag 合并到 message
+					this.logger.log(`[${log.tag}] ${log.msg}`)
 				}
 			}
 			
