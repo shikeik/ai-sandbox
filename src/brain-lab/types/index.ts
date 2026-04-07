@@ -18,10 +18,3 @@ export type {
 
 // 世界
 export type { WorldState, WorldSize, LevelData, SpikeState, ButtonSpikeBinding } from "./world.js"
-
-// AI
-export type { 
-	Imagination, 
-	BrainDecision, 
-	ExplorationMemory 
-} from "./ai.js"

@@ -36,11 +36,14 @@ export function setAssertLogHandler(handler: AssertLogHandler | null) {
 }
 
 /** 内部日志输出 */
-function logAssert(tag: string, message: string, context?: Record<string, unknown>) {
-	if (AssertConfig.logHandler) {
-		AssertConfig.logHandler(tag, message, context)
+function logAssert(tag: string, status: string, message: string, context?: Record<string, unknown>) {
+	// 直接输出到控制台，Logger 系统会捕获并显示
+	// 格式: "TAG", "[STATUS] message", context
+	if (context) {
+		console.log(tag, `[${status}] ${message}`, context)
+	} else {
+		console.log(tag, `[${status}] ${message}`)
 	}
-	// 同时输出到控制台
 }
 
 /** 基础断言 */
@@ -75,12 +78,12 @@ export function assertEq<T>(
 
 	// verbose 模式下始终输出
 	if (AssertConfig.level === "verbose") {
-		const status = passed ? "✅ PASS" : "❌ FAIL"
-		logAssert(status, `${message} (expected: ${expected}, actual: ${actual})`, fullContext)
+		const status = passed ? "PASS" : "FAIL"
+		logAssert("ASSERT", status, `${message} (expected: ${expected}, actual: ${actual})`, fullContext)
 	}
 	// error-only 模式下只输出失败
 	else if (AssertConfig.level === "error-only" && !passed) {
-		logAssert("❌ FAIL", `${message} (expected: ${expected}, actual: ${actual})`, fullContext)
+		logAssert("ASSERT", "FAIL", `${message} (expected: ${expected}, actual: ${actual})`, fullContext)
 	}
 
 	return assert(passed, `${message} (expected: ${expected}, actual: ${actual})`, fullContext)

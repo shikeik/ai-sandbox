@@ -103,21 +103,6 @@ export const ADVANCED_LEVEL_MAP: LevelData = {
 	]
 }
 
-/** AI配置 */
-export const AI_CONFIG = {
-	defaultDepth: 3,        // 默认想象深度
-	discountFactor: 0.9,    // 奖励折扣因子
-	planningSteps: 2,       // 规划步数
-} as const
-
-/** 奖励值 */
-export const REWARDS = {
-	reachGoal: 1000,        // 到达终点
-	killEnemy: 50,          // 击杀敌人
-	perStepX: 10,           // 每向右一步
-	death: -100,            // 死亡
-} as const
-
 /**
  * 根据坐标生成确定性随机颜色
  * 相同坐标永远返回相同颜色

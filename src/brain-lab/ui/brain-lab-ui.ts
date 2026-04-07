@@ -4,7 +4,7 @@ import { DOMRenderer } from "../render/index.js"
 import { Logger } from "../../engine/utils/Logger.js"
 import { ConsolePanel } from "../../engine/console/ConsolePanel.js"
 import { DEFAULT_LEVEL_MAP, ADVANCED_LEVEL_MAP } from "../config.js"
-import type { APIStateResponse, APIStepResponse, APIMoveResponse } from "../types/api.js"
+import type { APIStateResponse, APIMoveResponse } from "../types/api.js"
 import { UIManager } from "./ui-manager.js"
 import { TransitionManager } from "./transition-manager.js"
 
@@ -12,14 +12,10 @@ const API_BASE = "/api/brain-lab"
 
 type LevelName = "default" | "advanced"
 
-export type TabType = "ai" | "manual"
-
 /**
  * Brain Lab UI 控制器
  * 
  * 职责：
- * - Tab 切换管理
- * - AI 控制（单步、自动、重置）
  * - 手动控制（键盘、按钮）
  * - 状态刷新与渲染
  */
@@ -28,17 +24,15 @@ export class BrainLabUI {
 	private uiManager!: UIManager
 	private transitionManager!: TransitionManager
 	private isRunning: boolean = false
-	private autoPlayInterval: number | null = null
 	private logger!: Logger
 	private consolePanel!: ConsolePanel
 	private currentState: APIStateResponse | null = null
-	private currentTab: TabType = "ai"
 	private currentLevel: LevelName = "default"
 
 	constructor() {
 		try {
 			// 初始化日志系统
-			this.logger = new Logger("[BRAIN-LAB]")
+			this.logger = new Logger("BRAIN-LAB")
 			this.consolePanel = new ConsolePanel("#console-panel", this.logger)
 			this.consolePanel.init()
 			this.consolePanel.open()
@@ -49,19 +43,12 @@ export class BrainLabUI {
 
 			// 检查容器
 			const worldContainer = this.uiManager.getElement("world-container")
-			const brainContainer = this.uiManager.getElement("brain-container")
-
 			if (!worldContainer) {
 				throw new Error("找不到 world-container 元素")
 			}
-			if (!brainContainer) {
-				throw new Error("找不到 brain-container 元素")
-			}
 
-			this.renderer = new DOMRenderer("world-container", "brain-container")
-			this.bindTabControls()
-			this.bindAIControls()
-			this.bindManualControls()
+			this.renderer = new DOMRenderer("world-container")
+			this.bindControls()
 
 			// 初始渲染
 			this.refreshState()
@@ -80,164 +67,15 @@ export class BrainLabUI {
 	 */
 	private exposeDebugAPI(): void {
 		;(window as unknown as Record<string, unknown>).brainLabDebug = {
-			step: () => this.step(),
 			reset: () => this.reset(),
 			state: () => this.refreshState(),
 			move: (action: string) => this.manualMove(action),
-			logs: () => fetch(`${API_BASE}/logs`, { method: "POST" }).then(r => r.json()),
-			clearLogs: () => fetch(`${API_BASE}/clear-logs`, { method: "POST" })
 		}
 	}
 
-	// ========== Tab 切换 ==========
+	// ========== 控制绑定 ==========
 
-	private bindTabControls(): void {
-		const tabBtns = document.querySelectorAll(".tab-btn")
-		tabBtns.forEach(btn => {
-			btn.addEventListener("click", () => {
-				const tab = btn.getAttribute("data-tab") as TabType
-				this.switchTab(tab)
-			})
-		})
-	}
-
-	private switchTab(tab: TabType): void {
-		this.currentTab = tab
-		this.uiManager.switchTab(tab)
-
-		// 如果切换到 AI 模式，自动刷新一次状态
-		if (tab === "ai") {
-			this.refreshState()
-		}
-	}
-
-	// ========== AI 控制 ==========
-
-	private bindAIControls(): void {
-		document.getElementById("btn-step")?.addEventListener("click", () => this.step())
-		document.getElementById("btn-auto")?.addEventListener("click", () => this.toggleAuto())
-		document.getElementById("btn-reset")?.addEventListener("click", () => this.reset())
-
-		document.getElementById("depth-slider")?.addEventListener("input", (e) => {
-			const depth = parseInt((e.target as HTMLInputElement).value)
-			this.setDepth(depth)
-		})
-	}
-
-	/**
-	 * AI 单步执行
-	 */
-	async step(): Promise<void> {
-		if (this.isRunning) return
-		this.isRunning = true
-
-		try {
-			const res = await fetch(`${API_BASE}/step`, { method: "POST" })
-			const data = await res.json() as APIMoveResponse
-
-			// 渲染大脑思考
-			this.renderer.renderImaginationFromAPI(data)
-
-			// 播放动画
-			if (data.animations && data.animations.length > 0) {
-				await this.renderer.playAnimations(data.animations)
-			}
-
-			// 检查死亡
-			if (data.result?.dead) {
-				await this.handleDeath()
-				return
-			}
-
-			// 检查胜利（在刷新状态前处理，保持玩家在终点位置）
-			if (data.result?.reachedGoal) {
-				this.stopAuto()
-				await this.handleVictory()
-				return
-			}
-
-			// 动画完成后刷新状态
-			await this.refreshState()
-		} catch {
-			// 静默处理错误
-		}
-
-		this.isRunning = false
-	}
-
-	/**
-	 * 切换自动运行
-	 */
-	private toggleAuto(): void {
-		if (this.autoPlayInterval) {
-			this.stopAuto()
-		} else {
-			this.uiManager.updateAutoButton(true)
-			this.autoPlayInterval = window.setInterval(() => this.step(), 2000)
-		}
-	}
-
-	/**
-	 * 停止自动运行
-	 */
-	stopAuto(): void {
-		if (this.autoPlayInterval) {
-			clearInterval(this.autoPlayInterval)
-			this.autoPlayInterval = null
-			this.uiManager.updateAutoButton(false)
-		}
-	}
-
-	/**
-	 * 重置游戏
-	 */
-	async reset(): Promise<void> {
-		this.stopAuto()
-		try {
-			await fetch(`${API_BASE}/reset`, { method: "POST" })
-			
-			// 清除旧视图，强制重新渲染（修复增量更新导致颜色不刷新问题）
-			const worldContainer = document.getElementById("world-container")
-			if (worldContainer) {
-				worldContainer.innerHTML = ""
-			}
-			
-			await this.refreshState()
-			
-			// 客户端自行记录断言日志
-			if (this.currentState) {
-				for (let i = 0; i < this.currentState.triggers.length; i++) {
-					const passed = this.currentState.triggers[i] === false
-					const status = passed ? "✅ PASS" : "❌ FAIL"
-					this.logger.log(`[ASSERT] ${status}: 按钮${i}重置后状态断言 (expected: false, actual: ${this.currentState.triggers[i]})`)
-				}
-			}
-			
-			this.renderer.clearBrainPanel()
-		} catch {
-			// 静默处理错误
-		}
-	}
-
-	/**
-	 * 设置想象深度
-	 */
-	async setDepth(depth: number): Promise<void> {
-		try {
-			await fetch(`${API_BASE}/set-depth`, {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ depth })
-			})
-			this.uiManager.updateDepthValue(depth)
-		} catch {
-			// 静默处理错误
-		}
-	}
-
-	// ========== 手动控制 ==========
-
-	private bindManualControls(): void {
+	private bindControls(): void {
 		// 方向键
 		document.getElementById("btn-left")?.addEventListener("click", () => this.manualMove("LEFT"))
 		document.getElementById("btn-right")?.addEventListener("click", () => this.manualMove("RIGHT"))
@@ -247,7 +85,7 @@ export class BrainLabUI {
 		document.getElementById("btn-jump-right-far")?.addEventListener("click", () => this.manualMove("JUMP_RIGHT_FAR"))
 
 		// 重置按钮
-		document.getElementById("btn-manual-reset")?.addEventListener("click", () => this.manualReset())
+		document.getElementById("btn-reset")?.addEventListener("click", () => this.reset())
 
 		// 关卡切换按钮
 		document.getElementById("btn-switch-level")?.addEventListener("click", () => this.switchLevel())
@@ -260,8 +98,6 @@ export class BrainLabUI {
 	 * 处理键盘事件
 	 */
 	private handleKeyDown(e: KeyboardEvent): void {
-		if (this.currentTab !== "manual") return
-
 		const keyMap: Record<string, string> = {
 			"ArrowLeft": "LEFT",
 			"a": "LEFT",
@@ -301,7 +137,7 @@ export class BrainLabUI {
 			})
 			const data = await res.json() as APIMoveResponse
 
-			if (data.error) {
+			if ("error" in data && data.error) {
 				this.showToast(`❌ ${data.error}`)
 				this.isRunning = false
 				return
@@ -327,9 +163,6 @@ export class BrainLabUI {
 			// 刷新状态
 			await this.refreshState()
 
-			// 更新手动模式的位置显示
-			this.updateManualPosition(data.to)
-
 		} catch {
 			// 静默处理错误
 		}
@@ -338,30 +171,19 @@ export class BrainLabUI {
 	}
 
 	/**
-	 * 手动重置
+	 * 重置游戏
 	 */
-	async manualReset(): Promise<void> {
+	async reset(): Promise<void> {
 		try {
 			await fetch(`${API_BASE}/reset`, { method: "POST" })
 			
-			// 清除旧视图，强制重新渲染（修复增量更新导致颜色不刷新问题）
+			// 清除旧视图，强制重新渲染
 			const worldContainer = document.getElementById("world-container")
 			if (worldContainer) {
 				worldContainer.innerHTML = ""
 			}
 			
 			await this.refreshState()
-			
-			// 客户端自行记录断言日志
-			if (this.currentState) {
-				for (let i = 0; i < this.currentState.triggers.length; i++) {
-					const passed = this.currentState.triggers[i] === false
-					const status = passed ? "✅ PASS" : "❌ FAIL"
-					this.logger.log(`[ASSERT] ${status}: 按钮${i}重置后状态断言 (expected: false, actual: ${this.currentState.triggers[i]})`)
-				}
-			}
-			
-			this.updateManualPosition({ x: 1, y: 1 })
 			this.showToast("🔄 游戏已重置")
 		} catch {
 			// 静默处理错误
@@ -391,11 +213,10 @@ export class BrainLabUI {
 			}
 
 			// 重新初始化渲染器（因为世界尺寸可能改变）
-			this.renderer = new DOMRenderer("world-container", "brain-container")
+			this.renderer = new DOMRenderer("world-container")
 
 			// 刷新状态并强制渲染新地图
 			await this.refreshState()
-			this.updateManualPosition({ x: 1, y: 1 })
 			this.showToast(`🗺️ 已切换到：${levelData.name}`)
 		} catch {
 			// 静默处理错误
@@ -404,18 +225,12 @@ export class BrainLabUI {
 	}
 
 	/**
-	 * 处理死亡 - 同时显示骷髅头和渐暗，渐亮时间拉长
-	 * 渐暗: 400ms, 停顿: 100ms, 渐亮: 800ms
-	 */
-
-	/**
 	 * 处理死亡
 	 */
 	private async handleDeath(): Promise<void> {
 		await this.transitionManager.playTransition("death", async () => {
 			await fetch(`${API_BASE}/reset`, { method: "POST" })
 			await this.refreshState()
-			this.updateManualPosition({ x: 1, y: 1 })
 		})
 		this.isRunning = false
 	}
@@ -427,15 +242,8 @@ export class BrainLabUI {
 		await this.transitionManager.playTransition("victory", async () => {
 			await fetch(`${API_BASE}/reset`, { method: "POST" })
 			await this.refreshState()
-			this.updateManualPosition({ x: 1, y: 1 })
 		})
 		this.isRunning = false
-	}
-	/**
-	 * 更新手动模式位置显示（游戏视图内的 HUD）
-	 */
-	private updateManualPosition(pos: { x: number; y: number }): void {
-		this.uiManager.updatePositionHUD(pos)
 	}
 
 	// ========== 状态管理 ==========
@@ -451,18 +259,14 @@ export class BrainLabUI {
 				throw new Error(`HTTP ${res.status}: ${res.statusText}`)
 			}
 
-			const data = await res.json() as APIMoveResponse
+			const data = await res.json() as APIStateResponse
 			this.currentState = data
 
-			if (!data.gridRaw && !data.grid) {
+			if (!data.gridRaw && !("grid" in data)) {
 				throw new Error("API返回数据缺少gridRaw/grid字段")
 			}
 
 			this.renderer.renderWorldFromAPI(data)
-
-			if (data.hero) {
-				this.updateManualPosition(data.hero)
-			}
 
 		} catch {
 			// 静默处理错误

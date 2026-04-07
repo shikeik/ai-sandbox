@@ -27,9 +27,6 @@ export class UIManager {
 	private cacheElements(): void {
 		const ids = [
 			"world-container",
-			"brain-container",
-			"btn-auto",
-			"depth-value",
 			"message",
 			"console-panel",
 		]
@@ -64,24 +61,6 @@ export class UIManager {
 			const isActive = content.id === `tab-${tab}`
 			content.classList.toggle("active", isActive)
 		})
-	}
-
-	// ========== 按钮状态 ==========
-
-	/**
-	 * 更新自动运行按钮状态
-	 */
-	updateAutoButton(isRunning: boolean): void {
-		const btn = this.getElement("btn-auto")
-		if (btn) btn.textContent = isRunning ? "⏸️ 暂停" : "▶️ 自动"
-	}
-
-	/**
-	 * 更新深度显示值
-	 */
-	updateDepthValue(depth: number): void {
-		const el = this.getElement("depth-value")
-		if (el) el.textContent = depth.toString()
 	}
 
 	// ========== 位置显示 ==========
@@ -128,23 +107,6 @@ export class UIManager {
 			el.classList.remove("show")
 			this.toastTimeout = null
 		}, 1500)
-	}
-
-	// ========== 大脑面板 ==========
-
-	/**
-	 * 清空大脑面板
-	 */
-	clearBrainPanel(): void {
-		const container = this.getElement("brain-container")
-		if (container) {
-			container.innerHTML = `
-				<div class="brain-placeholder">
-					点击「单步」按钮<br>
-					观察AI如何想象未来并决策
-				</div>
-			`
-		}
 	}
 
 	// ========== 世界容器 ==========

@@ -3,9 +3,6 @@
 // 主世界类
 export { GameWorld } from "./game-world.js"
 
-// 预测器（AI用）
-export { Predictor } from "./predictor.js"
-
 // 关卡相关
 export { 
 	createStateFromLevel, 

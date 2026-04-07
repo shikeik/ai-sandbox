@@ -1,6 +1,6 @@
 // ========== Brain Lab API 响应类型定义 ==========
 
-import type { WorldState, Position, AnimationEvent, BrainDecision } from "./index.js"
+import type { WorldState, Position, AnimationEvent } from "./index.js"
 
 /** 基础 API 响应 */
 export interface APIResponse {
@@ -28,29 +28,6 @@ export interface APIStateResponse {
 	gridRaw: number[][]
 }
 
-/** AI 单步执行响应 */
-export interface APIStepResponse extends APIResponse {
-	type: "AI_STEP"
-	decision: {
-		action: string
-		reasoning: string
-		imaginations: {
-			action: string
-			predictedPos: Position
-			predictedReward: number
-			killedEnemy: boolean
-		}[]
-	}
-	animations: AnimationEvent[]
-	result: {
-		newPos: Position
-		enemiesRemaining: number
-		reachedGoal: boolean
-		triggered: boolean[]
-		dead: boolean
-	}
-}
-
 /** 手动移动响应 */
 export interface APIMoveResponse extends APIResponse {
 	type: "MANUAL_MOVE"
@@ -70,29 +47,6 @@ export interface APIMoveResponse extends APIResponse {
 export interface APIResetResponse extends APIResponse {
 	type: "RESET"
 	state: APIStateResponse
-}
-
-/** 思考模式响应 */
-export interface APIThinkResponse extends APIResponse {
-	type: "THINK_ONLY"
-	currentPos: Position
-	decision: {
-		selected: string
-		reasoning: string
-		allOptions: {
-			action: string
-			predictedPos: Position
-			predictedReward: number
-			killedEnemy: boolean
-		}[]
-	}
-}
-
-/** 设置深度响应 */
-export interface APISetDepthResponse {
-	type: "SET_DEPTH"
-	depth: number
-	ok: boolean
 }
 
 /** 设置关卡响应 */

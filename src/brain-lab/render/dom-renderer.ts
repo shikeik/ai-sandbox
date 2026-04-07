@@ -1,7 +1,7 @@
 // ========== DOM渲染器 ==========
 
-import type { WorldState, AnimationEvent, BrainDecision, Position, SpikeState } from "../types/index.js"
-import type { APIStateResponse, APIStepResponse } from "../types/api.js"
+import type { WorldState, AnimationEvent, Position, SpikeState } from "../types/index.js"
+import type { APIStateResponse } from "../types/api.js"
 import { Element } from "../types/index.js"
 import { RENDER_CONFIG, ANIMATION_DURATION, getColorByPosition } from "../config.js"
 
@@ -18,7 +18,6 @@ interface RendererConfig {
  */
 export class DOMRenderer {
 	private worldContainer: HTMLElement
-	private brainContainer: HTMLElement
 	private viewportElement: HTMLElement | null = null
 	private worldContentElement: HTMLElement | null = null
 	private heroElement: HTMLElement | null = null
@@ -35,11 +34,10 @@ export class DOMRenderer {
 	private cameraY: number = 0
 	private worldWidth: number = 0
 	private worldHeight: number = 0
-	private isCinematicMode: boolean = false  // 演出镜头模式
+	private isCinematicMode: boolean = false
 
-	constructor(worldId: string, brainId: string) {
+	constructor(worldId: string) {
 		this.worldContainer = document.getElementById(worldId)!
-		this.brainContainer = document.getElementById(brainId)!
 		this.config = this.createConfig()
 		window.addEventListener("resize", () => {
 			this.config = this.createConfig()
@@ -198,189 +196,70 @@ export class DOMRenderer {
 				const enemyDisplayY = height - 1 - enemy.y
 				const key = `enemy-${enemy.x}-${enemy.y}`
 				const el = this.createGameObject(key, "👿", enemy.x, enemyDisplayY, 20)
-				this.enemyElements.set(key, el)
 				objectsLayer.appendChild(el)
+				this.enemyElements.set(key, el)
 			})
 		}
 
-		// 更新尖刺位置（跳过正在下落的尖刺，让CSS动画控制位置）
-		spikes.forEach((spike, idx) => {
-			const spikeEl = this.spikeElements.get(`spike-${idx}`)
-			if (spikeEl && !spike.falling) {
+		// 更新尖刺位置（动画中可能已经移动）
+		spikes.forEach((spike) => {
+			const key = `spike-${spike.x}-${spike.initialY}`
+			const spikeEl = this.spikeElements.get(key)
+			if (spikeEl) {
 				const spikeDisplayY = height - 1 - spike.currentY
 				const targetTop = spikeDisplayY * (this.config.cellSize + this.config.gap)
+				const targetLeft = spike.x * (this.config.cellSize + this.config.gap)
 				spikeEl.style.top = `${targetTop}px`
+				spikeEl.style.left = `${targetLeft}px`
 			}
 		})
 
-		// 更新按钮状态
-		const buttonBase = this.worldContainer.querySelector(".cell.button-base") as HTMLElement
-		if (buttonBase) {
-			const buttonIcon = buttonBase.querySelector(".button-icon")
-			if (triggers[0]) {
-				// 已触发：移除图标
-				if (buttonIcon) {
-					buttonIcon.remove()
-				}
-			} else {
-				// 未触发：添加图标（如果不存在）
-				if (!buttonIcon) {
-					buttonBase.innerHTML = "<div class=\"button-icon\">🔘</div>"
+		// 更新按钮状态（视觉变化）
+		triggers.forEach((triggered, idx) => {
+			if (triggered) {
+				const buttonEl = this.worldContainer.querySelector(`.button-${idx}`)
+				if (buttonEl) {
+					buttonEl.classList.add("pressed")
 				}
 			}
-		}
-
-		// 重置所有终点旗子的样式（清除可能残留的发光效果）
-		const goalCells = this.worldContainer.querySelectorAll(".cell.goal")
-		goalCells.forEach((cell) => {
-			const el = cell as HTMLElement
-			el.style.transform = ""
-			el.style.filter = ""
-			el.style.transition = ""
 		})
 
-		// 平滑移动相机到新位置（使用 transition）
-		this.smoothCameraTo(hero.x, Math.max(0, hero.y))
-	}
-
-	/**
-	 * 更新相机位置 - 实时跟随玩家，不限制边界
-	 */
-	private updateCamera(heroX: number, heroY: number, height: number): void {
-		const heroPixelX = heroX * (this.config.cellSize + this.config.gap)
-		const heroPixelY = (height - 1 - heroY) * (this.config.cellSize + this.config.gap)
-
-		// 获取实际视口尺寸
-		const viewportWidth = this.viewportElement?.clientWidth || this.config.viewportWidth
-		const viewportHeight = this.viewportElement?.clientHeight || this.config.viewportHeight
-
-		// 目标相机位置（让英雄在中央），不限制边界
-		this.cameraX = heroPixelX - viewportWidth / 2 + this.config.cellSize / 2
-		this.cameraY = heroPixelY - viewportHeight / 2 + this.config.cellSize / 2
-	}
-
-	/**
-	 * 应用相机变换
-	 */
-	private applyCamera(): void {
-		if (this.worldContentElement) {
+		// 更新相机位置
+		this.updateCamera(hero.x, hero.y, height)
+		if (this.worldContentElement && !this.isCinematicMode) {
 			this.worldContentElement.style.transform = `translate(${-this.cameraX}px, ${-this.cameraY}px)`
 		}
-	}
 
-	/**
-	 * 平滑移动相机
-	 */
-	private smoothCameraTo(heroX: number, heroY: number): void {
-		// 演出镜头模式下不跟随玩家
-		if (this.isCinematicMode) return
-
-		const height = this.getGridHeight()
-		// 确保 viewportElement 已设置
-		if (!this.viewportElement) {
-			this.viewportElement = this.worldContainer.querySelector(".world-viewport") as HTMLElement
+		// 更新位置显示
+		const hud = this.worldContainer.querySelector(".position-hud")
+		if (hud) {
+			hud.textContent = `(${hero.x}, ${hero.y})`
 		}
-		this.updateCamera(heroX, heroY, height)
-		this.applyCamera()
 	}
 
 	/**
-	 * 演出镜头：移动到指定位置
-	 * @param targetX 目标X坐标（像素）
-	 * @param targetY 目标Y坐标（像素）
-	 * @param duration 动画时长（毫秒）
-	 * @returns Promise，动画完成后 resolve
+	 * 更新相机位置
 	 */
-	async cinematicMoveTo(targetX: number, targetY: number, duration: number = 800): Promise<void> {
-		this.isCinematicMode = true
+	private updateCamera(heroX: number, heroY: number, gridHeight: number): void {
+		// 英雄的像素位置
+		const heroPixelX = heroX * (this.config.cellSize + this.config.gap)
+		const heroDisplayY = gridHeight - 1 - heroY
+		const heroPixelY = heroDisplayY * (this.config.cellSize + this.config.gap)
 
-		const viewportWidth = this.viewportElement?.clientWidth || this.config.viewportWidth
-		const viewportHeight = this.viewportElement?.clientHeight || this.config.viewportHeight
+		// 视口中心
+		const viewportCenterX = this.config.viewportWidth / 2
+		const viewportCenterY = (gridHeight * (this.config.cellSize + this.config.gap)) / 2
 
-		// 目标相机位置（让目标点在视口中央）
-		const targetCameraX = targetX - viewportWidth / 2 + this.config.cellSize / 2
-		const targetCameraY = targetY - viewportHeight / 2 + this.config.cellSize / 2
+		// 计算相机位置（让英雄保持在中心）
+		const targetCameraX = heroPixelX - viewportCenterX + this.config.cellSize / 2
+		const targetCameraY = heroPixelY - viewportCenterY + this.config.cellSize / 2
 
-		const startCameraX = this.cameraX
-		const startCameraY = this.cameraY
+		// 边界限制
+		const maxCameraX = Math.max(0, this.worldWidth - this.config.viewportWidth)
+		const maxCameraY = Math.max(0, this.worldHeight - this.config.viewportHeight)
 
-		// 使用 CSS transition 实现平滑移动
-		if (this.worldContentElement) {
-			this.worldContentElement.style.transition = `transform ${duration}ms cubic-bezier(0.4, 0, 0.2, 1)`
-		}
-
-		this.cameraX = targetCameraX
-		this.cameraY = targetCameraY
-		this.applyCamera()
-
-		// 等待动画完成
-		await new Promise(resolve => setTimeout(resolve, duration))
-	}
-
-	/**
-	 * 演出镜头：缓动回当前相机位置（结束演出模式）
-	 * @param duration 动画时长（毫秒）
-	 * @returns Promise，动画完成后 resolve
-	 */
-	async endCinematic(duration: number = 600): Promise<void> {
-		// 结束演出模式，相机将自动跟随玩家
-		this.isCinematicMode = false
-		if (this.worldContentElement) {
-			this.worldContentElement.style.transition = `transform ${duration}ms ease-out`
-		}
-		// 等待过渡完成
-		await new Promise(resolve => setTimeout(resolve, duration))
-	}
-
-	/**
-	 * 获取尖刺当前旋转角度
-	 */
-	private getSpikeRotation(spikeEl: HTMLElement): number {
-		const transform = spikeEl.style.transform
-		const match = transform.match(/rotate\(([-\d.]+)deg\)/)
-		return match ? parseFloat(match[1]) : 0
-	}
-
-	/**
-	 * 演出镜头：实时跟随尖刺下落（读取计算样式获取实时位置）
-	 * @param spikeEl 尖刺元素
-	 * @param duration 跟随时长（毫秒）
-	 * @returns Promise，跟随完成后 resolve
-	 */
-	async cinematicFollowSpike(spikeEl: HTMLElement, duration: number): Promise<void> {
-		const startTime = performance.now()
-		const viewportWidth = this.viewportElement?.clientWidth || this.config.viewportWidth
-		const viewportHeight = this.viewportElement?.clientHeight || this.config.viewportHeight
-
-		// 使用 requestAnimationFrame 实时更新相机
-		return new Promise((resolve) => {
-			const frame = () => {
-				const elapsed = performance.now() - startTime
-
-				// 使用 getComputedStyle 获取计算后的实时位置（包含 CSS transition）
-				const computedStyle = window.getComputedStyle(spikeEl)
-				const spikePixelX = parseFloat(computedStyle.left) + this.config.cellSize / 2
-				const spikePixelY = parseFloat(computedStyle.top) + this.config.cellSize / 2
-
-				// 相机目标位置（让尖刺在视口中央）
-				this.cameraX = spikePixelX - viewportWidth / 2
-				this.cameraY = spikePixelY - viewportHeight / 2
-
-				// 直接应用相机（不使用 transition，实现实时跟随）
-				if (this.worldContentElement) {
-					this.worldContentElement.style.transition = "none"
-					this.worldContentElement.style.transform = 
-						`translate(${-this.cameraX}px, ${-this.cameraY}px)`
-				}
-
-				if (elapsed < duration) {
-					requestAnimationFrame(frame)
-				} else {
-					resolve()
-				}
-			}
-			requestAnimationFrame(frame)
-		})
+		this.cameraX = Math.max(0, Math.min(targetCameraX, maxCameraX))
+		this.cameraY = Math.max(0, Math.min(targetCameraY, maxCameraY))
 	}
 
 	/**
@@ -394,96 +273,82 @@ export class DOMRenderer {
 		height: number,
 		width: number
 	): void {
-		container.style.cssText = `
-			width: ${this.worldWidth}px;
-			height: ${this.worldHeight}px;
-			position: relative;
-		`
+		for (let y = 0; y < height; y++) {
+			for (let x = 0; x < width; x++) {
+				const cellType = grid[y][x]
+				const displayY = height - 1 - y
 
-		// 收集按钮位置
-		const buttonPositions = new Map<number, number>() // x -> index
-		for (let displayY = 0; displayY < height; displayY++) {
-			const logicY = height - 1 - displayY
-			for (let logicX = 0; logicX < width; logicX++) {
-				if (grid[logicY][logicX] === Element.BUTTON) {
-					const idx = buttonPositions.size
-					buttonPositions.set(logicX, idx)
-				}
-			}
-		}
+				const cell = document.createElement("div")
+				cell.className = "cell"
+				cell.style.cssText = `
+					position: absolute;
+					left: ${x * (this.config.cellSize + this.config.gap)}px;
+					top: ${displayY * (this.config.cellSize + this.config.gap)}px;
+					width: ${this.config.cellSize}px;
+					height: ${this.config.cellSize}px;
+				`
 
-		for (let displayY = 0; displayY < height; displayY++) {
-			const logicY = height - 1 - displayY
-			for (let logicX = 0; logicX < width; logicX++) {
-				const cell = grid[logicY][logicX]
-				const buttonIdx = buttonPositions.get(logicX)
-				const isTriggeredButton = cell === Element.BUTTON && buttonIdx !== undefined && triggers[buttonIdx]
-				// 传入 logicY 用于颜色计算（与尖刺绑定的坐标一致）
-				const cellEl = this.createCell(cell, logicX, displayY, logicY, isTriggeredButton, buttonIdx)
-				container.appendChild(cellEl)
+				this.renderCellContent(cell, cellType, x, y, triggers, spikes)
+				container.appendChild(cell)
 			}
 		}
 	}
 
 	/**
-	 * 创建单个格子
+	 * 渲染单个格子的内容
 	 */
-	private createCell(
+	private renderCellContent(
+		cell: HTMLElement,
 		cellType: number,
-		logicX: number,
-		displayY: number,
-		logicY: number,
-		isTriggeredButton: boolean = false,
-		_buttonIdx?: number
-	): HTMLElement {
-		const el = document.createElement("div")
-		el.className = "cell"
-		el.dataset.x = String(logicX)
-		el.dataset.y = String(displayY)
-
-		const left = logicX * (this.config.cellSize + this.config.gap)
-		const top = displayY * (this.config.cellSize + this.config.gap)
-		el.style.cssText = `
-			position: absolute;
-			left: ${left}px;
-			top: ${top}px;
-			width: ${this.config.cellSize}px;
-			height: ${this.config.cellSize}px;
-		`
-
+		x: number,
+		y: number,
+		triggers: boolean[],
+		spikes: SpikeState[]
+	): void {
 		switch (cellType) {
 			case Element.AIR:
-				el.classList.add("air")
+				cell.classList.add("air")
 				break
 			case Element.PLATFORM:
-				el.classList.add("platform")
+				cell.classList.add("platform")
+				break
+			case Element.BUTTON:
+				// 找到对应的按钮索引
+				const buttonIdx = triggers.length > 1
+					? spikes.findIndex((s) => s.buttonX === x && s.buttonY === y)
+					: 0
+				const buttonNum = buttonIdx >= 0 ? buttonIdx + 1 : 1
+				const isPressed = triggers[buttonIdx] || false
+
+				cell.className = `cell button-base ${isPressed ? "pressed" : ""} button-${buttonIdx}`
+				cell.innerHTML = `
+					<div class="button-icon" style="
+						width: 18px;
+						height: 18px;
+						background: radial-gradient(circle, ${isPressed ? "#888" : "#64b5f6"} 0%, ${isPressed ? "#666" : "#3498db"} 70%);
+						border-radius: 50%;
+						box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+						display: flex;
+						align-items: center;
+						justify-content: center;
+						font-size: 10px;
+						color: white;
+						transition: all 0.3s;
+					">${buttonNum}</div>
+				`
 				break
 			case Element.GOAL:
-				el.classList.add("goal")
-				el.innerHTML = "🏁"
+				cell.classList.add("goal")
+				cell.innerHTML = "<span style=\"font-size: 18px;\">🏁</span>"
 				break
 			case Element.SPIKE:
-				el.classList.add("air")
+				// 尖刺作为动态对象单独渲染
+				cell.classList.add("air")
 				break
-			case Element.BUTTON: {
-				el.classList.add("button-base")
-				// 根据完整逻辑坐标生成确定性颜色（与尖刺绑定的坐标一致）
-				const btnColor = getColorByPosition(logicX, logicY)
-				el.style.background = `${btnColor}20`  // 12% 透明度背景
-				el.style.borderColor = `${btnColor}50`  // 31% 透明度边框
-				if (!isTriggeredButton) {
-					el.innerHTML = `
-						<div class="button-icon" style="
-							background: radial-gradient(circle, ${btnColor} 0%, ${btnColor} 70%);
-						">🔘</div>
-					`
-				}
-				break
+			default:
+				cell.classList.add("air")
 			}
 		}
-
-		return el
-	}
 
 	/**
 	 * 渲染动态对象
@@ -493,105 +358,61 @@ export class DOMRenderer {
 		hero: Position,
 		enemies: Position[],
 		spikes: SpikeState[],
-		height: number
+		gridHeight: number
 	): void {
-		container.style.cssText = `
-			width: ${this.worldWidth}px;
-			height: ${this.worldHeight}px;
-			position: absolute;
-			top: 0;
-			left: 0;
-		`
-
-		// 1. 英雄
-		const heroDisplayY = height - 1 - hero.y
-		this.heroElement = this.createGameObject("hero", "🦊", hero.x, heroDisplayY, 30)
+		// 渲染英雄
+		const heroDisplayY = gridHeight - 1 - hero.y
+		this.heroElement = this.createGameObject("hero", "🦊", hero.x, heroDisplayY, 22)
+		this.heroElement.classList.add("hero")
 		container.appendChild(this.heroElement)
 
-		// 2. 敌人
+		// 渲染敌人
 		enemies.forEach((enemy) => {
-			const enemyDisplayY = height - 1 - enemy.y
+			const enemyDisplayY = gridHeight - 1 - enemy.y
 			const key = `enemy-${enemy.x}-${enemy.y}`
 			const el = this.createGameObject(key, "👿", enemy.x, enemyDisplayY, 20)
-			this.enemyElements.set(key, el)
 			container.appendChild(el)
+			this.enemyElements.set(key, el)
 		})
 
-		// 3. 多个尖刺（使用主题色）
-		this.spikeElements.clear()
-		spikes.forEach((spike, idx) => {
-			const spikeDisplayY = height - 1 - spike.currentY
-			const key = `spike-${idx}`
-			
-			// 创建带主题色的尖刺容器
-			const wrapper = document.createElement("div")
-			wrapper.className = `game-object ${key}`
-			wrapper.dataset.id = key
-			
-			const left = spike.x * (this.config.cellSize + this.config.gap)
-			const top = spikeDisplayY * (this.config.cellSize + this.config.gap)
-			
-			wrapper.style.cssText = `
-				position: absolute;
-				left: ${left}px;
-				top: ${top}px;
-				width: ${this.config.cellSize}px;
-				height: ${this.config.cellSize}px;
-				z-index: 40;
-				display: flex;
-				align-items: center;
-				justify-content: center;
-			`
-			
-			// 尖刺图标 - 使用绑定的按钮坐标生成确定性颜色
-			// 按钮和尖刺通过 (buttonX, buttonY) 坐标一一对应
-			const spikeColor = getColorByPosition(spike.buttonX, spike.buttonY)
-			// 从 HSL 提取 hue 值用于 hue-rotate
-			const hueMatch = spikeColor.match(/hsl\((\d+)/)
-			const hueRotate = hueMatch ? parseInt(hueMatch[1], 10) : 0
-			const iconEl = document.createElement("span")
-			iconEl.textContent = "🔻"
-			iconEl.style.fontSize = "18px"
-			iconEl.style.filter = `hue-rotate(${hueRotate}deg) brightness(1.2) saturate(1.2)`
-			
-			wrapper.appendChild(iconEl)
-			this.spikeElements.set(key, wrapper)
-			container.appendChild(wrapper)
+		// 渲染尖刺
+		spikes.forEach((spike) => {
+			const spikeDisplayY = gridHeight - 1 - spike.currentY
+			const key = `spike-${spike.x}-${spike.initialY}`
+			const el = this.createGameObject(key, "🔺", spike.x, spikeDisplayY, 20)
+			el.style.color = "#e74c3c"
+			el.style.filter = "drop-shadow(0 2px 4px rgba(231, 76, 60, 0.5))"
+			container.appendChild(el)
+			this.spikeElements.set(key, el)
 		})
 	}
 
 	/**
-	 * 创建游戏对象
+	 * 创建游戏对象元素
 	 */
 	private createGameObject(
 		id: string,
-		content: string,
-		logicX: number,
-		displayY: number,
-		zIndex: number
+		emoji: string,
+		gridX: number,
+		gridY: number,
+		fontSize: number
 	): HTMLElement {
 		const el = document.createElement("div")
-		el.className = `game-object ${id}`
-		el.dataset.id = id
-		el.innerHTML = content
-
-		const left = logicX * (this.config.cellSize + this.config.gap)
-		const top = displayY * (this.config.cellSize + this.config.gap)
-
+		el.id = id
+		el.className = "game-object"
 		el.style.cssText = `
 			position: absolute;
-			left: ${left}px;
-			top: ${top}px;
+			left: ${gridX * (this.config.cellSize + this.config.gap)}px;
+			top: ${gridY * (this.config.cellSize + this.config.gap)}px;
 			width: ${this.config.cellSize}px;
 			height: ${this.config.cellSize}px;
-			z-index: ${zIndex};
 			display: flex;
 			align-items: center;
 			justify-content: center;
-			font-size: 18px;
-			transition: none;
+			font-size: ${fontSize}px;
+			z-index: 10;
 		`
-
+		el.textContent = emoji
 		return el
 	}
 
@@ -599,131 +420,82 @@ export class DOMRenderer {
 	 * 播放动画序列
 	 */
 	async playAnimations(animations: AnimationEvent[]): Promise<void> {
-		if (this.animating || !animations.length) return
+		if (this.animating) return
 		this.animating = true
 
-		const groups = this.groupByDelay(animations)
+		// 按 delay 分组
+		const groups = this.groupAnimationsByDelay(animations)
+		const sortedDelays = Array.from(groups.keys()).sort((a, b) => a - b)
+
+		// 用于跟踪最后一个动画组的结束时间
 		let lastGroupEndTime = 0
 
-		// 找出玩家动画的最大结束时间（用于TEMP日志）
-		const playerAnimations = animations.filter(a => 
-			a.type === "HERO_MOVE" || a.type === "HERO_JUMP" || a.type === "HERO_FALL"
-		)
-		const playerMaxEndTime = playerAnimations.length > 0 
-			? Math.max(...playerAnimations.map(a => (a.delay || 0) + a.duration))
-			: 0
+		for (const delay of sortedDelays) {
+			const group = groups.get(delay)!
 
-		// 找出按钮动画的开始时间（用于TEMP日志）
-		const buttonAnim = animations.find(a => a.type === "BUTTON_PRESS")
-		const buttonStartTime = buttonAnim ? (buttonAnim.delay || 0) : -1
-
-		for (let i = 0; i < groups.length; i++) {
-			const group = groups[i]
-			const groupDelay = group[0].delay || 0
-
-			// 等待到该组应该开始的时间
-			const waitTime = groupDelay - lastGroupEndTime
+			// 等待到该组动画的触发时间
+			const waitTime = delay - lastGroupEndTime
 			if (waitTime > 0) {
-				await new Promise(resolve => setTimeout(resolve, waitTime))
+				await new Promise((resolve) => setTimeout(resolve, waitTime))
 			}
 
-			// 过滤掉已被演出模式处理的动画
-			const filteredGroup = group.filter(a => !a._cinematicHandled && !a._cinematicPlayed)
-
-			// 检查是否有演出镜头动画（按钮触发）
-			const cinematicAnim = filteredGroup.find(a => 
-				a.type === "BUTTON_PRESS" && a.payload?.cinematic
+			// 检查是否有演出镜头动画
+			const cinematicAnim = group.find((a) => 
+				a.type === "BUTTON_PRESS" && 
+				a.payload && typeof a.payload === "object" && 
+				"cinematic" in a.payload
 			)
 
-			if (cinematicAnim) {
-				// 新演出模式：缓动到尖刺 -> 实时跟随下落 -> 缓动回玩家
-				const { spikeIdx, spikeStartY, spikeTargetY, cinematicDuration, followDuration, waitDuration } = cinematicAnim.payload
-				const height = this.getGridHeight()
-				const cellSize = this.config.cellSize + this.config.gap
+			if (cinematicAnim && cinematicAnim.payload && typeof cinematicAnim.payload === "object") {
+				// 演出镜头模式：播放玩家动画 + 镜头移动
+				const filteredGroup = group.filter((a) => a.type !== "BUTTON_PRESS")
+				await Promise.all(filteredGroup.map((anim) => this.playSingleAnimation(anim)))
 
-				// 获取尖刺元素和位置
+				// 镜头移动
+				const payload = cinematicAnim.payload as Record<string, number>
+				const { spikeIdx, spikeStartY, spikeTargetY, cinematicDuration, followDuration, waitDuration } = payload
 				const spikeEl = this.spikeElements.get(`spike-${spikeIdx}`)
-				const spikeX = spikeEl ? parseFloat(spikeEl.style.left || "0") / cellSize : 0
 
-				// 计算尖刺像素位置（X固定，Y变化）
-				const spikePixelX = spikeX * cellSize
-				const spikeStartPixelY = (height - 1 - spikeStartY) * cellSize
-
-				// 获取所有尖刺动画（区分两个阶段）
-				const allSpikeAnims = animations.filter(a => 
-					a.type === "SPIKE_FALL" && a.target === `spike-${spikeIdx}`
-				)
-				
-				// 第一阶段：目标 y >= 0（敌人位置），第二阶段：目标 y < 0（虚空）
-				const spikeAnim1 = allSpikeAnims.find(a => (a.to?.y ?? -1) >= 0)
-				const spikeAnim2 = allSpikeAnims.find(a => (a.to?.y ?? 0) < 0)
-
-				// 获取敌人死亡动画
-				const enemyDieAnim = animations.find(a => a.type === "ENEMY_DIE")
-
-				// 标记这些动画为已处理（跳过自动分组播放）
-				if (spikeAnim1) spikeAnim1._cinematicHandled = true
-				if (spikeAnim2) spikeAnim2._cinematicHandled = true
-				if (enemyDieAnim) enemyDieAnim._cinematicHandled = true
-
-				// 播放按钮动画
-				await Promise.all(filteredGroup.map(anim => this.playSingleAnimation(anim)))
-
-				// 1. 缓动到尖刺起始位置
-				await this.cinematicMoveTo(spikePixelX, spikeStartPixelY, cinematicDuration)
-
-				// 2. 开始第一阶段尖刺下落动画（落到敌人位置）
-				if (spikeAnim1) {
-					this.playSingleAnimation(spikeAnim1)
-				}
-
-				// 3. 实时跟随尖刺下落（600ms）
 				if (spikeEl) {
+					// 计算尖刺的像素坐标
+					const cellSize = this.config.cellSize + this.config.gap
+					const spikePixelX = parseInt(spikeEl.style.left)
+					const spikeStartPixelY = (this.currentGridHeight - 1 - spikeStartY) * cellSize
+					const spikeTargetPixelY = (this.currentGridHeight - 1 - spikeTargetY) * cellSize
+
+					// 镜头移动到尖刺位置
+					await this.cinematicMoveTo(spikePixelX, spikeStartPixelY, cinematicDuration)
+
+					// 镜头跟随尖刺下落
 					await this.cinematicFollowSpike(spikeEl, followDuration)
-				} else {
-					await new Promise(resolve => setTimeout(resolve, followDuration))
+					await new Promise((resolve) => setTimeout(resolve, followDuration))
+
+					// 停顿等待
+					if (waitDuration > 0) {
+						await new Promise((resolve) => setTimeout(resolve, waitDuration))
+					}
+
+					// 找到第二阶段尖刺动画并播放
+					const spikeAnim2 = animations.find((a) => a.type === "SPIKE_FALL" && a.delay === delay + cinematicDuration + followDuration)
+					if (spikeAnim2) {
+						await this.cinematicFollowSpike(spikeEl, spikeAnim2.duration)
+						await new Promise((resolve) => setTimeout(resolve, spikeAnim2.duration))
+					}
+
+					// 镜头回到玩家位置
+					await this.endCinematic(600)
 				}
 
-				// 4. 停顿期间（300ms）：尖刺停在恶魔位置，播放敌人死亡动画
-				
-				// 强制固定尖刺在第一阶段目标位置（只改top，保留transform旋转）
-				if (spikeEl && spikeAnim1?.to) {
-					const height = this.getGridHeight()
-					const targetDisplayY = height - 1 - spikeAnim1.to.y
-					const targetTop = targetDisplayY * (this.config.cellSize + this.config.gap)
-					spikeEl.style.transition = "top 0s"  // 只冻结top，保留transform
-					spikeEl.style.top = `${targetTop}px`
-				}
-				
-				if (enemyDieAnim) {
-					this.playSingleAnimation(enemyDieAnim)
-				}
-				
-				// 停顿等待
-				await new Promise(resolve => setTimeout(resolve, waitDuration))
-				
-				// 停顿结束后，开始第二阶段尖刺下落
-				if (spikeAnim2) {
-					this.playSingleAnimation(spikeAnim2)
-				}
-				
-				// 继续跟随尖刺第二阶段下落到虚空
-				if (spikeEl && spikeAnim2) {
-					await this.cinematicFollowSpike(spikeEl, spikeAnim2.duration)
-				}
-
-				// 5. 结束演出模式，缓动回玩家位置
-				await this.endCinematic(600)
-
-				// 更新最后结束时间
-				lastGroupEndTime = groupDelay + cinematicDuration + followDuration + waitDuration + 600
+				// 计算该组动画的实际结束时间
+				const groupMaxDuration = Math.max(...group.map((a) => a.duration + (a.delay || 0)))
+				lastGroupEndTime = groupMaxDuration
 			} else {
-				// 普通模式：直接执行动画（跳过已被演出模式处理的）
-				await Promise.all(filteredGroup.map(anim => this.playSingleAnimation(anim)))
+				// 普通模式：同时播放该组所有动画
+				await Promise.all(group.map((anim) => this.playSingleAnimation(anim)))
 
-				// 更新最后结束时间
-				const groupMaxDuration = Math.max(...filteredGroup.map(a => a.duration))
-				lastGroupEndTime = groupDelay + groupMaxDuration
+				// 计算该组动画的结束时间
+				const groupMaxDuration = Math.max(...group.map((a) => a.duration + (a.delay || 0)))
+				lastGroupEndTime = groupMaxDuration
 			}
 		}
 
@@ -731,410 +503,245 @@ export class DOMRenderer {
 	}
 
 	/**
-	 * 按 delay 分组
+	 * 按 delay 分组动画
 	 */
-	private groupByDelay(animations: AnimationEvent[]): AnimationEvent[][] {
-		const groups: Map<number, AnimationEvent[]> = new Map()
+	private groupAnimationsByDelay(animations: AnimationEvent[]): Map<number, AnimationEvent[]> {
+		const groups = new Map<number, AnimationEvent[]>()
 
-		animations.forEach(anim => {
+		for (const anim of animations) {
 			const delay = anim.delay || 0
-			if (!groups.has(delay)) groups.set(delay, [])
+			if (!groups.has(delay)) {
+				groups.set(delay, [])
+			}
 			groups.get(delay)!.push(anim)
-		})
+		}
 
-		return Array.from(groups.entries())
-			.sort((a, b) => a[0] - b[0])
-			.map(([_, anims]) => anims)
+		return groups
 	}
 
 	/**
-	 * 播放单个动画（注意：delay 已由外层分组处理，这里不再重复等待）
+	 * 播放单个动画
 	 */
-	private playSingleAnimation(anim: AnimationEvent): Promise<void> {
-		// 立即执行动画（CSS transition 会处理视觉变化）
+	private async playSingleAnimation(anim: AnimationEvent): Promise<void> {
 		switch (anim.type) {
 			case "HERO_MOVE":
-				this.animateHeroMove(anim)
+				await this.animateHeroMove(anim)
 				break
 			case "HERO_JUMP":
-				this.animateHeroJump(anim)
+				await this.animateHeroJump(anim)
 				break
 			case "HERO_FALL":
-				this.animateHeroFall(anim)
-				break
-			case "SPIKE_FALL":
-				this.animateSpikeFall(anim)
-				break
-			case "ENEMY_DIE":
-				this.animateEnemyDie(anim)
+				await this.animateHeroFall(anim)
 				break
 			case "BUTTON_PRESS":
-				this.animateButtonPress(anim)
+				await this.animateButtonPress(anim)
+				break
+			case "SPIKE_FALL":
+				await this.animateSpikeFall(anim)
+				break
+			case "ENEMY_DIE":
+				await this.animateEnemyDie(anim)
 				break
 			case "GOAL_REACHED":
-				this.animateGoalReached(anim)
+				await this.animateGoalReached(anim)
 				break
 		}
-		// 等待动画实际持续时间
-		return new Promise(resolve => setTimeout(resolve, anim.duration))
 	}
 
 	/**
 	 * 英雄移动动画
 	 */
-	private animateHeroMove(anim: AnimationEvent): void {
+	private async animateHeroMove(anim: AnimationEvent): Promise<void> {
 		if (!this.heroElement || !anim.to) return
 
-		const height = this.getGridHeight()
-		const targetPos = anim.to
-		let targetDisplayY: number
-		if (targetPos.y < 0) {
-			targetDisplayY = height + 2
-		} else {
-			targetDisplayY = height - 1 - targetPos.y
-		}
-
-		const targetLeft = targetPos.x * (this.config.cellSize + this.config.gap)
+		const { to, duration } = anim
+		const targetDisplayY = this.currentGridHeight - 1 - to.y
+		const targetLeft = to.x * (this.config.cellSize + this.config.gap)
 		const targetTop = targetDisplayY * (this.config.cellSize + this.config.gap)
 
-		// 设置 CSS transition
-		if (anim.from.y !== targetPos.y) {
-			this.heroElement.style.transition = `all ${anim.duration}ms ease-out`
-			this.heroElement.style.left = `${targetLeft}px`
-			this.heroElement.style.top = `${targetTop}px`
-		} else {
-			this.heroElement.style.transition = `left ${anim.duration}ms ease-out`
-			this.heroElement.style.left = `${targetLeft}px`
-		}
+		this.heroElement.style.transition = `all ${duration}ms ease-out`
+		this.heroElement.style.left = `${targetLeft}px`
+		this.heroElement.style.top = `${targetTop}px`
 
-		// 相机跟随
-		this.smoothCameraTo(targetPos.x, Math.max(0, targetPos.y))
-
-		// 动画结束后确保精确位置
-		setTimeout(() => {
-			if (this.heroElement) {
-				this.heroElement.style.transition = "none"
-				this.heroElement.style.left = `${targetLeft}px`
-				if (anim.from.y !== targetPos.y) {
-					this.heroElement.style.top = `${targetTop}px`
-				}
-			}
-		}, anim.duration)
+		await new Promise((resolve) => setTimeout(resolve, duration))
+		this.heroElement.style.transition = ""
 	}
 
 	/**
-	 * 英雄跳跃动画 - 抛物线
+	 * 英雄跳跃动画
 	 */
-	private animateHeroJump(anim: AnimationEvent): void {
+	private async animateHeroJump(anim: AnimationEvent): Promise<void> {
 		if (!this.heroElement || !anim.to) return
-		const height = this.getGridHeight()
 
-		// 保存目标位置到局部变量，避免闭包中的 undefined 检查问题
-		const targetPos = anim.to
-		let targetDisplayY: number
-		if (targetPos.y < 0) {
-			targetDisplayY = height + Math.abs(targetPos.y)
-		} else {
-			targetDisplayY = height - 1 - targetPos.y
-		}
-
-		const startLeft = parseFloat(this.heroElement.style.left) || 0
-		const startTop = parseFloat(this.heroElement.style.top) || 0
-		const targetLeft = targetPos.x * (this.config.cellSize + this.config.gap)
+		const { to, duration } = anim
+		const targetDisplayY = to.y < 0 ? -1 : this.currentGridHeight - 1 - to.y
+		const targetLeft = to.x * (this.config.cellSize + this.config.gap)
 		const targetTop = targetDisplayY * (this.config.cellSize + this.config.gap)
 
-		const startTime = performance.now()
-		const duration = anim.duration
-		const jumpHeight = 40
+		this.heroElement.style.transition = `all ${duration}ms ease-out`
+		this.heroElement.style.left = `${targetLeft}px`
+		this.heroElement.style.top = `${targetTop}px`
 
-		const animate = (now: number) => {
-			const elapsed = now - startTime
-			const progress = Math.min(elapsed / duration, 1)
-
-			// 水平线性插值
-			const currentLeft = startLeft + (targetLeft - startLeft) * progress
-
-			// 抛物线垂直运动
-			const parabola = 4 * progress * (1 - progress)
-			const verticalOffset = parabola * jumpHeight
-			const currentTop = startTop + (targetTop - startTop) * progress - verticalOffset
-
-			this.heroElement!.style.left = `${currentLeft}px`
-			this.heroElement!.style.top = `${currentTop}px`
-
-			// 相机跟随：基于当前显示位置计算逻辑坐标，不限制范围
-			const currentLogicX = currentLeft / (this.config.cellSize + this.config.gap)
-			const currentLogicY = height - 1 - currentTop / (this.config.cellSize + this.config.gap)
-			this.smoothCameraTo(currentLogicX, currentLogicY)
-
-			if (progress < 1) {
-				requestAnimationFrame(animate)
-			} else {
-				// 动画结束：精确对齐到目标位置，避免浮点误差
-				this.heroElement!.style.left = `${targetLeft}px`
-				this.heroElement!.style.top = `${targetTop}px`
-				// 最终相机位置精确对齐
-				this.smoothCameraTo(targetPos.x, Math.max(0, targetPos.y))
-			}
-		}
-
-		requestAnimationFrame(animate)
+		await new Promise((resolve) => setTimeout(resolve, duration))
+		this.heroElement.style.transition = ""
 	}
 
 	/**
 	 * 英雄坠落动画
 	 */
-	private animateHeroFall(anim: AnimationEvent): void {
+	private async animateHeroFall(anim: AnimationEvent): Promise<void> {
 		if (!this.heroElement || !anim.to) return
-		const height = this.getGridHeight()
 
-		const targetPos = anim.to
-		let targetDisplayY: number
-		if (targetPos.y < 0) {
-			targetDisplayY = height + 2
-		} else {
-			targetDisplayY = height - 1 - targetPos.y
-		}
-
+		const { to, duration } = anim
+		const targetDisplayY = to.y < 0 ? -1 : this.currentGridHeight - 1 - to.y
 		const targetTop = targetDisplayY * (this.config.cellSize + this.config.gap)
 
-		// 使用 CSS transition 实现坠落动画
-		this.heroElement.style.transition = `top ${anim.duration}ms cubic-bezier(0.5, 0, 1, 1)`
+		this.heroElement.style.transition = `top ${duration}ms ease-in`
 		this.heroElement.style.top = `${targetTop}px`
 
-		// 相机跟随到目标位置
-		this.smoothCameraTo(targetPos.x, Math.max(0, targetPos.y))
+		await new Promise((resolve) => setTimeout(resolve, duration))
+		this.heroElement.style.transition = ""
+	}
 
-		// 动画结束后确保精确位置（transition 可能有精度误差）
-		setTimeout(() => {
-			if (this.heroElement) {
-				this.heroElement.style.transition = "none"
-				this.heroElement.style.top = `${targetTop}px`
-				// 强制相机精确对齐
-				this.updateCamera(targetPos.x, Math.max(0, targetPos.y), height)
-				this.applyCamera()
-			}
-		}, anim.duration)
+	/**
+	 * 按钮按下动画
+	 */
+	private async animateButtonPress(anim: AnimationEvent): Promise<void> {
+		const { target, duration } = anim
+		const buttonIdx = target?.split("-")[1] || "0"
+		const selector = `.button-${buttonIdx} .button-icon`
+		const buttonIcon = this.worldContainer.querySelector(selector) as HTMLElement
+
+		if (buttonIcon) {
+			buttonIcon.style.transform = "scale(0.8)"
+			buttonIcon.style.background = "radial-gradient(circle, #888 0%, #666 70%)"
+
+			await new Promise((resolve) => setTimeout(resolve, duration))
+		}
 	}
 
 	/**
 	 * 尖刺坠落动画
 	 */
-	private animateSpikeFall(anim: AnimationEvent): void {
-		const spikeEl = this.spikeElements.get(anim.target)
-		if (!spikeEl || !anim.to) return
-		const height = this.getGridHeight()
-		const targetDisplayY = height - 1 - anim.to.y
+	private async animateSpikeFall(anim: AnimationEvent): Promise<void> {
+		const { target, to, duration } = anim
+		const spikeIdx = target?.split("-")[1] || "0"
 
-		const targetTop = targetDisplayY * (this.config.cellSize + this.config.gap)
+		// 找到对应的尖刺元素
+		const spikeEl = Array.from(this.spikeElements.values())[parseInt(spikeIdx)]
+		if (spikeEl && to) {
+			const targetDisplayY = this.currentGridHeight - 1 - to.y
+			const targetTop = targetDisplayY * (this.config.cellSize + this.config.gap)
 
-		// 计算旋转：累积旋转角度
-		const currentRotation = this.getSpikeRotation(spikeEl)
-		const targetRotation = currentRotation + 360
+			spikeEl.style.transition = `top ${duration}ms ease-in`
+			spikeEl.style.top = `${targetTop}px`
 
-		spikeEl.style.transition = `all ${anim.duration}ms cubic-bezier(0.4, 0, 1, 1)`
-		spikeEl.style.top = `${targetTop}px`
-		spikeEl.style.transform = `rotate(${targetRotation}deg)`
-
-		// 只在落到地面/敌人位置时触发粒子效果（y >= 0 且不是落入虚空）
-		// 第二阶段落到虚空（y = -1）不触发粒子
-		if (anim.to && anim.to.y >= 0) {
-			setTimeout(() => {
-				// 使用动画中的 x 坐标
-				const spikeX = anim.to!.x
-				this.createImpactEffect(spikeX, targetDisplayY)
-			}, anim.duration)
+			await new Promise((resolve) => setTimeout(resolve, duration))
+			spikeEl.style.transition = ""
 		}
 	}
 
 	/**
 	 * 敌人死亡动画
 	 */
-	private animateEnemyDie(anim: AnimationEvent): void {
-		const key = anim.target
-		const el = this.enemyElements.get(key)
-		if (!el) return
+	private async animateEnemyDie(anim: AnimationEvent): Promise<void> {
+		const { target, duration } = anim
+		const enemyKey = target?.replace("enemy-", "")
+		const enemyEl = this.enemyElements.get(enemyKey || "")
 
-		el.style.transition = `all ${anim.duration}ms ease-out`
-		el.style.transform = "scale(1.5) rotate(180deg)"
-		el.style.opacity = "0"
+		if (enemyEl) {
+			enemyEl.style.transition = `all ${duration}ms ease-out`
+			enemyEl.style.transform = "scale(1.5) rotate(45deg)"
+			enemyEl.style.opacity = "0"
 
-		setTimeout(() => {
-			el.remove()
-			this.enemyElements.delete(key)
-		}, anim.duration)
-	}
-
-	/**
-	 * 按钮按下动画
-	 */
-	private animateButtonPress(anim: AnimationEvent): void {
-		const height = this.getGridHeight()
-		const displayY = height - 1 - anim.from.y
-		const selector = `.cell[data-x="${anim.from.x}"][data-y="${displayY}"] .button-icon`
-		const buttonIcon = this.worldContainer.querySelector(selector) as HTMLElement
-
-		if (buttonIcon) {
-			// 第一阶段：按下缩小
-			buttonIcon.style.transition = `all ${anim.duration}ms ease`
-			buttonIcon.style.transform = "scale(0.8)"
-			buttonIcon.style.filter = "brightness(0.7)"
-
-			// 第二阶段：淡出消失（更平滑）
-			setTimeout(() => {
-				buttonIcon.style.transition = "opacity 300ms ease-out"
-				buttonIcon.style.opacity = "0"
-				// 完全消失后移除元素
-				setTimeout(() => buttonIcon.remove(), 300)
-			}, anim.duration)
+			await new Promise((resolve) => setTimeout(resolve, duration))
+			enemyEl.remove()
+			this.enemyElements.delete(enemyKey || "")
 		}
-
-		this.createRippleEffect(anim.from.x, displayY)
 	}
 
 	/**
-	 * 终点到达动画 - 旗子欢呼效果
+	 * 到达终点动画
 	 */
-	private animateGoalReached(anim: AnimationEvent): void {
-		const height = this.getGridHeight()
-		const displayY = height - 1 - anim.from.y
-		const selector = `.cell[data-x="${anim.from.x}"][data-y="${displayY}"]`
-		const goalCell = this.worldContainer.querySelector(selector) as HTMLElement
+	private async animateGoalReached(anim: AnimationEvent): Promise<void> {
+		// 旗帜飘动效果
+		const { from, duration } = anim
+		const goalCell = this.worldContainer.querySelector(".cell.goal") as HTMLElement
 
 		if (goalCell) {
-			// 旗子弹跳缩放+发光效果
-			goalCell.style.transition = `all ${anim.duration}ms ease-out`
-			goalCell.style.transform = "scale(1.3)"
-			goalCell.style.filter = "drop-shadow(0 0 20px #f1c40f) brightness(1.3)"
-
-			// 创建庆祝粒子效果
-			this.createConfettiEffect(anim.from.x, displayY)
-
-			// 动画结束后完全恢复正常（不保留发光）
-			setTimeout(() => {
-				goalCell.style.transition = "all 300ms ease-out"
-				goalCell.style.transform = "scale(1)"
-				goalCell.style.filter = ""  // 清除发光效果
-			}, anim.duration)
+			goalCell.style.animation = "pulse 0.5s ease-in-out 3"
+			await new Promise((resolve) => setTimeout(resolve, duration))
+			goalCell.style.animation = ""
 		}
 	}
 
 	/**
-	 * 创建庆祝彩纸效果
+	 * 演出镜头：移动到指定位置
 	 */
-	private createConfettiEffect(logicX: number, displayY: number): void {
-		const effectsLayer = this.worldContainer.querySelector(".layer-effects") as HTMLElement
-		if (!effectsLayer) return
+	private async cinematicMoveTo(targetX: number, targetY: number, duration: number): Promise<void> {
+		if (!this.worldContentElement) return
 
-		const left = logicX * (this.config.cellSize + this.config.gap) + this.config.cellSize / 2
-		const top = displayY * (this.config.cellSize + this.config.gap) + this.config.cellSize / 2
+		this.isCinematicMode = true
 
-		// 彩纸颜色
-		const colors = ["#f1c40f", "#e74c3c", "#3498db", "#2ecc71", "#9b59b6"]
+		const viewportCenterX = this.config.viewportWidth / 2
+		const viewportCenterY = (this.currentGridHeight * (this.config.cellSize + this.config.gap)) / 2
 
-		for (let i = 0; i < 12; i++) {
-			const particle = document.createElement("div")
-			particle.className = "confetti-particle"
-			particle.style.cssText = `
-				position: absolute;
-				left: ${left}px;
-				top: ${top}px;
-				width: 8px;
-				height: 8px;
-				background: ${colors[i % colors.length]};
-				border-radius: 50%;
-				z-index: 100;
-			`
-			effectsLayer.appendChild(particle)
+		const targetCameraX = targetX - viewportCenterX + this.config.cellSize / 2
+		const targetCameraY = targetY - viewportCenterY + this.config.cellSize / 2
 
-			const angle = (i / 12) * Math.PI * 2
-			const distance = 40 + Math.random() * 30
-			const duration = 600 + Math.random() * 200
+		this.worldContentElement.style.transition = `transform ${duration}ms ease-in-out`
+		this.worldContentElement.style.transform = `translate(${-targetCameraX}px, ${-targetCameraY}px)`
 
-			particle.animate([
-				{ transform: "translate(0,0) scale(1)", opacity: 1 },
-				{ transform: `translate(${Math.cos(angle) * distance}px, ${Math.sin(angle) * distance}px) scale(0)`, opacity: 0 }
-			], {
-				duration,
-				easing: "ease-out"
-			}).onfinish = () => particle.remove()
-		}
+		await new Promise((resolve) => setTimeout(resolve, duration))
 	}
 
 	/**
-	 * 创建撞击效果
+	 * 演出镜头：跟随尖刺下落
 	 */
-	private createImpactEffect(logicX: number, displayY: number): void {
-		const effectsLayer = this.worldContainer.querySelector(".layer-effects") as HTMLElement
-		if (!effectsLayer) return
+	private async cinematicFollowSpike(spikeEl: HTMLElement, duration: number): Promise<void> {
+		if (!this.worldContentElement) return
 
-		const left = logicX * (this.config.cellSize + this.config.gap) + this.config.cellSize / 2
-		const top = displayY * (this.config.cellSize + this.config.gap) + this.config.cellSize / 2
+		const startTime = Date.now()
+		const startY = parseInt(this.worldContentElement.style.transform.match(/translate\(([^,]+)px,\s*([^)]+)px\)/)?.[2] || "0")
 
-		for (let i = 0; i < 6; i++) {
-			const particle = document.createElement("div")
-			particle.className = "particle"
-			particle.style.cssText = `
-				position: absolute;
-				left: ${left}px;
-				top: ${top}px;
-				width: 6px;
-				height: 6px;
-				background: #e74c3c;
-				border-radius: 50%;
-				z-index: 50;
-			`
-			effectsLayer.appendChild(particle)
+		return new Promise((resolve) => {
+			const follow = () => {
+				const elapsed = Date.now() - startTime
+				const progress = Math.min(elapsed / duration, 1)
 
-			const angle = (i / 6) * Math.PI * 2
-			const distance = 30 + Math.random() * 20
-			const duration = 400 + Math.random() * 200
+				// 计算当前应该对准的尖刺位置
+				const spikeTop = parseInt(spikeEl.style.top)
+				const viewportCenterY = (this.currentGridHeight * (this.config.cellSize + this.config.gap)) / 2
+				const targetCameraY = spikeTop - viewportCenterY + this.config.cellSize / 2
 
-			particle.animate([
-				{ transform: "translate(0,0) scale(1)", opacity: 1 },
-				{ transform: `translate(${Math.cos(angle) * distance}px, ${Math.sin(angle) * distance}px) scale(0)`, opacity: 0 }
-			], {
-				duration,
-				easing: "ease-out"
-			}).onfinish = () => particle.remove()
-		}
+				// 缓动插值
+				const currentCameraY = startY + (targetCameraY - startY) * progress
+				const currentX = this.worldContentElement!.style.transform.match(/translate\(([^,]+)px/)?.[1] || "0"
+				this.worldContentElement!.style.transform = `translate(${currentX}px, ${-currentCameraY}px)`
+
+				if (progress < 1) {
+					requestAnimationFrame(follow)
+				} else {
+					resolve()
+				}
+			}
+			requestAnimationFrame(follow)
+		})
 	}
 
 	/**
-	 * 创建涟漪效果
+	 * 结束演出镜头，回到玩家视角
 	 */
-	private createRippleEffect(logicX: number, displayY: number): void {
-		const effectsLayer = this.worldContainer.querySelector(".layer-effects") as HTMLElement
-		if (!effectsLayer) return
+	private async endCinematic(duration: number): Promise<void> {
+		if (!this.worldContentElement) return
 
-		const left = logicX * (this.config.cellSize + this.config.gap) + this.config.cellSize / 2
-		const top = displayY * (this.config.cellSize + this.config.gap) + this.config.cellSize / 2
+		this.worldContentElement.style.transition = `transform ${duration}ms ease-in-out`
+		this.worldContentElement.style.transform = `translate(${-this.cameraX}px, ${-this.cameraY}px)`
 
-		// 根据坐标获取颜色
-		const rippleColor = getColorByPosition(logicX, 0)
+		await new Promise((resolve) => setTimeout(resolve, duration))
 
-		const ripple = document.createElement("div")
-		ripple.className = "ripple"
-		ripple.style.cssText = `
-			position: absolute;
-			left: ${left}px;
-			top: ${top}px;
-			width: 0;
-			height: 0;
-			border: 3px solid ${rippleColor};
-			border-radius: 50%;
-			z-index: 45;
-			transform: translate(-50%, -50%);
-		`
-		effectsLayer.appendChild(ripple)
-
-		ripple.animate([
-			{ width: "0px", height: "0px", opacity: 1 },
-			{ width: "60px", height: "60px", opacity: 0 }
-		], {
-			duration: 600,
-			easing: "ease-out"
-		}).onfinish = () => ripple.remove()
+		this.isCinematicMode = false
+		this.worldContentElement.style.transition = ""
 	}
 
 	/**
@@ -1142,61 +749,5 @@ export class DOMRenderer {
 	 */
 	private getGridHeight(): number {
 		return this.currentGridHeight
-	}
-
-	/**
-	 * 渲染大脑思考
-	 */
-	renderImaginationFromAPI(data: APIStepResponse): void {
-		if (!data.decision) return
-
-		const decision = data.decision
-
-		const html = `
-			<div class="brain-reasoning">
-				<div class="reason-title">💭 决策理由</div>
-				<div class="reason-text">${decision.reasoning || "AI思考中..."}</div>
-			</div>
-			<div class="brain-cards">
-				<div class="cards-title">🎲 想象的${decision.imaginations?.length || 0}种可能</div>
-				<div class="cards-grid">
-					${(decision.imaginations || []).map((img) => `
-						<div class="imagination-card ${img.action === decision.selectedAction ? "selected" : ""}">
-							<div class="card-action">${this.getActionDisplayName(img.action)}</div>
-							<div class="card-pos">预测位置: (${img.predictedState.hero.x}, ${img.predictedState.hero.y})</div>
-							<div class="card-reward">奖励: ${img.predictedReward > 0 ? "+" : ""}${img.predictedReward}</div>
-							${img.killedEnemy ? "<div class=\"card-bonus\">✨ 击杀敌人!</div>" : ""}
-						</div>
-					`).join("")}
-				</div>
-			</div>
-		`
-
-		this.brainContainer.innerHTML = html
-	}
-
-	/**
-	 * 获取动作显示名称
-	 */
-	private getActionDisplayName(action: string): string {
-		const names: Record<string, string> = {
-			LEFT: "⬅️ 左移",
-			RIGHT: "➡️ 右移",
-			JUMP: "⬆️ 跳跃",
-			WAIT: "⏸️ 等待",
-		}
-		return names[action] || action
-	}
-
-	/**
-	 * 清空大脑面板
-	 */
-	clearBrainPanel(): void {
-		this.brainContainer.innerHTML = `
-			<div class="brain-placeholder">
-				点击「单步」按钮<br>
-				观察AI如何想象未来并决策
-			</div>
-		`
 	}
 }
