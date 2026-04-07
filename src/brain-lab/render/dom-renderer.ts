@@ -418,7 +418,8 @@ export class DOMRenderer {
 				const cell = grid[logicY][logicX]
 				const buttonIdx = buttonPositions.get(logicX)
 				const isTriggeredButton = cell === Element.BUTTON && buttonIdx !== undefined && triggers[buttonIdx]
-				const cellEl = this.createCell(cell, logicX, displayY, isTriggeredButton, buttonIdx)
+				// 传入 logicY 用于颜色计算（与尖刺绑定的坐标一致）
+				const cellEl = this.createCell(cell, logicX, displayY, logicY, isTriggeredButton, buttonIdx)
 				container.appendChild(cellEl)
 			}
 		}
@@ -431,6 +432,7 @@ export class DOMRenderer {
 		cellType: number,
 		logicX: number,
 		displayY: number,
+		logicY: number,
 		isTriggeredButton: boolean = false,
 		_buttonIdx?: number
 	): HTMLElement {
@@ -465,8 +467,8 @@ export class DOMRenderer {
 				break
 			case Element.BUTTON: {
 				el.classList.add("button-base")
-				// 根据坐标生成确定性颜色（只使用 x 确保同列同色）
-				const btnColor = getColorByPosition(logicX, 0)
+				// 根据完整逻辑坐标生成确定性颜色（与尖刺绑定的坐标一致）
+				const btnColor = getColorByPosition(logicX, logicY)
 				el.style.background = `${btnColor}20`  // 12% 透明度背景
 				el.style.borderColor = `${btnColor}50`  // 31% 透明度边框
 				if (!isTriggeredButton) {
@@ -550,7 +552,7 @@ export class DOMRenderer {
 			const iconEl = document.createElement("span")
 			iconEl.textContent = "🔻"
 			iconEl.style.fontSize = "18px"
-			iconEl.style.filter = `hue-rotate(${hueRotate}deg)`
+			iconEl.style.filter = `hue-rotate(${hueRotate}deg) brightness(1.2) saturate(1.2)`
 			
 			wrapper.appendChild(iconEl)
 			this.spikeElements.set(key, wrapper)
