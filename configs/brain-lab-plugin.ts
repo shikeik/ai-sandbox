@@ -17,7 +17,6 @@ class GameInstance {
 	stepCount: number = 0
 	World: typeof GameWorld | null = null
 	Brain: typeof Brain | null = null
-	logs: Array<{time: string, tag: string, msg: string}> = []
 
 	async init() {
 		const { GameWorld } = await import("../src/brain-lab/core/index.js")
@@ -36,28 +35,6 @@ class GameInstance {
 		this.world = new this.World(width, height)
 		this.brain = new this.Brain(width, height)
 		this.stepCount = 0
-		const state = this.world.getState()
-
-		// 执行断言检查并输出到日志
-		for (let i = 0; i < state.triggers.length; i++) {
-			const passed = state.triggers[i] === false
-			const status = passed ? "✅ PASS" : "❌ FAIL"
-			this.log("ASSERT", `${status}: 按钮${i}重置后状态断言 (expected: false, actual: ${state.triggers[i]})`)
-		}
-	}
-
-	log(tag: string, msg: string) {
-		const time = new Date().toLocaleTimeString()
-		this.logs.push({ time, tag, msg })
-		if (this.logs.length > 200) this.logs.shift()
-	}
-
-	getLogs() {
-		return this.logs
-	}
-
-	clearLogs() {
-		this.logs = []
 	}
 }
 
@@ -120,15 +97,8 @@ export const brainLabPlugin = {
 					case "/set-level":
 						result = doSetLevel(body.level)
 						break
-					case "/logs":
-						result = { logs: game.getLogs() }
-						break
-					case "/clear-logs":
-						game.clearLogs()
-						result = { cleared: true }
-						break
+	
 					default:
-						game.log("ERROR", `Unknown endpoint: ${path}`)
 						res.writeHead(404)
 						res.end(JSON.stringify({ error: "Unknown endpoint" }))
 						return
@@ -139,7 +109,6 @@ export const brainLabPlugin = {
 
 			} catch (err: unknown) {
 				const message = err instanceof Error ? err.message : String(err)
-				game.log("ERROR", `API Error: ${message}`)
 				res.writeHead(500)
 				res.end(JSON.stringify({ error: message }))
 			}
@@ -224,7 +193,6 @@ function doMove(action: string) {
 	const validActions = [...moveActions, ...queryActions]
 
 	if (!validActions.includes(action)) {
-		game.log("ERROR", `Invalid action: ${action}`)
 		return { error: `Invalid action: ${action}` }
 	}
 
@@ -301,7 +269,6 @@ function doThink() {
 
 function doSetDepth(depth: number) {
 	if (typeof depth !== "number" || depth < 1 || depth > 10) {
-		game.log("ERROR", `无效深度: ${depth}`)
 		return { error: "depth must be 1-10" }
 	}
 	game.brain.setImagineDepth(depth)

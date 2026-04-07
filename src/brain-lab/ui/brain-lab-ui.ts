@@ -203,6 +203,16 @@ export class BrainLabUI {
 			}
 			
 			await this.refreshState()
+			
+			// 客户端自行记录断言日志
+			if (this.currentState) {
+				for (let i = 0; i < this.currentState.triggers.length; i++) {
+					const passed = this.currentState.triggers[i] === false
+					const status = passed ? "✅ PASS" : "❌ FAIL"
+					this.logger.log(`[ASSERT] ${status}: 按钮${i}重置后状态断言 (expected: false, actual: ${this.currentState.triggers[i]})`)
+				}
+			}
+			
 			this.renderer.clearBrainPanel()
 		} catch {
 			// 静默处理错误
@@ -332,16 +342,7 @@ export class BrainLabUI {
 	 */
 	async manualReset(): Promise<void> {
 		try {
-			const res = await fetch(`${API_BASE}/reset`, { method: "POST" })
-			const data = await res.json() as { logs?: Array<{ time: string; tag: string; msg: string }> }
-			
-			// 将服务器日志输出到客户端 ConsolePanel
-			if (data.logs) {
-				for (const log of data.logs) {
-					// Logger.log() 的 tag 固定是 logger.name，所以把服务器 tag 合并到 message
-					this.logger.log(`[${log.tag}] ${log.msg}`)
-				}
-			}
+			await fetch(`${API_BASE}/reset`, { method: "POST" })
 			
 			// 清除旧视图，强制重新渲染（修复增量更新导致颜色不刷新问题）
 			const worldContainer = document.getElementById("world-container")
@@ -350,6 +351,16 @@ export class BrainLabUI {
 			}
 			
 			await this.refreshState()
+			
+			// 客户端自行记录断言日志
+			if (this.currentState) {
+				for (let i = 0; i < this.currentState.triggers.length; i++) {
+					const passed = this.currentState.triggers[i] === false
+					const status = passed ? "✅ PASS" : "❌ FAIL"
+					this.logger.log(`[ASSERT] ${status}: 按钮${i}重置后状态断言 (expected: false, actual: ${this.currentState.triggers[i]})`)
+				}
+			}
+			
 			this.updateManualPosition({ x: 1, y: 1 })
 			this.showToast("🔄 游戏已重置")
 		} catch {
