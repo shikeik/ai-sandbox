@@ -9,28 +9,8 @@
 		html, body {
 			width: 100%;
 			height: 100%;
-			background: #000;
-			overflow: hidden;
-		}
-
-		/* ---------- EPS 核心：恒竖布局 ---------- */
-		.ever-portrait {
-			position: absolute;
-			top: 50%;
-			left: 50%;
-			width: var(--ep-avail-width, 100vw);
-			height: var(--ep-avail-height, 100vh);
-			transform: translate(-50%, -50%);
-			overflow: hidden;
 			background: #0b0c0f;
-		}
-
-		@media (orientation: landscape) {
-			.ever-portrait.active {
-				width: var(--ep-avail-height, 100vh);
-				height: var(--ep-avail-width, 100vw);
-				transform: translate(-50%, -50%) rotate(-90deg);
-			}
+			overflow: hidden;
 		}
 
 		/* ---------- 顶部工具栏 ---------- */
@@ -90,9 +70,43 @@
 			color: #e8eaed;
 		}
 
+		/* ---------- 汉堡菜单 ---------- */
+		.menu-container {
+			position: absolute;
+			top: 100%;
+			right: 12px;
+			margin-top: 6px;
+			background: #1f2227;
+			border: 1px solid #3c4043;
+			border-radius: 6px;
+			padding: 4px 0;
+			min-width: 120px;
+			display: none;
+			box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+		}
+		.menu-container.active {
+			display: block;
+		}
+		.menu-item {
+			padding: 8px 12px;
+			color: #bdc1c6;
+			font-size: 12px;
+			cursor: pointer;
+			transition: background 0.2s;
+		}
+		.menu-item:hover {
+			background: #2c2f36;
+			color: #e8eaed;
+		}
+		.menu-divider {
+			height: 1px;
+			background: #3c4043;
+			margin: 8px 0;
+		}
+
 		/* ---------- 悬浮命令行 ---------- */
 		#command-line {
-			position: absolute;
+			position: fixed;
 			bottom: 0;
 			left: 0;
 			right: 0;
@@ -113,11 +127,10 @@
 			background: #0b0c0f;
 			border: 1px solid #3c4043;
 			border-radius: 6px;
-			padding: 6px 10px;
+			padding: 8px 12px;
 		}
 		.cmd-prompt {
 			color: #34a853;
-			font-size: 14px;
 			font-weight: bold;
 		}
 		.cmd-input {
@@ -125,7 +138,7 @@
 			background: transparent;
 			border: none;
 			outline: none;
-			color: #e8eaed;
+			color: #fff;
 			font-size: 14px;
 			font-family: inherit;
 		}
@@ -135,25 +148,26 @@
 	</style>
 </head>
 <body>
-	<div class="ever-portrait active" id="ep-container">
-		<div class="top-toolbar">
-			<button class="ctrl-btn" id="btn-toggle" title="恒竖切换">↻</button>
-			<button class="ctrl-btn" id="btn-fullscreen" title="全屏">⛶</button>
-			<div class="toolbar-spacer"></div>
-			<button class="ctrl-btn" id="btn-menu" title="菜单">☰</button>
-			<button class="ctrl-btn" id="btn-cmd" title="命令行">⌘</button>
+	<div class="top-toolbar">
+		<button class="ctrl-btn" id="btn-fullscreen" title="全屏">⛶</button>
+		<button class="ctrl-btn" id="btn-cmd" title="命令行">⌘</button>
+		<div class="toolbar-spacer"></div>
+		<button class="ctrl-btn" id="btn-menu" title="菜单">☰</button>
+		<div class="menu-container" id="menu-container">
+			<div class="menu-item">设置</div>
+			<div class="menu-item">关于</div>
+			<div class="menu-divider"></div>
+			<div class="menu-item">退出</div>
 		</div>
+	</div>
+	<div id="main-area">
+		<div id="app">Fox Remake 空页面</div>
+	</div>
 
-		<div id="main-area">
-			<div id="app">Fox Remake 空页面</div>
-		</div>
-
-		<!-- 悬浮命令行 -->
-		<div id="command-line">
-			<div class="cmd-input-row">
-				<span class="cmd-prompt">></span>
-				<input type="text" class="cmd-input" id="cmd-input" placeholder="输入命令..." autocomplete="off">
-			</div>
+	<div id="command-line">
+		<div class="cmd-input-row">
+			<span class="cmd-prompt">></span>
+			<input type="text" class="cmd-input" id="cmd-input" placeholder="输入命令..." autocomplete="off">
 		</div>
 	</div>
 	<script type="module" src="/src/fox-remake/main.ts"></script>

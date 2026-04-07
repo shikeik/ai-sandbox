@@ -1,37 +1,61 @@
 // ========== Fox Remake 入口 ==========
 
-import EPS from "../engine/eps.js"
-
 document.addEventListener("DOMContentLoaded", () => {
 	console.log("FOX-REMAKE", "初始化")
 
-	// 初始化 EPS 恒竖布局
-	EPS.init()
-
 	// DOM 元素
-	const btnToggle = document.getElementById("btn-toggle")
 	const btnFullscreen = document.getElementById("btn-fullscreen")
 	const btnMenu = document.getElementById("btn-menu")
 	const btnCmd = document.getElementById("btn-cmd")
+	const menuContainer = document.getElementById("menu-container")
 	const cmdLine = document.getElementById("command-line")
 	const cmdInput = document.getElementById("cmd-input") as HTMLInputElement
 
-	// ========== EPS 按钮 ==========
-	if (btnToggle) {
-		btnToggle.classList.toggle("active", EPS.isActive())
-		btnToggle.addEventListener("click", () => {
-			EPS.toggle()
-			btnToggle.classList.toggle("active", EPS.isActive())
-		})
-	}
-
+	// ========== 全屏按钮 ==========
 	if (btnFullscreen) {
 		const updateFullscreenBtn = () => {
 			btnFullscreen.classList.toggle("active", !!document.fullscreenElement)
 		}
 		document.addEventListener("fullscreenchange", updateFullscreenBtn)
 		document.addEventListener("webkitfullscreenchange", updateFullscreenBtn)
-		btnFullscreen.addEventListener("click", () => EPS.fullscreen())
+		btnFullscreen.addEventListener("click", () => {
+			if (!document.fullscreenElement) {
+				document.documentElement.requestFullscreen()
+			} else {
+				document.exitFullscreen()
+			}
+		})
+	}
+
+	// ========== 汉堡菜单 ==========
+	if (btnMenu && menuContainer) {
+		btnMenu.addEventListener("click", (e) => {
+			e.stopPropagation()
+			const isOpen = menuContainer.classList.contains("active")
+			if (isOpen) {
+				menuContainer.classList.remove("active")
+				btnMenu.classList.remove("active")
+			} else {
+				menuContainer.classList.add("active")
+				btnMenu.classList.add("active")
+			}
+		})
+
+		menuContainer.addEventListener("click", (e) => {
+			const item = e.target as HTMLElement
+			if (item.classList.contains("menu-item")) {
+				console.log("[MENU] 点击:", item.textContent)
+				menuContainer.classList.remove("active")
+				btnMenu.classList.remove("active")
+			}
+		})
+
+		document.addEventListener("click", (e) => {
+			if (!menuContainer.contains(e.target as Node) && e.target !== btnMenu) {
+				menuContainer.classList.remove("active")
+				btnMenu.classList.remove("active")
+			}
+		})
 	}
 
 	// ========== 命令行切换 ==========
@@ -49,13 +73,11 @@ document.addEventListener("DOMContentLoaded", () => {
 			}
 		})
 
-		// 执行命令
 		cmdInput.addEventListener("keydown", (e) => {
 			if (e.key === "Enter") {
 				const cmd = cmdInput.value.trim()
 				if (cmd) {
 					console.log("[CMD]", cmd)
-					// TODO: 执行命令
 					cmdInput.value = ""
 				}
 			} else if (e.key === "Escape") {
@@ -73,26 +95,13 @@ document.addEventListener("DOMContentLoaded", () => {
 		const updatePosition = () => {
 			if (!cmdLine.classList.contains("active")) return
 
-			// 计算键盘高度
 			const keyboardHeight = window.innerHeight - vv.height
-			const offset = vv.offsetTop + keyboardHeight - window.innerHeight
-
-			// 向上偏移，贴在输入法上方
-			if (keyboardHeight > 0) {
-				cmdLine.style.transform = `translateY(${offset}px)`
-			} else {
-				cmdLine.style.transform = "translateY(0)"
-			}
+			const offset = keyboardHeight > 0 ? -keyboardHeight : 0
+			cmdLine.style.transform = `translateY(${offset}px)`
 		}
 
 		vv.addEventListener("resize", updatePosition)
 		vv.addEventListener("scroll", updatePosition)
-	}
-
-	// ========== 全局暴露 ==========
-	;(window as unknown as Record<string, unknown>).foxRemake = {
-		EPS,
-		// TODO: 游戏实例
 	}
 
 	console.log("[FOX-REMAKE] 就绪")
