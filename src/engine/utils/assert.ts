@@ -76,12 +76,12 @@ export function assertEq<T>(
 
 	// verbose 模式下始终输出
 	if (AssertConfig.level === "verbose") {
-		const status = passed ? "✓ PASS" : "✗ FAIL"
+		const status = passed ? "✅ PASS" : "❌ FAIL"
 		logAssert(status, `${message} (expected: ${expected}, actual: ${actual})`, fullContext)
 	}
 	// error-only 模式下只输出失败
 	else if (AssertConfig.level === "error-only" && !passed) {
-		logAssert("✗ FAIL", `${message} (expected: ${expected}, actual: ${actual})`, fullContext)
+		logAssert("❌ FAIL", `${message} (expected: ${expected}, actual: ${actual})`, fullContext)
 	}
 
 	return assert(passed, `${message} (expected: ${expected}, actual: ${actual})`, fullContext)

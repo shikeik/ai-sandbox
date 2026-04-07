@@ -49,7 +49,7 @@ class GameInstance {
 		// 执行断言检查并输出到日志
 		for (let i = 0; i < state.triggers.length; i++) {
 			const passed = state.triggers[i] === false
-			const status = passed ? "✓ PASS" : "✗ FAIL"
+			const status = passed ? "✅ PASS" : "❌ FAIL"
 			this.log("ASSERT", `${status}: 按钮${i}重置后状态断言 (expected: false, actual: ${state.triggers[i]})`)
 		}
 	}
