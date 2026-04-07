@@ -467,13 +467,11 @@ export class DOMRenderer {
 				el.classList.add("button-base")
 				if (!isTriggeredButton && buttonIdx !== undefined) {
 					const color = BUTTON_SPIKE_COLORS[buttonIdx % BUTTON_SPIKE_COLORS.length]
+					// 使用原来的按钮图标，但添加颜色滤镜
 					el.innerHTML = `
 						<div class="button-icon" style="
-							background: ${color.button};
-							box-shadow: 0 2px 4px ${color.spike}80, inset 0 -1px 2px rgba(0,0,0,0.2);
-						">
-							<span style="font-size: 10px; font-weight: bold; color: white;">${buttonIdx + 1}</span>
-						</div>
+							filter: drop-shadow(0 0 3px ${color.button}) hue-rotate(${buttonIdx * 60}deg);
+						">⭘</div>
 					`
 				}
 				break
@@ -514,7 +512,7 @@ export class DOMRenderer {
 			container.appendChild(el)
 		})
 
-		// 3. 多个尖刺（添加颜色和编号）
+		// 3. 多个尖刺（添加颜色发光效果）
 		this.spikeElements.clear()
 		spikes.forEach((spike, idx) => {
 			const spikeDisplayY = height - 1 - spike.currentY
@@ -539,31 +537,15 @@ export class DOMRenderer {
 				display: flex;
 				align-items: center;
 				justify-content: center;
-				flex-direction: column;
 			`
 			
-			// 尖刺图标
+			// 尖刺图标 - 只保留颜色发光，不显示数字
 			const iconEl = document.createElement("span")
 			iconEl.textContent = "🔻"
 			iconEl.style.fontSize = "18px"
-			iconEl.style.filter = `drop-shadow(0 0 4px ${color.spike})`
-			
-			// 编号标记
-			const labelEl = document.createElement("span")
-			labelEl.textContent = String(idx + 1)
-
-			labelEl.style.cssText = `
-				font-size: 9px;
-				font-weight: bold;
-				color: ${color.button};
-				background: rgba(0,0,0,0.7);
-				padding: 1px 3px;
-				border-radius: 3px;
-				margin-top: -2px;
-			`
+			iconEl.style.filter = `drop-shadow(0 0 6px ${color.spike}) drop-shadow(0 0 12px ${color.button}80)`
 			
 			wrapper.appendChild(iconEl)
-			wrapper.appendChild(labelEl)
 			
 			this.spikeElements.set(key, wrapper)
 			container.appendChild(wrapper)
