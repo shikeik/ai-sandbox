@@ -347,43 +347,91 @@
 			gap: 8px;
 		}
 
-		/* D-Pad方向键 */
-		.dpad {
-			display: grid;
-			grid-template-columns: repeat(5, 1fr);
-			gap: 5px;
-			width: 220px;
-			margin: 0 auto;
+		/* 控制区 - 模仿狐狸跳跃 */
+		.control-area {
+			display: flex;
+			flex-direction: column;
+			gap: 16px;
+			padding: 12px 16px;
+			align-items: center;
 		}
 
-		.dpad-btn {
-			aspect-ratio: 1;
-			background: #2a2a3e;
-			border: 1px solid #3a3a4e;
-			border-radius: 8px;
-			color: #fff;
-			font-size: 16px;
+		/* 按钮排 - 上下两排 */
+		.btn-row {
+			display: flex;
+			justify-content: center;
+			gap: 12px;
+			width: 100%;
+			max-width: 320px;
+		}
+
+		/* 按钮基础样式 */
+		.ctrl-btn {
+			flex: 1;
+			height: 56px;
+			border: none;
+			border-radius: 16px;
+			font-size: 20px;
 			cursor: pointer;
-			transition: all 0.1s;
+			user-select: none;
+			-webkit-tap-highlight-color: transparent;
+			position: relative;
+			transition: transform 0.05s;
 			display: flex;
 			align-items: center;
 			justify-content: center;
 		}
 
-		.dpad-btn:hover {
-			background: #3a3a4e;
+		.ctrl-btn:active {
+			transform: scale(0.92);
 		}
 
-		.dpad-btn:active {
-			background: #3498db;
-			border-color: #3498db;
-			transform: scale(0.95);
+		/* 按钮标签 */
+		.btn-label {
+			position: absolute;
+			bottom: -18px;
+			left: 50%;
+			transform: translateX(-50%);
+			font-size: 10px;
+			color: #888;
+			white-space: nowrap;
 		}
 
-		.dpad-btn.empty {
-			background: transparent;
-			border: none;
-			pointer-events: none;
+		/* 移动按钮 - 绿色 */
+		#btn-left, #btn-right {
+			background: linear-gradient(135deg, #27ae60 0%, #1e8449 100%);
+			box-shadow: 0 4px 0 #166534, 0 5px 15px rgba(39, 174, 96, 0.4);
+			color: white;
+			max-width: 120px;
+		}
+
+		#btn-left:active, #btn-right:active {
+			box-shadow: 0 2px 0 #166534, 0 3px 8px rgba(39, 174, 96, 0.4);
+			transform: translateY(2px) scale(0.92);
+		}
+
+		/* 跳跃按钮 - 橙色 */
+		#btn-jump-left, #btn-jump-right {
+			background: linear-gradient(135deg, #f39c12 0%, #d68910 100%);
+			box-shadow: 0 4px 0 #9c5710, 0 5px 15px rgba(243, 156, 18, 0.4);
+			color: white;
+		}
+
+		#btn-jump-left:active, #btn-jump-right:active {
+			box-shadow: 0 2px 0 #9c5710, 0 3px 8px rgba(243, 156, 18, 0.4);
+			transform: translateY(2px) scale(0.92);
+		}
+
+		/* 远跳按钮 - 蓝色 */
+		#btn-jump-left-far, #btn-jump-right-far {
+			background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+			box-shadow: 0 4px 0 #1f5f8b, 0 5px 15px rgba(52, 152, 219, 0.4);
+			color: white;
+		}
+
+		#btn-jump-left-far:active, #btn-jump-right-far:active {
+			box-shadow: 0 2px 0 #1f5f8b, 0 3px 8px rgba(52, 152, 219, 0.4);
+			transform: translateY(2px) scale(0.92);
 		}
 
 		/* 动作按钮行 */
@@ -647,21 +695,41 @@
 
 		<!-- 手动模式内容 -->
 		<div id="tab-manual" class="tab-content">
-			<div class="manual-controls">
-				<!-- D-Pad方向控制 -->
-				<div class="dpad">
-					<button class="dpad-btn" id="btn-jump-left-far" title="左远跳">⬅️↖️</button>
-					<button class="dpad-btn" id="btn-jump-left" title="左跳">↖️</button>
-					<button class="dpad-btn" id="btn-jump-right" title="右跳">↗️</button>
-					<button class="dpad-btn" id="btn-jump-right-far" title="右远跳">↗️➡️</button>
-					<div class="dpad-btn empty"></div>
-					<button class="dpad-btn" id="btn-left" title="左移">⬅️</button>
-					<button class="dpad-btn" id="btn-right" title="右移">➡️</button>
-					<div class="dpad-btn empty"></div>
+			<div class="control-area">
+				<!-- 上排: 4个跳跃按钮 -->
+				<div class="btn-row">
+					<button class="ctrl-btn" id="btn-jump-left-far">
+						⬅️↖️
+						<span class="btn-label">左远跳(Z)</span>
+					</button>
+					<button class="ctrl-btn" id="btn-jump-left">
+						↖️
+						<span class="btn-label">左跳(Q)</span>
+					</button>
+					<button class="ctrl-btn" id="btn-jump-right">
+						↗️
+						<span class="btn-label">右跳(E)</span>
+					</button>
+					<button class="ctrl-btn" id="btn-jump-right-far">
+						↗️➡️
+						<span class="btn-label">右远跳(C)</span>
+					</button>
+				</div>
+
+				<!-- 下排: 2个移动按钮 -->
+				<div class="btn-row">
+					<button class="ctrl-btn" id="btn-left">
+						⬅️
+						<span class="btn-label">左移(←)</span>
+					</button>
+					<button class="ctrl-btn" id="btn-right">
+						➡️
+						<span class="btn-label">右移(→)</span>
+					</button>
 				</div>
 
 				<!-- 关卡切换和重置 -->
-				<div class="action-buttons">
+				<div class="action-buttons" style="margin-top: 20px;">
 					<button id="btn-switch-level" class="action-btn">🗺️ 切换地图</button>
 					<button id="btn-manual-reset" class="action-btn">🔄 重置</button>
 				</div>
