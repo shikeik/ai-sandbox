@@ -25,7 +25,6 @@ class GameInstance {
 		this.World = GameWorld
 		this.Brain = Brain
 		await this.reset()
-		this.log("SYSTEM", "游戏实例初始化完成")
 	}
 
 	async reset() {
@@ -39,13 +38,6 @@ class GameInstance {
 		this.stepCount = 0
 		const state = this.world.getState()
 
-		this.log("RESET", "========================================")
-		this.log("RESET", "游戏已重置")
-		this.log("RESET", `初始位置: (${state.hero.x}, ${state.hero.y})`)
-		this.log("RESET", `敌人位置: [${state.enemies.map((e: Position) => `(${e.x},${e.y})`).join(", ")}]`)
-		this.log("RESET", `尖刺位置: (${4}, ${state.spikeY})`)
-		this.log("RESET", `地图尺寸: ${width}x${height}`)
-
 		// 执行断言检查并输出到日志
 		for (let i = 0; i < state.triggers.length; i++) {
 			const passed = state.triggers[i] === false
@@ -58,7 +50,6 @@ class GameInstance {
 		const time = new Date().toLocaleTimeString()
 		this.logs.push({ time, tag, msg })
 		if (this.logs.length > 200) this.logs.shift()
-		console.log(`[BRAIN-LAB] [${tag}] ${msg}`)
 	}
 
 	getLogs() {
@@ -108,7 +99,7 @@ export const brainLabPlugin = {
 
 				switch (path) {
 					case "/state":
-						game.log("API", `GET /state - Step ${game.stepCount}`)
+						
 						result = getState()
 						break
 					case "/step":
@@ -177,27 +168,16 @@ async function doStep() {
 	const prevState = game.world.getState()
 	game.stepCount++
 
-	console.log("\n[STEP] ========================================")
-	console.log(`[STEP] Step ${game.stepCount} 开始`)
 
-	game.log("STEP", "========================================")
-	game.log("STEP", `Step ${game.stepCount} 开始`)
-	game.log("STEP", `当前位置: (${prevState.hero.x}, ${prevState.hero.y})`)
-	game.log("STEP", `当前敌人: ${prevState.enemies.length}个`)
 
-	game.log("BRAIN", "AI开始思考...")
 	const decision = game.brain.think(prevState)
 
-	game.log("BRAIN", `决策结果: ${decision.selectedAction}`)
-	game.log("BRAIN", `决策理由: ${decision.reasoning}`)
 
 	// 记录所有想象的选项
 	decision.imaginations.forEach((img: Imagination, idx: number) => {
 		const killed = img.predictedState.enemies.length < prevState.enemies.length
-		game.log("BRAIN", `  [${idx + 1}] ${img.action}: 位置(${img.predictedState.hero.x},${img.predictedState.hero.y}) 奖励${Math.round(img.predictedReward * 10) / 10}${killed ? " [击杀]" : ""}`)
 	})
 
-	game.log("ACTION", `执行动作: ${decision.selectedAction}`)
 	const actionResult = game.world.execute(decision.selectedAction)
 
 	const newState = game.world.getState()
@@ -205,21 +185,12 @@ async function doStep() {
 	const dx = newState.hero.x - prevState.hero.x
 	const dy = newState.hero.y - prevState.hero.y
 
-	game.log("RESULT", "执行完成")
-	game.log("RESULT", `  新位置: (${newState.hero.x}, ${newState.hero.y}) [Δx=${dx}, Δy=${dy}]`)
-	game.log("RESULT", `  剩余敌人: ${newState.enemies.length}个`)
-	game.log("RESULT", `  按钮触发: ${newState.triggers[0]}`)
-	game.log("RESULT", `  尖刺位置: y=${newState.spikeY}`)
-	game.log("RESULT", `  到达终点: ${actionResult.reachedGoal}`)
 
 	if (actionResult.animations.length > 0) {
-		game.log("ANIM", `动画序列 (${actionResult.animations.length}个):`)
 		actionResult.animations.forEach((anim: AnimationEvent, idx: number) => {
-			game.log("ANIM", `  [${idx + 1}] ${anim.type} ${anim.target} ${anim.from.x},${anim.from.y}->${anim.to?.x || "-" },${anim.to?.y || "-"} ${anim.duration}ms${anim.delay ? ` (delay ${anim.delay}ms)` : ""}`)
 		})
 	}
 
-	actionResult.logs.forEach((log: string) => game.log("WORLD", log))
 
 	return {
 		type: "AI_STEP",
@@ -263,12 +234,8 @@ function doMove(action: string) {
 	}
 
 	game.stepCount++
-	game.log("MANUAL", "========================================")
-	game.log("MANUAL", `手动移动 Step ${game.stepCount}`)
-	game.log("MANUAL", `动作: ${action}`)
 
 	const prevState = game.world.getState()
-	game.log("MANUAL", `移动前: (${prevState.hero.x}, ${prevState.hero.y})`)
 
 	const actionResult = game.world.execute(action)
 	const newState = game.world.getState()
@@ -276,14 +243,10 @@ function doMove(action: string) {
 	const dx = newState.hero.x - prevState.hero.x
 	const dy = newState.hero.y - prevState.hero.y
 
-	game.log("MANUAL", `移动后: (${newState.hero.x}, ${newState.hero.y}) [Δx=${dx}, Δy=${dy}]`)
-	game.log("MANUAL", `剩余敌人: ${newState.enemies.length}, 按钮触发: ${newState.triggers[0]}, 到达终点: ${actionResult.reachedGoal}`)
 
 	if (actionResult.animations.length > 0) {
-		game.log("ANIM", `动画序列 (${actionResult.animations.length}个)`)
 	}
 
-	actionResult.logs.forEach((log: string) => game.log("WORLD", log))
 
 	return {
 		type: "MANUAL_MOVE",
@@ -304,7 +267,6 @@ function doMove(action: string) {
 async function doReset() {
 	await game.reset()
 	const state = getState()
-	game.log("API", "POST /reset - 游戏已重置")
 	// 返回最近的日志（包含断言），让客户端可以显示在 ConsolePanel
 	const recentLogs = game.getLogs().slice(-10)
 	return { type: "RESET", step: 0, state, logs: recentLogs }
@@ -312,13 +274,8 @@ async function doReset() {
 
 function doThink() {
 	const state = game.world.getState()
-	game.log("THINK", "========================================")
-	game.log("THINK", "思考模式（不执行）")
-	game.log("THINK", `当前位置: (${state.hero.x}, ${state.hero.y})`)
 
 	const decision = game.brain.think(state)
-	game.log("BRAIN", `决策: ${decision.selectedAction}`)
-	game.log("BRAIN", `理由: ${decision.reasoning}`)
 
 	return {
 		type: "THINK_ONLY",
@@ -344,7 +301,6 @@ function doSetDepth(depth: number) {
 		return { error: "depth must be 1-10" }
 	}
 	game.brain.setImagineDepth(depth)
-	game.log("CONFIG", `想象深度设置为: ${depth}`)
 	return { type: "SET_DEPTH", depth, ok: true }
 }
 
@@ -367,7 +323,6 @@ async function doSetLevel(levelName: string) {
 
 function doViewport() {
 	const state = game.world.getState()
-	game.log("VIEWPORT", `查看视野: 玩家(${state.hero.x}, ${state.hero.y})`)
 	
 	// 计算视野范围（以玩家为中心，左右各3格，上下各2格）
 	const viewWidth = 7
