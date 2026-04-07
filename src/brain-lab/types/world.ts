@@ -29,10 +29,17 @@ export interface WorldSize {
 	height: number
 }
 
+/** 按钮-尖刺绑定关系 */
+export interface ButtonSpikeBinding {
+	button: { x: number; y: number }    // 按钮坐标
+	spikes: { x: number; y: number }[]  // 绑定的尖刺坐标数组
+}
+
 /** 关卡数据定义 */
 export interface LevelData {
 	name: string
 	map: string[]           // 字符地图（从上到下的视觉顺序）
 	width: number
 	height: number
+	bindings?: ButtonSpikeBinding[]  // 按钮-尖刺绑定关系（可选，默认按x坐标排序绑定）
 }

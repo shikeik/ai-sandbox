@@ -68,6 +68,12 @@ export const DEFAULT_LEVEL_MAP: LevelData = {
 		"．＠＃．＃．．．￡．",  // y=1：平台、按钮、敌人
 		"．＃＃＃￠＃＃＃＃．",  // y=0 底层：地面平台
 	],
+	bindings: [
+		{
+			button: { x: 3, y: 2 },  // 按钮在 y=2
+			spikes: [{ x: 4, y: 4 }]  // 尖刺在 y=4
+		}
+	]
 }
 
 /** 进阶关卡地图 - 多按钮多尖刺设计（12×8） */
@@ -85,6 +91,16 @@ export const ADVANCED_LEVEL_MAP: LevelData = {
 		"．．．．．￠．．￠．．．＃",  // y=1 两个敌人(x=5在尖刺1下, x=7在尖刺2下)
 		"＃＃＃＃＃＃＃＃＃＃＃＃＃",  // y=0 底层长平台
 	],
+	bindings: [
+		{
+			button: { x: 4, y: 6 },   // 按钮1在 y=6
+			spikes: [{ x: 5, y: 7 }]   // 尖刺1在 y=7
+		},
+		{
+			button: { x: 7, y: 6 },   // 按钮2在 y=6
+			spikes: [{ x: 7, y: 7 }]   // 尖刺2在 y=7
+		}
+	]
 }
 
 /** AI配置 */

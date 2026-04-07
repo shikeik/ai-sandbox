@@ -82,28 +82,22 @@ export function createStateFromLevel(level: LevelData = currentLevel): WorldStat
 		}
 	}
 
-	// 如果没有找到尖刺，添加默认尖刺
-	if (spikes.length === 0) {
-		spikes.push({ x: 4, initialY: 4, currentY: 4, falling: false, triggered: false, buttonX: 2, buttonY: 2 })
+	// 检查是否有绑定配置
+	if (!level.bindings) {
+		throw new Error(`关卡 "${level.name}" 缺少按钮-尖刺绑定配置 (bindings)`)
 	}
 
-	// 按钮和尖刺按x坐标排序后建立对应关系
-	// 每个尖刺绑定到对应按钮的坐标（用于颜色计算）
-	buttons.sort((a, b) => a.x - b.x)
-	spikes.sort((a, b) => a.x - b.x)
-
-	// 为尖刺添加绑定的按钮坐标
-	spikes.forEach((spike, index) => {
-		const button = buttons[index]
-		if (button) {
-			spike.buttonX = button.x
-			spike.buttonY = button.y
-		} else {
-			// 备用：使用自己的坐标
-			spike.buttonX = spike.x
-			spike.buttonY = spike.initialY
+	// 使用配置的绑定关系设置尖刺的 buttonX/buttonY
+	for (const binding of level.bindings) {
+		const { button, spikes: boundSpikes } = binding
+		for (const spikePos of boundSpikes) {
+			const spike = spikes.find(s => s.x === spikePos.x && s.initialY === spikePos.y)
+			if (spike) {
+				spike.buttonX = button.x
+				spike.buttonY = button.y
+			}
 		}
-	})
+	}
 
 	return {
 		grid,
