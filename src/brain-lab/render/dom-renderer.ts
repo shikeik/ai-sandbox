@@ -3,7 +3,7 @@
 import type { WorldState, AnimationEvent, BrainDecision, Position, SpikeState } from "../types/index.js"
 import type { APIStateResponse, APIStepResponse } from "../types/api.js"
 import { Element } from "../types/index.js"
-import { RENDER_CONFIG, ANIMATION_DURATION, BUTTON_THEME, getHueRotateFromHex } from "../config.js"
+import { RENDER_CONFIG, ANIMATION_DURATION, getColorByPosition } from "../config.js"
 
 /** 渲染器配置 */
 interface RendererConfig {
@@ -24,6 +24,7 @@ export class DOMRenderer {
 	private heroElement: HTMLElement | null = null
 	private enemyElements: Map<string, HTMLElement> = new Map()
 	private spikeElements: Map<string, HTMLElement> = new Map()
+	private buttonXPositions: number[] = []  // 存储按钮的x坐标，索引对应按钮索引
 
 	private config: RendererConfig
 	private animating: boolean = false
@@ -402,12 +403,14 @@ export class DOMRenderer {
 
 		// 收集按钮位置
 		const buttonPositions = new Map<number, number>() // x -> index
+		this.buttonXPositions = []  // 清空并重新收集
 		for (let displayY = 0; displayY < height; displayY++) {
 			const logicY = height - 1 - displayY
 			for (let logicX = 0; logicX < width; logicX++) {
 				if (grid[logicY][logicX] === Element.BUTTON) {
 					const idx = buttonPositions.size
 					buttonPositions.set(logicX, idx)
+					this.buttonXPositions[idx] = logicX  // 存储按钮x坐标
 				}
 			}
 		}
@@ -463,18 +466,21 @@ export class DOMRenderer {
 			case Element.SPIKE:
 				el.classList.add("air")
 				break
-			case Element.BUTTON:
+			case Element.BUTTON: {
 				el.classList.add("button-base")
+				// 根据坐标生成确定性颜色（只使用 x 确保同列同色）
+				const btnColor = getColorByPosition(logicX, 0)
+				el.style.background = `${btnColor}20`  // 12% 透明度背景
+				el.style.borderColor = `${btnColor}50`  // 31% 透明度边框
 				if (!isTriggeredButton) {
-					// 使用主题色渲染 🔘 图标
 					el.innerHTML = `
 						<div class="button-icon" style="
-							background: radial-gradient(circle, ${BUTTON_THEME.primary} 0%, ${BUTTON_THEME.secondary} 70%);
-							box-shadow: 0 2px 4px ${BUTTON_THEME.glow}, inset 0 -1px 2px rgba(0,0,0,0.2);
+							background: radial-gradient(circle, ${btnColor} 0%, ${btnColor} 70%);
 						">🔘</div>
 					`
 				}
 				break
+			}
 		}
 
 		return el
@@ -538,16 +544,17 @@ export class DOMRenderer {
 				justify-content: center;
 			`
 			
-			// 尖刺图标 - 使用滤镜染为主题色
-			// 🔻 原始是红色，根据主题色计算 hue-rotate
-			const hueRotate = getHueRotateFromHex(BUTTON_THEME.primary)
+			// 尖刺图标 - 使用对应按钮的坐标生成确定性颜色
+			// 第 idx 个尖刺对应第 idx 个按钮，使用按钮的 x 坐标作为种子
+			const buttonX = this.buttonXPositions[idx] ?? spike.x
+			const spikeColor = getColorByPosition(buttonX, 0)
+			// 从 HSL 提取 hue 值用于 hue-rotate
+			const hueMatch = spikeColor.match(/hsl\((\d+)/)
+			const hueRotate = hueMatch ? parseInt(hueMatch[1], 10) : 0
 			const iconEl = document.createElement("span")
 			iconEl.textContent = "🔻"
 			iconEl.style.fontSize = "18px"
-			iconEl.style.filter = `
-				hue-rotate(${hueRotate}deg) 
-				drop-shadow(0 0 6px ${BUTTON_THEME.primary})
-			`
+			iconEl.style.filter = `hue-rotate(${hueRotate}deg)`
 			
 			wrapper.appendChild(iconEl)
 			this.spikeElements.set(key, wrapper)
@@ -1105,6 +1112,9 @@ export class DOMRenderer {
 		const left = logicX * (this.config.cellSize + this.config.gap) + this.config.cellSize / 2
 		const top = displayY * (this.config.cellSize + this.config.gap) + this.config.cellSize / 2
 
+		// 根据坐标获取颜色
+		const rippleColor = getColorByPosition(logicX, 0)
+
 		const ripple = document.createElement("div")
 		ripple.className = "ripple"
 		ripple.style.cssText = `
@@ -1113,7 +1123,7 @@ export class DOMRenderer {
 			top: ${top}px;
 			width: 0;
 			height: 0;
-			border: 3px solid ${BUTTON_THEME.primary};
+			border: 3px solid ${rippleColor};
 			border-radius: 50%;
 			z-index: 45;
 			transform: translate(-50%, -50%);

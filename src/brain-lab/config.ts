@@ -102,8 +102,17 @@ export const REWARDS = {
 	death: -100,            // 死亡
 } as const
 
-/** 按钮主题色 - 修改此颜色改变整个主题 */
-export const BUTTON_COLOR = "#3498db"  // 蓝色主题
+/**
+ * 根据坐标生成确定性随机颜色
+ * 相同坐标永远返回相同颜色
+ */
+export function getColorByPosition(x: number, y: number): string {
+	// 使用坐标作为种子生成色相 (0-360)
+	// 乘以质数确保分布均匀，不同坐标尽量不同颜色
+	const hue = ((x * 137 + y * 53) % 360 + 360) % 360
+	// 固定高饱和度和中等亮度，确保颜色鲜艳可读
+	return `hsl(${hue}, 75%, 55%)`
+}
 
 /** 将 Hex 颜色变暗（用于 secondary） */
 function darken(hex: string, amount: number): string {
@@ -147,9 +156,3 @@ export function getHueRotateFromHex(hex: string): number {
 	return Math.round(h)
 }
 
-/** 主题色对象（自动计算衍生色） */
-export const BUTTON_THEME = {
-	get primary() { return BUTTON_COLOR },
-	get secondary() { return darken(BUTTON_COLOR, 0.15) },  // 暗 15%
-	get glow() { return toRgba(BUTTON_COLOR, 0.4) },        // 40% 透明度
-}
