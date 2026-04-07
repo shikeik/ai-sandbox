@@ -114,6 +114,30 @@ function handleLeft(ctx: ActionContext): void {
 
 	const physics = createPhysicsContext(state, width, height)
 
+	// 检查是否越界（走出边界会坠落虚空）
+	if (targetX < 0) {
+		logs.push(`[WORLD] 向左走出边界，坠入虚空！`)
+		hero.x = targetX
+		hero.y = -1
+		animations.push({
+			type: "HERO_MOVE",
+			target: "hero",
+			from: { x: oldX, y: oldY },
+			to: { x: targetX, y: oldY },
+			duration: ANIMATION_DURATION.heroMoveFast
+		})
+		animations.push({
+			type: "HERO_FALL",
+			target: "hero",
+			from: { x: targetX, y: oldY },
+			to: { x: targetX, y: -1 },
+			duration: ANIMATION_DURATION.heroFallLong,
+			delay: ANIMATION_DURATION.heroMoveFast
+		})
+		ctx.hero = hero
+		return
+	}
+
 	// 检查是否撞墙
 	if (isWall(physics, targetX, hero.y)) {
 		logs.push(`[WORLD] 向左移动失败：撞到墙(${targetX},${hero.y})`)
@@ -187,6 +211,30 @@ function handleRight(ctx: ActionContext): void {
 	const targetX = hero.x + 1
 
 	const physics = createPhysicsContext(state, width, height)
+
+	// 检查是否越界（走出边界会坠落虚空）
+	if (targetX >= width) {
+		logs.push(`[WORLD] 向右走出边界，坠入虚空！`)
+		hero.x = targetX
+		hero.y = -1
+		animations.push({
+			type: "HERO_MOVE",
+			target: "hero",
+			from: { x: oldX, y: oldY },
+			to: { x: targetX, y: oldY },
+			duration: ANIMATION_DURATION.heroMoveFast
+		})
+		animations.push({
+			type: "HERO_FALL",
+			target: "hero",
+			from: { x: targetX, y: oldY },
+			to: { x: targetX, y: -1 },
+			duration: ANIMATION_DURATION.heroFallLong,
+			delay: ANIMATION_DURATION.heroMoveFast
+		})
+		ctx.hero = hero
+		return
+	}
 
 	// 检查是否撞墙
 	if (isWall(physics, targetX, hero.y)) {

@@ -24,9 +24,10 @@ export function createPhysicsContext(state: WorldState, width: number, height: n
 /**
  * 检查指定格子是否是墙（有碰撞）
  * 终点不是墙，可以走进去触发胜利
+ * 注：边界（x<0, x>=width 等）不算墙，走出边界会坠落虚空
  */
 export function isWall(ctx: PhysicsContext, x: number, y: number): boolean {
-	if (x < 0 || x >= ctx.width || y < 0 || y >= ctx.height) return true  // 边界也是墙
+	if (x < 0 || x >= ctx.width || y < 0 || y >= ctx.height) return false  // 边界不算墙
 	if (!ctx.grid[y]) return true  // 行不存在视为墙
 	const cell = ctx.grid[y][x]
 	return cell === Element.PLATFORM || cell === Element.BUTTON
@@ -49,6 +50,7 @@ export function hasSupport(ctx: PhysicsContext, x: number, y: number): boolean {
 /**
  * 寻找指定列中，玩家能站立的落点Y坐标
  * 跳跃高度2格：从原Y出发，最高能到原Y+2的位置
+ * 注意：不能落在墙中（PLATFORM/BUTTON），需要继续往下找
  */
 export function findJumpLandingY(
 	ctx: PhysicsContext, 
@@ -64,11 +66,16 @@ export function findJumpLandingY(
 	// 从高往低扫描平台
 	for (let py = platformSearchStart; py >= 0; py--) {
 		if (hasSupport(ctx, targetX, py + 1)) {
-			return py + 1  // 站在平台上方一格
+			const landingY = py + 1  // 候选落点
+			// 检查落点本身是否是墙（不能站在墙里）
+			if (!isWall(ctx, targetX, landingY)) {
+				return landingY
+			}
+			// 是墙，继续往下找
 		}
 	}
 
-	// 整列没有平台，落到虚空
+	// 整列没有合适的平台，落到虚空
 	return -1
 }
 
