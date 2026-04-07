@@ -122,7 +122,7 @@ function init(): void {
 	// 设置探索模式切换回调
 	viewManager.onExploreModeChange = (mode) => {
 		network!.exploreMode = mode as "none" | "fixed" | "dynamic"
-		const epsilon = network!.getEpsilon()
+		const _epsilon = network!.getEpsilon()
 	}
 
 	// 设置种子控制回调
@@ -146,7 +146,7 @@ function init(): void {
 	}
 
 	// 游戏地形生成后更新UI显示
-	game.onTerrainSeedChange = (seed, stats) => {
+	game.onTerrainSeedChange = (seed, _stats) => {
 		viewManager!.updateSeedDisplay(seed)
 	}
 

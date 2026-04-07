@@ -27,7 +27,7 @@ export const DEFAULT_ELEMENTS: ElementDef[] = [
 ]
 
 // 层名称
-const LAYER_NAMES = ["天空层", "中层", "地面层"]
+const _LAYER_NAMES = ["天空层", "中层", "地面层"]
 
 // ========== 格子世界核心类 ==========
 
@@ -421,7 +421,7 @@ export class GridWorld {
 
 
 		// 调整动画速度
-		const speed = options?.speed ?? 1
+		const _speed = options?.speed ?? 1
 
 		// 播放动画
 		await this.animator.play(action, options?.onFrame)

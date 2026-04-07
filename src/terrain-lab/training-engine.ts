@@ -5,7 +5,7 @@
 import type { AppState } from "./state.js"
 import type { ActionEvaluation } from "./unsupervised.js"
 import { TRAIN_CONFIG, EVAL_SAMPLE_SIZE, OUTPUT_DIM, UNSUPERVISED_CONFIG } from "./constants.js"
-import { forward, updateNetwork, cloneNet } from "./neural-network.js"
+import { forward, updateNetwork } from "./neural-network.js"
 import { accumulateSupervisedGrad } from "./supervised.js"
 import { accumulateGradients } from "./unsupervised.js"
 import { createGradientBuffer } from "./gradients.js"

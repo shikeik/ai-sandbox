@@ -1,10 +1,9 @@
 // ========== 监督学习核心逻辑（可测试封装）==========
 
-import type { NetParams, ForwardResult } from "./types.js"
+import type { NetParams } from "./types.js"
 import { NUM_ELEMENTS, HIDDEN_DIM, INPUT_DIM, OUTPUT_DIM, EMBED_DIM } from "./constants.js"
 import { forward, backward } from "./neural-network.js"
-import { createGradientBuffer, type GradientBuffer } from "./gradients.js"
-export { createGradientBuffer, type GradientBuffer } from "./gradients.js"
+import { type GradientBuffer } from "./gradients.js"
 
 // 训练统计
 export interface TrainingStats {

@@ -4,11 +4,11 @@
 
 import type { AppState } from "@/terrain-lab/state.js"
 import {
-	ELEM_AIR, ELEM_HERO, ELEM_GROUND,
+	ELEM_AIR, ELEM_GROUND,
 	CURRICULUM_STAGES, NUM_LAYERS
 } from "@/terrain-lab/constants.js"
 import type { TerrainConfig } from "@/terrain-lab/constants.js"
-import { getLabel, getActionName, generateTerrainForAction } from "@/terrain-lab/terrain.js"
+import { getActionName, generateTerrainForAction } from "@/terrain-lab/terrain.js"
 import { Logger } from "@/engine/utils/Logger.js"
 
 // ========== 引入格子世界系统 ==========

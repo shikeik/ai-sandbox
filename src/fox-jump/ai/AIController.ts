@@ -112,7 +112,7 @@ export class AIController {
 		} else {
 			this.isStepMode = false
 			this.aiSpeed = speedId
-			const speedName = speedId === AI_CONFIG.SPEEDS.SLOW ? "慢速" :
+			const _speedName = speedId === AI_CONFIG.SPEEDS.SLOW ? "慢速" :
 				speedId === AI_CONFIG.SPEEDS.NORMAL ? "中速" :
 					speedId === AI_CONFIG.SPEEDS.FAST ? "快速" : "极速"
 		}
@@ -166,7 +166,7 @@ export class AIController {
 				}
 			}
 
-			const epsilon = this.network.getEpsilon()
+			const _epsilon = this.network.getEpsilon()
 		}
 	}
 
@@ -273,7 +273,7 @@ export class AIController {
 
 		const result = this.game.execute(actionType)
 		if (result) {
-			const actionNames = ["移动", "跳跃", "远跳"]
+			const _actionNames = ["移动", "跳跃", "远跳"]
 		}
 
 		this.pendingAIDecision = null

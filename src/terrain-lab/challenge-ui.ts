@@ -3,7 +3,7 @@
 // 绘制功能已移至 GridWorldRenderer
 
 import type { ChallengeState, ChallengeResult } from "./challenge-controller.js"
-import { ACTIONS, NUM_LAYERS } from "./constants.js"
+import { ACTIONS } from "./constants.js"
 import { forward } from "./neural-network.js"
 import { terrainToIndices } from "./terrain.js"
 import type { AppState } from "./state.js"
@@ -280,7 +280,7 @@ export class ChallengeUIManager {
 	/**
 	 * 绘制当前视野地形（5×3窗口）
 	 */
-	drawTerrain(terrain: number[][] | null, heroCol: number = 0, fullMapLength: number = 32): void {
+	drawTerrain(terrain: number[][] | null, _heroCol: number = 0, _fullMapLength: number = 32): void {
 		if (!terrain) {
 			this.gridWorld.clear(this.challengeCanvas, "等待挑战开始...")
 			return

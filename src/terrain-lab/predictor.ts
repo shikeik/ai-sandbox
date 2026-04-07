@@ -6,7 +6,7 @@ import type { UIManager } from "./ui-manager.js"
 import type { ForwardResult, ActionType } from "./types.js"
 import { ACTIONS } from "./constants.js"
 import { forward } from "./neural-network.js"
-import { terrainToIndices, findHeroCol, getActionChecks, getLabel, getActionName, isActionValidByChecks } from "./terrain.js"
+import { terrainToIndices, findHeroCol, getActionChecks, getLabel, isActionValidByChecks } from "./terrain.js"
 import { stopAnimation } from "./state.js"
 
 export interface PredictionResult {

@@ -6,14 +6,13 @@ export { ChallengeUIManager } from "./challenge-ui.js"
 import type { AppState } from "./state.js"
 import type { ForwardResult, ActionType } from "./types.js"
 import {
-	NUM_LAYERS, ELEMENTS, ELEM_AIR, ELEM_HERO, ELEM_GROUND,
-	ACTIONS, DEFAULT_TERRAIN_CONFIG
+	NUM_LAYERS, ELEM_AIR, ELEM_HERO, ELEM_GROUND,
+	DEFAULT_TERRAIN_CONFIG
 } from "./constants.js"
 import type { TerrainConfig } from "./constants.js"
 import { forward } from "./neural-network.js"
 import {
-	terrainToIndices, findHeroCol, getActionChecks, getLabel, getActionName,
-	isActionValidByChecks, generateRandomTerrain, isValidTerrain, getLayerPool, randElemFromPool,
+	terrainToIndices, getActionChecks, isActionValidByChecks, getActionName,
 	generateTerrainForAction
 } from "./terrain.js"
 

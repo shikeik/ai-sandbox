@@ -5,8 +5,8 @@ import type { AppState } from "./state.js"
 import type { UIManager } from "./ui-manager.js"
 import type { SnapshotManager } from "./snapshot-manager.js"
 import { TrainingEngine } from "./training-engine.js"
-import { CURRICULUM_STAGES, TRAIN_CONFIG, DATASET_SIZE, UNSUPERVISED_CONFIG } from "./constants.js"
-import { generateTerrainData, findHeroCol, getActionChecks, isActionValidByChecks, getLabel } from "./terrain.js"
+import { CURRICULUM_STAGES, TRAIN_CONFIG, UNSUPERVISED_CONFIG } from "./constants.js"
+import { findHeroCol, getActionChecks, isActionValidByChecks, getLabel } from "./terrain.js"
 import { accumulateGradients, calculateReward } from "./unsupervised.js"
 import { accumulateSupervisedGrad } from "./supervised.js"
 import { createGradientBuffer } from "./gradients.js"
@@ -134,7 +134,7 @@ export class CurriculumController {
 	 */
 	private async runCurriculumUnsupervised(): Promise<void> {
 		const targetValidRate = 70
-		const targetAcc = 50
+		const _targetAcc = 50
 		const maxTotalSteps = 3000
 		const { batchSize } = TRAIN_CONFIG
 		const stepsPerBatch = 100

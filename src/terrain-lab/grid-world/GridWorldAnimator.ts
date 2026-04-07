@@ -2,7 +2,7 @@
 // 职责：统一的动作动画系统（走/跳/远跳/走A）
 
 import type { ActionType } from "../types.js"
-import type { AnimationConfig, AnimationState, AnimationResult } from "./types.js"
+import type { AnimationConfig, AnimationState } from "./types.js"
 import { Logger } from "@/engine/utils/Logger.js"
 
 // ========== 动画配置常量 ==========

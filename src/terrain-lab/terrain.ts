@@ -214,7 +214,7 @@ export function isActionValidByChecks(checks: ActionChecks, actionIdx: number): 
 
 // ========== 数据生成 ==========
 
-function configLabel(config: TerrainConfig): string {
+function _configLabel(config: TerrainConfig): string {
 	const parts: string[] = []
 	if (config.groundOnly) parts.push("地面=仅平地")
 	else parts.push("地面=平地+坑")
@@ -253,11 +253,11 @@ export function generateTerrainData(count: number, config: TerrainConfig = DEFAU
 		attempts++
 		if (!isValidTerrain(t)) continue
 
-		validCount++
+		validCount++  // eslint-disable-line @typescript-eslint/no-unused-vars
 		dataset.push({ t, indices: terrainToIndices(t), y: getLabel(t) })
 	}
 
-	const duration = (performance.now() - startTime).toFixed(0)
+	const _duration = (performance.now() - startTime).toFixed(0)
 
 	return dataset
 }

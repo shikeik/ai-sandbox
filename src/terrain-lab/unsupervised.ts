@@ -3,8 +3,7 @@
 import type { NetParams } from "./types.js"
 import { NUM_ELEMENTS, HIDDEN_DIM, INPUT_DIM, OUTPUT_DIM, EMBED_DIM } from "./constants.js"
 import { forward, backward } from "./neural-network.js"
-import { createGradientBuffer, type GradientBuffer } from "./gradients.js"
-export { createGradientBuffer, type GradientBuffer } from "./gradients.js"
+import { type GradientBuffer } from "./gradients.js"
 
 // 无监督学习配置接口
 export interface UnsupervisedRewardConfig {
@@ -35,7 +34,7 @@ export function accumulateGradientsGuided(
 	evaluation: GuidedEvaluation,
 	batchSize: number
 ): void {
-	const { reward, action: selectedAction, optimalAction, isValid } = evaluation
+	const { reward: _reward, action: selectedAction, optimalAction, isValid } = evaluation
 	const gradScale = 0.3 / batchSize
 
 	if (!isValid) {

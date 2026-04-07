@@ -5,7 +5,7 @@
 import type { ForwardResult } from "./types.js"
 import type { AppState } from "./state.js"
 import {
-	NUM_LAYERS, NUM_COLS, ELEMENTS, ELEM_AIR,
+	NUM_COLS, NUM_LAYERS, ELEMENTS,
 	HIDDEN_DIM, OUTPUT_DIM, ACTIONS,
 	EMBED_SIZE_BASE, EMBED_SIZE_SENSITIVITY, EMBED_SIZE_OFFSET, EMBED_SIZE_MIN, EMBED_SIZE_MAX
 } from "./constants.js"

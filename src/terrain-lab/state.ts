@@ -2,7 +2,7 @@ import type { NetParams, ForwardResult, DatasetItem } from "./types.js"
 import type { ActionType } from "./types.js"
 import { createNet } from "./neural-network.js"
 import { createAnimationState } from "./grid-world/index.js"
-import { NUM_COLS, NUM_LAYERS, ELEM_AIR, ELEM_HERO, ELEM_GROUND, DEFAULT_TERRAIN_CONFIG } from "./constants.js"
+import { NUM_COLS, ELEM_AIR, ELEM_HERO, ELEM_GROUND, DEFAULT_TERRAIN_CONFIG } from "./constants.js"
 
 // ========== 应用状态 ==========
 

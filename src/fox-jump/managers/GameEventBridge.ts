@@ -139,7 +139,7 @@ export class GameEventBridge {
 
 			if (!this.aiController.isAITrainMode && !this.aiController.isAIMode) {
 				this.stopTimerUpdate()
-				const elapsed = this.game.getElapsedTime()
+				const _elapsed = this.game.getElapsedTime()
 				// Note: playerBestStore is accessed through uiManager in the original
 				// We need to check if this works correctly
 				this.uiManager.updateGameInfo()

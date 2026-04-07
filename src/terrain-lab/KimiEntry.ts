@@ -26,7 +26,7 @@ const ACTIONS = ["走", "跳", "远跳", "走A"] as const
 type ActionType = typeof ACTIONS[number]
 
 // 动作到列偏移的映射
-const ACTION_TO_COL_DELTA: Record<ActionType, number> = {
+const _ACTION_TO_COL_DELTA: Record<ActionType, number> = {
 	"走": 1,
 	"跳": 2,
 	"远跳": 3,
@@ -34,7 +34,7 @@ const ACTION_TO_COL_DELTA: Record<ActionType, number> = {
 }
 
 // 动作序号映射（与 Kimi API 对应）
-const ACTION_INDEX: Record<ActionType, number> = {
+const _ACTION_INDEX: Record<ActionType, number> = {
 	"走": 0,
 	"跳": 1,
 	"远跳": 2,

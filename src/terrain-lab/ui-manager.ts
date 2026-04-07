@@ -2,7 +2,7 @@
 // 职责：所有 DOM 更新收口，不做任何业务判断
 
 import type { AppState } from "./state.js"
-import { ELEMENTS, CURRICULUM_STAGES, ACTIONS } from "./constants.js"
+import { ELEMENTS, CURRICULUM_STAGES } from "./constants.js"
 
 export interface MetricsData {
 	loss?: number

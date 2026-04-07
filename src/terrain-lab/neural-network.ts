@@ -1,6 +1,6 @@
 import type { NetParams, ForwardResult, Gradients } from "./types.js"
 import { HIDDEN_DIM, OUTPUT_DIM, INPUT_DIM, LR, NUM_ELEMENTS, EMBED_DIM } from "./constants.js"
-import { randn, zeroVec, createMat, zeroMat } from "./utils.js"
+import { zeroVec, createMat, zeroMat } from "./utils.js"
 
 // ========== 神经网络操作 ==========
 

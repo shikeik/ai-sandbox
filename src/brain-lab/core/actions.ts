@@ -116,7 +116,7 @@ function handleLeft(ctx: ActionContext): void {
 
 	// 检查是否越界（走出边界会坠落虚空）
 	if (targetX < 0) {
-		logs.push(`[WORLD] 向左走出边界，坠入虚空！`)
+		logs.push("[WORLD] 向左走出边界，坠入虚空！")
 		hero.x = targetX
 		hero.y = -1
 		animations.push({
@@ -214,7 +214,7 @@ function handleRight(ctx: ActionContext): void {
 
 	// 检查是否越界（走出边界会坠落虚空）
 	if (targetX >= width) {
-		logs.push(`[WORLD] 向右走出边界，坠入虚空！`)
+		logs.push("[WORLD] 向右走出边界，坠入虚空！")
 		hero.x = targetX
 		hero.y = -1
 		animations.push({

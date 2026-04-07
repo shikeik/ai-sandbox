@@ -3,7 +3,7 @@
 import type { WorldState, AnimationEvent, Position, SpikeState } from "../types/index.js"
 import type { APIStateResponse } from "../types/api.js"
 import { Element } from "../types/index.js"
-import { RENDER_CONFIG, ANIMATION_DURATION, getColorByPosition } from "../config.js"
+import { RENDER_CONFIG, getColorByPosition } from "../config.js"
 
 /** 渲染器配置 */
 interface RendererConfig {
@@ -300,8 +300,8 @@ export class DOMRenderer {
 		const targetCameraX = targetX - viewportWidth / 2 + this.config.cellSize / 2
 		const targetCameraY = targetY - viewportHeight / 2 + this.config.cellSize / 2
 
-		const startCameraX = this.cameraX
-		const startCameraY = this.cameraY
+		const _startCameraX = this.cameraX
+		const _startCameraY = this.cameraY
 
 		// 使用 CSS transition 实现平滑移动
 		if (this.worldContentElement) {
@@ -608,13 +608,13 @@ export class DOMRenderer {
 		const playerAnimations = animations.filter(a => 
 			a.type === "HERO_MOVE" || a.type === "HERO_JUMP" || a.type === "HERO_FALL"
 		)
-		const playerMaxEndTime = playerAnimations.length > 0 
+		const _playerMaxEndTime = playerAnimations.length > 0 
 			? Math.max(...playerAnimations.map(a => (a.delay || 0) + a.duration))
 			: 0
 
 		// 找出按钮动画的开始时间（用于TEMP日志）
 		const buttonAnim = animations.find(a => a.type === "BUTTON_PRESS")
-		const buttonStartTime = buttonAnim ? (buttonAnim.delay || 0) : -1
+		const _buttonStartTime = buttonAnim ? (buttonAnim.delay || 0) : -1
 
 		for (let i = 0; i < groups.length; i++) {
 			const group = groups[i]
@@ -639,7 +639,7 @@ export class DOMRenderer {
 			if (cinematicAnim && cinematicAnim.payload && typeof cinematicAnim.payload === "object") {
 				// 新演出模式：缓动到尖刺 -> 实时跟随下落 -> 缓动回玩家
 				const payload = cinematicAnim.payload as Record<string, number>
-				const { spikeIdx, spikeStartY, spikeTargetY, cinematicDuration, followDuration, waitDuration } = payload
+				const { spikeIdx, spikeStartY, spikeTargetY: _spikeTargetY, cinematicDuration, followDuration, waitDuration } = payload
 				const height = this.getGridHeight()
 				const cellSize = this.config.cellSize + this.config.gap
 

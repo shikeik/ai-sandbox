@@ -2,19 +2,17 @@
 // 职责：管理监督学习/无监督学习 Tab 的所有功能
 // 使用 GridWorldSystem 统一处理渲染、编辑、动画
 
-import type { ForwardResult, ActionType, DatasetItem } from "./types.js"
+import type { ForwardResult, ActionType } from "./types.js"
 import type { AppState } from "./state.js"
 import {
-	NUM_COLS, NUM_LAYERS, NUM_ELEMENTS, HIDDEN_DIM, OUTPUT_DIM, EMBED_DIM,
-	INPUT_DIM, ACTIONS, ELEM_AIR, ELEM_HERO, ELEM_GROUND, ELEM_SLIME, ELEM_DEMON, ELEM_COIN,
-	CURRICULUM_STAGES, ELEMENTS,
-	UNSUPERVISED_CONFIG, TRAIN_CONFIG, DATASET_SIZE
+	NUM_COLS, NUM_LAYERS, HIDDEN_DIM, OUTPUT_DIM, INPUT_DIM, DATASET_SIZE,
+	ELEM_AIR, ELEM_HERO, ELEM_GROUND, ELEM_SLIME, ELEM_DEMON, ELEM_COIN,
+	CURRICULUM_STAGES, ELEMENTS
 } from "./constants.js"
-import type { TerrainConfig } from "./constants.js"
-import { forward, createNet } from "./neural-network.js"
+// TerrainConfig 类型通过其他导入间接使用
+import { createNet } from "./neural-network.js"
 import {
-	terrainToIndices, findHeroCol, getActionChecks, getLabel,
-	isActionValidByChecks, generateTerrainData, generateRandomTerrain
+	generateTerrainData, generateRandomTerrain
 } from "./terrain.js"
 import { UIManager } from "./ui-manager.js"
 import { TrainingEngine } from "./training-engine.js"
