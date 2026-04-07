@@ -8,27 +8,20 @@ document.addEventListener("DOMContentLoaded", () => {
 	// 初始化 EPS 恒竖布局
 	EPS.init()
 
-	// 更新 EPS 状态显示
-	const epsStatus = document.getElementById("eps-st")
-	function updateEpsStatus() {
-		if (epsStatus) {
-			epsStatus.textContent = EPS.isActive() ? "恒竖" : "-"
-		}
-	}
-	updateEpsStatus()
-
-	// 绑定工具栏按钮
+	// DOM 元素
 	const btnToggle = document.getElementById("btn-toggle")
 	const btnFullscreen = document.getElementById("btn-fullscreen")
 	const btnMenu = document.getElementById("btn-menu")
-	const menuContainer = document.getElementById("menu-container")
+	const btnCmd = document.getElementById("btn-cmd")
+	const cmdLine = document.getElementById("command-line")
+	const cmdInput = document.getElementById("cmd-input") as HTMLInputElement
 
+	// ========== EPS 按钮 ==========
 	if (btnToggle) {
 		btnToggle.classList.toggle("active", EPS.isActive())
 		btnToggle.addEventListener("click", () => {
 			EPS.toggle()
 			btnToggle.classList.toggle("active", EPS.isActive())
-			updateEpsStatus()
 		})
 	}
 
@@ -41,41 +34,66 @@ document.addEventListener("DOMContentLoaded", () => {
 		btnFullscreen.addEventListener("click", () => EPS.fullscreen())
 	}
 
-	// 汉堡菜单点击事件
-	if (btnMenu && menuContainer) {
-		btnMenu.addEventListener("click", (e) => {
-			e.stopPropagation()
-			const isOpen = menuContainer.classList.contains("active")
-			if (isOpen) {
-				menuContainer.classList.remove("active")
-				btnMenu.classList.remove("active")
+	// ========== 命令行切换 ==========
+	if (btnCmd && cmdLine && cmdInput) {
+		btnCmd.addEventListener("click", () => {
+			const isActive = cmdLine.classList.contains("active")
+			if (isActive) {
+				cmdLine.classList.remove("active")
+				btnCmd.classList.remove("active")
+				cmdInput.blur()
 			} else {
-				menuContainer.classList.add("active")
-				btnMenu.classList.add("active")
+				cmdLine.classList.add("active")
+				btnCmd.classList.add("active")
+				cmdInput.focus()
 			}
 		})
 
-		// 点击菜单项关闭菜单
-		menuContainer.addEventListener("click", (e) => {
-			const item = e.target as HTMLElement
-			if (item.classList.contains("menu-item")) {
-				console.log("[MENU] 点击:", item.textContent)
-				menuContainer.classList.remove("active")
-				btnMenu.classList.remove("active")
-			}
-		})
-
-		// 点击页面其他地方关闭菜单
-		document.addEventListener("click", (e) => {
-			if (!menuContainer.contains(e.target as Node) && e.target !== btnMenu) {
-				menuContainer.classList.remove("active")
-				btnMenu.classList.remove("active")
+		// 执行命令
+		cmdInput.addEventListener("keydown", (e) => {
+			if (e.key === "Enter") {
+				const cmd = cmdInput.value.trim()
+				if (cmd) {
+					console.log("[CMD]", cmd)
+					// TODO: 执行命令
+					cmdInput.value = ""
+				}
+			} else if (e.key === "Escape") {
+				cmdLine.classList.remove("active")
+				btnCmd.classList.remove("active")
+				cmdInput.blur()
 			}
 		})
 	}
 
-	const app = document.getElementById("app")
-	if (app) {
-		app.textContent = "Fox Remake 已加载"
+	// ========== 命令行跟随输入法 ==========
+	if (cmdLine && window.visualViewport) {
+		const vv = window.visualViewport
+
+		const updatePosition = () => {
+			if (!cmdLine.classList.contains("active")) return
+
+			// 计算键盘高度
+			const keyboardHeight = window.innerHeight - vv.height
+			const offset = vv.offsetTop + keyboardHeight - window.innerHeight
+
+			// 向上偏移，贴在输入法上方
+			if (keyboardHeight > 0) {
+				cmdLine.style.transform = `translateY(${offset}px)`
+			} else {
+				cmdLine.style.transform = "translateY(0)"
+			}
+		}
+
+		vv.addEventListener("resize", updatePosition)
+		vv.addEventListener("scroll", updatePosition)
 	}
+
+	// ========== 全局暴露 ==========
+	;(window as unknown as Record<string, unknown>).foxRemake = {
+		EPS,
+		// TODO: 游戏实例
+	}
+
+	console.log("[FOX-REMAKE] 就绪")
 })

@@ -68,39 +68,8 @@
 			border-color: #34a853;
 			color: #fff;
 		}
-
-		/* ---------- 汉堡菜单 ---------- */
-		.menu-container {
-			position: absolute;
-			top: 100%;
-			right: 12px;
-			margin-top: 6px;
-			background: #1f2227;
-			border: 1px solid #3c4043;
-			border-radius: 6px;
-			padding: 4px 0;
-			min-width: 120px;
-			display: none;
-			box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
-		}
-		.menu-container.active {
-			display: block;
-		}
-		.menu-item {
-			padding: 8px 12px;
-			color: #bdc1c6;
-			font-size: 12px;
-			cursor: pointer;
-			transition: background 0.2s;
-		}
-		.menu-item:hover {
-			background: #2c2f36;
-			color: #e8eaed;
-		}
-		.menu-divider {
-			height: 1px;
-			background: #3c4043;
-			margin: 8px 0;
+		.toolbar-spacer {
+			flex: 1;
 		}
 
 		/* ---------- 主内容区 ---------- */
@@ -110,6 +79,7 @@
 			justify-content: center;
 			height: calc(100% - 45px);
 			font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "PingFang SC", "Microsoft YaHei", sans-serif;
+			position: relative;
 		}
 		#app {
 			font-size: 16px;
@@ -119,6 +89,49 @@
 			border-radius: 12px;
 			color: #e8eaed;
 		}
+
+		/* ---------- 悬浮命令行 ---------- */
+		#command-line {
+			position: absolute;
+			bottom: 0;
+			left: 0;
+			right: 0;
+			background: #16181d;
+			border-top: 1px solid #2c2f36;
+			padding: 8px 12px;
+			z-index: 200;
+			display: none;
+			font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+		}
+		#command-line.active {
+			display: block;
+		}
+		.cmd-input-row {
+			display: flex;
+			align-items: center;
+			gap: 8px;
+			background: #0b0c0f;
+			border: 1px solid #3c4043;
+			border-radius: 6px;
+			padding: 6px 10px;
+		}
+		.cmd-prompt {
+			color: #34a853;
+			font-size: 14px;
+			font-weight: bold;
+		}
+		.cmd-input {
+			flex: 1;
+			background: transparent;
+			border: none;
+			outline: none;
+			color: #e8eaed;
+			font-size: 14px;
+			font-family: inherit;
+		}
+		.cmd-input::placeholder {
+			color: #5f6368;
+		}
 	</style>
 </head>
 <body>
@@ -126,17 +139,21 @@
 		<div class="top-toolbar">
 			<button class="ctrl-btn" id="btn-toggle" title="恒竖切换">↻</button>
 			<button class="ctrl-btn" id="btn-fullscreen" title="全屏">⛶</button>
-			<div style="flex: 1;"></div>
+			<div class="toolbar-spacer"></div>
 			<button class="ctrl-btn" id="btn-menu" title="菜单">☰</button>
-			<div class="menu-container" id="menu-container">
-				<div class="menu-item">设置</div>
-				<div class="menu-item">关于</div>
-				<div class="menu-divider"></div>
-				<div class="menu-item">退出</div>
-			</div>
+			<button class="ctrl-btn" id="btn-cmd" title="命令行">⌘</button>
 		</div>
+
 		<div id="main-area">
 			<div id="app">Fox Remake 空页面</div>
+		</div>
+
+		<!-- 悬浮命令行 -->
+		<div id="command-line">
+			<div class="cmd-input-row">
+				<span class="cmd-prompt">></span>
+				<input type="text" class="cmd-input" id="cmd-input" placeholder="输入命令..." autocomplete="off">
+			</div>
 		</div>
 	</div>
 	<script type="module" src="/src/fox-remake/main.ts"></script>
