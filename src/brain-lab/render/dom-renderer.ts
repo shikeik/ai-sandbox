@@ -3,7 +3,7 @@
 import type { WorldState, AnimationEvent, Position, SpikeState } from "../types/index.js"
 import type { APIStateResponse } from "../types/api.js"
 import { Element } from "../types/index.js"
-import { RENDER_CONFIG, ANIMATION_DURATION, getColorByPosition } from "../config.js"
+import { RENDER_CONFIG } from "../config.js"
 
 /** 渲染器配置 */
 interface RendererConfig {
@@ -312,7 +312,7 @@ export class DOMRenderer {
 			case Element.PLATFORM:
 				cell.classList.add("platform")
 				break
-			case Element.BUTTON:
+			case Element.BUTTON: {
 				// 找到对应的按钮索引
 				const buttonIdx = triggers.length > 1
 					? spikes.findIndex((s) => s.buttonX === x && s.buttonY === y)
@@ -337,6 +337,7 @@ export class DOMRenderer {
 					">${buttonNum}</div>
 				`
 				break
+			}
 			case Element.GOAL:
 				cell.classList.add("goal")
 				cell.innerHTML = "<span style=\"font-size: 18px;\">🏁</span>"
@@ -461,7 +462,8 @@ export class DOMRenderer {
 					const cellSize = this.config.cellSize + this.config.gap
 					const spikePixelX = parseInt(spikeEl.style.left)
 					const spikeStartPixelY = (this.currentGridHeight - 1 - spikeStartY) * cellSize
-					const spikeTargetPixelY = (this.currentGridHeight - 1 - spikeTargetY) * cellSize
+					// spikeTargetPixelY 保留用于未来扩展
+					const _spikeTargetPixelY = (this.currentGridHeight - 1 - spikeTargetY) * cellSize
 
 					// 镜头移动到尖刺位置
 					await this.cinematicMoveTo(spikePixelX, spikeStartPixelY, cinematicDuration)
@@ -665,7 +667,7 @@ export class DOMRenderer {
 	 */
 	private async animateGoalReached(anim: AnimationEvent): Promise<void> {
 		// 旗帜飘动效果
-		const { from, duration } = anim
+		const { duration } = anim
 		const goalCell = this.worldContainer.querySelector(".cell.goal") as HTMLElement
 
 		if (goalCell) {

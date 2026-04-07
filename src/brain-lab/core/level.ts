@@ -2,7 +2,7 @@
 
 import type { LevelData, WorldState, Position, SpikeState } from "../types/index.js"
 import { Element } from "../types/index.js"
-import { DEFAULT_LEVEL_MAP, ADVANCED_LEVEL_MAP, CHAR_MAP, SPECIAL_CHARS } from "../config.js"
+import { DEFAULT_LEVEL_MAP, CHAR_MAP, SPECIAL_CHARS } from "../config.js"
 
 /** 当前使用的关卡 */
 let currentLevel: LevelData = DEFAULT_LEVEL_MAP

@@ -1,7 +1,6 @@
 // ========== 动作执行逻辑 ==========
 
 import type { WorldState, Position, ActionResult, AnimationEvent } from "../types/index.js"
-import { Element } from "../types/index.js"
 import { ANIMATION_DURATION } from "../config.js"
 import { assertEq } from "../../engine/utils/assert.js"
 import {

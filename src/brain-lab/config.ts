@@ -1,7 +1,6 @@
 // ========== Brain Lab 配置常量 ==========
 
 import type { LevelData } from "./types/index.js"
-import type { Position } from "./types/index.js"
 
 /** 默认世界尺寸 */
 export const DEFAULT_WORLD_SIZE = {
@@ -113,24 +112,6 @@ export function getColorByPosition(x: number, y: number): string {
 	const hue = ((x * 137 + y * 53) % 360 + 360) % 360
 	// 固定高饱和度和中等亮度，确保颜色鲜艳可读
 	return `hsl(${hue}, 75%, 55%)`
-}
-
-/** 将 Hex 颜色变暗（用于 secondary） */
-function darken(hex: string, amount: number): string {
-	const clean = hex.replace("#", "")
-	const r = Math.max(0, parseInt(clean.substring(0, 2), 16) - amount * 255)
-	const g = Math.max(0, parseInt(clean.substring(2, 4), 16) - amount * 255)
-	const b = Math.max(0, parseInt(clean.substring(4, 6), 16) - amount * 255)
-	return `#${Math.round(r).toString(16).padStart(2, "0")}${Math.round(g).toString(16).padStart(2, "0")}${Math.round(b).toString(16).padStart(2, "0")}`
-}
-
-/** 生成 rgba 字符串（用于 glow） */
-function toRgba(hex: string, alpha: number): string {
-	const clean = hex.replace("#", "")
-	const r = parseInt(clean.substring(0, 2), 16)
-	const g = parseInt(clean.substring(2, 4), 16)
-	const b = parseInt(clean.substring(4, 6), 16)
-	return `rgba(${r}, ${g}, ${b}, ${alpha})`
 }
 
 /** 将 Hex 转换为 hue-rotate 角度（用于尖刺染色） */

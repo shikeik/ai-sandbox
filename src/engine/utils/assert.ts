@@ -50,7 +50,7 @@ function logAssert(tag: string, status: string, message: string, context?: Recor
 export function assert(
 	condition: boolean,
 	message: string,
-	context?: Record<string, unknown>
+	_context?: Record<string, unknown>
 ): boolean {
 	const passed = condition
 

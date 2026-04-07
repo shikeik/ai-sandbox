@@ -1,6 +1,5 @@
 // ========== 世界状态类型 ==========
 
-import type { ElementType } from "./element.js"
 import type { Position } from "./position.js"
 
 /** 尖刺状态 */

@@ -1,6 +1,6 @@
 // ========== Brain Lab API 响应类型定义 ==========
 
-import type { WorldState, Position, AnimationEvent } from "./index.js"
+import type { Position, AnimationEvent } from "./index.js"
 
 /** 基础 API 响应 */
 export interface APIResponse {

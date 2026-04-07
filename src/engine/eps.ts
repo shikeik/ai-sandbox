@@ -237,7 +237,8 @@ const EPS = {
 				if (screen.orientation?.unlock) await screen.orientation.unlock()
 				await document.exitFullscreen()
 			}
-		} catch (e) {
+		} catch (_e) {
+			// 忽略方向锁定错误
 		}
 	},
 
