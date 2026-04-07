@@ -75,7 +75,6 @@ export class GridWorld {
 		this.renderer = new GridWorldRenderer(this.elements, config.height, config.scale)
 		this.animator = new GridWorldAnimator()
 
-		console.log("GRID-WORLD", `创建完成 | size=${config.width}x${config.height}, viewport=${config.viewportWidth ?? "全部"}`)
 	}
 
 	// ========== 初始化方法 ==========
@@ -89,7 +88,6 @@ export class GridWorld {
 			this.config.height,
 			this.config.width
 		)
-		console.log("GRID-WORLD", "编辑器功能已启用")
 		return this.editor
 	}
 
@@ -120,7 +118,6 @@ export class GridWorld {
 	 */
 	setGrid(grid: number[][]): void {
 		if (grid.length !== this.config.height || grid[0]?.length !== this.config.width) {
-			console.error(`网格尺寸不匹配 | expected=${this.config.width}x${this.config.height}, actual=${grid[0]?.length}x${grid.length}`)
 			return
 		}
 		this.state.grid = grid.map(row => [...row])
@@ -131,7 +128,6 @@ export class GridWorld {
 				break
 			}
 		}
-		console.log("GRID-WORLD", `网格已更新 | heroCol=${this.state.heroCol}`)
 	}
 
 	/**
@@ -200,7 +196,6 @@ export class GridWorld {
 		this.state.heroCol = Math.max(0, Math.min(col, this.config.width - 1))
 		this.state.grid[1][this.state.heroCol] = 1
 
-		console.log("GRID-WORLD", `主角位置更新 | col=${this.state.heroCol}`)
 	}
 
 	getHeroCol(): number {
@@ -375,7 +370,6 @@ export class GridWorld {
 		}
 
 		if (!check.ok) {
-			console.log("GRID-WORLD", `动作非法 | action=${action}, reasons=${check.reasons.join("; ")}`)
 			return result
 		}
 
@@ -383,7 +377,6 @@ export class GridWorld {
 		if (action === "走A") {
 			result.killedEnemies.push({ row: 1, col: fromCol + 1 })
 			this.state.grid[1][fromCol + 1] = 0  // 移除史莱姆
-			console.log("GRID-WORLD", `走A击杀史莱姆 | col=${fromCol + 1}`)
 		}
 
 		// 移动主角
@@ -394,10 +387,8 @@ export class GridWorld {
 		if (landingGround !== 2) {  // 2 = 平地
 			result.isDeath = true
 			result.deathReason = "落地位置不是平地"
-			console.log("GRID-WORLD", `死亡判定 | col=${check.targetCol}, reason=${result.deathReason}`)
 		}
 
-		console.log("GRID-WORLD", `动作执行 | action=${action}, from=${fromCol}, to=${check.targetCol}, death=${result.isDeath}`)
 		return result
 	}
 
@@ -428,7 +419,6 @@ export class GridWorld {
 			}
 		}
 
-		console.log("GRID-WORLD", `开始播放动作动画 | action=${action}`)
 
 		// 调整动画速度
 		const speed = options?.speed ?? 1
@@ -439,7 +429,6 @@ export class GridWorld {
 		// 动画完成后执行逻辑
 		const result = this.executeAction(action)
 
-		console.log("GRID-WORLD", `动作动画完成 | action=${action}, result=${result.isValid ? "成功" : "失败"}`)
 		return result
 	}
 
@@ -539,7 +528,6 @@ export class GridWorld {
 			}
 		}
 		this.state.heroCol = 0
-		console.log("GRID-WORLD", "随机地形生成完成")
 	}
 
 	/**
@@ -567,7 +555,6 @@ export class GridWorld {
 	 */
 	destroy(): void {
 		this.animator.destroy()
-		console.log("GRID-WORLD", "已销毁")
 	}
 }
 

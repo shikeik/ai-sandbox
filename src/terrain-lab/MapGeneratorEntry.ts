@@ -40,7 +40,6 @@ export class MapGeneratorEntry {
 		this.mapCanvas = document.getElementById("generator-canvas") as HTMLCanvasElement
 		this.logger = new Logger("MAP-GENERATOR")
 
-		console.log("MAP-GENERATOR", "初始化开始")
 
 		// 初始化格子世界（32列，7列视野，启用相机跟随）
 		this.gridWorld = createGridWorld({
@@ -49,15 +48,12 @@ export class MapGeneratorEntry {
 			elements: DEFAULT_ELEMENTS,
 			viewportWidth: 7,
 		})
-		console.log("格子世界初始化完成 | 32x3, viewport=7")
 	}
 
 	init(): void {
-		console.log("init() 开始")
 		this.setupEventListeners()
 		this.bindGlobalFunctions()
 		this.resetDisplay()
-		console.log("init() 完成")
 	}
 
 	private setupEventListeners(): void {
@@ -66,7 +62,6 @@ export class MapGeneratorEntry {
 			stageSelect.addEventListener("change", () => {
 				const idx = Number(stageSelect.value)
 				this.terrainConfig = { ...CURRICULUM_STAGES[idx].config }
-				console.log(`阶段切换 | idx=${idx}, config=${JSON.stringify(this.terrainConfig)}`)
 			})
 		}
 
@@ -74,7 +69,6 @@ export class MapGeneratorEntry {
 		const ro = new ResizeObserver(() => {
 			requestAnimationFrame(() => {
 				if (this.generatedMap) {
-					console.log("画布尺寸变化，重新渲染")
 					this.gridWorld.render({
 						canvas: this.mapCanvas,
 						showLayerLabels: true,
@@ -97,11 +91,9 @@ export class MapGeneratorEntry {
 	 */
 	async startGeneration(): Promise<void> {
 		if (this.isGenerating) {
-			console.log("生成已在进行中，忽略请求")
 			return
 		}
 
-		console.log("开始生成地图")
 		this.isGenerating = true
 		this.shouldStop = false
 		this.updateButtonState(true)
@@ -113,7 +105,6 @@ export class MapGeneratorEntry {
 
 		// 设置起点（层索引：0=天空层, 1=中层, 2=地面层）
 		this.generatedMap[2][0] = ELEM_GROUND  // 狐狸脚下是平地
-		console.log("地图初始化完成 | 起点第0列")
 
 		// 同步到 GridWorld
 		this.gridWorld.setGrid(this.generatedMap)
@@ -136,7 +127,6 @@ export class MapGeneratorEntry {
 		while (this.currentHeroCol < 31 && !this.shouldStop) {
 			const result = await this.generateNextStep()
 			if (!result) {
-				console.log("生成中断")
 				break
 			}
 			if (result.success) {
@@ -151,7 +141,6 @@ export class MapGeneratorEntry {
 		this.updateButtonState(false)
 
 		if (success) {
-			console.log(`地图生成成功 | 共${this.generationHistory.length}步`)
 			this.showResult(true, `✅ 地图生成成功！共${this.generationHistory.length}步`)
 			// 最后渲染一次 - 显示包含终点的视野
 			if (this.generatedMap) {
@@ -163,13 +152,11 @@ export class MapGeneratorEntry {
 				})
 			}
 		} else if (this.shouldStop) {
-			console.log("生成被用户停止")
 			this.showResult(false, "⏹️ 生成已停止")
 		}
 	}
 
 	stopGeneration(): void {
-		console.log("用户请求停止生成")
 		this.shouldStop = true
 	}
 
@@ -178,13 +165,11 @@ export class MapGeneratorEntry {
 	 */
 	async stepGeneration(): Promise<void> {
 		if (this.isGenerating) {
-			console.log("正在连续生成中，忽略单步请求")
 			return
 		}
 
 		if (!this.generatedMap) {
 			// 首次单步，初始化
-			console.log("单步模式初始化")
 			this.generatedMap = this.createEmptyMap()
 			this.currentHeroCol = 0
 			this.generationHistory = []
@@ -206,14 +191,12 @@ export class MapGeneratorEntry {
 		}
 
 		if (this.currentHeroCol >= 31) {
-			console.log("已到达终点")
 			this.showResult(true, `✅ 已到达终点！共${this.generationHistory.length}步`)
 			return
 		}
 
 		const result = await this.generateNextStep(true)
 		if (result?.reachedEnd) {
-			console.log("单步到达终点")
 			this.showResult(true, `✅ 地图生成完成！共${this.generationHistory.length}步`)
 		}
 	}
@@ -226,7 +209,6 @@ export class MapGeneratorEntry {
 	 */
 	private async generateNextStep(isSingleStep = false): Promise<{ success: boolean; reachedEnd: boolean } | null> {
 		if (!this.generatedMap || this.shouldStop) {
-			console.log("生成条件不满足，退出")
 			return null
 		}
 
@@ -237,12 +219,10 @@ export class MapGeneratorEntry {
 		if (action === 3 && !this.terrainConfig.slime) {
 			action = 0 // 降级为走
 		}
-		console.log(`随机选择动作 | action=${action}`)
 
 		// 使用 existingMap 参数在同一张地图上直接生成（minimal=true 单步模式）
 		const result = generateTerrainForAction(action, heroCol, this.terrainConfig, this.generatedMap, true)
 		if (!result) {
-			console.error(`生成失败 | action=${action}, col=${heroCol}`)
 			this.updateHistory(`第${heroCol}列：生成失败`)
 			return { success: false, reachedEnd: false }
 		}
@@ -256,7 +236,6 @@ export class MapGeneratorEntry {
 		// 记录步骤
 		const actionName = getActionName(action)
 		this.updateHistory(`第${heroCol}列 ${actionName}→第${targetCol}列`)
-		console.log(`生成步骤 | ${actionName}: ${heroCol} -> ${targetCol}`)
 
 		// ========== 动画移动 ==========
 		// 1. 渲染当前状态
@@ -271,7 +250,6 @@ export class MapGeneratorEntry {
 		await this.delay(isSingleStep ? 50 : 100)
 
 		// 2. 播放行动画（狐狸在视野内移动）
-		console.log(`播放行动画 | ${actionName}`)
 		await this.gridWorld.playAction(actionName as import("./types.js").ActionType, {
 			onFrame: (progress, slimeKilled) => {
 				this.gridWorld.renderAnimation(
@@ -300,7 +278,6 @@ export class MapGeneratorEntry {
 
 		// 检查终点
 		if (targetCol >= 31) {
-			console.log("到达终点")
 			this.generatedMap[2][31] = ELEM_GROUND
 			return { success: true, reachedEnd: true }
 		}
@@ -365,7 +342,6 @@ export class MapGeneratorEntry {
 	}
 
 	private resetDisplay(): void {
-		console.log("重置显示")
 		this.gridWorld.clear(this.mapCanvas, "点击「开始生成」开始生成 32 格地图")
 
 		const resultEl = document.getElementById("generator-result")
@@ -386,7 +362,6 @@ export class MapGeneratorEntry {
 	}
 
 	onTabActivate(): void {
-		console.log("Tab 激活")
 		if (this.generatedMap) {
 			this.gridWorld.setGrid(this.generatedMap)
 			this.gridWorld.setHeroCol(this.currentHeroCol)

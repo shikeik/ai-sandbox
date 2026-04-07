@@ -32,7 +32,6 @@ export class GridWorldRenderer {
 		this.numLayers = numLayers
 		this.scale = scale
 		this.logger = new Logger("GRID-RENDERER")
-		console.log(`渲染器初始化 | elements=${elements.length}, layers=${numLayers}, scale=${scale}`)
 	}
 
 	// ========== 布局计算 ==========
@@ -99,7 +98,6 @@ export class GridWorldRenderer {
 		this.canvas = canvas
 		const ctx = canvas.getContext("2d")
 		if (!ctx) {
-			console.error("无法获取 Canvas 2D 上下文")
 			return
 		}
 		this.ctx = ctx

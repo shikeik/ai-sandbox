@@ -123,37 +123,31 @@ function init(): void {
 	viewManager.onExploreModeChange = (mode) => {
 		network!.exploreMode = mode as "none" | "fixed" | "dynamic"
 		const epsilon = network!.getEpsilon()
-		console.log("MAIN", `探索模式切换 | 新模式=${mode} | ε=${epsilon.toFixed(2)}`)
 	}
 
 	// 设置种子控制回调
 	viewManager.onSeedLockChange = (isLocked) => {
 		game!.setTerrainConfig({ isSeedLocked: isLocked })
-		console.log("MAIN", `种子锁定切换 | ${isLocked ? "锁定" : "解锁"}`)
 	}
 
 	viewManager.onSeedChange = (seed) => {
 		game!.setTerrainConfig({ seed })
-		console.log("MAIN", `种子变更 | ${seed}`)
 	}
 
 	// 设置权重控制回调
 	viewManager.onWeightChange = (key, value) => {
 		const config = game!.terrainConfig
 		config.weights[key as keyof typeof config.weights] = value
-		console.log("MAIN", `权重调整 | ${key}=${value} 当前权重=`, config.weights)
 	}
 
 	viewManager.onElementToggle = (key, enabled) => {
 		const config = game!.terrainConfig
 		config.enabled[key as keyof typeof config.enabled] = enabled
-		console.log("MAIN", `元素开关 | ${key}=${enabled ? "开启" : "关闭"}`)
 	}
 
 	// 游戏地形生成后更新UI显示
 	game.onTerrainSeedChange = (seed, stats) => {
 		viewManager!.updateSeedDisplay(seed)
-		console.log("MAIN", `地形已生成 | 种子=${seed} 平地=${stats.ground} 单坑=${stats.singlePit} 双坑=${stats.doublePit}`)
 	}
 
 	// 初始化输入管理器
@@ -201,16 +195,12 @@ function init(): void {
 
 	aiController.pendingAIDecision = null
 
-	console.log("GAME", "AI 训练沙盘已初始化，等待开始...")
-	console.log("GAME", "AI模式:", aiController.isAIMode ? "开启" : "关闭")
-	console.log("MAIN", "重构后主入口初始化完成 | UIManager + InputManager + GameEventBridge 已加载")
 
 	// 工具栏按钮
 	bindToolbarButtons()
 }
 
 function onGameStart(): void {
-	console.log("MAIN", "游戏开始")
 	game!.startGame()
 	uiManager!.hideStartOverlay()
 	if (!aiController!.isAIMode) {
@@ -218,7 +208,6 @@ function onGameStart(): void {
 	} else {
 		aiController!.start()
 	}
-	console.log("MAIN", "游戏状态切换完成")
 }
 
 function startTimerUpdate(): void {
@@ -246,7 +235,6 @@ function bindToolbarButtons(): void {
 		btnToggle.addEventListener("click", () => {
 			EPS.toggle()
 			btnToggle.classList.toggle("active", EPS.isActive())
-			console.log("EPS", "EPS:", EPS.isActive() ? "ON" : "OFF")
 		})
 	}
 
@@ -274,7 +262,6 @@ function bindToolbarButtons(): void {
 	const btnReload = document.getElementById("btn-reload")
 	if (btnReload) {
 		btnReload.addEventListener("click", () => {
-			console.log("MAIN", "刷新页面")
 			window.location.reload()
 		})
 	}
@@ -293,7 +280,6 @@ const hotModule = (import.meta as unknown as { hot?: HotModule }).hot
 if (hotModule) {
 	hotModule.accept()
 	hotModule.dispose(() => {
-		console.log("HMR", "热更新：清理实例")
 		if (aiController) aiController.stop()
 		stopTimerUpdate()
 		if (inputManager) inputManager.unbind()

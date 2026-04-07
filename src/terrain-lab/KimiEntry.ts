@@ -81,11 +81,9 @@ export class KimiEntry {
 		// 初始化游戏
 		this.resetGame()
 
-		console.log("[KIMI] Kimi 挑战入口初始化完成")
 	}
 
 	onTabActivate(): void {
-		console.log("[KIMI] Tab 激活")
 		if (this.fullMap) {
 			this.renderViewport()
 		}

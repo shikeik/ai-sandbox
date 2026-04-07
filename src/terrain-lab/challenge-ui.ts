@@ -27,7 +27,6 @@ export class ChallengeUIManager {
 		this.challengeCanvas = document.getElementById("challenge-canvas") as HTMLCanvasElement
 		this.mlpCanvas = document.getElementById("challenge-mlp-canvas") as HTMLCanvasElement
 		this.logger = new Logger("CHALLENGE-UI")
-		console.log("CHALLENGE-UI", "初始化完成")
 	}
 
 	// ========== 初始化 ==========
@@ -283,12 +282,10 @@ export class ChallengeUIManager {
 	 */
 	drawTerrain(terrain: number[][] | null, heroCol: number = 0, fullMapLength: number = 32): void {
 		if (!terrain) {
-			console.log("无地形数据，清空画布")
 			this.gridWorld.clear(this.challengeCanvas, "等待挑战开始...")
 			return
 		}
 
-		console.log(`绘制地形 | heroCol=${heroCol}`)
 		this.gridWorld.render({
 			canvas: this.challengeCanvas,
 			showLayerLabels: true,
@@ -301,7 +298,6 @@ export class ChallengeUIManager {
 	 */
 	drawMLP(terrain: number[][] | null): void {
 		if (!terrain) {
-			console.log("无地形数据，清空 MLP 画布")
 			const { ctx, width, height } = setupCanvas(this.mlpCanvas)
 			ctx.fillStyle = "#5f6368"
 			ctx.font = "12px sans-serif"

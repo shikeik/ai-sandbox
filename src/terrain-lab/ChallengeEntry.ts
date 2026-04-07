@@ -38,7 +38,6 @@ export class ChallengeEntry {
 		this.onRequestPredict = onRequestPredict
 		this.logger = new Logger("CHALLENGE-ENTRY")
 
-		console.log("CHALLENGE-ENTRY", "初始化开始")
 
 		// 初始化格子世界（32列，5列视野）
 		this.gridWorld = createGridWorld({
@@ -47,13 +46,11 @@ export class ChallengeEntry {
 			elements: DEFAULT_ELEMENTS,
 			viewportWidth: 5,
 		})
-		console.log("格子世界初始化完成 | 32x3, viewport=5")
 	}
 
 	// ========== 初始化 ==========
 
 	init(): void {
-		console.log("init() 开始")
 
 		this.challengeUIManager = new ChallengeUIManager(this.state, this.gridWorld)
 
@@ -91,7 +88,6 @@ export class ChallengeEntry {
 		// 绑定全局函数
 		this.bindGlobalFunctions()
 
-		console.log("init() 完成")
 	}
 
 	private setupTerrainConfig(): void {
@@ -103,7 +99,6 @@ export class ChallengeEntry {
 			stageSelect.addEventListener("change", () => {
 				const idx = Number(stageSelect.value)
 				this.challengeController?.setTerrainConfig(CURRICULUM_STAGES[idx].config)
-				console.log(`切换到${CURRICULUM_STAGES[idx].name}`)
 			})
 		}
 	}
@@ -114,7 +109,6 @@ export class ChallengeEntry {
 			speedSelect.addEventListener("change", () => {
 				const speed = Number(speedSelect.value) as ChallengeSpeed
 				this.challengeController?.setSpeed(speed)
-				console.log(`速度设置为 ${speed}x`)
 			})
 		}
 	}
@@ -128,7 +122,6 @@ export class ChallengeEntry {
 	}
 
 	private resetUI(): void {
-		console.log("重置 UI")
 		if (this.challengeController && this.challengeUIManager) {
 			this.challengeUIManager.updateStats(this.challengeController.getState())
 			this.challengeUIManager.updateControls(false, false)
@@ -143,7 +136,6 @@ export class ChallengeEntry {
 	// ========== 回调处理 ==========
 
 	private handleStateUpdate(challengeState: ChallengeState): void {
-		console.log(`状态更新 | step=${challengeState.currentStep}, heroCol=${challengeState.heroCol}`)
 		
 		this.challengeUIManager?.updateStats(challengeState)
 		this.challengeUIManager?.updateControls(
@@ -168,13 +160,11 @@ export class ChallengeEntry {
 	}
 
 	private handleStepComplete(result: ChallengeResult): void {
-		console.log(`步骤完成 | step=${result.step}, action=${result.predictedActionName}, valid=${result.isValid}`)
 		this.challengeUIManager?.updateResult(result)
 		this.challengeUIManager?.updateProbs(result.probabilities)
 	}
 
 	private handleGameOver(won: boolean, finalCol: number): void {
-		console.log(`游戏结束 | won=${won}, finalCol=${finalCol}`)
 		this.challengeUIManager?.showGameOver(won, finalCol)
 		this.challengeUIManager?.updateControls(false, false)
 	}
@@ -182,11 +172,9 @@ export class ChallengeEntry {
 	// ========== 动画播放 ==========
 
 	private async playChallengeAnimation(action: ActionType, speed: ChallengeSpeed): Promise<void> {
-		console.log(`播放挑战动画 | action=${action}, speed=${speed}`)
 
 		const challengeCanvas = document.getElementById("challenge-canvas") as HTMLCanvasElement
 		if (!challengeCanvas) {
-			console.error("挑战画布不存在")
 			return Promise.resolve()
 		}
 
@@ -207,13 +195,11 @@ export class ChallengeEntry {
 		// 播放动画
 		await this.gridWorld.playAction(action, { speed, onFrame })
 		
-		console.log(`挑战动画完成 | action=${action}`)
 	}
 
 	// ========== 公共控制方法 ==========
 
 	startChallenge(): void {
-		console.log("开始挑战")
 		if (!this.challengeController) return
 
 		if (this.challengeController.getIsPaused()) {
@@ -224,17 +210,14 @@ export class ChallengeEntry {
 	}
 
 	pauseChallenge(): void {
-		console.log("暂停挑战")
 		this.challengeController?.pause()
 	}
 
 	stepChallenge(): void {
-		console.log("单步挑战")
 		this.challengeController?.step()
 	}
 
 	resetChallenge(): void {
-		console.log("重置挑战")
 		this.challengeController?.reset()
 		this.challengeUIManager?.updateResult(null)
 		this.challengeUIManager?.updateHistory([])
@@ -244,14 +227,12 @@ export class ChallengeEntry {
 	}
 
 	setChallengeMode(mode: ChallengeMode): void {
-		console.log(`设置模式 | mode=${mode}`)
 		this.challengeController?.setMode(mode)
 	}
 
 	// ========== Tab 切换时调用 ==========
 
 	onTabActivate(): void {
-		console.log("Tab 激活")
 		// 切换到挑战 Tab，初始化挑战画布
 		if (this.challengeUIManager && this.challengeController) {
 			const terrain = this.challengeController.getCurrentTerrain()

@@ -35,12 +35,10 @@ export class TrainingEngine {
 	) {
 		this.state = state
 		this.onStep = onStep
-		console.log("TRAIN-ENGINE", "实例化完成")
 	}
 
 	// ========== 监督学习 ==========
 	async trainSupervised(customSteps?: number): Promise<void> {
-		console.log("TRAIN-ENGINE", "开始监督学习训练")
 		const { batchSize } = TRAIN_CONFIG
 		const steps = customSteps ?? TRAIN_CONFIG.steps
 
@@ -57,7 +55,6 @@ export class TrainingEngine {
 			this.state.trainSteps++
 
 			if (s % 20 === 0 || s === steps - 1) {
-				console.log("TRAIN-ENGINE", `训练进度: ${((s + 1) / steps * 100).toFixed(0)}%`)
 				const { accuracy, validRate, loss } = this.evaluateDataset(EVAL_SAMPLE_SIZE)
 				await this.onStep({
 					loss,
@@ -71,7 +68,6 @@ export class TrainingEngine {
 
 	// ========== 无监督学习 ==========
 	async trainUnsupervised(customSteps?: number): Promise<void> {
-		console.log("TRAIN-ENGINE", "开始无监督学习训练")
 		const { batchSize } = TRAIN_CONFIG
 		const steps = customSteps ?? TRAIN_CONFIG.steps
 

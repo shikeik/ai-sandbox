@@ -71,7 +71,6 @@ export class TrainingEntry {
 		this.onRequestPredict = onRequestPredict
 		this.logger = new Logger("TRAINING-ENTRY")
 
-		console.log("TRAINING-ENTRY", "初始化开始")
 
 		// 初始化管理器
 		this.uiManager = new UIManager(state)
@@ -87,7 +86,6 @@ export class TrainingEntry {
 			elements: DEFAULT_ELEMENTS,
 		})
 		this.gridWorld.enableEditor()
-		console.log("格子世界初始化完成")
 
 		// 同步地形数据
 		this.syncTerrainToGridWorld()
@@ -102,7 +100,6 @@ export class TrainingEntry {
 		const editor = this.gridWorld.getEditor()
 		if (editor) {
 			editor.onCellPainted = (row, col, elementId) => {
-				console.log("TRAINING-ENTRY", `编辑器绘制回调 | row=${row}, col=${col}, element=${elementId}`)
 				setTerrainCell(this.state, row, col, elementId)
 				// 关键：把修改同步到 GridWorld 再绘制
 				this.syncTerrainToGridWorld()
@@ -123,27 +120,22 @@ export class TrainingEntry {
 			(action) => this.playAnimation(action as ActionType)
 		)
 
-		console.log("TRAINING-ENTRY", "初始化完成")
 	}
 
 	// ========== 同步地形数据 ==========
 
 	private syncTerrainToGridWorld(): void {
-		console.log("TRAINING-ENTRY", `同步地形到 GridWorld | terrain=${JSON.stringify(this.state.terrain).substring(0, 100)}...`)
 		this.gridWorld.setGrid(this.state.terrain)
 		// 注意：setGrid 内部已自动同步 heroCol
-		console.log("TRAINING-ENTRY", "地形同步完成")
 	}
 
 	private syncGridWorldToTerrain(): void {
-		console.log("TRAINING-ENTRY", "从 GridWorld 同步地形到 state")
 		this.state.terrain = this.gridWorld.getGrid()
 	}
 
 	// ========== 初始化 ==========
 
 	init(): void {
-		console.log("TRAINING-ENTRY", "init() 开始")
 
 		// 动态更新 HTML 标题
 		const editorTitle = document.getElementById("editor-title")
@@ -186,7 +178,6 @@ export class TrainingEntry {
 		// 绑定全局函数
 		this.bindGlobalFunctions()
 
-		console.log("TRAINING-ENTRY", "init() 完成")
 	}
 
 	private setupResizeObserver(): void {
@@ -194,7 +185,6 @@ export class TrainingEntry {
 			for (const entry of entries) {
 				const target = entry.target as HTMLCanvasElement
 				if (target === this.editorCanvas) {
-					console.log("TRAINING-ENTRY", "编辑器画布 Resize")
 					this.drawEditor()
 				} else if (target === this.mlpCanvas && this.state.lastForwardResult) {
 					this.drawMLP(this.state.lastForwardResult)
@@ -231,7 +221,6 @@ export class TrainingEntry {
 	// ========== 数据生成 ==========
 
 	generateData(): void {
-		console.log("TRAINING-ENTRY", "生成数据开始")
 		this.state.dataset = generateTerrainData(DATASET_SIZE, this.state.terrainConfig)
 		this.uiManager.updateMetrics({})
 		this.uiManager.updateDataCount(this.state.dataset.length)
@@ -242,13 +231,11 @@ export class TrainingEntry {
 		if (this.state.dataset.length > 0 && !this.state.observedSample) {
 			this.setObservedRandom()
 		}
-		console.log("TRAINING-ENTRY", `生成数据完成 | count=${this.state.dataset.length}`)
 	}
 
 	// ========== 训练 ==========
 
 	async trainBatch(steps?: number): Promise<void> {
-		console.log("TRAINING-ENTRY", `训练批次开始 | steps=${steps ?? TRAIN_CONFIG.steps}`)
 		const btn200 = document.getElementById("btn-train") as HTMLButtonElement
 		const btn1000 = document.getElementById("btn-train-1000") as HTMLButtonElement
 		btn200.disabled = true
@@ -277,7 +264,6 @@ export class TrainingEntry {
 			await engine.trainUnsupervised(steps)
 		}
 
-		console.log("TRAINING-ENTRY", "训练完成，更新UI")
 		this.uiManager.updateSnapshotSlider()
 		this.evaluateAll()
 		this.predict()
@@ -287,7 +273,6 @@ export class TrainingEntry {
 
 		// 通知外部可能需要更新
 		this.onRequestPredict()
-		console.log("TRAINING-ENTRY", "训练批次结束")
 	}
 
 	async trainBatch1000(): Promise<void> {
@@ -327,7 +312,6 @@ export class TrainingEntry {
 	// ========== 快照 ==========
 
 	applySnapshot(index: number): void {
-		console.log("TRAINING-ENTRY", `应用快照 | index=${index}`)
 		this.snapshotManager.applySnapshot(index, () => {
 			this.predict()
 			this.drawObsessionCurve()
@@ -340,7 +324,6 @@ export class TrainingEntry {
 	// ========== 地形操作 ==========
 
 	private handleCanvasClick(e: MouseEvent): void {
-		console.log("TRAINING-ENTRY", `画布点击 | clientX=${e.clientX}, clientY=${e.clientY}`)
 		
 		const rect = this.editorCanvas.getBoundingClientRect()
 		const mx = e.clientX - rect.left
@@ -349,12 +332,10 @@ export class TrainingEntry {
 		const cell = this.gridWorld.getCellAtPosition(mx, my, rect.width, rect.height)
 		
 		if (cell) {
-			console.log("TRAINING-ENTRY", `点击格子 | row=${cell.row}, col=${cell.col}`)
 			const editor = this.gridWorld.getEditor()
 			if (editor) {
 				editor.setBrush(this.state.selectedBrush)
 				const painted = editor.paintAt(cell.row, cell.col)
-				console.log("TRAINING-ENTRY", `绘制结果 | painted=${painted}`)
 				if (painted) {
 					// 绘制已完成，只需停止动画和刷新
 					this.stopAnimation()
@@ -362,7 +343,6 @@ export class TrainingEntry {
 				}
 			}
 		} else {
-			console.log("TRAINING-ENTRY", "点击位置不在有效格子上")
 		}
 	}
 
@@ -383,10 +363,8 @@ export class TrainingEntry {
 	}
 
 	private paintCell(r: number, c: number): void {
-		console.log("TRAINING-ENTRY", `paintCell | r=${r}, c=${c}`)
 		const editor = this.gridWorld.getEditor()
 		if (!editor) {
-			console.error("编辑器未初始化")
 			return
 		}
 
@@ -403,7 +381,6 @@ export class TrainingEntry {
 	}
 
 	randomTerrain(): void {
-		console.log("TRAINING-ENTRY", "随机地形开始")
 		const newTerrain = generateRandomTerrain(this.state.terrainConfig)
 		this.state.terrain = newTerrain
 		this.syncTerrainToGridWorld()
@@ -414,16 +391,13 @@ export class TrainingEntry {
 		this.drawMLP(null)
 		this.drawEmbedding()
 		this.uiManager.resetProbs()
-		console.log("TRAINING-ENTRY", "随机地形完成")
 	}
 
 	resetView(): void {
-		console.log("TRAINING-ENTRY", "重置视图")
 		// 如有验收快照，恢复地形并清空
 		if (this.actionSnapshot) {
 			this.state.terrain = this.actionSnapshot.map(row => [...row])
 			this.actionSnapshot = null
-			console.log("TRAINING-ENTRY", "已恢复地形并清空快照")
 		}
 		this.syncTerrainToGridWorld()
 		this.stopAnimation()
@@ -449,7 +423,6 @@ export class TrainingEntry {
 	}
 
 	private onConfigChange(): void {
-		console.log("TRAINING-ENTRY", "配置变更")
 		this.state.terrainConfig = this.uiManager.getConfigFromUI()
 		
 		// 更新编辑器的层限制
@@ -468,7 +441,6 @@ export class TrainingEntry {
 	// ========== 课程学习 ==========
 
 	async runCurriculum(): Promise<void> {
-		console.log("开始课程学习")
 		await this.curriculumController.runCurriculum(
 			() => {
 				// 生成数据回调
@@ -481,11 +453,9 @@ export class TrainingEntry {
 				this.predict()
 			}
 		)
-		console.log("TRAINING-ENTRY", "课程学习结束")
 	}
 
 	nextCurriculumStage(): void {
-		console.log("切换课程阶段")
 		this.curriculumController.nextStage(() => {
 			this.renderTerrainConfig()
 			this.renderBrushes()
@@ -494,7 +464,6 @@ export class TrainingEntry {
 
 	toggleLearningMode(): void {
 		this.state.learningMode = this.state.learningMode === "supervised" ? "unsupervised" : "supervised"
-		console.log("TRAINING-ENTRY", `学习模式切换 | mode=${this.state.learningMode}`)
 		this.uiManager.updateModeUI(this.state.learningMode)
 		this.uiManager.updateExam(`已切换到「${this.state.learningMode === "supervised" ? "监督学习" : "无监督学习"}」模式`, "wait")
 	}
@@ -502,7 +471,6 @@ export class TrainingEntry {
 	// ========== 网络操作 ==========
 
 	resetNet(): void {
-		console.log("TRAINING-ENTRY", "重置网络")
 		
 		// 重置网络参数
 		this.state.net = createNet()
@@ -541,7 +509,6 @@ export class TrainingEntry {
 		)
 		this.uiManager.updateModeUI(this.state.learningMode)
 		
-		console.log("网络重置完成")
 	}
 
 	// ========== UI 渲染 ==========
@@ -613,7 +580,6 @@ export class TrainingEntry {
 	// ========== 动画 ==========
 
 	private playAnimation(action: ActionType): Promise<void> {
-		console.log("TRAINING-ENTRY", `播放动画 | action=${action}`)
 		
 		this.stopAnimation()
 
@@ -628,7 +594,6 @@ export class TrainingEntry {
 			}
 
 			this.gridWorld.playAction(action, { onFrame }).then((result) => {
-				console.log("TRAINING-ENTRY", `动画完成 | result=${JSON.stringify(result)}`)
 				// 不同步回 state.terrain，保持 state.terrain 干净
 				// GridWorld 保持动画结束状态（狐狸在终点，金币被吃掉）
 				this.drawEditor()

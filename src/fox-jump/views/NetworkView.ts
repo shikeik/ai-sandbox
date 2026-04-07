@@ -81,7 +81,6 @@ export class NetworkView {
 		}
 		this.container = el
 		this.init()
-		console.log("NETWORK_VIEW", "网络视图初始化完成，常量配置已加载")
 	}
 	
 	init(): void {
@@ -129,7 +128,6 @@ export class NetworkView {
 			this.resize()
 		})
 		this.resizeObserver.observe(this.container)
-		console.log("NETWORK_VIEW", "画布元素创建完成，等待尺寸计算...")
 	}
 
 	resize(): void {
@@ -145,7 +143,6 @@ export class NetworkView {
 		}
 
 		if (!this.width || !this.height) {
-			console.log("NETWORK_VIEW", `初始化完成 | 画布尺寸=${w}x${h}`)
 		}
 
 		this.canvas.width = w * window.devicePixelRatio
@@ -172,7 +169,6 @@ export class NetworkView {
 		}
 
 		if (inputs && inputs.some(v => v !== null)) {
-			console.log("NETWORK_VIEW", `渲染 | 输入=[${inputs.join(",")}] 动作=${action !== null ? action : "null"} 预览=${isPreview} weightChanges=${weightChanges ? "有" : "无"}`)
 		}
 
 		this.updateInfoBar(network, isPreview)
@@ -240,7 +236,6 @@ export class NetworkView {
 		_inputs: number[] | null, 
 		weightChanges: number[][][] | null = null
 	): void {
-		console.log("NETWORK_VIEW", `drawConnections | weightChanges=${weightChanges ? "有" : "无"} layers=${weights.length}`)
 		this._logWeightChanges(weightChanges)
 		
 		for (let l = 0; l < weights.length; l++) {
@@ -268,7 +263,6 @@ export class NetworkView {
 		if (!weightChanges) return
 		const flatChanges = weightChanges.flat(2)
 		const nonZeroCount = flatChanges.filter(c => Math.abs(c) > 0.0001).length
-		console.log("NETWORK_VIEW", `weightChanges详情 | 总数量=${flatChanges.length} 非零数量=${nonZeroCount}`)
 	}
 
 	private _drawConnectionLine(ctx: CanvasRenderingContext2D, from: Position, to: Position, weight: number): void {
@@ -304,7 +298,6 @@ export class NetworkView {
 		const highlightWidth = LINE_STYLE.MAX_THICKNESS * PREVIEW_HIGHLIGHT.WIDTH_MULTIPLIER
 		const highlightColor = delta > 0 ? "#ffd700" : "#ff3366"
 		
-		console.log("NETWORK_VIEW", `绘制高亮 | weight=${weight.toFixed(2)} delta=${delta.toFixed(4)} width=${highlightWidth} color=${highlightColor}`)
 		
 		ctx.beginPath()
 		ctx.moveTo(from.x, from.y)
@@ -333,7 +326,6 @@ export class NetworkView {
 		_isPreview: boolean = false
 	): void {
 		const actionNames = ["移动", "跳跃", "远跳"]
-		console.log("NETWORK_VIEW", `绘制节点 | inputs=[${inputs?.join(",")}] action=${action} layers=${positions.length}`)
 	
 		for (let l = 0; l < positions.length; l++) {
 			const layer = positions[l]

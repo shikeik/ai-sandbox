@@ -13,7 +13,6 @@ export class SnapshotManager {
 	constructor(state: AppState, uiManager: UIManager) {
 		this.state = state
 		this.uiManager = uiManager
-		console.log("SNAPSHOT-MANAGER", "实例化完成")
 	}
 
 	/**
@@ -52,14 +51,12 @@ export class SnapshotManager {
 			net: cloneNet(this.state.net)
 		})
 		this.recordStats(this.state.snapshots.length - 1)
-		console.log("SNAPSHOT-MANAGER", `添加快照 #${this.state.snapshots.length - 1}, 步数 ${this.state.trainSteps}`)
 	}
 
 	/**
 	 * 应用指定索引的快照
 	 */
 	applySnapshot(index: number, onApply: () => void): void {
-		console.log("SNAPSHOT-MANAGER", `应用快照 #${index}`)
 		if (index < 0 || index >= this.state.snapshots.length) return
 		this.state.selectedSnapshotIndex = index
 		this.state.net = cloneNet(this.state.snapshots[index].net)
@@ -79,7 +76,6 @@ export class SnapshotManager {
 			})
 			this.recordStats(0)
 			this.state.selectedSnapshotIndex = 0
-			console.log("SNAPSHOT-MANAGER", "初始化快照完成")
 		}
 	}
 
@@ -90,7 +86,6 @@ export class SnapshotManager {
 		for (let i = 0; i < this.state.snapshots.length; i++) {
 			this.recordStats(i)
 		}
-		console.log("SNAPSHOT-MANAGER", `重新计算 ${this.state.snapshots.length} 个快照统计`)
 	}
 
 	/**
@@ -100,6 +95,5 @@ export class SnapshotManager {
 		this.state.snapshots = [{ step: this.state.trainSteps, net: cloneNet(this.state.net) }]
 		this.recordStats(0)
 		this.state.selectedSnapshotIndex = 0
-		console.log("SNAPSHOT-MANAGER", "重置快照完成")
 	}
 }

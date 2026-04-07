@@ -230,7 +230,6 @@ export function generateTerrainData(count: number, config: TerrainConfig = DEFAU
 	let validCount = 0
 	const startTime = performance.now()
 
-	console.log("DATA", `开始生成 ${count} 条训练数据 [${configLabel(config)}]`)
 
 	const pools = [
 		getLayerPool(0, config),
@@ -259,7 +258,6 @@ export function generateTerrainData(count: number, config: TerrainConfig = DEFAU
 	}
 
 	const duration = (performance.now() - startTime).toFixed(0)
-	console.log("DATA", `完成: ${dataset.length}条有效 / ${attempts}次尝试 / 通过率${(validCount / (attempts || 1) * 100).toFixed(1)}% / ${duration}ms [${configLabel(config)}]`)
 
 	return dataset
 }

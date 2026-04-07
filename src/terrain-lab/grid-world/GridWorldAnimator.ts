@@ -42,7 +42,6 @@ export class GridWorldAnimator {
 			slimeKilled: false,
 		}
 		this.logger = new Logger("GRID-ANIMATOR")
-		console.log("动画管理器初始化完成")
 	}
 
 	// ========== 核心动画方法 ==========
@@ -54,14 +53,12 @@ export class GridWorldAnimator {
 	 * @returns Promise 动画完成时 resolve
 	 */
 	async play(action: ActionType, onFrame?: (progress: number, slimeKilled: boolean) => void): Promise<void> {
-		console.log(`开始播放动画 | action=${action}`)
 		
 		// 停止当前动画
 		this.stop()
 
 		const config = ANIMATION_CONFIGS[action]
 		if (!config) {
-			console.error(`未知的动作类型 | action=${action}`)
 			throw new Error(`未知的动作类型: ${action}`)
 		}
 
@@ -83,7 +80,6 @@ export class GridWorldAnimator {
 	 */
 	private step(now: number): void {
 		if (!this.state.isPlaying) {
-			console.log("动画已停止，退出帧循环")
 			return
 		}
 
@@ -95,7 +91,6 @@ export class GridWorldAnimator {
 		// 走A：50% 进度时击杀史莱姆
 		if (this.state.action === "走A" && progress > 0.5 && !this.state.slimeKilled) {
 			this.state.slimeKilled = true
-			console.log("走A击杀史莱姆 | progress=" + progress.toFixed(2))
 		}
 
 		// 回调通知
@@ -105,7 +100,6 @@ export class GridWorldAnimator {
 
 		// 检查动画完成
 		if (progress >= 1) {
-			console.log(`动画完成 | action=${this.state.action}`)
 			this.complete()
 		} else {
 			this.frameId = requestAnimationFrame((t) => this.step(t))
@@ -133,7 +127,6 @@ export class GridWorldAnimator {
 		if (this.frameId !== null) {
 			cancelAnimationFrame(this.frameId)
 			this.frameId = null
-			console.log("动画被停止")
 		}
 		this.state.isPlaying = false
 		this.state.progress = 0
@@ -216,6 +209,5 @@ export class GridWorldAnimator {
 	 */
 	destroy(): void {
 		this.stop()
-		console.log("动画管理器已销毁")
 	}
 }

@@ -25,7 +25,6 @@ export class CurriculumController {
 		this.state = state
 		this.uiManager = uiManager
 		this.snapshotManager = snapshotManager
-		console.log("CURRICULUM-CONTROLLER", "实例化完成")
 	}
 
 	getStageIdx(): number {
@@ -43,7 +42,6 @@ export class CurriculumController {
 		generateDataCallback: () => void,
 		onComplete: () => void
 	): Promise<void> {
-		console.log("CURRICULUM-CONTROLLER", "开始课程学习")
 		if (this.isRunning) return
 		if (this.stageIdx >= CURRICULUM_STAGES.length) {
 			this.uiManager.updateExam("已完成全部课程阶段！", "ok")
@@ -103,7 +101,6 @@ export class CurriculumController {
 			const engine = new TrainingEngine(this.state, async () => {})
 			const { accuracy: acc, validRate, loss } = engine.evaluateDataset()
 			this.uiManager.updateMetrics({ loss, acc, validRate, progress: Math.min(this.state.trainSteps / maxTotalSteps, 1) * 100 })
-			console.log("SUP", `合法率:${validRate.toFixed(1)}% 准确率:${acc.toFixed(1)}% 损失:${loss.toFixed(4)}`)
 
 			// 保存快照
 			this.snapshotManager.addSnapshot()
@@ -180,7 +177,6 @@ export class CurriculumController {
 			const engine = new TrainingEngine(this.state, async () => {})
 			const { accuracy, validRate, loss } = engine.evaluateDataset()
 			const newEpsilon = engine.adjustEpsilon(validRate)
-			console.log("UNS", `合法率:${validRate.toFixed(1)}% 准确率:${accuracy.toFixed(1)}% 损失:${loss.toFixed(4)} 探索率ε:${newEpsilon.toFixed(2)}`)
 			this.uiManager.updateMetrics({ loss, acc: accuracy, validRate, epsilon: newEpsilon, progress: Math.min(this.state.trainSteps / maxTotalSteps, 1) * 100 })
 
 			// 保存快照
@@ -230,6 +226,5 @@ export class CurriculumController {
 		this.stageIdx = 0
 		this.isRunning = false
 		this.state.terrainConfig = { ...CURRICULUM_STAGES[0].config }
-		console.log("CURRICULUM-CONTROLLER", "课程进度已重置")
 	}
 }

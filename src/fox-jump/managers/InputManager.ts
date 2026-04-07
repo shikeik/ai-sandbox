@@ -32,13 +32,11 @@ export class InputManager {
 	bind(): void {
 		document.addEventListener("keydown", this.handleKeyDown)
 		window.addEventListener("resize", this.handleResize)
-		console.log("INPUT", "输入事件绑定完成")
 	}
 
 	unbind(): void {
 		document.removeEventListener("keydown", this.handleKeyDown)
 		window.removeEventListener("resize", this.handleResize)
-		console.log("INPUT", "输入事件解绑完成")
 	}
 
 	handleKeyDown(e: KeyboardEvent): void {
@@ -46,7 +44,6 @@ export class InputManager {
 
 		if (this.aiController.isAIMode && this.aiController.isStepMode && e.key === " ") {
 			e.preventDefault()
-			console.log("INPUT", "空格键触发单步执行")
 			this.aiController.step()
 			return
 		}
@@ -56,17 +53,14 @@ export class InputManager {
 
 		if (e.key === "ArrowRight" || e.key === "d" || e.key === "D") {
 			e.preventDefault()
-			console.log("INPUT", "键盘右移")
 			this.game.execute(ACTION.RIGHT)
 		}
 		if (e.key === "ArrowUp" || e.key === "w" || e.key === "W" || e.key === " ") {
 			e.preventDefault()
-			console.log("INPUT", "键盘跳跃")
 			this.game.execute(ACTION.JUMP)
 		}
 		if (e.key === "ArrowDown" || e.key === "s" || e.key === "S" || e.key === "e" || e.key === "E") {
 			e.preventDefault()
-			console.log("INPUT", "键盘远跳")
 			this.game.execute(ACTION.LONG_JUMP)
 		}
 	}
@@ -76,7 +70,6 @@ export class InputManager {
 		const isLandscape = window.innerWidth > window.innerHeight
 		const realWidth = isLandscape ? window.innerHeight : window.innerWidth
 
-		console.log("INPUT", `窗口大小调整 | 宽度=${realWidth}px 横屏=${isLandscape}`)
 		this.game.setViewportSize(realWidth)
 	}
 }

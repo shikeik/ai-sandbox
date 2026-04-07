@@ -40,7 +40,6 @@ export class GridWorldEditor {
 			allowedElements: config?.allowedElements ?? defaultAllowedElements,
 		}
 
-		console.log(`编辑器初始化 | enabled=${this.config.enabled}, brush=${this.config.selectedBrush}`)
 	}
 
 	// ========== 配置方法 ==========
@@ -50,7 +49,6 @@ export class GridWorldEditor {
 	 */
 	setEnabled(enabled: boolean): void {
 		this.config.enabled = enabled
-		console.log(`编辑状态变更 | enabled=${enabled}`)
 	}
 
 	/**
@@ -59,7 +57,6 @@ export class GridWorldEditor {
 	setBrush(elementId: number): void {
 		this.config.selectedBrush = elementId
 		const elem = this.elements[elementId]
-		console.log(`画笔切换 | id=${elementId}, name=${elem?.name ?? "未知"}`)
 	}
 
 	/**
@@ -74,11 +71,9 @@ export class GridWorldEditor {
 	 */
 	setLayerAllowedElements(layer: number, elementIds: number[]): void {
 		if (layer < 0 || layer >= this.numLayers) {
-			console.error(`无效的层索引 | layer=${layer}`)
 			return
 		}
 		this.config.allowedElements[layer] = [...elementIds]
-		console.log(`层元素限制更新 | layer=${layer}, elements=[${elementIds.join(",")}]`)
 	}
 
 	/**
@@ -127,7 +122,6 @@ export class GridWorldEditor {
 
 		const check = this.canPaintAt(row, col, brush)
 		if (!check.ok) {
-			console.log(`绘制失败 | row=${row}, col=${col}, reason=${check.message}`)
 			if (this.onInvalidPlacement) {
 				this.onInvalidPlacement(check.message)
 			}
@@ -136,10 +130,8 @@ export class GridWorldEditor {
 
 		// 特殊处理：放置狐狸时要清除其他位置的狐狸
 		if (brush === 1) {
-			console.log("放置狐狸 | 清除其他位置的狐狸")
 		}
 
-		console.log(`绘制成功 | row=${row}, col=${col}, brush=${brush}`)
 		
 		if (this.onCellPainted) {
 			this.onCellPainted(row, col, brush)

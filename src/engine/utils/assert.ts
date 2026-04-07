@@ -41,7 +41,6 @@ function logAssert(tag: string, message: string, context?: Record<string, unknow
 		AssertConfig.logHandler(tag, message, context)
 	}
 	// 同时输出到控制台
-	console.log(`[ASSERT] [${tag}] ${message}`, context || "")
 }
 
 /** 基础断言 */

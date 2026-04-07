@@ -314,7 +314,6 @@ export class ChallengeController {
 			}
 		}
 
-		console.log("CHALLENGE-CTRL", `生成合法地图完成 | 终点=${heroCol}, 尝试次数=${attempts}`)
 		return map
 	}
 

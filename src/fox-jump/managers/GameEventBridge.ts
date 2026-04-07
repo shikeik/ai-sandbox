@@ -57,7 +57,6 @@ export class GameEventBridge {
 	}
 
 	bind(): void {
-		console.log("EVENT_BRIDGE", "开始绑定游戏事件桥接...")
 
 		this.game.onStateChange = (player: PlayerState, _camera: CameraState) => {
 			const posDisplay = document.getElementById("pos-display")
@@ -65,8 +64,6 @@ export class GameEventBridge {
 		}
 
 		this.game.onActionStart = (action: ActionType, from: Position, to: Position, isJump: boolean, result: string) => {
-			console.log("EVENT_BRIDGE", `onActionStart | action=${action} isJump=${isJump} result=${result}`)
-			console.log("EVENT_BRIDGE", `ACTION常量 | RIGHT=${ACTION.RIGHT} JUMP=${ACTION.JUMP} LONG_JUMP=${ACTION.LONG_JUMP}`)
 			let duration = isJump ? CONFIG.JUMP_DURATION : CONFIG.MOVE_DURATION
 
 			if (this.aiController.isAIMode && this.aiController.aiSpeed === AI_CONFIG.SPEEDS.MAX) {
@@ -145,12 +142,10 @@ export class GameEventBridge {
 				const elapsed = this.game.getElapsedTime()
 				// Note: playerBestStore is accessed through uiManager in the original
 				// We need to check if this works correctly
-				console.log("RECORD", "游戏胜利", elapsed)
 				this.uiManager.updateGameInfo()
 			}
 		}
 
-		console.log("EVENT_BRIDGE", "游戏事件桥接完成 | 绑定6个回调")
 	}
 }
 

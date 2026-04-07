@@ -32,14 +32,12 @@ export class UIManager {
 		this.playerBestStore = playerBestStore
 		this.viewManager = viewManager
 		this.network = network
-		console.log("UI_MANAGER", "UI管理器初始化完成")
 	}
 
 	// ========== 控制面板渲染 ==========
 
 	bindPlayerBtn(btn: HTMLElement | null, action: ActionType): void {
 		if (!btn) {
-			console.warn("UI_MANAGER", `绑定按钮失败: 按钮不存在, action=${action}`)
 			return
 		}
 		const actionNames: Record<string, string> = { 
@@ -47,7 +45,6 @@ export class UIManager {
 			[ACTION.JUMP]: "跳跃", 
 			[ACTION.LONG_JUMP]: "远跳" 
 		}
-		console.log("UI_MANAGER", `绑定按钮 | action=${action}(${actionNames[action] || "未知"}) btn#${btn.id}`)
 		
 		const addActive = () => btn.classList.add("btn-pressed")
 		const removeActive = () => btn.classList.remove("btn-pressed")
@@ -61,12 +58,9 @@ export class UIManager {
 		
 		const handler = (e: Event) => {
 			e.preventDefault()
-			console.log("UI_MANAGER", `按钮触发 | action=${action} gameStatus=${this.game.gameStatus}`)
 			if (this.game.gameStatus === GAME_STATUS.RUNNING) {
 				const result = this.game.execute(action)
-				console.log("UI_MANAGER", `执行结果 | success=${!!result}`)
 			} else {
-				console.log("UI_MANAGER", "执行忽略 | 游戏状态非RUNNING")
 			}
 		}
 		btn.addEventListener("touchstart", handler, { passive: false })
@@ -74,7 +68,6 @@ export class UIManager {
 	}
 
 	renderPlayerControls(controlArea: HTMLElement): void {
-		console.log("CONTROLS", "渲染玩家模式按钮 | 右移+跳跃+远跳")
 		controlArea.innerHTML = `
 			<button class="btn" id="btn-right" ontouchstart="">
 				▶
@@ -98,7 +91,6 @@ export class UIManager {
 	}
 
 	renderStepControls(controlArea: HTMLElement): void {
-		console.log("CONTROLS", "渲染单步模式按钮 | 决策/执行")
 		const pending = this.aiController.pendingAIDecision
 		const actionNames = ["移动", "跳跃", "远跳"]
 		const actionLabel = pending
@@ -119,7 +111,6 @@ export class UIManager {
 	}
 
 	renderAutoHint(controlArea: HTMLElement): void {
-		console.log("CONTROLS", "渲染自动模式提示 | AI运行中")
 		controlArea.innerHTML = `
 			<div style="color: #888; font-size: 14px; width: 100%; text-align: center;">🤖 AI自动运行中...</div>
 		`
@@ -130,13 +121,10 @@ export class UIManager {
 		if (!controlArea) return
 
 		if (!this.aiController.isAIMode) {
-			console.log("CONTROLS", "UI路由 | 玩家模式 → renderPlayerControls")
 			this.renderPlayerControls(controlArea)
 		} else if (this.aiController.isStepMode) {
-			console.log("CONTROLS", "UI路由 | 单步模式 → renderStepControls")
 			this.renderStepControls(controlArea)
 		} else {
-			console.log("CONTROLS", "UI路由 | 自动模式 → renderAutoHint")
 			this.renderAutoHint(controlArea)
 		}
 	}
@@ -160,7 +148,6 @@ export class UIManager {
 		const startBtn = document.getElementById("start-btn")
 		if (startBtn) {
 			startBtn.addEventListener("click", onStart)
-			console.log("UI_MANAGER", "开始按钮绑定完成")
 		}
 	}
 
@@ -177,7 +164,6 @@ export class UIManager {
 		gameInfo.innerHTML = `POS: <span id="pos-display">${player.grid}</span> | GEN: <span id="gen-display">${this.game.getState().generation}</span>${this.aiController.isAIMode ? "" : ` | TIME: ${currentTime} | BEST: ${bestTime}`}`
 
 		if (player.grid !== this._lastGrid) {
-			console.log("UI_MANAGER", `游戏信息更新 | 位置=${player.grid} 世代=${this.game.getState().generation}`)
 			this._lastGrid = player.grid
 		}
 	}

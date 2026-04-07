@@ -215,7 +215,6 @@ export class GameRenderer {
 			},
 			onComplete: () => {
 				this.currentTween = null
-				console.log("RENDER", "Tween完成: 狐狸恢复待机")
 				this.foxAnimator.setState("idle")
 				if (this.game) {
 					this.game.notifyVisualComplete()
@@ -416,7 +415,6 @@ export class GameRenderer {
 	
 		this.foxAnimator = new FoxAnimator(this.playerEl)
 		this.foxAnimator.init()
-		console.log("RENDER", "GameRenderer: 世界与玩家初始化完成")
 	}
 	
 	private _showStatus(emoji: string, type: string): void {

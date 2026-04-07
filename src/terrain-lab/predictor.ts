@@ -54,9 +54,6 @@ export class Predictor {
 		const correct = getLabel(this.state.terrain)
 
 		// 调试日志
-		console.log("PREDICT", "AI预测:", pred, getActionName(pred), "规则答案:", correct, getActionName(correct))
-		console.log("PREDICT", "输出概率:", fp.o.map((v, i) => `${getActionName(i)}:${v.toFixed(3)}`).join(", "))
-		console.log("PREDICT", "各动作合法性:", `${getActionName(0)}:${checks.canWalk.ok} ${getActionName(1)}:${checks.canJump.ok} ${getActionName(2)}:${checks.canLongJump.ok} ${getActionName(3)}:${checks.canWalkAttack.ok}`)
 
 		const conf = (fp.o[pred] * 100).toFixed(1)
 

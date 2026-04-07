@@ -50,7 +50,6 @@ function switchTab(tabName: string): void {
 // 当训练Entry更新网络后，需要通知其他Entry
 function onNetworkUpdated(): void {
 	// 网络已更新，其他Entry在下次预测时会自动使用新网络
-	console.log("MAIN", "网络参数已更新")
 }
 
 // ========== 初始化 ==========
@@ -77,14 +76,12 @@ function init(): void {
 	// 初始化控制台
 	const consolePanel = new ConsolePanel("#console-mount", logger)
 	consolePanel.init()
-	console.log("TERRAIN-LAB", "控制台初始化完成")
 
 	// 暴露全局 console API
 	;(window as any).toggleConsole = () => consolePanel.toggle()
 	;(window as any).clearConsole = () => consolePanel.clear()
 	;(window as any).downloadConsole = () => consolePanel.download()
 
-	console.log("MAIN", "Terrain Lab 初始化完成")
 }
 
 init()

@@ -22,7 +22,6 @@ export class UIManager {
 
 	// ========== 快照滑块 ==========
 	updateSnapshotSlider(): void {
-		console.log("UI-MANAGER", `更新快照滑块: ${this.state.snapshots.length} 个快照`)
 		const slider = document.getElementById("snapshot-slider") as HTMLInputElement
 		const label = document.getElementById("snapshot-label")!
 		slider.max = String(this.state.snapshots.length - 1)
@@ -49,7 +48,6 @@ export class UIManager {
 	updateMetrics(params: MetricsData): void {
 		const { loss = 0, reward = 0, acc = 0, validRate = 0, epsilon = 0, progress = 0 } = params
 		if (acc > 0 || validRate > 0) {
-			console.log("UI-MANAGER", `更新指标: 准确率=${acc > 0 ? acc.toFixed(1) : "-"}%, 合法率=${validRate > 0 ? validRate.toFixed(1) : "-"}%${epsilon > 0 ? `, ε=${epsilon.toFixed(2)}` : ""}`)
 		}
 
 		document.getElementById("step-count")!.textContent = String(this.state.trainSteps)
@@ -179,7 +177,6 @@ export class UIManager {
 
 	// ========== 学习模式 UI ==========
 	updateModeUI(learningMode: "supervised" | "unsupervised"): void {
-		console.log("UI-MANAGER", `切换学习模式: ${learningMode === "supervised" ? "监督学习" : "无监督学习"}`)
 		const btn = document.getElementById("btn-mode") as HTMLButtonElement
 		const label = document.getElementById("mode-label")!
 		const metricValid = document.getElementById("metric-valid")!
@@ -246,7 +243,6 @@ export class UIManager {
 		const btn1000 = document.getElementById("btn-train-1000") as HTMLButtonElement
 		if (btn200) btn200.disabled = disabled
 		if (btn1000) btn1000.disabled = disabled
-		console.log("UI-MANAGER", `训练按钮状态更新 | disabled=${disabled}`)
 	}
 
 	// ========== 配置变化处理 ==========
