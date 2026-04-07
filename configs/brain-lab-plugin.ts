@@ -45,6 +45,13 @@ class GameInstance {
 		this.log("RESET", `敌人位置: [${state.enemies.map((e: Position) => `(${e.x},${e.y})`).join(", ")}]`)
 		this.log("RESET", `尖刺位置: (${4}, ${state.spikeY})`)
 		this.log("RESET", `地图尺寸: ${width}x${height}`)
+
+		// 执行断言检查并输出到日志
+		for (let i = 0; i < state.triggers.length; i++) {
+			const passed = state.triggers[i] === false
+			const status = passed ? "✓ PASS" : "✗ FAIL"
+			this.log("ASSERT", `${status}: 按钮${i}重置后状态断言 (expected: false, actual: ${state.triggers[i]})`)
+		}
 	}
 
 	log(tag: string, msg: string) {
@@ -298,7 +305,9 @@ async function doReset() {
 	await game.reset()
 	const state = getState()
 	game.log("API", "POST /reset - 游戏已重置")
-	return { type: "RESET", step: 0, state }
+	// 返回最近的日志（包含断言），让客户端可以显示在 ConsolePanel
+	const recentLogs = game.getLogs().slice(-10)
+	return { type: "RESET", step: 0, state, logs: recentLogs }
 }
 
 function doThink() {

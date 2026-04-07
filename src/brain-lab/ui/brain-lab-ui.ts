@@ -325,7 +325,16 @@ export class BrainLabUI {
 	 */
 	async manualReset(): Promise<void> {
 		try {
-			await fetch(`${API_BASE}/reset`, { method: "POST" })
+			const res = await fetch(`${API_BASE}/reset`, { method: "POST" })
+			const data = await res.json() as { logs?: Array<{ time: string; tag: string; msg: string }> }
+			
+			// 将服务器日志输出到客户端 ConsolePanel
+			if (data.logs) {
+				for (const log of data.logs) {
+					this.logger.log(log.tag, log.msg)
+				}
+			}
+			
 			await this.refreshState()
 			this.updateManualPosition({ x: 1, y: 1 })
 			this.showToast("🔄 游戏已重置")
