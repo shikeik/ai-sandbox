@@ -102,12 +102,54 @@ export const REWARDS = {
 	death: -100,            // 死亡
 } as const
 
-/** 按钮-尖刺对应关系的颜色编码 */
-export const BUTTON_SPIKE_COLORS = [
-	{ button: "#e74c3c", spike: "#c0392b", name: "红" },    // 红色
-	{ button: "#3498db", spike: "#2980b9", name: "蓝" },    // 蓝色
-	{ button: "#2ecc71", spike: "#27ae60", name: "绿" },    // 绿色
-	{ button: "#f39c12", spike: "#d68910", name: "橙" },    // 橙色
-	{ button: "#9b59b6", spike: "#8e44ad", name: "紫" },    // 紫色
-	{ button: "#1abc9c", spike: "#16a085", name: "青" },    // 青色
-] as const
+/** 按钮主题色 - 修改此颜色改变整个主题 */
+export const BUTTON_COLOR = "#3498db"  // 蓝色主题
+
+/** 将 Hex 颜色变暗（用于 secondary） */
+function darken(hex: string, amount: number): string {
+	const clean = hex.replace("#", "")
+	const r = Math.max(0, parseInt(clean.substring(0, 2), 16) - amount * 255)
+	const g = Math.max(0, parseInt(clean.substring(2, 4), 16) - amount * 255)
+	const b = Math.max(0, parseInt(clean.substring(4, 6), 16) - amount * 255)
+	return `#${Math.round(r).toString(16).padStart(2, "0")}${Math.round(g).toString(16).padStart(2, "0")}${Math.round(b).toString(16).padStart(2, "0")}`
+}
+
+/** 生成 rgba 字符串（用于 glow） */
+function toRgba(hex: string, alpha: number): string {
+	const clean = hex.replace("#", "")
+	const r = parseInt(clean.substring(0, 2), 16)
+	const g = parseInt(clean.substring(2, 4), 16)
+	const b = parseInt(clean.substring(4, 6), 16)
+	return `rgba(${r}, ${g}, ${b}, ${alpha})`
+}
+
+/** 将 Hex 转换为 hue-rotate 角度（用于尖刺染色） */
+export function getHueRotateFromHex(hex: string): number {
+	const clean = hex.replace("#", "")
+	const r = parseInt(clean.substring(0, 2), 16) / 255
+	const g = parseInt(clean.substring(2, 4), 16) / 255
+	const b = parseInt(clean.substring(4, 6), 16) / 255
+
+	const max = Math.max(r, g, b)
+	const min = Math.min(r, g, b)
+	let h = 0
+
+	if (max !== min) {
+		if (max === r) {
+			h = (g - b) / (max - min) + (g < b ? 6 : 0)
+		} else if (max === g) {
+			h = (b - r) / (max - min) + 2
+		} else {
+			h = (r - g) / (max - min) + 4
+		}
+		h *= 60
+	}
+	return Math.round(h)
+}
+
+/** 主题色对象（自动计算衍生色） */
+export const BUTTON_THEME = {
+	get primary() { return BUTTON_COLOR },
+	get secondary() { return darken(BUTTON_COLOR, 0.15) },  // 暗 15%
+	get glow() { return toRgba(BUTTON_COLOR, 0.4) },        // 40% 透明度
+}

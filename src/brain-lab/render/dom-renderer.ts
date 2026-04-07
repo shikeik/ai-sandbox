@@ -3,7 +3,7 @@
 import type { WorldState, AnimationEvent, BrainDecision, Position, SpikeState } from "../types/index.js"
 import type { APIStateResponse, APIStepResponse } from "../types/api.js"
 import { Element } from "../types/index.js"
-import { RENDER_CONFIG, ANIMATION_DURATION, BUTTON_SPIKE_COLORS } from "../config.js"
+import { RENDER_CONFIG, ANIMATION_DURATION, BUTTON_THEME, getHueRotateFromHex } from "../config.js"
 
 /** 渲染器配置 */
 interface RendererConfig {
@@ -432,7 +432,7 @@ export class DOMRenderer {
 		logicX: number,
 		displayY: number,
 		isTriggeredButton: boolean = false,
-		buttonIdx?: number
+		_buttonIdx?: number
 	): HTMLElement {
 		const el = document.createElement("div")
 		el.className = "cell"
@@ -465,19 +465,13 @@ export class DOMRenderer {
 				break
 			case Element.BUTTON:
 				el.classList.add("button-base")
-				if (!isTriggeredButton && buttonIdx !== undefined) {
-					const color = BUTTON_SPIKE_COLORS[buttonIdx % BUTTON_SPIKE_COLORS.length]
-					// 使用原始按钮图标样式（紫色渐变圆点），但应用对应颜色
+				if (!isTriggeredButton) {
+					// 使用主题色渲染 🔘 图标
 					el.innerHTML = `
-						<div class="button-icon" 
-							data-color-index="${buttonIdx}"
-							style="
-								background: radial-gradient(circle, ${color.button} 0%, ${color.spike} 70%);
-								box-shadow: 
-									0 2px 4px ${color.spike}80,
-									inset 0 -1px 2px rgba(0,0,0,0.2);
-							"
-						></div>
+						<div class="button-icon" style="
+							background: radial-gradient(circle, ${BUTTON_THEME.primary} 0%, ${BUTTON_THEME.secondary} 70%);
+							box-shadow: 0 2px 4px ${BUTTON_THEME.glow}, inset 0 -1px 2px rgba(0,0,0,0.2);
+						">🔘</div>
 					`
 				}
 				break
@@ -518,14 +512,13 @@ export class DOMRenderer {
 			container.appendChild(el)
 		})
 
-		// 3. 多个尖刺（添加颜色发光效果）
+		// 3. 多个尖刺（使用主题色）
 		this.spikeElements.clear()
 		spikes.forEach((spike, idx) => {
 			const spikeDisplayY = height - 1 - spike.currentY
 			const key = `spike-${idx}`
-			const color = BUTTON_SPIKE_COLORS[idx % BUTTON_SPIKE_COLORS.length]
 			
-			// 创建带颜色的尖刺容器
+			// 创建带主题色的尖刺容器
 			const wrapper = document.createElement("div")
 			wrapper.className = `game-object ${key}`
 			wrapper.dataset.id = key
@@ -545,21 +538,18 @@ export class DOMRenderer {
 				justify-content: center;
 			`
 			
-			// 尖刺图标 - 使用 filter 染色
+			// 尖刺图标 - 使用滤镜染为主题色
+			// 🔻 原始是红色，根据主题色计算 hue-rotate
+			const hueRotate = getHueRotateFromHex(BUTTON_THEME.primary)
 			const iconEl = document.createElement("span")
 			iconEl.textContent = "🔻"
 			iconEl.style.fontSize = "18px"
-			// 根据索引应用不同的颜色滤镜
-			const hueRotate = idx * 60 // 每个索引旋转60度
-			const brightness = 1 + (idx % 2) * 0.2 // 亮度微调
 			iconEl.style.filter = `
 				hue-rotate(${hueRotate}deg) 
-				brightness(${brightness})
-				drop-shadow(0 0 6px ${color.spike})
+				drop-shadow(0 0 6px ${BUTTON_THEME.primary})
 			`
 			
 			wrapper.appendChild(iconEl)
-			
 			this.spikeElements.set(key, wrapper)
 			container.appendChild(wrapper)
 		})
@@ -1123,7 +1113,7 @@ export class DOMRenderer {
 			top: ${top}px;
 			width: 0;
 			height: 0;
-			border: 3px solid #9b59b6;
+			border: 3px solid ${BUTTON_THEME.primary};
 			border-radius: 50%;
 			z-index: 45;
 			transform: translate(-50%, -50%);
