@@ -4,6 +4,11 @@ import type { ViteDevServer } from "vite"
 import type { GameWorld } from "../src/brain-lab/core/game-world.js"
 import type { Brain } from "../src/brain-lab/ai/brain.js"
 import type { WorldState, Position, Imagination, AnimationEvent } from "../src/brain-lab/types/index.js"
+import { setAssertLevel, setAssertStopOnFail } from "../src/engine/utils/assert.js"
+
+// 启用断言（API 服务器端）
+setAssertLevel("verbose")
+setAssertStopOnFail(true)
 
 // 游戏实例
 class GameInstance {
