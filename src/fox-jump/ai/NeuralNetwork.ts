@@ -124,6 +124,7 @@ export class NeuralNetwork {
 		}
 	
 		if (this.isExploring && this.lastAction !== result.action) {
+			// 探索模式下选择了非最优动作
 		}
 		return this.lastAction
 	}
@@ -197,7 +198,8 @@ export class NeuralNetwork {
 			layerChanges.push(row)
 		}
 		
-		const totalChange = layerChanges.flat().reduce((a, b) => a + Math.abs(b), 0)
+		// 计算总权重变化量（可用于监控训练进度）
+		const _totalChange = layerChanges.flat().reduce((a, b) => a + Math.abs(b), 0)
 		
 		return { 
 			changes: [layerChanges], 
@@ -220,7 +222,8 @@ export class NeuralNetwork {
 		this.weights[layerIdx] = newWeights as number[][]
 		this.lastWeightChanges = changes
 		
-		const layerChanges = changes[0]
+		// 权重已更新
+		const _layerChanges = changes[0]
 	}
 	
 	/**

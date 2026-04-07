@@ -48,6 +48,7 @@ export class UIManager {
 	updateMetrics(params: MetricsData): void {
 		const { loss = 0, reward = 0, acc = 0, validRate = 0, epsilon = 0, progress = 0 } = params
 		if (acc > 0 || validRate > 0) {
+			// 指标有更新
 		}
 
 		document.getElementById("step-count")!.textContent = String(this.state.trainSteps)

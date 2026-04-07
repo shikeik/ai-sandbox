@@ -253,15 +253,16 @@ export class AIController {
 		return { previewReward, willDie }
 	}
 
-	private _logDecision(action: number, scores: number[]): void {
-		const actionNames = ["移动", "跳跃", "远跳"]
-		const scoreLog = `移动:${scores[0].toFixed(2)} 跳跃:${scores[1].toFixed(2)} 远跳:${scores[2].toFixed(2)}`
-		const chosen = actionNames[action] || "未知"
+	private _logDecision(_action: number, _scores: number[]): void {
+		// 决策日志已禁用
 	}
 
-	private _logPrediction(action: number, willDie: boolean): void {
+	private _logPrediction(_action: number, willDie: boolean): void {
+		// 预测结果日志（当前静默处理）
 		if (willDie) {
+			// 预测到会死亡
 		} else {
+			// 预测存活
 		}
 	}
 

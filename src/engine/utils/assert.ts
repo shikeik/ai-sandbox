@@ -35,15 +35,9 @@ export function setAssertLogHandler(handler: AssertLogHandler | null) {
 	AssertConfig.setLogHandler(handler)
 }
 
-/** 内部日志输出 */
-function logAssert(tag: string, status: string, message: string, context?: Record<string, unknown>) {
-	// 直接输出到控制台，Logger 系统会捕获并显示
-	// 格式: "TAG", "[STATUS] message", context
-	if (context) {
-		console.log(tag, `[${status}] ${message}`, context)
-	} else {
-		console.log(tag, `[${status}] ${message}`)
-	}
+/** 内部日志输出（已禁用） */
+function logAssert(_tag: string, _status: string, _message: string, _context?: Record<string, unknown>) {
+	// 日志输出已禁用
 }
 
 /** 基础断言 */

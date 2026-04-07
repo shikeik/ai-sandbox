@@ -29,6 +29,7 @@ export class PlayerBestStore {
 		try {
 			localStorage.setItem(PLAYER_BEST_KEY, time.toString())
 		} catch (_err) {
+			// localStorage 写入失败（可能是隐私模式）
 		}
 	}
 	

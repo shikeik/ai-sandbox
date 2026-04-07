@@ -3,7 +3,7 @@
 // 使用 GridWorldSystem 统一处理渲染和动画
 
 import type { AppState } from "./state.js"
-import type { ForwardResult, ActionType } from "./types.js"
+import type { ActionType } from "./types.js"
 import type { ChallengeState, ChallengeResult, ChallengeSpeed, ChallengeMode } from "./challenge-controller.js"
 import { ChallengeController, ChallengeUIManager } from "./challenge-controller.js"
 import { CURRICULUM_STAGES, NUM_LAYERS } from "./constants.js"
@@ -114,10 +114,15 @@ export class ChallengeEntry {
 	}
 
 	private bindGlobalFunctions(): void {
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		;(window as any).startChallenge = () => this.startChallenge()
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		;(window as any).pauseChallenge = () => this.pauseChallenge()
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		;(window as any).stepChallenge = () => this.stepChallenge()
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		;(window as any).resetChallenge = () => this.resetChallenge()
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		;(window as any).setChallengeMode = (mode: ChallengeMode) => this.setChallengeMode(mode)
 	}
 

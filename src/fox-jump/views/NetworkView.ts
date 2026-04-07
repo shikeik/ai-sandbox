@@ -143,6 +143,7 @@ export class NetworkView {
 		}
 
 		if (!this.width || !this.height) {
+			// 等待尺寸初始化
 		}
 
 		this.canvas.width = w * window.devicePixelRatio
@@ -169,6 +170,7 @@ export class NetworkView {
 		}
 
 		if (inputs && inputs.some(v => v !== null)) {
+			// 输入不为空，可以进行预测
 		}
 
 		this.updateInfoBar(network, isPreview)
@@ -262,7 +264,9 @@ export class NetworkView {
 	private _logWeightChanges(weightChanges: number[][][] | null): void {
 		if (!weightChanges) return
 		const flatChanges = weightChanges.flat(2)
-		const nonZeroCount = flatChanges.filter(c => Math.abs(c) > 0.0001).length
+		const _nonZeroCount = flatChanges.filter(c => Math.abs(c) > 0.0001).length
+		// 非零权重变化数量（可用于调试）
+		void _nonZeroCount
 	}
 
 	private _drawConnectionLine(ctx: CanvasRenderingContext2D, from: Position, to: Position, weight: number): void {
@@ -292,7 +296,7 @@ export class NetworkView {
 		return { thickness, color }
 	}
 
-	private _drawHighlight(ctx: CanvasRenderingContext2D, from: Position, to: Position, delta: number, weight: number): void {
+	private _drawHighlight(ctx: CanvasRenderingContext2D, from: Position, to: Position, delta: number, _weight: number): void {
 		if (Math.abs(delta) <= 0.0001) return
 		
 		const highlightWidth = LINE_STYLE.MAX_THICKNESS * PREVIEW_HIGHLIGHT.WIDTH_MULTIPLIER

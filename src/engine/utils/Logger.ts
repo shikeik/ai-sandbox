@@ -23,7 +23,7 @@ function formatArg(a: unknown): string {
 /**
  * 提取日志标签
  * 格式要求: "TAG", "message"（TAG 为大写字母、数字、下划线、连字符）
- * 示例: console.log("GAME", "玩家得分:", 100)
+ * 示例: logger.log("玩家得分:", 100)
  */
 function extractTag(args: unknown[]): { tag: string; rest: unknown[] } {
 	if (args.length > 1 && typeof args[0] === "string") {
@@ -38,10 +38,6 @@ function extractTag(args: unknown[]): { tag: string; rest: unknown[] } {
 // 所有 Logger 实例的注册表
 const instances: Logger[] = []
 let consoleIntercepted = false
-let originalLog: typeof console.log
-let originalWarn: typeof console.warn
-let originalError: typeof console.error
-let originalInfo: typeof console.info
 
 function broadcastLog(level: LogLevel, args: unknown[]): void {
 	const { tag, rest } = extractTag(args)
@@ -61,40 +57,18 @@ function interceptConsole(): void {
 	if (consoleIntercepted) return
 	consoleIntercepted = true
 
-	originalLog = console.log
-	originalWarn = console.warn
-	originalError = console.error
-	originalInfo = console.info
-
 	console.log = function (...args: unknown[]) {
-		originalLog.apply(console, args)
 		broadcastLog("log", args)
 	}
 	console.warn = function (...args: unknown[]) {
-		originalWarn.apply(console, args)
 		broadcastLog("warn", args)
 	}
 	console.error = function (...args: unknown[]) {
-		originalError.apply(console, args)
 		broadcastLog("error", args)
 	}
 	console.info = function (...args: unknown[]) {
-		originalInfo.apply(console, args)
 		broadcastLog("info", args)
 	}
-
-	// 全局错误监听（只绑定一次）
-	window.addEventListener("error", (e) => {
-		console.error("EXCEPTION", `未捕获的错误: ${e.message}`, "\n源文件:", e.filename, "\n行号:", e.lineno, "\n列号:", e.colno, "\n", e.error || "")
-	})
-	window.addEventListener("unhandledrejection", (e) => {
-		const reason = e.reason
-		if (reason instanceof Error) {
-			console.error("UNHANDLED", `未处理的 Promise 拒绝: ${reason.message}`, reason)
-		} else {
-			console.error("UNHANDLED", "未处理的 Promise 拒绝:", reason)
-		}
-	})
 }
 
 export class Logger {

@@ -71,6 +71,7 @@ function init(): void {
 	kimiEntry.init()
 
 	// 绑定全局 Tab 切换函数
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	;(window as any).switchTab = switchTab
 
 	// 初始化控制台
@@ -78,8 +79,11 @@ function init(): void {
 	consolePanel.init()
 
 	// 暴露全局 console API
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	;(window as any).toggleConsole = () => consolePanel.toggle()
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	;(window as any).clearConsole = () => consolePanel.clear()
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any
 	;(window as any).downloadConsole = () => consolePanel.download()
 
 }

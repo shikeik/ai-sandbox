@@ -40,11 +40,13 @@ export class UIManager {
 		if (!btn) {
 			return
 		}
-		const actionNames: Record<string, string> = { 
+		// 动作名称映射（预留用于调试）
+		const _actionNames: Record<string, string> = { 
 			[ACTION.RIGHT]: "移动", 
 			[ACTION.JUMP]: "跳跃", 
 			[ACTION.LONG_JUMP]: "远跳" 
 		}
+		void _actionNames
 		
 		const addActive = () => btn.classList.add("btn-pressed")
 		const removeActive = () => btn.classList.remove("btn-pressed")
@@ -59,8 +61,9 @@ export class UIManager {
 		const handler = (e: Event) => {
 			e.preventDefault()
 			if (this.game.gameStatus === GAME_STATUS.RUNNING) {
-				const result = this.game.execute(action)
+				this.game.execute(action)
 			} else {
+				// 游戏未运行，忽略操作
 			}
 		}
 		btn.addEventListener("touchstart", handler, { passive: false })

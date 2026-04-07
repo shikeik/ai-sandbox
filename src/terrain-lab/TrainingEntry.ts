@@ -147,8 +147,10 @@ export class TrainingEntry {
 			mlpTitle.textContent = `MLP 网络状态 (${INPUT_DIM} → ${HIDDEN_DIM} → ${OUTPUT_DIM})`
 		}
 		// 获取训练按钮引用
-		const btnTrain = document.getElementById("btn-train") as HTMLButtonElement
-		const btnTrain1000 = document.getElementById("btn-train-1000") as HTMLButtonElement
+		const _btnTrain = document.getElementById("btn-train") as HTMLButtonElement
+		const _btnTrain1000 = document.getElementById("btn-train-1000") as HTMLButtonElement
+		void _btnTrain
+		void _btnTrain1000
 
 		this.renderBrushes()
 		this.renderTerrainConfig()
@@ -202,19 +204,33 @@ export class TrainingEntry {
 	}
 
 	private bindGlobalFunctions(): void {
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		;(window as any).generateData = () => this.generateData()
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		;(window as any).trainBatch = () => this.trainBatch()
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		;(window as any).trainBatch1000 = () => this.trainBatch1000()
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		;(window as any).resetNet = () => this.resetNet()
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		;(window as any).predict = () => this.predict()
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		;(window as any).validateTerrain = () => this.validateTerrain()
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		;(window as any).randomTerrain = () => this.randomTerrain()
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		;(window as any).resetView = () => this.resetView()
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		;(window as any).setObservedFromTerrain = () => this.setObservedFromTerrain()
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		;(window as any).setObservedRandom = () => this.setObservedRandom()
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		;(window as any).onConfigChange = () => this.onConfigChange()
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		;(window as any).runCurriculum = () => this.runCurriculum()
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		;(window as any).nextCurriculumStage = () => this.nextCurriculumStage()
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		;(window as any).toggleLearningMode = () => this.toggleLearningMode()
 	}
 
@@ -343,6 +359,7 @@ export class TrainingEntry {
 				}
 			}
 		} else {
+			// 点击在格子外部
 		}
 	}
 
@@ -593,7 +610,7 @@ export class TrainingEntry {
 				)
 			}
 
-			this.gridWorld.playAction(action, { onFrame }).then((result) => {
+			this.gridWorld.playAction(action, { onFrame }).then(() => {
 				// 不同步回 state.terrain，保持 state.terrain 干净
 				// GridWorld 保持动画结束状态（狐狸在终点，金币被吃掉）
 				this.drawEditor()

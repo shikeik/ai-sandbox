@@ -81,8 +81,11 @@ export class MapGeneratorEntry {
 	}
 
 	private bindGlobalFunctions(): void {
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		;(window as any).startGeneration = () => this.startGeneration()
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		;(window as any).stopGeneration = () => this.stopGeneration()
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		;(window as any).stepGeneration = () => this.stepGeneration()
 	}
 

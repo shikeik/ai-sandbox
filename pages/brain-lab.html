@@ -280,6 +280,12 @@
 			transform: translateY(2px) scale(0.92);
 		}
 
+		/* 水平翻转符号（用于左跳按钮） */
+		.flip-h {
+			display: inline-block;
+			transform: scaleX(-1);
+		}
+
 		/* 动作按钮行 */
 		.action-buttons {
 			display: flex;
@@ -381,19 +387,19 @@
 			<!-- 上排: 4个跳跃按钮 -->
 			<div class="btn-row">
 				<button class="ctrl-btn" id="btn-jump-left-far">
-					⬅⤴
+					<span class="flip-h">⤴⤴</span>
 					<span class="btn-label">左远跳 (x-2)</span>
 				</button>
 				<button class="ctrl-btn" id="btn-jump-left">
-					⬅⬆
+					<span class="flip-h">⤴</span>
 					<span class="btn-label">左跳 (↑x-1)</span>
 				</button>
 				<button class="ctrl-btn" id="btn-jump-right">
-					⬆➡
+					⤴
 					<span class="btn-label">右跳 (↑x+1)</span>
 				</button>
 				<button class="ctrl-btn" id="btn-jump-right-far">
-					⤴➡
+					⤴⤴
 					<span class="btn-label">右远跳 (x+2)</span>
 				</button>
 			</div>

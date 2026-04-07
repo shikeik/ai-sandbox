@@ -47,7 +47,7 @@ export class BrainLabUI {
 				throw new Error("找不到 world-container 元素")
 			}
 
-			this.renderer = new DOMRenderer("world-container")
+			this.renderer = new DOMRenderer("world-container", "brain-container")
 			this.bindControls()
 
 			// 初始渲染
@@ -213,7 +213,7 @@ export class BrainLabUI {
 			}
 
 			// 重新初始化渲染器（因为世界尺寸可能改变）
-			this.renderer = new DOMRenderer("world-container")
+			this.renderer = new DOMRenderer("world-container", "brain-container")
 
 			// 刷新状态并强制渲染新地图
 			await this.refreshState()
@@ -231,6 +231,7 @@ export class BrainLabUI {
 		await this.transitionManager.playTransition("death", async () => {
 			await fetch(`${API_BASE}/reset`, { method: "POST" })
 			await this.refreshState()
+			this.updateManualPosition({ x: 1, y: 1 })
 		})
 		this.isRunning = false
 	}
@@ -242,8 +243,16 @@ export class BrainLabUI {
 		await this.transitionManager.playTransition("victory", async () => {
 			await fetch(`${API_BASE}/reset`, { method: "POST" })
 			await this.refreshState()
+			this.updateManualPosition({ x: 1, y: 1 })
 		})
 		this.isRunning = false
+	}
+
+	/**
+	 * 更新手动模式位置显示（游戏视图内的 HUD）
+	 */
+	private updateManualPosition(pos: { x: number; y: number }): void {
+		this.uiManager.updatePositionHUD(pos)
 	}
 
 	// ========== 状态管理 ==========

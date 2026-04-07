@@ -56,7 +56,7 @@ export class GridWorldEditor {
 	 */
 	setBrush(elementId: number): void {
 		this.config.selectedBrush = elementId
-		const elem = this.elements[elementId]
+		// const elem = this.elements[elementId]
 	}
 
 	/**
@@ -130,6 +130,7 @@ export class GridWorldEditor {
 
 		// 特殊处理：放置狐狸时要清除其他位置的狐狸
 		if (brush === 1) {
+			// 狐狸特殊处理（预留）
 		}
 
 		
