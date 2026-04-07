@@ -69,6 +69,40 @@
 			color: #fff;
 		}
 
+		/* ---------- 汉堡菜单 ---------- */
+		.menu-container {
+			position: absolute;
+			top: 100%;
+			right: 16px;
+			margin-top: 8px;
+			background: #1f2227;
+			border: 1px solid #3c4043;
+			border-radius: 8px;
+			padding: 8px 0;
+			min-width: 160px;
+			display: none;
+			box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+		}
+		.menu-container.active {
+			display: block;
+		}
+		.menu-item {
+			padding: 10px 16px;
+			color: #bdc1c6;
+			font-size: 14px;
+			cursor: pointer;
+			transition: background 0.2s;
+		}
+		.menu-item:hover {
+			background: #2c2f36;
+			color: #e8eaed;
+		}
+		.menu-divider {
+			height: 1px;
+			background: #3c4043;
+			margin: 8px 0;
+		}
+
 		/* ---------- 主内容区 ---------- */
 		#main-area {
 			display: flex;
@@ -94,6 +128,12 @@
 			<button class="ctrl-btn" id="btn-fullscreen" title="全屏">⛶</button>
 			<div style="flex: 1;"></div>
 			<button class="ctrl-btn" id="btn-menu" title="菜单">☰</button>
+			<div class="menu-container" id="menu-container">
+				<div class="menu-item">设置</div>
+				<div class="menu-item">关于</div>
+				<div class="menu-divider"></div>
+				<div class="menu-item">退出</div>
+			</div>
 		</div>
 		<div id="main-area">
 			<div id="app">Fox Remake 空页面</div>

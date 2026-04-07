@@ -20,6 +20,8 @@ document.addEventListener("DOMContentLoaded", () => {
 	// 绑定工具栏按钮
 	const btnToggle = document.getElementById("btn-toggle")
 	const btnFullscreen = document.getElementById("btn-fullscreen")
+	const btnMenu = document.getElementById("btn-menu")
+	const menuContainer = document.getElementById("menu-container")
 
 	if (btnToggle) {
 		btnToggle.classList.toggle("active", EPS.isActive())
@@ -37,6 +39,39 @@ document.addEventListener("DOMContentLoaded", () => {
 		document.addEventListener("fullscreenchange", updateFullscreenBtn)
 		document.addEventListener("webkitfullscreenchange", updateFullscreenBtn)
 		btnFullscreen.addEventListener("click", () => EPS.fullscreen())
+	}
+
+	// 汉堡菜单点击事件
+	if (btnMenu && menuContainer) {
+		btnMenu.addEventListener("click", (e) => {
+			e.stopPropagation()
+			const isOpen = menuContainer.classList.contains("active")
+			if (isOpen) {
+				menuContainer.classList.remove("active")
+				btnMenu.classList.remove("active")
+			} else {
+				menuContainer.classList.add("active")
+				btnMenu.classList.add("active")
+			}
+		})
+
+		// 点击菜单项关闭菜单
+		menuContainer.addEventListener("click", (e) => {
+			const item = e.target as HTMLElement
+			if (item.classList.contains("menu-item")) {
+				console.log("[MENU] 点击:", item.textContent)
+				menuContainer.classList.remove("active")
+				btnMenu.classList.remove("active")
+			}
+		})
+
+		// 点击页面其他地方关闭菜单
+		document.addEventListener("click", (e) => {
+			if (!menuContainer.contains(e.target as Node) && e.target !== btnMenu) {
+				menuContainer.classList.remove("active")
+				btnMenu.classList.remove("active")
+			}
+		})
 	}
 
 	const app = document.getElementById("app")
