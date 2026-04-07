@@ -63,7 +63,9 @@ export function createStateFromLevel(level: LevelData = currentLevel): WorldStat
 					initialY: y,
 					currentY: y,
 					falling: false,
-					triggered: false
+					triggered: false,
+					buttonX: x,  // 临时值，后续绑定按钮时更新
+					buttonY: y
 				})
 				grid[y][x] = CHAR_MAP[char] ?? Element.SPIKE
 			}
@@ -82,17 +84,25 @@ export function createStateFromLevel(level: LevelData = currentLevel): WorldStat
 
 	// 如果没有找到尖刺，添加默认尖刺
 	if (spikes.length === 0) {
-		spikes.push({ x: 4, initialY: 4, currentY: 4, falling: false, triggered: false })
+		spikes.push({ x: 4, initialY: 4, currentY: 4, falling: false, triggered: false, buttonX: 2, buttonY: 2 })
 	}
 
 	// 按钮和尖刺按x坐标排序后建立对应关系
-	// （按钮x坐标对应最近的下方尖刺）
+	// 每个尖刺绑定到对应按钮的坐标（用于颜色计算）
 	buttons.sort((a, b) => a.x - b.x)
 	spikes.sort((a, b) => a.x - b.x)
 
-	// 为尖刺添加按钮索引（用于显示对应关系）
+	// 为尖刺添加绑定的按钮坐标
 	spikes.forEach((spike, index) => {
-		(spike as SpikeState & { buttonIndex: number }).buttonIndex = index
+		const button = buttons[index]
+		if (button) {
+			spike.buttonX = button.x
+			spike.buttonY = button.y
+		} else {
+			// 备用：使用自己的坐标
+			spike.buttonX = spike.x
+			spike.buttonY = spike.initialY
+		}
 	})
 
 	return {

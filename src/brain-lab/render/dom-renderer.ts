@@ -24,7 +24,6 @@ export class DOMRenderer {
 	private heroElement: HTMLElement | null = null
 	private enemyElements: Map<string, HTMLElement> = new Map()
 	private spikeElements: Map<string, HTMLElement> = new Map()
-	private buttonXPositions: number[] = []  // 存储按钮的x坐标，索引对应按钮索引
 
 	private config: RendererConfig
 	private animating: boolean = false
@@ -403,14 +402,12 @@ export class DOMRenderer {
 
 		// 收集按钮位置
 		const buttonPositions = new Map<number, number>() // x -> index
-		this.buttonXPositions = []  // 清空并重新收集
 		for (let displayY = 0; displayY < height; displayY++) {
 			const logicY = height - 1 - displayY
 			for (let logicX = 0; logicX < width; logicX++) {
 				if (grid[logicY][logicX] === Element.BUTTON) {
 					const idx = buttonPositions.size
 					buttonPositions.set(logicX, idx)
-					this.buttonXPositions[idx] = logicX  // 存储按钮x坐标
 				}
 			}
 		}
@@ -544,10 +541,9 @@ export class DOMRenderer {
 				justify-content: center;
 			`
 			
-			// 尖刺图标 - 使用对应按钮的坐标生成确定性颜色
-			// 第 idx 个尖刺对应第 idx 个按钮，使用按钮的 x 坐标作为种子
-			const buttonX = this.buttonXPositions[idx] ?? spike.x
-			const spikeColor = getColorByPosition(buttonX, 0)
+			// 尖刺图标 - 使用绑定的按钮坐标生成确定性颜色
+			// 按钮和尖刺通过 (buttonX, buttonY) 坐标一一对应
+			const spikeColor = getColorByPosition(spike.buttonX, spike.buttonY)
 			// 从 HSL 提取 hue 值用于 hue-rotate
 			const hueMatch = spikeColor.match(/hsl\((\d+)/)
 			const hueRotate = hueMatch ? parseInt(hueMatch[1], 10) : 0

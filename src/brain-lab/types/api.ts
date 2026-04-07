@@ -21,6 +21,8 @@ export interface APIStateResponse {
 		currentY: number
 		falling: boolean
 		triggered: boolean
+		buttonX: number
+		buttonY: number
 	}[]
 	gridVisual: string[]
 	gridRaw: number[][]

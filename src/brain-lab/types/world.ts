@@ -10,6 +10,8 @@ export interface SpikeState {
 	currentY: number           // 当前y坐标
 	falling: boolean           // 是否正在坠落
 	triggered: boolean         // 是否已触发
+	buttonX: number            // 关联按钮的x坐标（用于颜色绑定）
+	buttonY: number            // 关联按钮的y坐标（用于颜色绑定）
 }
 
 /** 游戏世界状态 */
