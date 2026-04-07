@@ -3,6 +3,7 @@
 import type { WorldState, Position, ActionResult, AnimationEvent } from "../types/index.js"
 import { Element } from "../types/index.js"
 import { ANIMATION_DURATION } from "../config.js"
+import { assertEq } from "../../engine/utils/assert.js"
 import {
 	createPhysicsContext,
 	isWall,
@@ -412,6 +413,12 @@ function handleButtonTrigger(ctx: ActionContext, playerAnimDuration: number, but
 
 	// 标记按钮已触发
 	state.triggers[buttonIdx] = true
+
+	// 断言：按钮触发后状态必须为 true
+	assertEq(state.triggers[buttonIdx], true, `按钮${buttonIdx}触发后状态断言`, {
+		buttonIdx,
+		triggers: state.triggers
+	})
 
 	// 获取对应的尖刺
 	const spike = state.spikes[buttonIdx]

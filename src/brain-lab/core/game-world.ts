@@ -4,6 +4,7 @@ import type { WorldState, ActionResult } from "../types/index.js"
 import { DEFAULT_WORLD_SIZE } from "../config.js"
 import { createStateFromLevel, cloneState } from "./level.js"
 import { executeAction } from "./actions.js"
+import { assertEq } from "../../engine/utils/assert.js"
 
 /**
  * 游戏世界 - 管理世界状态和执行动作
@@ -37,6 +38,14 @@ export class GameWorld {
 	/** 重置世界 */
 	reset(): void {
 		this.state = createStateFromLevel()
+
+		// 断言：重置后所有按钮触发状态必须为 false
+		for (let i = 0; i < this.state.triggers.length; i++) {
+			assertEq(this.state.triggers[i], false, `按钮${i}重置后状态断言`, {
+				buttonIdx: i,
+				triggerValue: this.state.triggers[i]
+			})
+		}
 	}
 
 	/** 获取世界尺寸 */
