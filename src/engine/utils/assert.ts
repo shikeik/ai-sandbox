@@ -2,9 +2,13 @@
 
 export type AssertLevel = "silent" | "error-only" | "verbose"
 
+/** 日志回调函数类型 */
+export type AssertLogHandler = (tag: string, message: string, context?: Record<string, unknown>) => void
+
 class AssertConfig {
 	static level: AssertLevel = "silent"
 	static stopOnFail: boolean = false
+	static logHandler: AssertLogHandler | null = null
 
 	static setLevel(level: AssertLevel) {
 		this.level = level
@@ -12,6 +16,10 @@ class AssertConfig {
 
 	static setStopOnFail(stop: boolean) {
 		this.stopOnFail = stop
+	}
+
+	static setLogHandler(handler: AssertLogHandler | null) {
+		this.logHandler = handler
 	}
 }
 
@@ -21,6 +29,19 @@ export function setAssertLevel(level: AssertLevel) {
 
 export function setAssertStopOnFail(stop: boolean) {
 	AssertConfig.setStopOnFail(stop)
+}
+
+export function setAssertLogHandler(handler: AssertLogHandler | null) {
+	AssertConfig.setLogHandler(handler)
+}
+
+/** 内部日志输出 */
+function logAssert(tag: string, message: string, context?: Record<string, unknown>) {
+	if (AssertConfig.logHandler) {
+		AssertConfig.logHandler(tag, message, context)
+	}
+	// 同时输出到控制台
+	console.log(`[ASSERT] [${tag}] ${message}`, context || "")
 }
 
 /** 基础断言 */
@@ -43,7 +64,7 @@ export function assertEq<T>(
 	actual: T,
 	expected: T,
 	message: string,
-	context?: Record<string, any>
+	context?: Record<string, unknown>
 ): boolean {
 	const passed = actual === expected
 	const fullContext = {
@@ -51,6 +72,16 @@ export function assertEq<T>(
 		actual,
 		expected,
 		diff: passed ? null : `${actual} !== ${expected}`
+	}
+
+	// verbose 模式下始终输出
+	if (AssertConfig.level === "verbose") {
+		const status = passed ? "✓ PASS" : "✗ FAIL"
+		logAssert(status, `${message} (expected: ${expected}, actual: ${actual})`, fullContext)
+	}
+	// error-only 模式下只输出失败
+	else if (AssertConfig.level === "error-only" && !passed) {
+		logAssert("✗ FAIL", `${message} (expected: ${expected}, actual: ${actual})`, fullContext)
 	}
 
 	return assert(passed, `${message} (expected: ${expected}, actual: ${actual})`, fullContext)
@@ -62,7 +93,7 @@ export function assertInRange(
 	min: number,
 	max: number,
 	message: string,
-	context?: Record<string, any>
+	context?: Record<string, unknown>
 ): boolean {
 	const passed = value >= min && value <= max
 	return assert(passed, `${message} (value: ${value}, range: [${min}, ${max}])`, {
@@ -77,7 +108,7 @@ export function assertInRange(
 export function assertExists<T>(
 	value: T | null | undefined,
 	name: string,
-	context?: Record<string, any>
+	context?: Record<string, unknown>
 ): value is T {
 	const passed = value !== null && value !== undefined
 	return assert(passed, `${name} must exist`, context)
@@ -85,10 +116,10 @@ export function assertExists<T>(
 
 /** 验证数组长度 */
 export function assertLength(
-	arr: any[],
+	arr: unknown[],
 	expectedLength: number,
 	name: string,
-	context?: Record<string, any>
+	context?: Record<string, unknown>
 ): boolean {
 	const passed = arr.length === expectedLength
 	return assert(passed, `${name} length should be ${expectedLength}, got ${arr.length}`, {

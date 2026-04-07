@@ -161,6 +161,30 @@ export class Logger {
 		this.listeners.length = 0
 		this.logs.length = 0
 	}
+
+	/** 获取或创建 Logger 实例 */
+	static get(name: string): Logger {
+		const existing = instances.find(l => l.name === name)
+		if (existing) return existing
+		return new Logger(name)
+	}
+
+	/** 手动记录日志 */
+	log(message: string, ...args: unknown[]): void {
+		const time = new Date().toLocaleTimeString("zh-CN", { hour12: false })
+		const fullMessage = args.length > 0 ? `${message} ${args.map(a => formatArg(a)).join(" ")}` : message
+		const entry: LogEntry = {
+			time,
+			level: "log",
+			tag: this.name,
+			message: fullMessage,
+			rawArgs: [message, ...args]
+		}
+		this.logs.push(entry)
+		this.listeners.forEach(fn => {
+			try { fn(entry) } catch { /* ignore */ }
+		})
+	}
 }
 
 // 保留兼容性的单例导出（可选）
