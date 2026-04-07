@@ -5,6 +5,8 @@ import { Logger } from "../../engine/utils/Logger.js"
 import { ConsolePanel } from "../../engine/console/ConsolePanel.js"
 import { DEFAULT_LEVEL_MAP, ADVANCED_LEVEL_MAP } from "../config.js"
 import type { APIStateResponse, APIStepResponse, APIMoveResponse } from "../types/api.js"
+import { UIManager } from "./ui-manager.js"
+import { TransitionManager } from "./transition-manager.js"
 
 const API_BASE = "/api/brain-lab"
 
@@ -23,6 +25,8 @@ export type TabType = "ai" | "manual"
  */
 export class BrainLabUI {
 	private renderer!: DOMRenderer
+	private uiManager!: UIManager
+	private transitionManager!: TransitionManager
 	private isRunning: boolean = false
 	private autoPlayInterval: number | null = null
 	private logger!: Logger
@@ -30,7 +34,6 @@ export class BrainLabUI {
 	private currentState: APIStateResponse | null = null
 	private currentTab: TabType = "ai"
 	private currentLevel: LevelName = "default"
-	private toastTimeout: number | null = null
 
 	constructor() {
 		try {
@@ -40,9 +43,13 @@ export class BrainLabUI {
 			this.consolePanel.init()
 			this.consolePanel.open()
 
+			// 初始化 UI 管理器和转场管理器
+			this.uiManager = new UIManager()
+			this.transitionManager = new TransitionManager(this.uiManager)
+
 			// 检查容器
-			const worldContainer = document.getElementById("world-container")
-			const brainContainer = document.getElementById("brain-container")
+			const worldContainer = this.uiManager.getElement("world-container")
+			const brainContainer = this.uiManager.getElement("brain-container")
 
 			if (!worldContainer) {
 				throw new Error("找不到 world-container 元素")
@@ -63,11 +70,8 @@ export class BrainLabUI {
 			this.exposeDebugAPI()
 
 		} catch (err: unknown) {
-			const container = document.getElementById("world-container")
-			if (container) {
-				const message = err instanceof Error ? err.message : String(err)
-				container.innerHTML = `<div style="color:red;padding:20px;">初始化错误: ${message}</div>`
-			}
+			const message = err instanceof Error ? err.message : String(err)
+			this.uiManager?.showErrorInWorld(`初始化错误: ${message}`)
 		}
 	}
 
@@ -99,16 +103,7 @@ export class BrainLabUI {
 
 	private switchTab(tab: TabType): void {
 		this.currentTab = tab
-
-		// 更新 Tab 按钮状态
-		document.querySelectorAll(".tab-btn").forEach(btn => {
-			btn.classList.toggle("active", btn.getAttribute("data-tab") === tab)
-		})
-
-		// 更新内容显示
-		document.querySelectorAll(".tab-content").forEach(content => {
-			content.classList.toggle("active", content.id === `tab-${tab}`)
-		})
+		this.uiManager.switchTab(tab)
 
 		// 如果切换到 AI 模式，自动刷新一次状态
 		if (tab === "ai") {
@@ -177,7 +172,7 @@ export class BrainLabUI {
 		if (this.autoPlayInterval) {
 			this.stopAuto()
 		} else {
-			document.getElementById("btn-auto")!.textContent = "⏸️ 暂停"
+			this.uiManager.updateAutoButton(true)
 			this.autoPlayInterval = window.setInterval(() => this.step(), 2000)
 		}
 	}
@@ -189,7 +184,7 @@ export class BrainLabUI {
 		if (this.autoPlayInterval) {
 			clearInterval(this.autoPlayInterval)
 			this.autoPlayInterval = null
-			document.getElementById("btn-auto")!.textContent = "▶️ 自动"
+			this.uiManager.updateAutoButton(false)
 		}
 	}
 
@@ -217,7 +212,7 @@ export class BrainLabUI {
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({ depth })
 			})
-			document.getElementById("depth-value")!.textContent = depth.toString()
+			this.uiManager.updateDepthValue(depth)
 		} catch {
 			// 静默处理错误
 		}
@@ -378,185 +373,35 @@ export class BrainLabUI {
 	 * 处理死亡 - 同时显示骷髅头和渐暗，渐亮时间拉长
 	 * 渐暗: 400ms, 停顿: 100ms, 渐亮: 800ms
 	 */
+
+	/**
+	 * 处理死亡
+	 */
 	private async handleDeath(): Promise<void> {
-		const worldContainer = document.getElementById("world-container")
-		if (!worldContainer) return
-
-		// 确保 world-container 有定位（用于绝对定位子元素）
-		const originalPosition = worldContainer.style.position
-		if (!originalPosition || originalPosition === "static") {
-			worldContainer.style.position = "relative"
-		}
-
-		// 创建或获取骷髅头元素
-		let skullEl = document.getElementById("brain-lab-skull") as HTMLElement
-		if (!skullEl) {
-			skullEl = document.createElement("div")
-			skullEl.id = "brain-lab-skull"
-			skullEl.textContent = "💀"
-			skullEl.style.cssText = `
-				position: absolute;
-				top: 50%;
-				left: 50%;
-				transform: translate(-50%, -50%);
-				font-size: 48px;
-				font-weight: bold;
-				text-shadow: 0 0 30px #e74c3c;
-				opacity: 0;
-				pointer-events: none;
-				z-index: 2000;
-				transition: opacity 0.4s ease-in-out;
-			`
-			worldContainer.appendChild(skullEl)
-		}
-
-		// 创建转场遮罩（如果不存在）
-		let overlay = document.querySelector(".brain-lab-overlay") as HTMLElement
-		if (!overlay) {
-			overlay = document.createElement("div")
-			overlay.className = "brain-lab-overlay"
-			overlay.style.cssText = `
-				position: absolute;
-				inset: 0;
-				background: #000;
-				opacity: 0;
-				pointer-events: none;
-				z-index: 1600;
-				transition: opacity 0.4s ease-in-out;
-				border-radius: 12px;
-			`
-			worldContainer.appendChild(overlay)
-		}
-
-		// 强制重绘确保 transition 生效
-		void overlay.offsetHeight
-
-		// 同时显示骷髅头和开始渐暗
-		skullEl.style.opacity = "1"
-		overlay.style.opacity = "1"
-
-		// 等待渐暗完成（1200ms）
-		await this._delay(600)
-
-		// 渐暗完成后：隐藏骷髅头 + 重置游戏
-		skullEl.style.opacity = "0"
-		await fetch(`${API_BASE}/reset`, { method: "POST" })
-		await this.refreshState()
-		this.updateManualPosition({ x: 1, y: 1 })
-
-		// 停顿（100ms）
-		await this._delay(200)
-
-		// 渐亮（拉长到800ms）
-		overlay.style.transition = "opacity 0.6s ease-in-out"
-		overlay.style.opacity = "0"
-		await this._delay(600)
-
-		// 恢复原始定位
-		worldContainer.style.position = originalPosition
-
+		await this.transitionManager.playTransition("death", async () => {
+			await fetch(`${API_BASE}/reset`, { method: "POST" })
+			await this.refreshState()
+			this.updateManualPosition({ x: 1, y: 1 })
+		})
 		this.isRunning = false
 	}
 
 	/**
-	 * 处理胜利 - 类似死亡转场，但显示奖杯
+	 * 处理胜利
 	 */
 	private async handleVictory(): Promise<void> {
-		const worldContainer = document.getElementById("world-container")
-		if (!worldContainer) return
-
-		const originalPosition = worldContainer.style.position
-		if (!originalPosition || originalPosition === "static") {
-			worldContainer.style.position = "relative"
-		}
-
-		// 移除可能残留的旧奖杯（确保干净状态）
-		const oldTrophy = document.getElementById("brain-lab-trophy")
-		if (oldTrophy) oldTrophy.remove()
-
-		// 创建新奖杯元素
-		const trophyEl = document.createElement("div")
-		trophyEl.id = "brain-lab-trophy"
-		trophyEl.textContent = "🏆"
-		trophyEl.style.cssText = `
-			position: absolute;
-			top: 50%;
-			left: 50%;
-			transform: translate(-50%, -50%);
-			font-size: 56px;
-			font-weight: bold;
-			text-shadow: 0 0 30px #f1c40f;
-			opacity: 0;
-			pointer-events: none;
-			z-index: 2000;
-			transition: opacity 0.4s ease-in-out;
-		`
-		worldContainer.appendChild(trophyEl)
-
-		// 创建或复用遮罩
-		let overlay = document.querySelector(".brain-lab-overlay") as HTMLElement
-		if (!overlay) {
-			overlay = document.createElement("div")
-			overlay.className = "brain-lab-overlay"
-			overlay.style.cssText = `
-				position: absolute;
-				inset: 0;
-				background: #000;
-				opacity: 0;
-				pointer-events: none;
-				z-index: 1600;
-				transition: opacity 0.4s ease-in-out;
-				border-radius: 12px;
-			`
-			worldContainer.appendChild(overlay)
-		}
-
-		void overlay.offsetHeight
-
-		// 同时显示奖杯和开始渐暗（双倍时间：1.2s）
-		trophyEl.style.opacity = "1"
-		overlay.style.transition = "opacity 1.2s ease-in-out"
-		overlay.style.opacity = "1"
-
-		await this._delay(1200)
-
-		// 渐暗完成后：隐藏奖杯
-		trophyEl.style.opacity = "0"
-
-		// 等渐隐动画完成后移除奖杯，再重置游戏
-		await this._delay(400)
-		trophyEl.remove()
-
-		await fetch(`${API_BASE}/reset`, { method: "POST" })
-		await this.refreshState()
-		this.updateManualPosition({ x: 1, y: 1 })
-
-		await this._delay(200)
-
-		// 渐亮（快速：400ms）
-		overlay.style.transition = "opacity 0.5s ease-in-out"
-		overlay.style.opacity = "0"
-		await this._delay(500)
-
-		worldContainer.style.position = originalPosition
+		await this.transitionManager.playTransition("victory", async () => {
+			await fetch(`${API_BASE}/reset`, { method: "POST" })
+			await this.refreshState()
+			this.updateManualPosition({ x: 1, y: 1 })
+		})
 		this.isRunning = false
 	}
-
-	/**
-	 * 延迟辅助函数
-	 */
-	private _delay(ms: number): Promise<void> {
-		return new Promise(resolve => setTimeout(resolve, ms))
-	}
-
 	/**
 	 * 更新手动模式位置显示（游戏视图内的 HUD）
 	 */
 	private updateManualPosition(pos: { x: number; y: number }): void {
-		const hud = document.querySelector(".position-hud")
-		if (hud) {
-			hud.textContent = `(${pos.x}, ${pos.y})`
-		}
+		this.uiManager.updatePositionHUD(pos)
 	}
 
 	// ========== 状态管理 ==========
@@ -592,24 +437,8 @@ export class BrainLabUI {
 
 	/**
 	 * 显示 Toast 提示
-	 * 新 Toast 会直接顶掉旧 Toast，重新计时
 	 */
 	private showToast(msg: string): void {
-		const el = document.getElementById("message")!
-
-		// 清除旧的 timeout，防止快速消失
-		if (this.toastTimeout) {
-			clearTimeout(this.toastTimeout)
-		}
-
-		// 更新内容并显示
-		el.textContent = msg
-		el.classList.add("show")
-
-		// 设置新的 timeout（1.5秒后消失）
-		this.toastTimeout = window.setTimeout(() => {
-			el.classList.remove("show")
-			this.toastTimeout = null
-		}, 1500)
+		this.uiManager.showToast(msg)
 	}
 }
