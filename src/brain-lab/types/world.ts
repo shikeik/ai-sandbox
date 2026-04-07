@@ -29,10 +29,10 @@ export interface WorldSize {
 	height: number
 }
 
-/** 按钮-尖刺绑定关系 */
+/** 按钮-尖刺绑定关系（一对一） */
 export interface ButtonSpikeBinding {
-	button: { x: number; y: number }    // 按钮坐标
-	spikes: { x: number; y: number }[]  // 绑定的尖刺坐标数组
+	button: { x: number; y: number }  // 按钮坐标
+	spike: { x: number; y: number }   // 绑定的尖刺坐标
 }
 
 /** 关卡数据定义 */

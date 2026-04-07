@@ -71,7 +71,7 @@ export const DEFAULT_LEVEL_MAP: LevelData = {
 	bindings: [
 		{
 			button: { x: 3, y: 2 },  // 按钮在 y=2
-			spikes: [{ x: 4, y: 4 }]  // 尖刺在 y=4
+			spike: { x: 4, y: 4 }    // 尖刺在 y=4
 		}
 	]
 }
@@ -93,12 +93,12 @@ export const ADVANCED_LEVEL_MAP: LevelData = {
 	],
 	bindings: [
 		{
-			button: { x: 4, y: 6 },   // 按钮1在 y=6
-			spikes: [{ x: 5, y: 7 }]   // 尖刺1在 y=7
+			button: { x: 4, y: 6 },  // 按钮1在 y=6
+			spike: { x: 5, y: 7 }    // 尖刺1在 y=7
 		},
 		{
-			button: { x: 7, y: 6 },   // 按钮2在 y=6
-			spikes: [{ x: 7, y: 7 }]   // 尖刺2在 y=7
+			button: { x: 7, y: 6 },  // 按钮2在 y=6
+			spike: { x: 7, y: 7 }    // 尖刺2在 y=7
 		}
 	]
 }

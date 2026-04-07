@@ -89,13 +89,11 @@ export function createStateFromLevel(level: LevelData = currentLevel): WorldStat
 
 	// 使用配置的绑定关系设置尖刺的 buttonX/buttonY
 	for (const binding of level.bindings) {
-		const { button, spikes: boundSpikes } = binding
-		for (const spikePos of boundSpikes) {
-			const spike = spikes.find(s => s.x === spikePos.x && s.initialY === spikePos.y)
-			if (spike) {
-				spike.buttonX = button.x
-				spike.buttonY = button.y
-			}
+		const { button, spike: spikePos } = binding
+		const spike = spikes.find(s => s.x === spikePos.x && s.initialY === spikePos.y)
+		if (spike) {
+			spike.buttonX = button.x
+			spike.buttonY = button.y
 		}
 	}
 
