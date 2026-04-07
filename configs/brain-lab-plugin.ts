@@ -265,11 +265,15 @@ function doMove(action: string) {
 }
 
 async function doReset() {
+	// 记录重置前的日志数量
+	const logCountBefore = game.getLogs().length
+	
 	await game.reset()
 	const state = getState()
-	// 返回最近的日志（包含断言），让客户端可以显示在 ConsolePanel
-	const recentLogs = game.getLogs().slice(-10)
-	return { type: "RESET", step: 0, state, logs: recentLogs }
+	
+	// 只返回本次重置产生的新日志
+	const newLogs = game.getLogs().slice(logCountBefore)
+	return { type: "RESET", step: 0, state, logs: newLogs }
 }
 
 function doThink() {
