@@ -467,11 +467,15 @@ export class DOMRenderer {
 				el.classList.add("button-base")
 				if (!isTriggeredButton && buttonIdx !== undefined) {
 					const color = BUTTON_SPIKE_COLORS[buttonIdx % BUTTON_SPIKE_COLORS.length]
-					// 使用原来的按钮图标，但添加颜色滤镜
+					// 使用原来的按钮样式，但使用对应颜色
 					el.innerHTML = `
 						<div class="button-icon" style="
-							filter: drop-shadow(0 0 3px ${color.button}) hue-rotate(${buttonIdx * 60}deg);
-						">⭘</div>
+							background: radial-gradient(circle, ${color.button} 0%, ${color.spike} 70%);
+							box-shadow: 
+								0 2px 4px ${color.spike}80,
+								inset 0 -1px 2px rgba(0,0,0,0.2),
+								0 0 8px ${color.button}60;
+						"></div>
 					`
 				}
 				break
@@ -539,11 +543,17 @@ export class DOMRenderer {
 				justify-content: center;
 			`
 			
-			// 尖刺图标 - 只保留颜色发光，不显示数字
+			// 尖刺图标 - 使用颜色发光效果
 			const iconEl = document.createElement("span")
 			iconEl.textContent = "🔻"
 			iconEl.style.fontSize = "18px"
-			iconEl.style.filter = `drop-shadow(0 0 6px ${color.spike}) drop-shadow(0 0 12px ${color.button}80)`
+			// 多层发光效果，让颜色更明显
+			iconEl.style.filter = `
+				drop-shadow(0 0 4px ${color.button}) 
+				drop-shadow(0 0 8px ${color.spike})
+				drop-shadow(0 0 16px ${color.button}60)
+			`
+			iconEl.style.color = color.spike
 			
 			wrapper.appendChild(iconEl)
 			
