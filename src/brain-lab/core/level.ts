@@ -90,6 +90,11 @@ export function createStateFromLevel(level: LevelData = currentLevel): WorldStat
 	buttons.sort((a, b) => a.x - b.x)
 	spikes.sort((a, b) => a.x - b.x)
 
+	// 为尖刺添加按钮索引（用于显示对应关系）
+	spikes.forEach((spike, index) => {
+		(spike as SpikeState & { buttonIndex: number }).buttonIndex = index
+	})
+
 	return {
 		grid,
 		hero,

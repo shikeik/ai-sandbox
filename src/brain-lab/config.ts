@@ -1,6 +1,7 @@
 // ========== Brain Lab 配置常量 ==========
 
 import type { LevelData } from "./types/index.js"
+import type { Position } from "./types/index.js"
 
 /** 默认世界尺寸 */
 export const DEFAULT_WORLD_SIZE = {
@@ -100,3 +101,13 @@ export const REWARDS = {
 	perStepX: 10,           // 每向右一步
 	death: -100,            // 死亡
 } as const
+
+/** 按钮-尖刺对应关系的颜色编码 */
+export const BUTTON_SPIKE_COLORS = [
+	{ button: "#e74c3c", spike: "#c0392b", name: "红" },    // 红色
+	{ button: "#3498db", spike: "#2980b9", name: "蓝" },    // 蓝色
+	{ button: "#2ecc71", spike: "#27ae60", name: "绿" },    // 绿色
+	{ button: "#f39c12", spike: "#d68910", name: "橙" },    // 橙色
+	{ button: "#9b59b6", spike: "#8e44ad", name: "紫" },    // 紫色
+	{ button: "#1abc9c", spike: "#16a085", name: "青" },    // 青色
+] as const

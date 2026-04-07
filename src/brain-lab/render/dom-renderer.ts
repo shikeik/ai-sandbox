@@ -3,7 +3,7 @@
 import type { WorldState, AnimationEvent, BrainDecision, Position, SpikeState } from "../types/index.js"
 import type { APIStateResponse, APIStepResponse } from "../types/api.js"
 import { Element } from "../types/index.js"
-import { RENDER_CONFIG, ANIMATION_DURATION } from "../config.js"
+import { RENDER_CONFIG, ANIMATION_DURATION, BUTTON_SPIKE_COLORS } from "../config.js"
 
 /** 渲染器配置 */
 interface RendererConfig {
@@ -102,6 +102,7 @@ export class DOMRenderer {
 		// 全新渲染模式
 		this.worldContainer.innerHTML = ""
 		this.enemyElements.clear()
+		this.spikeElements.clear()
 
 		// 计算世界尺寸
 		this.worldWidth = width * (this.config.cellSize + this.config.gap) - this.config.gap
@@ -163,7 +164,7 @@ export class DOMRenderer {
 		const objectsLayer = this.worldContainer.querySelector(".layer-objects") as HTMLElement
 
 		// 渲染静态格子背景
-		this.renderGrid(gridLayer, grid, triggers, height, width)
+		this.renderGrid(gridLayer, grid, triggers, spikes, height, width)
 
 		// 渲染动态对象
 		this.renderObjects(objectsLayer, hero, enemies, spikes, height)
@@ -389,6 +390,7 @@ export class DOMRenderer {
 		container: HTMLElement,
 		grid: number[][],
 		triggers: boolean[],
+		spikes: SpikeState[],
 		height: number,
 		width: number
 	): void {
@@ -398,12 +400,25 @@ export class DOMRenderer {
 			position: relative;
 		`
 
+		// 收集按钮位置
+		const buttonPositions = new Map<number, number>() // x -> index
+		for (let displayY = 0; displayY < height; displayY++) {
+			const logicY = height - 1 - displayY
+			for (let logicX = 0; logicX < width; logicX++) {
+				if (grid[logicY][logicX] === Element.BUTTON) {
+					const idx = buttonPositions.size
+					buttonPositions.set(logicX, idx)
+				}
+			}
+		}
+
 		for (let displayY = 0; displayY < height; displayY++) {
 			const logicY = height - 1 - displayY
 			for (let logicX = 0; logicX < width; logicX++) {
 				const cell = grid[logicY][logicX]
-				const isTriggeredButton = cell === Element.BUTTON && triggers[0]
-				const cellEl = this.createCell(cell, logicX, displayY, isTriggeredButton)
+				const buttonIdx = buttonPositions.get(logicX)
+				const isTriggeredButton = cell === Element.BUTTON && buttonIdx !== undefined && triggers[buttonIdx]
+				const cellEl = this.createCell(cell, logicX, displayY, isTriggeredButton, buttonIdx)
 				container.appendChild(cellEl)
 			}
 		}
@@ -416,7 +431,8 @@ export class DOMRenderer {
 		cellType: number,
 		logicX: number,
 		displayY: number,
-		isTriggeredButton: boolean = false
+		isTriggeredButton: boolean = false,
+		buttonIdx?: number
 	): HTMLElement {
 		const el = document.createElement("div")
 		el.className = "cell"
@@ -449,8 +465,16 @@ export class DOMRenderer {
 				break
 			case Element.BUTTON:
 				el.classList.add("button-base")
-				if (!isTriggeredButton) {
-					el.innerHTML = "<div class=\"button-icon\">🔘</div>"
+				if (!isTriggeredButton && buttonIdx !== undefined) {
+					const color = BUTTON_SPIKE_COLORS[buttonIdx % BUTTON_SPIKE_COLORS.length]
+					el.innerHTML = `
+						<div class="button-icon" style="
+							background: ${color.button};
+							box-shadow: 0 2px 4px ${color.spike}80, inset 0 -1px 2px rgba(0,0,0,0.2);
+						">
+							<span style="font-size: 10px; font-weight: bold; color: white;">${buttonIdx + 1}</span>
+						</div>
+					`
 				}
 				break
 		}
@@ -490,14 +514,59 @@ export class DOMRenderer {
 			container.appendChild(el)
 		})
 
-		// 3. 多个尖刺
+		// 3. 多个尖刺（添加颜色和编号）
 		this.spikeElements.clear()
 		spikes.forEach((spike, idx) => {
 			const spikeDisplayY = height - 1 - spike.currentY
 			const key = `spike-${idx}`
-			const el = this.createGameObject(key, "🔻", spike.x, spikeDisplayY, 40)
-			this.spikeElements.set(key, el)
-			container.appendChild(el)
+			const color = BUTTON_SPIKE_COLORS[idx % BUTTON_SPIKE_COLORS.length]
+			
+			// 创建带颜色的尖刺容器
+			const wrapper = document.createElement("div")
+			wrapper.className = `game-object ${key}`
+			wrapper.dataset.id = key
+			
+			const left = spike.x * (this.config.cellSize + this.config.gap)
+			const top = spikeDisplayY * (this.config.cellSize + this.config.gap)
+			
+			wrapper.style.cssText = `
+				position: absolute;
+				left: ${left}px;
+				top: ${top}px;
+				width: ${this.config.cellSize}px;
+				height: ${this.config.cellSize}px;
+				z-index: 40;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				flex-direction: column;
+			`
+			
+			// 尖刺图标
+			const iconEl = document.createElement("span")
+			iconEl.textContent = "🔻"
+			iconEl.style.fontSize = "18px"
+			iconEl.style.filter = `drop-shadow(0 0 4px ${color.spike})`
+			
+			// 编号标记
+			const labelEl = document.createElement("span")
+			labelEl.textContent = String(idx + 1)
+
+			labelEl.style.cssText = `
+				font-size: 9px;
+				font-weight: bold;
+				color: ${color.button};
+				background: rgba(0,0,0,0.7);
+				padding: 1px 3px;
+				border-radius: 3px;
+				margin-top: -2px;
+			`
+			
+			wrapper.appendChild(iconEl)
+			wrapper.appendChild(labelEl)
+			
+			this.spikeElements.set(key, wrapper)
+			container.appendChild(wrapper)
 		})
 	}
 
