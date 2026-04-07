@@ -467,15 +467,17 @@ export class DOMRenderer {
 				el.classList.add("button-base")
 				if (!isTriggeredButton && buttonIdx !== undefined) {
 					const color = BUTTON_SPIKE_COLORS[buttonIdx % BUTTON_SPIKE_COLORS.length]
-					// 使用原来的按钮样式，但使用对应颜色
+					// 使用原始按钮图标样式（紫色渐变圆点），但应用对应颜色
 					el.innerHTML = `
-						<div class="button-icon" style="
-							background: radial-gradient(circle, ${color.button} 0%, ${color.spike} 70%);
-							box-shadow: 
-								0 2px 4px ${color.spike}80,
-								inset 0 -1px 2px rgba(0,0,0,0.2),
-								0 0 8px ${color.button}60;
-						"></div>
+						<div class="button-icon" 
+							data-color-index="${buttonIdx}"
+							style="
+								background: radial-gradient(circle, ${color.button} 0%, ${color.spike} 70%);
+								box-shadow: 
+									0 2px 4px ${color.spike}80,
+									inset 0 -1px 2px rgba(0,0,0,0.2);
+							"
+						></div>
 					`
 				}
 				break
@@ -543,17 +545,18 @@ export class DOMRenderer {
 				justify-content: center;
 			`
 			
-			// 尖刺图标 - 使用颜色发光效果
+			// 尖刺图标 - 使用 filter 染色
 			const iconEl = document.createElement("span")
 			iconEl.textContent = "🔻"
 			iconEl.style.fontSize = "18px"
-			// 多层发光效果，让颜色更明显
+			// 根据索引应用不同的颜色滤镜
+			const hueRotate = idx * 60 // 每个索引旋转60度
+			const brightness = 1 + (idx % 2) * 0.2 // 亮度微调
 			iconEl.style.filter = `
-				drop-shadow(0 0 4px ${color.button}) 
-				drop-shadow(0 0 8px ${color.spike})
-				drop-shadow(0 0 16px ${color.button}60)
+				hue-rotate(${hueRotate}deg) 
+				brightness(${brightness})
+				drop-shadow(0 0 6px ${color.spike})
 			`
-			iconEl.style.color = color.spike
 			
 			wrapper.appendChild(iconEl)
 			
