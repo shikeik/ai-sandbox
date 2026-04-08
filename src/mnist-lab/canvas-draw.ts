@@ -140,19 +140,19 @@ export function clearCanvas(drawCtx: DrawingCanvas): void {
 	drawCtx.pixels.fill(0)
 }
 
-// 渲染像素预览 (14x14)
-export function renderPixelPreview(
+// 渲染像素预览 (28x28 缩小显示)
+export function renderPixelPreview28x28(
 	canvas: HTMLCanvasElement,
-	pixels14x14: number[]
+	pixels28x28: number[]
 ): void {
 	const ctx = canvas.getContext("2d")
 	if (!ctx) return
 
-	const cellSize = canvas.width / 14
+	const cellSize = canvas.width / 28
 
-	for (let y = 0; y < 14; y++) {
-		for (let x = 0; x < 14; x++) {
-			const value = pixels14x14[y * 14 + x]
+	for (let y = 0; y < 28; y++) {
+		for (let x = 0; x < 28; x++) {
+			const value = pixels28x28[y * 28 + x]
 			const gray = Math.floor((1 - value) * 255)
 			ctx.fillStyle = `rgb(${gray},${gray},${gray})`
 			ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize)

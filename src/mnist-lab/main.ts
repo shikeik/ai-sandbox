@@ -7,11 +7,12 @@ import {
 	TrainingEngine,
 	evaluateNetwork
 } from "@/engine/ml/index.js"
-import { generateMNISTDataset, downsampleImage, type MNISTSample } from "./dataset.js"
+import { type MNISTSample } from "./dataset.js"
+import { getTrainData, getTestData } from "./real-dataset.js"
 import {
 	createDrawingCanvas,
 	clearCanvas,
-	renderPixelPreview,
+	renderPixelPreview28x28,
 	renderProbabilities
 } from "./canvas-draw.js"
 import { Logger } from "@/engine/utils/Logger.js"
@@ -19,10 +20,10 @@ import { Logger } from "@/engine/utils/Logger.js"
 // ========== 配置 ==========
 
 const NETWORK_CONFIG: NetworkConfig = {
-	inputDim: 196,      // 14x14
+	inputDim: 784,      // 28x28
 	hiddenDims: [128, 64],
 	outputDim: 10,      // 0-9
-	learningRate: 0.1,
+	learningRate: 0.05, // 降低学习率适应更大输入
 	weightClip: 5.0
 }
 
@@ -77,8 +78,8 @@ export function init(): void {
 		networkCanvas.height = 300
 	}
 
-	// 生成数据集
-	state.dataset = generateMNISTDataset()
+	// 加载真实数据集
+	state.dataset = { train: getTrainData(), test: getTestData() }
 	updateDataInfo()
 
 	// 绘制初始网络
@@ -168,16 +169,16 @@ async function train(epochs: number): Promise<void> {
 function onDrawingEnd(): void {
 	if (!drawingCanvas) return
 
-	// 降采样到 14x14
-	const input14x14 = downsampleImage(drawingCanvas.pixels)
+	// 直接使用 28x28 输入
+	const input28x28 = drawingCanvas.pixels
 
-	// 显示预览
+	// 显示预览 (缩小显示)
 	if (previewCanvas) {
-		renderPixelPreview(previewCanvas, input14x14)
+		renderPixelPreview28x28(previewCanvas, input28x28)
 	}
 
 	// 预测
-	predict(input14x14)
+	predict(input28x28)
 }
 
 function predict(input: number[]): void {
@@ -203,32 +204,28 @@ function testRandomSample(): void {
 		// 清空白板
 		clearCanvas(drawingCanvas)
 
-		// 将14x14上采样回28x28显示
+		// 将28x28绘制到画布 (280x280，每个像素10x10)
 		const ctx = drawingCanvas.ctx
 		ctx.fillStyle = "black"
 		ctx.fillRect(0, 0, 280, 280)
 
-		for (let y = 0; y < 14; y++) {
-			for (let x = 0; x < 14; x++) {
-				const value = sample.input[y * 14 + x]
-				if (value > 0.1) {
+		for (let y = 0; y < 28; y++) {
+			for (let x = 0; x < 28; x++) {
+				const value = sample.input[y * 28 + x]
+				if (value > 0.05) {
 					ctx.fillStyle = `rgba(255,255,255,${value})`
-					ctx.fillRect(x * 20, y * 20, 20, 20)
+					ctx.fillRect(x * 10, y * 10, 10, 10)
 				}
 			}
 		}
 
 		// 更新像素数据
-		for (let y = 0; y < 28; y++) {
-			for (let x = 0; x < 28; x++) {
-				const srcY = Math.floor(y / 2)
-				const srcX = Math.floor(x / 2)
-				drawingCanvas.pixels[y * 28 + x] = sample.input[srcY * 14 + srcX]
-			}
+		for (let i = 0; i < 784; i++) {
+			drawingCanvas.pixels[i] = sample.input[i]
 		}
 
 		// 显示预览和预测
-		renderPixelPreview(previewCanvas, sample.input)
+		renderPixelPreview28x28(previewCanvas, sample.input)
 		predict(sample.input)
 
 		// 显示真实标签
@@ -244,7 +241,7 @@ function testRandomSample(): void {
 function updateDataInfo(): void {
 	const el = document.getElementById("data-info")
 	if (el) {
-		el.textContent = `训练集: ${state.dataset.train.length} 条 | 测试集: ${state.dataset.test.length} 条 | 输入: 14×14 | 输出: 10类`
+		el.textContent = `训练集: ${state.dataset.train.length} 条 | 测试集: ${state.dataset.test.length} 条 | 输入: 28×28 | 输出: 10类`
 	}
 }
 
@@ -330,7 +327,7 @@ function drawNetwork(): void {
 	ctx.fillRect(0, 0, w, h)
 
 	// 网络结构
-	const layers = [196, 128, 64, 10]
+	const layers = [784, 128, 64, 10]
 	const layerX = [60, 150, 240, 340]
 	const maxNeurons = 20  // 最多显示20个神经元
 
@@ -391,7 +388,7 @@ function drawNetwork(): void {
 	ctx.fillStyle = "#888"
 	ctx.font = "11px sans-serif"
 	ctx.textAlign = "center"
-	ctx.fillText("输入\n196", layerX[0], h - 5)
+	ctx.fillText("输入\n784", layerX[0], h - 5)
 	ctx.fillText("隐藏\n128", layerX[1], h - 5)
 	ctx.fillText("隐藏\n64", layerX[2], h - 5)
 	ctx.fillText("输出\n10", layerX[3], h - 5)

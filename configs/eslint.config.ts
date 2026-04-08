@@ -21,6 +21,8 @@ export default [
 				setTimeout: 'readonly',
 				clearTimeout: 'readonly',
 				localStorage: 'readonly',
+				atob: 'readonly',
+				btoa: 'readonly',
 				screen: 'readonly',
 				navigator: 'readonly',
 				location: 'readonly',

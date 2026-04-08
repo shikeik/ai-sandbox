@@ -289,7 +289,7 @@
 
 	header>
 		h1>🧠 MNIST Lab</h1>
-		<p>手写数字识别训练沙盒 | MLP: 196 → 128 → 64 → 10</p>
+		<p>手写数字识别训练沙盒 | MLP: 784 → 128 → 64 → 10</p>
 	</header>
 
 	<div class="container">
@@ -305,8 +305,9 @@
 
 				<div class="preview-area">
 					<div class="preview-box">
-						<label>14×14 输入</label>
+						<label>28×28 输入(缩小)</label>
 						<canvas id="preview-canvas" width="140" height="140"></canvas>
+					<!-- 140x140 显示 28x28，每个像素 5x5 -->
 					</div>
 				</div>
 			</div>
@@ -335,7 +336,7 @@
 			<div class="training-info">
 				<div class="info-item">
 					<span class="label">网络结构</span>
-					<span class="value">196 → 128 → 64 → 10</span>
+					<span class="value">784 → 128 → 64 → 10</span>
 				</div>
 				<div class="info-item">
 					<span class="label">数据集</span>
@@ -377,7 +378,7 @@
 	</div>
 
 	<footer>
-		<p>MNIST Lab | 纯前端神经网络训练演示 | 使用 1000 张简化 14×14 样本</p>
+		<p>MNIST Lab | 纯前端神经网络训练演示 | 使用 1000 张真实 28×28 样本</p>
 	</footer>
 
 	<script type="module" src="../src/mnist-lab/main.ts"></script>
