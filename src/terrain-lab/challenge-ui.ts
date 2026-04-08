@@ -9,7 +9,7 @@ import { terrainToIndices } from "./terrain.js"
 import type { AppState } from "./state.js"
 import type { GridWorld } from "./grid-world/index.js"
 import { drawMLP, setupCanvas } from "./renderer.js"
-import { Logger } from "@/engine/utils/Logger.js"
+import { Logger } from "../engine/utils/Logger.js"
 
 // ========== UI 管理器 ==========
 
