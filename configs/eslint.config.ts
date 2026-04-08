@@ -5,6 +5,10 @@ import tsPlugin from '@typescript-eslint/eslint-plugin'
 export default [
 	js.configs.recommended,
 	{
+		name: 'ignore-files',
+		ignores: ['dist/**', 'node_modules/**', '.git/**']
+	},
+	{
 		name: 'app-files',
 		files: ['**/*.js', '**/*.mjs', '**/*.ts'],
 		languageOptions: {
@@ -103,6 +107,13 @@ export default [
 
 				// Node.js 全局变量
 				Buffer: 'readonly',
+				process: 'readonly',
+				__dirname: 'readonly',
+				__filename: 'readonly',
+				require: 'readonly',
+				module: 'readonly',
+				exports: 'readonly',
+				global: 'readonly',
 			},
 		},
 		plugins: {
