@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>MNIST Lab - 手写数字识别</title>
+	<style>
+		* {
+			margin: 0;
+			padding: 0;
+			box-sizing: border-box;
+		}
+
+		body {
+			font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+			background: linear-gradient(135deg, #0f0f1e 0%, #1a1a2e 100%);
+			color: #e0e0e0;
+			min-height: 100vh;
+			padding: 20px;
+		}
+
+		header {
+			text-align: center;
+			margin-bottom: 20px;
+		}
+
+		h1 {
+			font-size: 24px;
+			color: #4ade80;
+			margin-bottom: 8px;
+		}
+
+		header p {
+			color: #888;
+			font-size: 14px;
+		}
+
+		.back-link {
+			position: absolute;
+			top: 20px;
+			left: 20px;
+			color: #888;
+			text-decoration: none;
+			font-size: 14px;
+			transition: color 0.2s;
+		}
+
+		.back-link:hover {
+			color: #4ade80;
+		}
+
+		.container {
+			max-width: 1200px;
+			margin: 0 auto;
+			display: grid;
+			grid-template-columns: 1fr 1fr;
+			gap: 20px;
+		}
+
+		@media (max-width: 900px) {
+			.container {
+				grid-template-columns: 1fr;
+			}
+		}
+
+		.panel {
+			background: rgba(255, 255, 255, 0.05);
+			border-radius: 12px;
+			padding: 20px;
+			border: 1px solid rgba(255, 255, 255, 0.1);
+		}
+
+		.panel h2 {
+			font-size: 16px;
+			color: #4ade80;
+			margin-bottom: 15px;
+			display: flex;
+			align-items: center;
+			gap: 8px;
+		}
+
+		/* 手写板区域 */
+		.draw-section {
+			display: flex;
+			gap: 15px;
+			align-items: flex-start;
+		}
+
+		.draw-area {
+			position: relative;
+		}
+
+		#draw-canvas {
+			width: 280px;
+			height: 280px;
+			border: 2px solid #333;
+			border-radius: 8px;
+			cursor: crosshair;
+			background: black;
+		}
+
+		.draw-hint {
+			position: absolute;
+			bottom: 10px;
+			left: 50%;
+			transform: translateX(-50%);
+			color: #666;
+			font-size: 12px;
+			pointer-events: none;
+		}
+
+		.preview-area {
+			display: flex;
+			flex-direction: column;
+			gap: 10px;
+		}
+
+		.preview-box {
+			text-align: center;
+		}
+
+		.preview-box label {
+			display: block;
+			font-size: 12px;
+			color: #888;
+			margin-bottom: 5px;
+		}
+
+		#preview-canvas {
+			border: 1px solid #333;
+			border-radius: 4px;
+			background: black;
+		}
+
+		/* 按钮 */
+		.btn-group {
+			display: flex;
+			gap: 8px;
+			margin-top: 15px;
+			flex-wrap: wrap;
+		}
+
+		button {
+			padding: 10px 16px;
+			border: none;
+			border-radius: 6px;
+			background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+			color: white;
+			font-size: 13px;
+			cursor: pointer;
+			transition: all 0.2s;
+		}
+
+		button:hover:not(:disabled) {
+			transform: translateY(-1px);
+			box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);
+		}
+
+		button:disabled {
+			opacity: 0.5;
+			cursor: not-allowed;
+		}
+
+		button.secondary {
+			background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+		}
+
+		button.secondary:hover:not(:disabled) {
+			box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+		}
+
+		button.danger {
+			background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+		}
+
+		button.danger:hover:not(:disabled) {
+			box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+		}
+
+		/* 结果区域 */
+		.result-box {
+			background: rgba(0, 0, 0, 0.3);
+			border-radius: 8px;
+			padding: 15px;
+			margin-top: 15px;
+		}
+
+		.result-box h3 {
+			font-size: 13px;
+			color: #888;
+			margin-bottom: 10px;
+		}
+
+		#prediction-result {
+			font-size: 28px;
+			font-weight: bold;
+		}
+
+		#prediction-result span {
+			display: inline-block;
+			width: 50px;
+			height: 50px;
+			line-height: 50px;
+			text-align: center;
+			border-radius: 8px;
+			background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+			color: white;
+			margin-right: 10px;
+		}
+
+		#prediction-result span.digit-0 { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); }
+		#prediction-result span.digit-1 { background: linear-gradient(135deg, #f97316 0%, #ea580c 100%); }
+		#prediction-result span.digit-2 { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); }
+		#prediction-result span.digit-3 { background: linear-gradient(135deg, #84cc16 0%, #65a30d 100%); }
+		#prediction-result span.digit-4 { background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%); }
+		#prediction-result span.digit-5 { background: linear-gradient(135deg, #10b981 0%, #059669 100%); }
+		#prediction-result span.digit-6 { background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%); }
+		#prediction-result span.digit-7 { background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); }
+		#prediction-result span.digit-8 { background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); }
+		#prediction-result span.digit-9 { background: linear-gradient(135deg, #d946ef 0%, #c026d3 100%); }
+
+		/* 概率图 */
+		.prob-container {
+			margin-top: 15px;
+		}
+
+		#prob-canvas {
+			width: 100%;
+			max-width: 300px;
+			height: 150px;
+			border-radius: 8px;
+		}
+
+		/* 训练区域 */
+		.training-info {
+			display: grid;
+			gap: 10px;
+			font-size: 13px;
+		}
+
+		.info-item {
+			display: flex;
+			justify-content: space-between;
+			padding: 8px 12px;
+			background: rgba(0, 0, 0, 0.2);
+			border-radius: 6px;
+		}
+
+		.info-item .label {
+			color: #888;
+		}
+
+		.info-item .value {
+			color: #4ade80;
+			font-family: monospace;
+		}
+
+		/* 网络可视化 */
+		#network-canvas {
+			width: 100%;
+			height: 300px;
+			border-radius: 8px;
+			background: #0f0f1e;
+		}
+
+		/* 页脚 */
+		footer {
+			text-align: center;
+			margin-top: 30px;
+			padding: 20px;
+			color: #666;
+			font-size: 12px;
+		}
+
+		/* 信息提示 */
+		.tip {
+			background: rgba(59, 130, 246, 0.1);
+			border-left: 3px solid #3b82f6;
+			padding: 10px 15px;
+			border-radius: 0 6px 6px 0;
+			font-size: 13px;
+			color: #a0c0e0;
+			margin-top: 10px;
+		}
+	</style>
+</head>
+<body>
+	<a href="../index.html" class="back-link">← 返回首页</a>
+
+	header>
+		h1>🧠 MNIST Lab</h1>
+		<p>手写数字识别训练沙盒 | MLP: 196 → 128 → 64 → 10</p>
+	</header>
+
+	<div class="container">
+		<!-- 左侧：手写识别 -->
+		<div class="panel">
+			<h2>✏️ 手写识别</h2>
+
+			<div class="draw-section">
+				<div class="draw-area">
+					<canvas id="draw-canvas"></canvas>
+					<span class="draw-hint">在此绘制数字 0-9</span>
+				</div>
+
+				<div class="preview-area">
+					<div class="preview-box">
+						<label>14×14 输入</label>
+						<canvas id="preview-canvas" width="140" height="140"></canvas>
+					</div>
+				</div>
+			</div>
+
+			<div class="btn-group">
+				<button id="btn-clear" class="danger">🗑️ 清除</button>
+				<button id="btn-test-random" class="secondary">🎲 测试随机样本</button>
+			</div>
+
+			<div class="result-box">
+				<h3>识别结果</h3>
+				<div id="prediction-result">绘制数字后自动识别...</div>
+				<div id="true-label" style="color: #888; font-size: 13px; margin-top: 8px;"></div>
+			</div>
+
+			<div class="prob-container">
+				<h3 style="font-size: 13px; color: #888; margin-bottom: 8px;">各类别概率</h3>
+				<canvas id="prob-canvas" width="300" height="150"></canvas>
+			</div>
+		</div>
+
+		<!-- 右侧：训练控制 -->
+		<div class="panel">
+			<h2>🚀 模型训练</h2>
+
+			<div class="training-info">
+				<div class="info-item">
+					<span class="label">网络结构</span>
+					<span class="value">196 → 128 → 64 → 10</span>
+				</div>
+				<div class="info-item">
+					<span class="label">数据集</span>
+					<span class="value" id="data-info">加载中...</span>
+				</div>
+				<div class="info-item">
+					<span class="label">训练进度</span>
+					<span class="value" id="training-progress">未开始</span>
+				</div>
+				<div class="info-item">
+					<span class="label">测试结果</span>
+					<span class="value" id="eval-result">-</span>
+				</div>
+				<div class="info-item">
+					<span class="label">最佳表现</span>
+					<span class="value" id="best-accuracy">-</span>
+				</div>
+			</div>
+
+			<div class="btn-group" style="margin-top: 20px;">
+				<button id="btn-train">▶️ 训练 1 轮</button>
+				<button id="btn-train-10">▶️ 训练 10 轮</button>
+				<button id="btn-reset" class="danger">🔄 重置网络</button>
+			</div>
+
+			<div class="tip">
+				💡 <strong>使用提示：</strong><br>
+				• 点击"训练 10 轮"开始训练模型（约10-20秒）<br>
+				• 训练完成后，在左侧绘制数字测试识别效果<br>
+				• 目标测试准确率：85%+
+			</div>
+		</div>
+
+		<!-- 网络可视化 -->
+		<div class="panel" style="grid-column: 1 / -1;">
+			<h2>🕸️ 网络结构可视化</h2>
+			<canvas id="network-canvas" width="400" height="300"></canvas>
+		</div>
+	</div>
+
+	<footer>
+		<p>MNIST Lab | 纯前端神经网络训练演示 | 使用 1000 张简化 14×14 样本</p>
+	</footer>
+
+	<script type="module" src="../src/mnist-lab/main.ts"></script>
+</body>
+</html>
