@@ -1,4 +1,6 @@
-// ========== 手写板绘制组件 ==========
+// ========== 像素级手写板绘制组件 ==========
+// 画布分辨率 = imageSize (14×14)
+// 显示尺寸 = displaySize (280×280，CSS放大)
 
 export interface DrawingCanvas {
 	canvas: HTMLCanvasElement
@@ -21,9 +23,14 @@ export function createDrawingCanvas(
 	const ctx = canvas.getContext("2d", { willReadFrequently: true })
 	if (!ctx) return null
 
-	// 设置画布尺寸（显示尺寸）
-	canvas.width = displaySize
-	canvas.height = displaySize
+	// 设置画布分辨率（像素级）
+	canvas.width = imageSize
+	canvas.height = imageSize
+
+	// CSS 放大显示
+	canvas.style.width = `${displaySize}px`
+	canvas.style.height = `${displaySize}px`
+	canvas.style.imageRendering = "pixelated"  // 像素化显示，不模糊
 
 	// 初始化像素数组
 	const pixels = new Array(imageSize * imageSize).fill(0)
@@ -50,36 +57,48 @@ function setupEvents(
 	drawCtx: DrawingCanvas,
 	onDrawingEnd?: () => void
 ): void {
-	const { canvas } = drawCtx
+	const { canvas, imageSize } = drawCtx
 
-	const getPos = (e: MouseEvent | TouchEvent): { x: number; y: number } => {
+	const getPixelPos = (e: MouseEvent | TouchEvent): { x: number; y: number } => {
 		const rect = canvas.getBoundingClientRect()
 		const clientX = "touches" in e ? e.touches[0].clientX : e.clientX
 		const clientY = "touches" in e ? e.touches[0].clientY : e.clientY
+		
+		// 直接映射到像素坐标
+		const x = Math.floor((clientX - rect.left) * (imageSize / rect.width))
+		const y = Math.floor((clientY - rect.top) * (imageSize / rect.height))
+		
 		return {
-			x: (clientX - rect.left) * (canvas.width / rect.width),
-			y: (clientY - rect.top) * (canvas.height / rect.height)
+			x: Math.max(0, Math.min(imageSize - 1, x)),
+			y: Math.max(0, Math.min(imageSize - 1, y))
 		}
+	}
+
+	const drawPixel = (x: number, y: number) => {
+		// 填充整个像素块
+		drawCtx.ctx.fillStyle = "white"
+		drawCtx.ctx.fillRect(x, y, 1, 1)
+		// 同步更新像素数组
+		drawCtx.pixels[y * imageSize + x] = 1
 	}
 
 	const startDraw = (e: MouseEvent | TouchEvent) => {
 		e.preventDefault()
 		drawCtx.isDrawing = true
-		const pos = getPos(e)
-		drawAt(drawCtx, pos.x, pos.y)
+		const pos = getPixelPos(e)
+		drawPixel(pos.x, pos.y)
 	}
 
 	const moveDraw = (e: MouseEvent | TouchEvent) => {
 		e.preventDefault()
 		if (!drawCtx.isDrawing) return
-		const pos = getPos(e)
-		drawAt(drawCtx, pos.x, pos.y)
+		const pos = getPixelPos(e)
+		drawPixel(pos.x, pos.y)
 	}
 
 	const endDraw = () => {
 		if (drawCtx.isDrawing) {
 			drawCtx.isDrawing = false
-			updatePixels(drawCtx)
 			onDrawingEnd?.()
 		}
 	}
@@ -97,57 +116,14 @@ function setupEvents(
 	canvas.addEventListener("touchcancel", endDraw)
 }
 
-function drawAt(drawCtx: DrawingCanvas, x: number, y: number): void {
-	const { ctx } = drawCtx
-
-	// 设置画笔样式
-	ctx.fillStyle = "white"
-	ctx.strokeStyle = "white"
-	ctx.lineWidth = 20
-	ctx.lineCap = "round"
-	ctx.lineJoin = "round"
-
-	// 绘制圆形笔触
-	ctx.beginPath()
-	ctx.arc(x, y, 10, 0, Math.PI * 2)
-	ctx.fill()
-}
-
-function updatePixels(drawCtx: DrawingCanvas): void {
-	const { canvas, ctx, imageSize, displaySize } = drawCtx
-
-	// 读取像素数据
-	const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
-	const data = imageData.data
-
-	// 计算采样比例
-	const scale = displaySize / imageSize
-
-	// 降采样
-	for (let y = 0; y < imageSize; y++) {
-		for (let x = 0; x < imageSize; x++) {
-			let sum = 0
-			const startY = Math.floor(y * scale)
-			const startX = Math.floor(x * scale)
-			for (let dy = 0; dy < scale; dy++) {
-				for (let dx = 0; dx < scale; dx++) {
-					const idx = ((startY + dy) * canvas.width + (startX + dx)) * 4
-					sum += data[idx]
-				}
-			}
-			drawCtx.pixels[y * imageSize + x] = sum / (scale * scale * 255)
-		}
-	}
-}
-
 export function clearCanvas(drawCtx: DrawingCanvas): void {
-	const { ctx, canvas } = drawCtx
+	const { ctx, canvas, pixels } = drawCtx
 	ctx.fillStyle = "black"
 	ctx.fillRect(0, 0, canvas.width, canvas.height)
-	drawCtx.pixels.fill(0)
+	pixels.fill(0)
 }
 
-// 渲染像素预览
+// 渲染像素预览（直接复制像素值，不重新采样）
 export function renderPixelPreview(
 	canvas: HTMLCanvasElement,
 	pixels: number[]
@@ -205,7 +181,7 @@ export function renderProbabilities(
 		ctx.textAlign = "center"
 		ctx.fillText(String(i), x + barWidth / 2, height - 5)
 
-		// 概率值 (如果大于0.1)
+		// 概率值
 		if (prob > 0.1) {
 			ctx.font = "10px monospace"
 			ctx.fillText(prob.toFixed(2), x + barWidth / 2, y - 5)
