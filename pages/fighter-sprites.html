@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>格斗角色 - 骨骼动画展示</title>
+	<style>
+		* { margin: 0; padding: 0; box-sizing: border-box; }
+		body {
+			font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+			background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+			color: #e0e0e0;
+			padding: 20px;
+			min-height: 100vh;
+		}
+		h1 {
+			text-align: center;
+			color: #4ade80;
+			margin-bottom: 8px;
+			font-size: 22px;
+		}
+		.subtitle {
+			text-align: center;
+			color: #888;
+			margin-bottom: 20px;
+			font-size: 13px;
+		}
+		.container {
+			display: grid;
+			grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+			gap: 15px;
+			max-width: 1200px;
+			margin: 0 auto;
+		}
+		.card {
+			background: rgba(255, 255, 255, 0.05);
+			border-radius: 10px;
+			padding: 12px;
+			border: 1px solid rgba(255, 255, 255, 0.1);
+			transition: transform 0.2s;
+		}
+		.card:hover {
+			transform: translateY(-3px);
+			border-color: #4ade80;
+		}
+		.card-title {
+			font-size: 13px;
+			color: #4ade80;
+			margin-bottom: 6px;
+			text-align: center;
+		}
+		.card-info {
+			font-size: 10px;
+			color: #666;
+			text-align: center;
+			margin-bottom: 8px;
+		}
+		.canvas-wrapper {
+			position: relative;
+			width: 100%;
+			height: 160px;
+			background: rgba(0, 0, 0, 0.5);
+			border-radius: 6px;
+			overflow: hidden;
+		}
+		canvas {
+			width: 100%;
+			height: 100%;
+			image-rendering: pixelated;
+		}
+		.controls {
+			text-align: center;
+			margin-top: 20px;
+			padding: 15px;
+			background: rgba(255, 255, 255, 0.05);
+			border-radius: 10px;
+			max-width: 700px;
+			margin-left: auto;
+			margin-right: auto;
+		}
+		.controls h3 {
+			color: #4ade80;
+			margin-bottom: 12px;
+			font-size: 14px;
+		}
+		.btn-group {
+			display: flex;
+			flex-wrap: wrap;
+			gap: 8px;
+			justify-content: center;
+			margin-bottom: 12px;
+		}
+		button {
+			padding: 6px 14px;
+			border: none;
+			border-radius: 5px;
+			background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+			color: white;
+			font-size: 11px;
+			cursor: pointer;
+			transition: all 0.2s;
+		}
+		button:hover {
+			transform: translateY(-1px);
+			box-shadow: 0 3px 10px rgba(34, 197, 94, 0.3);
+		}
+		button.toggle-on {
+			background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+		}
+		button.toggle-off {
+			background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
+		}
+		.back-link {
+			display: inline-block;
+			margin-bottom: 15px;
+			color: #888;
+			text-decoration: none;
+			font-size: 13px;
+		}
+		.back-link:hover { color: #4ade80; }
+		.debug-legend {
+			display: flex;
+			justify-content: center;
+			gap: 20px;
+			margin-top: 10px;
+			font-size: 11px;
+			color: #888;
+		}
+		.debug-legend span {
+			display: flex;
+			align-items: center;
+			gap: 5px;
+		}
+		.legend-bone {
+			width: 20px;
+			height: 2px;
+			background: #4ade80;
+		}
+		.legend-joint {
+			width: 8px;
+			height: 8px;
+			border-radius: 50%;
+			background: #fbbf24;
+		}
+		.legend-skin {
+			width: 20px;
+			height: 10px;
+			background: rgba(232, 184, 154, 0.5);
+			border: 1px solid #e8b89a;
+		}
+	</style>
+</head>
+<body>
+	<a href="../index.html" class="back-link">← 返回首页</a>
+	
+	<h1>🥊 格斗角色 - 骨骼动画展示</h1>
+	<p class="subtitle">骨骼动画系统 · 关节调试 · 精灵/骨骼切换</p>
+	
+	<div class="container" id="sprite-container"></div>
+	
+	<div class="controls">
+		<h3>🎮 播放控制</h3>
+		<div class="btn-group">
+			<button onclick="setSpeed(1)">▶️ 正常</button>
+			<button onclick="setSpeed(0.3)">🐢 慢速</button>
+			<button onclick="setSpeed(2)">🐰 快速</button>
+			<button onclick="togglePause()">⏸️ 暂停</button>
+		</div>
+		<h3>🔧 调试选项</h3>
+		<div class="btn-group">
+			<button id="skin-btn" class="toggle-on" onclick="toggleSkin()">👤 精灵图: 开</button>
+			<button id="bone-btn" class="toggle-on" onclick="toggleBones()">🦴 骨骼: 开</button>
+			<button id="joint-btn" class="toggle-on" onclick="toggleJoints()">🔵 关节点: 开</button>
+		</div>
+		<div class="debug-legend">
+			<span><span class="legend-bone"></span> 骨骼线</span>
+			<span><span class="legend-joint"></span> 关节点</span>
+			<span><span class="legend-skin"></span> 皮肤/精灵</span>
+		</div>
+	</div>
+
+	<script>
+		// ========== 骨骼动画系统 ==========
+		
+		// 骨骼定义（侧视角，面向右侧）
+		// 所有位置是相对于父关节的偏移量
+		const SKELETON = {
+			// 根关节 - 髋部（身体中心）
+			hips: {
+				x: 0, y: 0,
+				children: ['spine', 'thighL', 'thighR']
+			},
+			// 脊柱
+			spine: {
+				x: 0, y: -22,
+				children: ['chest']
+			},
+			// 胸部
+			chest: {
+				x: 0, y: -18,
+				children: ['head', 'shoulderL', 'shoulderR']
+			},
+			// 头部
+			head: {
+				x: 4, y: -14,
+				children: []
+			},
+			// 左肩
+			shoulderL: {
+				x: -6, y: -4,
+				children: ['upperArmL']
+			},
+			// 左上臂
+			upperArmL: {
+				x: -2, y: 8,
+				children: ['lowerArmL']
+			},
+			// 左前臂
+			lowerArmL: {
+				x: 0, y: 10,
+				children: ['handL']
+			},
+			// 左手
+			handL: {
+				x: 0, y: 8,
+				children: []
+			},
+			// 右肩
+			shoulderR: {
+				x: 6, y: -4,
+				children: ['upperArmR']
+			},
+			// 右上臂
+			upperArmR: {
+				x: 2, y: 8,
+				children: ['lowerArmR']
+			},
+			// 右前臂
+			lowerArmR: {
+				x: 0, y: 10,
+				children: ['handR']
+			},
+			// 右手
+			handR: {
+				x: 0, y: 8,
+				children: []
+			},
+			// 左大腿
+			thighL: {
+				x: -4, y: 4,
+				children: ['shinL']
+			},
+			// 左小腿
+			shinL: {
+				x: 0, y: 14,
+				children: ['footL']
+			},
+			// 左脚
+			footL: {
+				x: 2, y: 12,
+				children: []
+			},
+			// 右大腿
+			thighR: {
+				x: 4, y: 4,
+				children: ['shinR']
+			},
+			// 右小腿
+			shinR: {
+				x: 0, y: 14,
+				children: ['footR']
+			},
+			// 右脚
+			footR: {
+				x: 2, y: 12,
+				children: []
+			}
+		};
+		
+		// 骨骼连接（用于绘制线段）
+		const BONE_CONNECTIONS = [
+			['hips', 'spine'],
+			['spine', 'chest'],
+			['chest', 'head'],
+			['chest', 'shoulderL'],
+			['shoulderL', 'upperArmL'],
+			['upperArmL', 'lowerArmL'],
+			['lowerArmL', 'handL'],
+			['chest', 'shoulderR'],
+			['shoulderR', 'upperArmR'],
+			['upperArmR', 'lowerArmR'],
+			['lowerArmR', 'handR'],
+			['hips', 'thighL'],
+			['thighL', 'shinL'],
+			['shinL', 'footL'],
+			['hips', 'thighR'],
+			['thighR', 'shinR'],
+			['shinR', 'footR']
+		];
+		
+		// 关节大小（用于绘制圆点）
+		const JOINT_SIZES = {
+			hips: 4, spine: 3, chest: 4, head: 5,
+			shoulderL: 3, upperArmL: 2, lowerArmL: 2, handL: 3,
+			shoulderR: 3, upperArmR: 2, lowerArmR: 2, handR: 3,
+			thighL: 3, shinL: 2, footL: 3,
+			thighR: 3, shinR: 2, footR: 3
+		};
+		
+		// 皮肤/精灵片定义（附着在骨骼上的矩形）
+		const SKIN_PIECES = {
+			// 头部
+			head: { w: 10, h: 11, offsetX: -3, offsetY: -5, color: '#e8b89a' },
+			// 躯干
+			chest: { w: 12, h: 18, offsetX: -6, offsetY: -9, color: '#e8b89a' },
+			spine: { w: 8, h: 20, offsetX: -4, offsetY: -10, color: '#d4a080' },
+			// 左上臂
+			upperArmL: { w: 5, h: 10, offsetX: -2.5, offsetY: 0, color: '#d4a080' },
+			lowerArmL: { w: 4, h: 10, offsetX: -2, offsetY: 0, color: '#e8b89a' },
+			handL: { w: 5, h: 6, offsetX: -2.5, offsetY: 0, color: '#8b4513' }, // 拳套
+			// 右上臂
+			upperArmR: { w: 5, h: 10, offsetX: -2.5, offsetY: 0, color: '#e8b89a' },
+			lowerArmR: { w: 4, h: 10, offsetX: -2, offsetY: 0, color: '#e8b89a' },
+			handR: { w: 5, h: 6, offsetX: -2.5, offsetY: 0, color: '#8b4513' }, // 拳套
+			// 左腿
+			thighL: { w: 6, h: 14, offsetX: -3, offsetY: 0, color: '#1e3a5f' }, // 短裤
+			shinL: { w: 5, h: 14, offsetX: -2.5, offsetY: 0, color: '#e8b89a' },
+			footL: { w: 6, h: 4, offsetX: -1, offsetY: 2, color: '#333333' }, // 鞋子
+			// 右腿
+			thighR: { w: 6, h: 14, offsetX: -3, offsetY: 0, color: '#2e4a6f' }, // 短裤（稍亮）
+			shinR: { w: 5, h: 14, offsetX: -2.5, offsetY: 0, color: '#d4a080' }, // 稍暗
+			footR: { w: 6, h: 4, offsetX: -1, offsetY: 2, color: '#333333' }
+		};
+		
+		// 动画关键帧定义
+		// 每个动作是一系列姿势，每个姿势是关节旋转角度（度）
+		const ANIMATIONS = {
+			idle: {
+				name: '待机 (Idle)',
+				keyframes: [
+					{ upperArmL: 10, lowerArmL: 5, upperArmR: -10, lowerArmR: 5, thighL: -5, shinL: 5, thighR: 5, shinR: 5 },
+					{ upperArmL: 8, lowerArmL: 8, upperArmR: -8, lowerArmR: 8, thighL: -3, shinL: 3, thighR: 3, shinR: 3 },
+					{ upperArmL: 10, lowerArmL: 5, upperArmR: -10, lowerArmR: 5, thighL: -5, shinL: 5, thighR: 5, shinR: 5 },
+					{ upperArmL: 12, lowerArmL: 3, upperArmR: -12, lowerArmR: 3, thighL: -7, shinL: 7, thighR: 7, shinR: 7 }
+				]
+			},
+			walk: {
+				name: '行走 (Walk)',
+				keyframes: [
+					{ thighL: -20, shinL: 20, thighR: 20, shinR: 10, upperArmL: 20, upperArmR: -20 },
+					{ thighL: 0, shinL: 5, thighR: 0, shinR: 5, upperArmL: 0, upperArmR: 0 },
+					{ thighL: 20, shinL: 10, thighR: -20, shinR: 20, upperArmL: -20, upperArmR: 20 },
+					{ thighL: 0, shinL: 5, thighR: 0, shinR: 5, upperArmL: 0, upperArmR: 0 }
+				]
+			},
+			guard: {
+				name: '防御 (Guard)',
+				keyframes: [
+					{ upperArmL: -45, lowerArmL: -90, upperArmR: -45, lowerArmR: -90, chest: -5 },
+					{ upperArmL: -40, lowerArmL: -85, upperArmR: -40, lowerArmR: -85, chest: -3 }
+				]
+			},
+			lightPunch: {
+				name: '轻拳 (Light)',
+				keyframes: [
+					{ upperArmR: 0, lowerArmR: 0 },
+					{ upperArmR: -30, lowerArmR: -10 },
+					{ upperArmR: -80, lowerArmR: -5, chest: 5 }, // 出拳
+					{ upperArmR: 0, lowerArmR: 0 }
+				]
+			},
+			heavyPunch: {
+				name: '重拳 (Heavy)',
+				keyframes: [
+					{ upperArmR: 0, lowerArmR: 0, chest: 0 },
+					{ upperArmR: 30, lowerArmR: 30, chest: -5 }, // 蓄力后拉
+					{ upperArmR: 45, lowerArmR: 45, chest: -10 },
+					{ upperArmR: -90, lowerArmR: 0, chest: 10 }, // 出拳
+					{ upperArmR: -90, lowerArmR: 0, chest: 15 },
+					{ upperArmR: 0, lowerArmR: 0, chest: 0 }
+				]
+			},
+			lightKick: {
+				name: '轻脚 (Low Kick)',
+				keyframes: [
+					{ thighL: 0, shinL: 0 },
+					{ thighL: 30, shinL: 10 },
+					{ thighL: 50, shinL: 5, upperArmL: -30 }, // 踢出
+					{ thighL: 0, shinL: 0, upperArmL: 0 }
+				]
+			},
+			heavyKick: {
+				name: '重脚 (High Kick)',
+				keyframes: [
+					{ thighL: 0, shinL: 0, upperArmL: 0 },
+					{ thighL: -30, shinL: 60, upperArmL: -60 }, // 高抬腿
+					{ thighL: -60, shinL: 10, upperArmL: -90 }, // 踢出
+					{ thighL: 0, shinL: 0, upperArmL: 0 }
+				]
+			},
+			jump: {
+				name: '跳跃 (Jump)',
+				keyframes: [
+					{ hips: 0, thighL: 0, shinL: 0, thighR: 0, shinR: 0, upperArmL: 0, upperArmR: 0 },
+					{ hips: 0, thighL: -30, shinL: 60, thighR: -30, shinR: 60, upperArmL: -90, upperArmR: -90 }, // 下蹲蓄力
+					{ hips: -30, thighL: -20, shinL: 30, thighR: -20, shinR: 30, upperArmL: -120, upperArmR: -120 }, // 起跳
+					{ hips: -50, thighL: -10, shinL: 10, thighR: -10, shinR: 10, upperArmL: -120, upperArmR: -120 }, // 顶点
+					{ hips: -30, thighL: -20, shinL: 30, thighR: -20, shinR: 30, upperArmL: -90, upperArmR: -90 }, // 下降
+					{ hips: 0, thighL: 0, shinL: 0, thighR: 0, shinR: 0, upperArmL: 0, upperArmR: 0 }
+				]
+			},
+			jumpAttack: {
+				name: '跳攻 (Jump Atk)',
+				keyframes: [
+					{ hips: -30, upperArmR: -90, lowerArmR: 0 },
+					{ hips: -50, upperArmR: -120, lowerArmR: -30 }, // 下劈
+					{ hips: -20, upperArmR: 0, lowerArmR: 0 }
+				]
+			},
+			hit: {
+				name: '被击中 (Hit)',
+				keyframes: [
+					{ chest: 0, head: 0 },
+					{ chest: -15, head: -10, upperArmL: -20, upperArmR: 20 }, // 后仰
+					{ chest: -10, head: -5, upperArmL: -10, upperArmR: 10 }
+				]
+			},
+			knockdown: {
+				name: '击倒 (KO)',
+				keyframes: [
+					{ chest: 0, hips: 0 },
+					{ chest: -30, hips: 10 },
+					{ chest: -60, hips: 20 },
+					{ chest: -90, hips: 40 }, // 躺平
+					{ chest: 0, hips: 0 }
+				]
+			},
+			dash: {
+				name: '冲刺 (Dash)',
+				keyframes: [
+					{ chest: -10, upperArmL: -45, lowerArmL: -30, upperArmR: -60, lowerArmR: 0, thighL: -20, shinL: 10, thighR: 30, shinR: 10 },
+					{ chest: -5, upperArmL: -30, lowerArmL: 0, upperArmR: -45, lowerArmR: -30, thighL: 30, shinL: 10, thighR: -20, shinR: 10 }
+				]
+			}
+		};
+		
+		// ========== 渲染系统 ==========
+		
+		let showSkin = true;
+		let showBones = true;
+		let showJoints = true;
+		
+		// 计算关节世界坐标
+		function calculateJointPositions(rootX, rootY, rotations) {
+			const positions = {};
+			const RAD = Math.PI / 180;
+			
+			function calcJoint(jointName, parentX, parentY, parentAngle) {
+				const joint = SKELETON[jointName];
+				const rotation = (rotations[jointName] || 0) + parentAngle;
+				const rad = rotation * RAD;
+				
+				// 计算世界坐标
+				const worldX = parentX + joint.x * Math.cos(rad) - joint.y * Math.sin(rad);
+				const worldY = parentY + joint.x * Math.sin(rad) + joint.y * Math.cos(rad);
+				
+				positions[jointName] = { x: worldX, y: worldY, angle: rotation };
+				
+				// 递归计算子关节
+				if (joint.children) {
+					joint.children.forEach(child => {
+						calcJoint(child, worldX, worldY, rotation);
+					});
+				}
+			}
+			
+			// 从髋部开始
+			positions.hips = { x: rootX, y: rootY + (rotations.hips || 0), angle: 0 };
+			SKELETON.hips.children.forEach(child => {
+				calcJoint(child, rootX, rootY + (rotations.hips || 0), 0);
+			});
+			
+			return positions;
+		}
+		
+		// 绘制骨骼线
+		function drawBones(ctx, positions) {
+			if (!showBones) return;
+			
+			ctx.strokeStyle = '#4ade80';
+			ctx.lineWidth = 2;
+			
+			BONE_CONNECTIONS.forEach(([parent, child]) => {
+				const p = positions[parent];
+				const c = positions[child];
+				if (p && c) {
+					ctx.beginPath();
+					ctx.moveTo(p.x, p.y);
+					ctx.lineTo(c.x, c.y);
+					ctx.stroke();
+				}
+			});
+		}
+		
+		// 绘制关节点
+		function drawJoints(ctx, positions) {
+			if (!showJoints) return;
+			
+			Object.keys(positions).forEach(jointName => {
+				const pos = positions[jointName];
+				const size = JOINT_SIZES[jointName] || 3;
+				
+				ctx.fillStyle = '#fbbf24';
+				ctx.beginPath();
+				ctx.arc(pos.x, pos.y, size, 0, Math.PI * 2);
+				ctx.fill();
+				
+				// 关节名标签（小字体）
+				ctx.fillStyle = '#888';
+				ctx.font = '8px sans-serif';
+				ctx.fillText(jointName, pos.x + size + 2, pos.y);
+			});
+		}
+		
+		// 绘制皮肤/精灵
+		function drawSkin(ctx, positions) {
+			if (!showSkin) return;
+			
+			const RAD = Math.PI / 180;
+			
+			Object.keys(SKIN_PIECES).forEach(jointName => {
+				const pos = positions[jointName];
+				const skin = SKIN_PIECES[jointName];
+				if (!pos || !skin) return;
+				
+				ctx.save();
+				ctx.translate(pos.x, pos.y);
+				ctx.rotate(pos.angle * RAD);
+				
+				// 绘制皮肤矩形
+				ctx.fillStyle = skin.color;
+				ctx.fillRect(skin.offsetX, skin.offsetY, skin.w, skin.h);
+				
+				// 边框（调试用）
+				ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+				ctx.lineWidth = 0.5;
+				ctx.strokeRect(skin.offsetX, skin.offsetY, skin.w, skin.h);
+				
+				ctx.restore();
+			});
+		}
+		
+		// 绘制角色（完整）
+		function drawCharacter(ctx, rootX, rootY, rotations) {
+			const positions = calculateJointPositions(rootX, rootY, rotations);
+			
+			// 先画皮肤（后层）
+			drawSkin(ctx, positions);
+			
+			// 再画骨骼线
+			drawBones(ctx, positions);
+			
+			// 最后画关节点（最上层）
+			drawJoints(ctx, positions);
+			
+			return positions;
+		}
+		
+		// ========== 动画系统 ==========
+		
+		let animationSpeed = 1;
+		let isPaused = false;
+		const animationStates = {};
+		
+		function interpolatePose(pose1, pose2, t) {
+			const result = {};
+			const allKeys = new Set([...Object.keys(pose1 || {}), ...Object.keys(pose2 || {})]);
+			
+			allKeys.forEach(key => {
+				const v1 = pose1?.[key] || 0;
+				const v2 = pose2?.[key] || 0;
+				result[key] = v1 + (v2 - v1) * t;
+			});
+			
+			return result;
+		}
+		
+		function playAnimation(key, canvas) {
+			const anim = ANIMATIONS[key];
+			const ctx = canvas.getContext('2d');
+			let currentFrame = 0;
+			let frameProgress = 0;
+			let lastTime = 0;
+			
+			animationStates[key] = { currentFrame, ctx, anim, canvas };
+			
+			function loop(timestamp) {
+				if (isPaused) {
+					requestAnimationFrame(loop);
+					return;
+				}
+				
+				const frameDuration = 150 / animationSpeed;
+				
+				if (timestamp - lastTime > 16) { // ~60fps
+					frameProgress += 16;
+					
+					if (frameProgress >= frameDuration) {
+						frameProgress = 0;
+						currentFrame = (currentFrame + 1) % anim.keyframes.length;
+					}
+					
+					// 清空画布
+					ctx.fillStyle = 'rgba(0, 0, 0, 1)';
+					ctx.fillRect(0, 0, canvas.width, canvas.height);
+					
+					// 绘制地面线
+					ctx.strokeStyle = '#4ade80';
+					ctx.lineWidth = 2;
+					ctx.beginPath();
+					ctx.moveTo(0, 130);
+					ctx.lineTo(200, 130);
+					ctx.stroke();
+					
+					// 计算插值姿势
+					const pose1 = anim.keyframes[currentFrame];
+					const pose2 = anim.keyframes[(currentFrame + 1) % anim.keyframes.length];
+					const t = frameProgress / frameDuration;
+					const pose = interpolatePose(pose1, pose2, t);
+					
+					// 绘制角色（中心位置）
+					drawCharacter(ctx, 60, 90, pose);
+					
+					lastTime = timestamp;
+				}
+				
+				requestAnimationFrame(loop);
+			}
+			
+			requestAnimationFrame(loop);
+		}
+		
+		// ========== UI ==========
+		
+		function createCards() {
+			const container = document.getElementById('sprite-container');
+			
+			Object.keys(ANIMATIONS).forEach(key => {
+				const anim = ANIMATIONS[key];
+				const card = document.createElement('div');
+				card.className = 'card';
+				
+				const title = document.createElement('div');
+				title.className = 'card-title';
+				title.textContent = anim.name;
+				
+				const info = document.createElement('div');
+				info.className = 'card-info';
+				info.textContent = `${anim.keyframes.length} 关键帧`;
+				
+				const wrapper = document.createElement('div');
+				wrapper.className = 'canvas-wrapper';
+				
+				const canvas = document.createElement('canvas');
+				canvas.width = 120;
+				canvas.height = 160;
+				canvas.id = `canvas-${key}`;
+				
+				wrapper.appendChild(canvas);
+				card.appendChild(title);
+				card.appendChild(info);
+				card.appendChild(wrapper);
+				container.appendChild(card);
+				
+				playAnimation(key, canvas);
+			});
+		}
+		
+		// ========== 控制函数 ==========
+		
+		function setSpeed(speed) {
+			animationSpeed = speed;
+		}
+		
+		function togglePause() {
+			isPaused = !isPaused;
+		}
+		
+		function toggleSkin() {
+			showSkin = !showSkin;
+			const btn = document.getElementById('skin-btn');
+			btn.textContent = showSkin ? '👤 精灵图: 开' : '👤 精灵图: 关';
+			btn.classList.toggle('toggle-on', showSkin);
+			btn.classList.toggle('toggle-off', !showSkin);
+		}
+		
+		function toggleBones() {
+			showBones = !showBones;
+			const btn = document.getElementById('bone-btn');
+			btn.textContent = showBones ? '🦴 骨骼: 开' : '🦴 骨骼: 关';
+			btn.classList.toggle('toggle-on', showBones);
+			btn.classList.toggle('toggle-off', !showBones);
+		}
+		
+		function toggleJoints() {
+			showJoints = !showJoints;
+			const btn = document.getElementById('joint-btn');
+			btn.textContent = showJoints ? '🔵 关节点: 开' : '🔵 关节点: 关';
+			btn.classList.toggle('toggle-on', showJoints);
+			btn.classList.toggle('toggle-off', !showJoints);
+		}
+		
+		// 初始化
+		createCards();
+	</script>
+</body>
+</html>
