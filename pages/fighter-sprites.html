@@ -567,12 +567,18 @@
 					// 清空画布（使用高清canvas的坐标系）
 					ctx.clearRect(0, 0, canvas.width, canvas.height);
 					
-					// 绘制地面线
+					// 计算画布中心（使用CSS像素坐标）
+					const rect = canvas.getBoundingClientRect();
+					const centerX = rect.width / 2;
+					const centerY = rect.height / 2;
+					
+					// 绘制地面线（在人物脚下）
+					const groundY = centerY + 25 + 80;  // centerY + translate偏移 + 人物高度
 					ctx.strokeStyle = '#4ade80';
 					ctx.lineWidth = 2;
 					ctx.beginPath();
-					ctx.moveTo(0, 130);
-					ctx.lineTo(200, 130);
+					ctx.moveTo(0, groundY);
+					ctx.lineTo(rect.width, groundY);
 					ctx.stroke();
 					
 					// 计算插值姿势
@@ -580,11 +586,6 @@
 					const pose2 = anim.frames[(currentFrame + 1) % anim.frames.length];
 					const t = frameProgress / frameDuration;
 					const pose = interpolatePose(pose1, pose2, t);
-					
-					// 计算画布中心（使用CSS像素坐标）
-					const rect = canvas.getBoundingClientRect();
-					const centerX = rect.width / 2;
-					const centerY = rect.height / 2;
 					
 					// 绘制角色（放大1.8倍，居中）
 					ctx.save();
@@ -598,11 +599,13 @@
 					drawCharacter(ctx, 0, 0, pose);
 					ctx.restore();
 					
-					// 红点2：画布中心（洋红色）
+					// 红点2：画布中心（洋红色）- 调试用，已关闭
+					/*
 					ctx.fillStyle = "#ff00ff";
 					ctx.beginPath();
 					ctx.arc(centerX, centerY, 4, 0, Math.PI * 2);
 					ctx.fill();
+					*/
 					
 					lastTime = timestamp;
 				}
