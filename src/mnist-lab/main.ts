@@ -8,24 +8,22 @@ import {
 	evaluateNetwork
 } from "@/engine/ml/index.js"
 import { type MNISTSample } from "./dataset.js"
+import { MNIST_CONFIG, createNetworkConfig } from "./config.js"
 import { getTrainData, getTestData } from "./real-dataset.js"
+import { preprocessInput } from "./preprocess.js"
 import {
 	createDrawingCanvas,
 	clearCanvas,
-	renderPixelPreview28x28,
+	renderPixelPreview,
 	renderProbabilities
 } from "./canvas-draw.js"
 import { Logger } from "@/engine/utils/Logger.js"
 
 // ========== 配置 ==========
 
-const NETWORK_CONFIG: NetworkConfig = {
-	inputDim: 784,      // 28x28
-	hiddenDims: [128, 64],
-	outputDim: 10,      // 0-9
-	learningRate: 0.05, // 降低学习率适应更大输入
-	weightClip: 5.0
-}
+const NETWORK_CONFIG = createNetworkConfig()
+const IMAGE_SIZE = MNIST_CONFIG.IMAGE_SIZE
+const DISPLAY_SIZE = MNIST_CONFIG.CANVAS_DISPLAY_SIZE
 
 // ========== 状态 ==========
 
@@ -61,10 +59,10 @@ let networkCanvas: HTMLCanvasElement | null = null
 // ========== 初始化 ==========
 
 export function init(): void {
-	logger.log("MNIST-LAB", "初始化 MNIST Lab")
+	logger.log("MNIST-LAB", `初始化 MNIST Lab (${IMAGE_SIZE}×${IMAGE_SIZE})`)
 
 	// 初始化画布
-	drawingCanvas = createDrawingCanvas("draw-canvas", onDrawingEnd)
+	drawingCanvas = createDrawingCanvas("draw-canvas", IMAGE_SIZE, DISPLAY_SIZE, onDrawingEnd)
 	previewCanvas = document.getElementById("preview-canvas") as HTMLCanvasElement
 	probCanvas = document.getElementById("prob-canvas") as HTMLCanvasElement
 	networkCanvas = document.getElementById("network-canvas") as HTMLCanvasElement
@@ -82,7 +80,7 @@ export function init(): void {
 		networkCanvas.height = 300
 	}
 
-	// 加载真实数据集
+	// 加载数据集
 	state.dataset = { train: getTrainData(), test: getTestData() }
 	updateDataInfo()
 
@@ -184,16 +182,24 @@ async function train(epochs: number): Promise<void> {
 function onDrawingEnd(): void {
 	if (!drawingCanvas) return
 
-	// 直接使用 28x28 输入
-	const input28x28 = drawingCanvas.pixels
+	// 获取原始输入
+	const inputRaw = drawingCanvas.pixels
 
-	// 显示预览 (缩小显示)
+	// 预处理（居中 + 缩放）
+	let inputProcessed: number[]
+	if (MNIST_CONFIG.PREPROCESS.CENTER || MNIST_CONFIG.PREPROCESS.SCALE) {
+		inputProcessed = preprocessInput(inputRaw)
+	} else {
+		inputProcessed = inputRaw
+	}
+
+	// 显示预览
 	if (previewCanvas) {
-		renderPixelPreview28x28(previewCanvas, input28x28)
+		renderPixelPreview(previewCanvas, inputProcessed)
 	}
 
 	// 预测
-	predict(input28x28)
+	predict(inputProcessed)
 }
 
 function predict(input: number[]): void {
@@ -211,36 +217,32 @@ function predict(input: number[]): void {
 }
 
 function testRandomSample(): void {
-	// 随机选一个测试样本
 	const sample = state.dataset.test[Math.floor(Math.random() * state.dataset.test.length)]
 
-	// 在绘制区显示
 	if (drawingCanvas && previewCanvas) {
-		// 清空白板
 		clearCanvas(drawingCanvas)
 
-		// 将28x28绘制到画布 (280x280，每个像素10x10)
+		// 将 14×14 绘制到画布（放大显示）
 		const ctx = drawingCanvas.ctx
-		ctx.fillStyle = "black"
-		ctx.fillRect(0, 0, 280, 280)
+		const pixelScale = DISPLAY_SIZE / IMAGE_SIZE
 
-		for (let y = 0; y < 28; y++) {
-			for (let x = 0; x < 28; x++) {
-				const value = sample.input[y * 28 + x]
+		for (let y = 0; y < IMAGE_SIZE; y++) {
+			for (let x = 0; x < IMAGE_SIZE; x++) {
+				const value = sample.input[y * IMAGE_SIZE + x]
 				if (value > 0.05) {
 					ctx.fillStyle = `rgba(255,255,255,${value})`
-					ctx.fillRect(x * 10, y * 10, 10, 10)
+					ctx.fillRect(x * pixelScale, y * pixelScale, pixelScale, pixelScale)
 				}
 			}
 		}
 
 		// 更新像素数据
-		for (let i = 0; i < 784; i++) {
+		for (let i = 0; i < IMAGE_SIZE * IMAGE_SIZE; i++) {
 			drawingCanvas.pixels[i] = sample.input[i]
 		}
 
 		// 显示预览和预测
-		renderPixelPreview28x28(previewCanvas, sample.input)
+		renderPixelPreview(previewCanvas, sample.input)
 		predict(sample.input)
 
 		// 显示真实标签
@@ -348,7 +350,7 @@ function drawNetwork(): void {
 	ctx.fillRect(0, 0, w, h)
 
 	// 网络结构
-	const layers = [784, 128, 64, 10]
+	const layers = [196, 128, 64, 10]
 	const layerX = [60, 150, 240, 340]
 	const maxNeurons = 20  // 最多显示20个神经元
 

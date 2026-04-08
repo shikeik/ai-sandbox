@@ -5,6 +5,10 @@ export const MNIST_CONFIG = {
 	// === 图像尺寸配置 ===
 	// 可选: 14 或 28
 	IMAGE_SIZE: 14 as 14 | 28,
+	
+	// === 数据源配置 ===
+	// 是否从 28x28 降采样到目标尺寸
+	DOWNSAMPLE_FROM_28: true,
 
 	// === 预处理配置 ===
 	PREPROCESS: {

@@ -4,11 +4,15 @@ export interface DrawingCanvas {
 	canvas: HTMLCanvasElement
 	ctx: CanvasRenderingContext2D
 	isDrawing: boolean
-	pixels: number[]  // 28x28 = 784 像素值 (0-1)
+	pixels: number[]
+	imageSize: number
+	displaySize: number
 }
 
 export function createDrawingCanvas(
 	canvasId: string,
+	imageSize: number,
+	displaySize: number,
 	onDrawingEnd?: () => void
 ): DrawingCanvas | null {
 	const canvas = document.getElementById(canvasId) as HTMLCanvasElement
@@ -17,18 +21,20 @@ export function createDrawingCanvas(
 	const ctx = canvas.getContext("2d", { willReadFrequently: true })
 	if (!ctx) return null
 
-	// 设置画布尺寸
-	canvas.width = 280  // 显示尺寸
-	canvas.height = 280
+	// 设置画布尺寸（显示尺寸）
+	canvas.width = displaySize
+	canvas.height = displaySize
 
-	// 初始化像素数组 (28x28)
-	const pixels = new Array(28 * 28).fill(0)
+	// 初始化像素数组
+	const pixels = new Array(imageSize * imageSize).fill(0)
 
 	const drawCtx: DrawingCanvas = {
 		canvas,
 		ctx,
 		isDrawing: false,
-		pixels
+		pixels,
+		imageSize,
+		displaySize
 	}
 
 	// 初始化背景
@@ -108,27 +114,28 @@ function drawAt(drawCtx: DrawingCanvas, x: number, y: number): void {
 }
 
 function updatePixels(drawCtx: DrawingCanvas): void {
-	const { canvas, ctx } = drawCtx
+	const { canvas, ctx, imageSize, displaySize } = drawCtx
 
 	// 读取像素数据
 	const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
 	const data = imageData.data
 
-	// 降采样到 28x28
-	for (let y = 0; y < 28; y++) {
-		for (let x = 0; x < 28; x++) {
-			// 采样 10x10 区域
+	// 计算采样比例
+	const scale = displaySize / imageSize
+
+	// 降采样
+	for (let y = 0; y < imageSize; y++) {
+		for (let x = 0; x < imageSize; x++) {
 			let sum = 0
-			const startY = y * 10
-			const startX = x * 10
-			for (let dy = 0; dy < 10; dy++) {
-				for (let dx = 0; dx < 10; dx++) {
+			const startY = Math.floor(y * scale)
+			const startX = Math.floor(x * scale)
+			for (let dy = 0; dy < scale; dy++) {
+				for (let dx = 0; dx < scale; dx++) {
 					const idx = ((startY + dy) * canvas.width + (startX + dx)) * 4
-					sum += data[idx]  // R通道 (灰度图)
+					sum += data[idx]
 				}
 			}
-			// 归一化到 0-1
-			drawCtx.pixels[y * 28 + x] = sum / (10 * 10 * 255)
+			drawCtx.pixels[y * imageSize + x] = sum / (scale * scale * 255)
 		}
 	}
 }
@@ -140,19 +147,20 @@ export function clearCanvas(drawCtx: DrawingCanvas): void {
 	drawCtx.pixels.fill(0)
 }
 
-// 渲染像素预览 (28x28 缩小显示)
-export function renderPixelPreview28x28(
+// 渲染像素预览
+export function renderPixelPreview(
 	canvas: HTMLCanvasElement,
-	pixels28x28: number[]
+	pixels: number[]
 ): void {
 	const ctx = canvas.getContext("2d")
 	if (!ctx) return
 
-	const cellSize = canvas.width / 28
+	const size = Math.sqrt(pixels.length)
+	const cellSize = canvas.width / size
 
-	for (let y = 0; y < 28; y++) {
-		for (let x = 0; x < 28; x++) {
-			const value = pixels28x28[y * 28 + x]
+	for (let y = 0; y < size; y++) {
+		for (let x = 0; x < size; x++) {
+			const value = pixels[y * size + x]
 			const gray = Math.floor((1 - value) * 255)
 			ctx.fillStyle = `rgb(${gray},${gray},${gray})`
 			ctx.fillRect(x * cellSize, y * cellSize, cellSize, cellSize)
