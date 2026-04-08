@@ -101,6 +101,9 @@ function bindEvents(): void {
 	const btnTrain10 = document.getElementById("btn-train-10")
 	btnTrain10?.addEventListener("click", () => train(10))
 
+	const btnTrain50 = document.getElementById("btn-train-50")
+	btnTrain50?.addEventListener("click", () => train(50))
+
 	// 清除按钮
 	const btnClear = document.getElementById("btn-clear")
 	btnClear?.addEventListener("click", () => {
@@ -311,12 +314,16 @@ function clearResults(): void {
 }
 
 function updateButtonStates(): void {
-	const buttons = ["btn-train", "btn-train-10"]
-	buttons.forEach(id => {
+	const buttonLabels: Record<string, string> = {
+		"btn-train": "训练 1 轮",
+		"btn-train-10": "训练 10 轮",
+		"btn-train-50": "训练 50 轮"
+	}
+	Object.keys(buttonLabels).forEach(id => {
 		const btn = document.getElementById(id) as HTMLButtonElement
 		if (btn) {
 			btn.disabled = state.isTraining
-			btn.textContent = state.isTraining ? "训练中..." : (id === "btn-train" ? "训练 1 轮" : "训练 10 轮")
+			btn.textContent = state.isTraining ? "训练中..." : `▶️ ${buttonLabels[id]}`
 		}
 	})
 }
