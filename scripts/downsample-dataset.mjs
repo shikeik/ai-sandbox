@@ -42,25 +42,20 @@ const testSamples = samples.slice(trainSize)
 
 console.log(`训练集: ${trainSamples.length}, 测试集: ${testSamples.length}`)
 
-// 降采样函数
+// 降采样函数 - Nearest Neighbor（取左上角像素，无噪声）
 function downsample28to14(b64) {
 	const binary = Buffer.from(b64, "base64")
 	const input28 = new Array(784)
 	for (let i = 0; i < 784; i++) {
-		input28[i] = binary[i] / 255
+		input28[i] = binary[i]
 	}
 	
-	// 2×2 平均池化
+	// Nearest Neighbor: 直接取 2×2 区域的左上角像素
 	const output14 = new Array(196)
 	for (let y = 0; y < 14; y++) {
 		for (let x = 0; x < 14; x++) {
-			let sum = 0
-			for (let dy = 0; dy < 2; dy++) {
-				for (let dx = 0; dx < 2; dx++) {
-					sum += input28[(y * 2 + dy) * 28 + (x * 2 + dx)]
-				}
-			}
-			output14[y * 14 + x] = Math.round((sum / 4) * 255)
+			// 取左上角像素 (y*2, x*2)
+			output14[y * 14 + x] = input28[(y * 2) * 28 + (x * 2)]
 		}
 	}
 	return Buffer.from(output14).toString("base64")
