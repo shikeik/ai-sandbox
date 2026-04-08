@@ -33,7 +33,9 @@ interface AppState {
 	net: NetworkParams
 	dataset: { train: MNISTSample[]; test: MNISTSample[] }
 	isTraining: boolean
-	trainStep: number
+	cumulativeSteps: number  // 累计训练步数（从网络创建开始）
+	currentStep: number      // 当前训练进度
+	totalSteps: number       // 当前训练总步数
 	bestAccuracy: number
 }
 
@@ -41,7 +43,9 @@ const state: AppState = {
 	net: createNetwork(NETWORK_CONFIG),
 	dataset: { train: [], test: [] },
 	isTraining: false,
-	trainStep: 0,
+	cumulativeSteps: 0,
+	currentStep: 0,
+	totalSteps: 0,
 	bestAccuracy: 0
 }
 
@@ -125,19 +129,26 @@ async function train(epochs: number): Promise<void> {
 	state.isTraining = true
 	updateButtonStates()
 
-	const engine = new TrainingEngine(state.net, NETWORK_CONFIG)
+	// 计算总步数
+	const batchSize = 32
+	const stepsPerEpoch = Math.ceil(state.dataset.train.length / batchSize)
+	state.totalSteps = epochs * stepsPerEpoch
 
+	const engine = new TrainingEngine(state.net, NETWORK_CONFIG)
 	const startTime = performance.now()
+	let lastEvalStep = 0
 
 	await engine.train(state.dataset.train, {
 		epochs,
-		batchSize: 32,
+		batchSize,
 		onBatch: async (metrics: TrainingMetrics) => {
-			state.trainStep = metrics.step
+			state.currentStep = metrics.step
+			state.cumulativeSteps++
 			updateTrainingProgress(metrics)
 
-			// 每50步评估一次
-			if (metrics.step % 50 === 0) {
+			// 每100步评估一次（减少评估频率，提高速度）
+			if (metrics.step - lastEvalStep >= 100) {
+				lastEvalStep = metrics.step
 				const evalResult = evaluateNetwork(state.net, state.dataset.test)
 				if (evalResult.accuracy > state.bestAccuracy) {
 					state.bestAccuracy = evalResult.accuracy
@@ -146,8 +157,10 @@ async function train(epochs: number): Promise<void> {
 				drawNetwork()
 			}
 
-			// 让出时间片，避免阻塞UI
-			await new Promise(r => setTimeout(r, 1))
+			// 每10步让出一次时间片，避免UI卡死
+			if (metrics.step % 10 === 0) {
+				await new Promise(r => setTimeout(r, 0))
+			}
 		}
 	})
 
@@ -161,6 +174,8 @@ async function train(epochs: number): Promise<void> {
 	updateBestAccuracy()
 
 	state.isTraining = false
+	state.currentStep = 0
+	state.totalSteps = 0
 	updateButtonStates()
 }
 
@@ -248,7 +263,11 @@ function updateDataInfo(): void {
 function updateTrainingProgress(metrics: TrainingMetrics): void {
 	const el = document.getElementById("training-progress")
 	if (el) {
-		el.textContent = `Step ${metrics.step} | Loss: ${metrics.loss.toFixed(4)} | Batch准确率: ${metrics.accuracy.toFixed(1)}%`
+		const current = state.currentStep
+		const total = state.totalSteps
+		const cumulative = state.cumulativeSteps
+		const progressStr = total > 0 ? ` (${((current / total) * 100).toFixed(0)}%)` : ""
+		el.textContent = `本次: ${current}/${total}${progressStr} | 累计: ${cumulative}步 | Loss: ${metrics.loss.toFixed(4)} | Batch: ${metrics.accuracy.toFixed(1)}%`
 	}
 }
 
@@ -302,7 +321,9 @@ function updateButtonStates(): void {
 
 function resetNetwork(): void {
 	state.net = createNetwork(NETWORK_CONFIG)
-	state.trainStep = 0
+	state.cumulativeSteps = 0
+	state.currentStep = 0
+	state.totalSteps = 0
 	state.bestAccuracy = 0
 	updateTrainingProgress({ step: 0, loss: 0, accuracy: 0, progress: 0 })
 	updateEvalResult({ accuracy: 0, avgLoss: 0 })

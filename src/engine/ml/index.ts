@@ -290,8 +290,8 @@ export class TrainingEngine {
 
 				step++
 
-				// 回调
-				if (onBatch && step % 10 === 0) {
+				// 回调（每20步一次，减少UI更新频率）
+				if (onBatch && step % 20 === 0) {
 					await onBatch({
 						step,
 						loss: batchLoss / batch.length,

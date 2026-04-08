@@ -7,3 +7,4 @@ changes.diff
 ProjectCode.txt
 
 package-lock.json
+scripts/mnist-data/
