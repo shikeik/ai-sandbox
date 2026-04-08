@@ -19,7 +19,8 @@ function parseBase64(base64: string): number[] {
   const binary = atob(base64)
   const result: number[] = new Array(784)
   for (let i = 0; i < 784; i++) {
-    result[i] = binary.charCodeAt(i) / 255
+    // 二值化：>0.6 返回 1，否则 0
+    result[i] = binary.charCodeAt(i) / 255 > 0.6 ? 1 : 0
   }
   return result
 }
