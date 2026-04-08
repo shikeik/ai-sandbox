@@ -8,7 +8,7 @@ import { forward } from "./neural-network.js"
 import { terrainToIndices } from "./terrain.js"
 import type { AppState } from "./state.js"
 import type { GridWorld } from "./grid-world/index.js"
-import { drawMLP, setupCanvas } from "./renderer.js"
+
 import { Logger } from "@/engine/utils/Logger.js"
 
 // ========== UI 管理器 ==========
@@ -20,6 +20,8 @@ export class ChallengeUIManager {
 	private mlpCanvas: HTMLCanvasElement
 	private resizeObserver: ResizeObserver | null = null
 	private logger: Logger
+	// 动态导入的 renderer 函数
+	private renderer: { drawMLP: typeof import("./renderer.js").drawMLP; setupCanvas: typeof import("./renderer.js").setupCanvas } | null = null
 
 	constructor(state: AppState, gridWorld: GridWorld) {
 		this.state = state
@@ -27,6 +29,10 @@ export class ChallengeUIManager {
 		this.challengeCanvas = document.getElementById("challenge-canvas") as HTMLCanvasElement
 		this.mlpCanvas = document.getElementById("challenge-mlp-canvas") as HTMLCanvasElement
 		this.logger = new Logger("CHALLENGE-UI")
+		// 动态导入 renderer
+		import("./renderer.js").then((mod) => {
+			this.renderer = { drawMLP: mod.drawMLP, setupCanvas: mod.setupCanvas }
+		})
 	}
 
 	// ========== 初始化 ==========
@@ -297,8 +303,9 @@ export class ChallengeUIManager {
 	 * 绘制MLP网络图
 	 */
 	drawMLP(terrain: number[][] | null): void {
+		if (!this.renderer) return
 		if (!terrain) {
-			const { ctx, width, height } = setupCanvas(this.mlpCanvas)
+			const { ctx, width, height } = this.renderer.setupCanvas(this.mlpCanvas)
 			ctx.fillStyle = "#5f6368"
 			ctx.font = "12px sans-serif"
 			ctx.textAlign = "center"
@@ -308,7 +315,7 @@ export class ChallengeUIManager {
 
 		const indices = terrainToIndices(terrain)
 		const fp = forward(this.state.net, indices)
-		drawMLP(this.mlpCanvas, this.state, fp)
+		this.renderer.drawMLP(this.mlpCanvas, this.state, fp)
 	}
 
 	// ========== 辅助方法 ==========
