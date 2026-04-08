@@ -1,6 +1,6 @@
 // ========== MNIST Lab - 手写数字识别训练沙盒 ==========
 
-import type { NetworkConfig, NetworkParams, TrainingMetrics } from "@/engine/ml/index.js"
+import type { NetworkParams, TrainingMetrics } from "@/engine/ml/index.js"
 import {
 	createNetwork,
 	forward,
