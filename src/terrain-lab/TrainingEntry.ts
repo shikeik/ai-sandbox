@@ -23,6 +23,7 @@ import { Predictor } from "./predictor.js"
 import { ObsessionManager } from "./obsession-manager.js"
 import { stopAnimation, setTerrainCell } from "./state.js"
 import { Logger } from "@/engine/utils/Logger.js"
+import { drawMLP, drawEmbedding, drawObsessionCurve } from "./renderer.js"
 
 // ========== 引入格子世界系统 ==========
 
@@ -572,24 +573,15 @@ export class TrainingEntry {
 	}
 
 	drawMLP(fp: ForwardResult | null): void {
-		// MLP 绘制保持原样（在 renderer.ts 中实现，需要导入）
-		import("./renderer.js").then(({ drawMLP }) => {
-			drawMLP(this.mlpCanvas, this.state, fp)
-		})
+		drawMLP(this.mlpCanvas, this.state, fp)
 	}
 
 	drawEmbedding(): void {
-		// Embedding 绘制保持原样
-		import("./renderer.js").then(({ drawEmbedding }) => {
-			drawEmbedding(this.embeddingCanvas, this.state)
-		})
+		drawEmbedding(this.embeddingCanvas, this.state)
 	}
 
 	drawObsessionCurve(): void {
-		// 执念曲线绘制保持原样
-		import("./renderer.js").then(({ drawObsessionCurve }) => {
-			drawObsessionCurve(this.obsessionCanvas, this.state)
-		})
+		drawObsessionCurve(this.obsessionCanvas, this.state)
 	}
 
 	// ========== 动画 ==========
