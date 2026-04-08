@@ -58,7 +58,7 @@
 		.canvas-wrapper {
 			position: relative;
 			width: 100%;
-			height: 160px;
+			aspect-ratio: 1 / 1;
 			background: rgba(0, 0, 0, 0.5);
 			border-radius: 6px;
 			overflow: hidden;
@@ -183,117 +183,131 @@
 		// 每个肢体是一个线框，由两个关节点定义起点和终点
 		// 确保无论如何旋转，肢体都紧密连接两个关节
 		
+		// 人体工学比例肢体定义（穿衣服版本）
 		const LIMBS = {
-			// 躯干（垂直）
-			torso: { 
-				startJoint: 'hips', endJoint: 'chest', 
-				width: 14, color: '#e8b89a', z: 0 
+			// 腰（细）
+			waist: { 
+				startJoint: 'hips', endJoint: 'waist', 
+				width: 10, color: '#c92a2a', z: 0, type: 'skin'  // 红色腰带/短裤上部
+			},
+			// 胸部（宽）
+			chest: { 
+				startJoint: 'waist', endJoint: 'chest', 
+				width: 16, color: '#e8b89a', z: 0, type: 'torso'  // 背心
+			},
+			// 脖子
+			neck: { 
+				startJoint: 'chest', endJoint: 'neck', 
+				width: 5, color: '#e8b89a', z: 1, type: 'skin' 
 			},
 			// 头
 			head: { 
-				startJoint: 'chest', endJoint: 'head', 
-				width: 12, color: '#e8b89a', z: 1 
+				startJoint: 'neck', endJoint: 'head', 
+				width: 11, color: '#e8b89a', z: 1, type: 'head' 
 			},
 			// 左上臂
 			upperArmL: { 
 				startJoint: 'shoulderL', endJoint: 'elbowL', 
-				width: 5, color: '#d4a080', z: -1 
+				width: 5.5, color: '#e8b89a', z: -1, type: 'arm' 
 			},
 			// 左前臂
 			lowerArmL: { 
 				startJoint: 'elbowL', endJoint: 'handL', 
-				width: 4.5, color: '#e8b89a', z: -1 
+				width: 5, color: '#e8b89a', z: -1, type: 'arm' 
 			},
 			// 左手（拳套）
 			handL: { 
 				startJoint: 'handL', endJoint: 'handLTip', 
-				width: 6, color: '#8b4513', z: -1 
+				width: 7, color: '#8b4513', z: -1, type: 'glove' 
 			},
 			// 右上臂
 			upperArmR: { 
 				startJoint: 'shoulderR', endJoint: 'elbowR', 
-				width: 5, color: '#e8b89a', z: 1 
+				width: 5.5, color: '#e8b89a', z: 1, type: 'arm' 
 			},
 			// 右前臂
 			lowerArmR: { 
 				startJoint: 'elbowR', endJoint: 'handR', 
-				width: 4.5, color: '#e8b89a', z: 1 
+				width: 5, color: '#e8b89a', z: 1, type: 'arm' 
 			},
 			// 右手（拳套）
 			handR: { 
 				startJoint: 'handR', endJoint: 'handRTip', 
-				width: 6, color: '#8b4513', z: 1 
+				width: 7, color: '#8b4513', z: 1, type: 'glove' 
 			},
 			// 左大腿
 			thighL: { 
 				startJoint: 'hips', endJoint: 'kneeL', 
-				width: 7, color: '#1e3a5f', z: -1 
+				width: 8, color: '#1e3a5f', z: -1, type: 'shorts'  // 蓝色短裤
 			},
 			// 左小腿
 			shinL: { 
 				startJoint: 'kneeL', endJoint: 'footL', 
-				width: 5.5, color: '#e8b89a', z: -1 
+				width: 6, color: '#e8b89a', z: -1, type: 'leg' 
 			},
-			// 左脚
+			// 左脚（鞋子）
 			footL: { 
 				startJoint: 'footL', endJoint: 'footLToe', 
-				width: 4, color: '#333333', z: -1 
+				width: 5, color: '#1a1a1a', z: -1, type: 'shoe' 
 			},
 			// 右大腿
 			thighR: { 
 				startJoint: 'hips', endJoint: 'kneeR', 
-				width: 7, color: '#2e4a6f', z: 1 
+				width: 8, color: '#2e4a6f', z: 1, type: 'shorts' 
 			},
 			// 右小腿
 			shinR: { 
 				startJoint: 'kneeR', endJoint: 'footR', 
-				width: 5.5, color: '#d4a080', z: 1 
+				width: 6, color: '#d4a080', z: 1, type: 'leg' 
 			},
-			// 右脚
+			// 右脚（鞋子）
 			footR: { 
 				startJoint: 'footR', endJoint: 'footRToe', 
-				width: 4, color: '#333333', z: 1 
+				width: 5, color: '#1a1a1a', z: 1, type: 'shoe' 
 			}
 		};
 		
-		// 关节定义（相对于父关节的偏移）
+		// 关节定义（人体工学比例：7.5头身）
+		// 头=1单位，躯干=2.5头，腿=3.5头（含脚）
 		const JOINTS = {
-			// 根关节
-			hips: { x: 0, y: 0, parent: null, children: ['spine', 'thighL', 'thighR'] },
-			// 脊柱
-			spine: { x: 0, y: -20, parent: 'hips', children: ['chest'] },
-			// 胸部
-			chest: { x: 0, y: -18, parent: 'spine', children: ['head', 'shoulderL', 'shoulderR'] },
-			// 头部
-			head: { x: 4, y: -12, parent: 'chest', children: [] },
-			// 左肩
-			shoulderL: { x: -7, y: -6, parent: 'chest', children: ['elbowL'] },
-			// 左肘
-			elbowL: { x: -2, y: 10, parent: 'shoulderL', children: ['handL'] },
+			// 根关节（髋部）
+			hips: { x: 0, y: 0, parent: null, children: ['waist', 'thighL', 'thighR'] },
+			// 腰（短）
+			waist: { x: 0, y: -8, parent: 'hips', children: ['chest'] },
+			// 胸部（稍长）
+			chest: { x: 0, y: -18, parent: 'waist', children: ['neck', 'shoulderL', 'shoulderR'] },
+			// 脖子
+			neck: { x: 2, y: -6, parent: 'chest', children: ['head'] },
+			// 头部（标准大小）
+			head: { x: 2, y: -10, parent: 'neck', children: [] },
+			// 左肩（宽肩）
+			shoulderL: { x: -9, y: -4, parent: 'chest', children: ['elbowL'] },
+			// 左肘（手臂1.5头长）
+			elbowL: { x: -1, y: 14, parent: 'shoulderL', children: ['handL'] },
 			// 左手
-			handL: { x: 0, y: 10, parent: 'elbowL', children: ['handLTip'] },
-			// 左手指尖（用于拳套方向）
-			handLTip: { x: 2, y: 4, parent: 'handL', children: [] },
+			handL: { x: 0, y: 12, parent: 'elbowL', children: ['handLTip'] },
+			// 左手指尖
+			handLTip: { x: 2, y: 5, parent: 'handL', children: [] },
 			// 右肩
-			shoulderR: { x: 7, y: -6, parent: 'chest', children: ['elbowR'] },
+			shoulderR: { x: 9, y: -4, parent: 'chest', children: ['elbowR'] },
 			// 右肘
-			elbowR: { x: 2, y: 10, parent: 'shoulderR', children: ['handR'] },
+			elbowR: { x: 1, y: 14, parent: 'shoulderR', children: ['handR'] },
 			// 右手
-			handR: { x: 0, y: 10, parent: 'elbowR', children: ['handRTip'] },
+			handR: { x: 0, y: 12, parent: 'elbowR', children: ['handRTip'] },
 			// 右手指尖
-			handRTip: { x: 2, y: 4, parent: 'handR', children: [] },
-			// 左膝
-			kneeL: { x: 0, y: 14, parent: 'hips', children: ['footL'] },
-			// 左脚
-			footL: { x: 0, y: 14, parent: 'kneeL', children: ['footLToe'] },
+			handRTip: { x: 2, y: 5, parent: 'handR', children: [] },
+			// 左膝（大腿2头长）
+			kneeL: { x: 0, y: 20, parent: 'hips', children: ['footL'] },
+			// 左脚（小腿2头长）
+			footL: { x: 0, y: 20, parent: 'kneeL', children: ['footLToe'] },
 			// 左脚尖
-			footLToe: { x: 4, y: 0, parent: 'footL', children: [] },
+			footLToe: { x: 5, y: 0, parent: 'footL', children: [] },
 			// 右膝
-			kneeR: { x: 0, y: 14, parent: 'hips', children: ['footR'] },
+			kneeR: { x: 0, y: 20, parent: 'hips', children: ['footR'] },
 			// 右脚
-			footR: { x: 0, y: 14, parent: 'kneeR', children: ['footRToe'] },
+			footR: { x: 0, y: 20, parent: 'kneeR', children: ['footRToe'] },
 			// 右脚尖
-			footRToe: { x: 4, y: 0, parent: 'footR', children: [] }
+			footRToe: { x: 5, y: 0, parent: 'footR', children: [] }
 		};
 		
 		// ========== 动画系统 ==========
@@ -302,10 +316,10 @@
 			idle: {
 				name: '待机 (Idle)',
 				frames: [
-					{ elbowL: 10, handL: 5, elbowR: -10, handR: 5, kneeL: -5, footL: 5, kneeR: 5, footR: 5 },
-					{ elbowL: 8, handL: 8, elbowR: -8, handR: 8, kneeL: -3, footL: 3, kneeR: 3, footR: 3 },
-					{ elbowL: 10, handL: 5, elbowR: -10, handR: 5, kneeL: -5, footL: 5, kneeR: 5, footR: 5 },
-					{ elbowL: 12, handL: 3, elbowR: -12, handR: 3, kneeL: -7, footL: 7, kneeR: 7, footR: 7 }
+					{ elbowL: 5, handL: 5, elbowR: -5, handR: 5, kneeL: -3, footL: 3, kneeR: 3, footR: 3 },
+					{ elbowL: 3, handL: 8, elbowR: -3, handR: 8, kneeL: -2, footL: 2, kneeR: 2, footR: 2 },
+					{ elbowL: 5, handL: 5, elbowR: -5, handR: 5, kneeL: -3, footL: 3, kneeR: 3, footR: 3 },
+					{ elbowL: 7, handL: 3, elbowR: -7, handR: 3, kneeL: -4, footL: 4, kneeR: 4, footR: 4 }
 				]
 			},
 			walk: {
@@ -437,9 +451,9 @@
 				}
 			}
 			
-			// 从脊柱开始
-			calcJoint('spine', rootX, hipsY, 0);
-			// 左腿
+			// 从腰开始
+			calcJoint('waist', rootX, hipsY, 0);
+			// 左腿（从髋部开始）
 			calcJoint('kneeL', rootX, hipsY, 0);
 			// 右腿
 			calcJoint('kneeR', rootX, hipsY, 0);
@@ -486,7 +500,7 @@
 			});
 		}
 		
-		// 绘制皮肤（填充线框内部）
+		// 绘制皮肤（填充线框内部，带衣服细节）
 		function drawSkin(ctx, positions) {
 			if (!showSkin) return;
 			
@@ -503,15 +517,55 @@
 				const dy = end.y - start.y;
 				const length = Math.sqrt(dx * dx + dy * dy);
 				const angle = Math.atan2(dy, dx);
-				const width = limb.width - 2; // 比线框略小
+				const width = limb.width - 1.5; // 比线框略小
 				
 				ctx.save();
 				ctx.translate(start.x, start.y);
 				ctx.rotate(angle);
 				
-				// 皮肤填充
+				// 基础填充
 				ctx.fillStyle = limb.color;
 				ctx.fillRect(1, -width/2, length - 1, width);
+				
+				// 衣服细节
+				if (limb.type === 'torso') {
+					// 背心 - 添加胸肌线条
+					ctx.strokeStyle = 'rgba(0,0,0,0.2)';
+					ctx.lineWidth = 1;
+					ctx.beginPath();
+					ctx.moveTo(length * 0.3, -width * 0.2);
+					ctx.lineTo(length * 0.3, width * 0.2);
+					ctx.moveTo(length * 0.6, -width * 0.2);
+					ctx.lineTo(length * 0.6, width * 0.2);
+					ctx.stroke();
+				}
+				
+				if (limb.type === 'glove') {
+					// 拳套纹理
+					ctx.fillStyle = '#5d2f0d';
+					ctx.fillRect(length * 0.3, -width * 0.3, length * 0.4, width * 0.6);
+				}
+				
+				if (limb.type === 'shorts') {
+					// 短裤侧边条纹
+					ctx.fillStyle = '#fff';
+					ctx.fillRect(2, -width * 0.4, 2, width * 0.8);
+				}
+				
+				if (limb.type === 'shoe') {
+					// 鞋子白色鞋底
+					ctx.fillStyle = '#fff';
+					ctx.fillRect(0, width * 0.3, length * 0.8, 2);
+				}
+				
+				if (limb.type === 'head') {
+					// 头发（深色区域）
+					ctx.fillStyle = '#2d2d2d';
+					ctx.fillRect(length * 0.3, -width * 0.45, length * 0.6, width * 0.4);
+					// 眼睛
+					ctx.fillStyle = '#1a1a1a';
+					ctx.fillRect(length * 0.7, -width * 0.1, 2, 2);
+				}
 				
 				ctx.restore();
 			});
@@ -523,7 +577,7 @@
 			
 			Object.keys(positions).forEach(jointName => {
 				const pos = positions[jointName];
-				const size = JOINTS[jointName]?.children?.length > 0 ? 4 : 2.5;
+				const size = JOINTS[jointName]?.children?.length > 0 ? 2.5 : 1.5;
 				
 				// 关节圆点
 				ctx.fillStyle = '#fbbf24';
