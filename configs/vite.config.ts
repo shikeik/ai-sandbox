@@ -91,6 +91,7 @@ export default {
 		port: 4000
 	},
 	build: {
+		target: 'es2022',
 		outDir: 'dist',
 		assetsDir: 'assets',
 		rollupOptions: {
