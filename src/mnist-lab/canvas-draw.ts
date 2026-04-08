@@ -26,6 +26,9 @@ export function createDrawingCanvas(
 	// 设置画布分辨率（像素级）
 	canvas.width = imageSize
 	canvas.height = imageSize
+	
+	// 禁用抗锯齿，保持像素清晰
+	ctx.imageSmoothingEnabled = false
 
 	// CSS 放大显示
 	canvas.style.width = `${displaySize}px`

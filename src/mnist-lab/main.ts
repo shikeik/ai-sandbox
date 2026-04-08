@@ -357,7 +357,7 @@ function drawNetwork(): void {
 	ctx.fillRect(0, 0, w, h)
 
 	// 网络结构
-	const layers = [196, 128, 64, 10]
+	const layers = [784, 128, 64, 10]
 	const layerX = [60, 150, 240, 340]
 	const maxNeurons = 20  // 最多显示20个神经元
 
