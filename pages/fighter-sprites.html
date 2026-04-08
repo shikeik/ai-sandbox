@@ -322,104 +322,7 @@
 					{ elbowL: 7, handL: 3, elbowR: -7, handR: 3, kneeL: -4, footL: 4, kneeR: 4, footR: 4 }
 				]
 			},
-			walk: {
-				name: '行走 (Walk)',
-				frames: [
-					{ kneeL: -25, footL: 20, kneeR: 25, footR: 10, elbowL: 20, elbowR: -20, spine: 2 },
-					{ kneeL: 0, footL: 5, kneeR: 0, footR: 5, elbowL: 0, elbowR: 0, spine: 0 },
-					{ kneeL: 25, footL: 10, kneeR: -25, footR: 20, elbowL: -20, elbowR: 20, spine: -2 },
-					{ kneeL: 0, footL: 5, kneeR: 0, footR: 5, elbowL: 0, elbowR: 0, spine: 0 }
-				]
-			},
-			guard: {
-				name: '防御 (Guard)',
-				frames: [
-					{ elbowL: -100, handL: -80, elbowR: -100, handR: -80, spine: -8, shoulderL: -10, shoulderR: 10 },
-					{ elbowL: -95, handL: -75, elbowR: -95, handR: -75, spine: -6, shoulderL: -8, shoulderR: 8 }
-				]
-			},
-			lightPunch: {
-				name: '轻拳 (Light)',
-				frames: [
-					{ elbowR: 0, handR: 0, shoulderR: 0 },
-					{ elbowR: -40, handR: -10, shoulderR: -5 },
-					{ elbowR: -90, handR: 0, shoulderR: -10 },
-					{ elbowR: 0, handR: 0, shoulderR: 0 }
-				]
-			},
-			heavyPunch: {
-				name: '重拳 (Heavy)',
-				frames: [
-					{ elbowR: 0, handR: 0, spine: 0 },
-					{ elbowR: 40, handR: 30, spine: -8 },
-					{ elbowR: 50, handR: 40, spine: -12 },
-					{ elbowR: -100, handR: 0, spine: 15 },
-					{ elbowR: -100, handR: 0, spine: 20 },
-					{ elbowR: 0, handR: 0, spine: 0 }
-				]
-			},
-			lightKick: {
-				name: '轻脚 (Low Kick)',
-				frames: [
-					{ kneeL: 0, footL: 0, elbowL: 0 },
-					{ kneeL: 35, footL: 10, elbowL: -20 },
-					{ kneeL: 60, footL: 5, elbowL: -40 },
-					{ kneeL: 0, footL: 0, elbowL: 0 }
-				]
-			},
-			heavyKick: {
-				name: '重脚 (High Kick)',
-				frames: [
-					{ kneeL: 0, footL: 0, elbowL: 0 },
-					{ kneeL: -40, footL: 80, elbowL: -70 },
-					{ kneeL: -80, footL: 10, elbowL: -110 },
-					{ kneeL: 0, footL: 0, elbowL: 0 }
-				]
-			},
-			jump: {
-				name: '跳跃 (Jump)',
-				frames: [
-					{ hipsY: 0, kneeL: 0, footL: 0, kneeR: 0, footR: 0, elbowL: 0, elbowR: 0 },
-					{ hipsY: 0, kneeL: -40, footL: 80, kneeR: -40, footR: 80, elbowL: -110, elbowR: -110 },
-					{ hipsY: -40, kneeL: -30, footL: 40, kneeR: -30, footR: 40, elbowL: -130, elbowR: -130 },
-					{ hipsY: -60, kneeL: -10, footL: 10, kneeR: -10, footR: 10, elbowL: -130, elbowR: -130 },
-					{ hipsY: -30, kneeL: -30, footL: 40, kneeR: -30, footR: 40, elbowL: -110, elbowR: -110 },
-					{ hipsY: 0, kneeL: 0, footL: 0, kneeR: 0, footR: 0, elbowL: 0, elbowR: 0 }
-				]
-			},
-			jumpAttack: {
-				name: '跳攻 (Jump Atk)',
-				frames: [
-					{ hipsY: -40, elbowR: -110, handR: -30 },
-					{ hipsY: -60, elbowR: -140, handR: -40 },
-					{ hipsY: -20, elbowR: 0, handR: 0 }
-				]
-			},
-			hit: {
-				name: '被击中 (Hit)',
-				frames: [
-					{ spine: 0, head: 0, elbowL: 0, elbowR: 0 },
-					{ spine: -20, head: -15, elbowL: -30, elbowR: 20 },
-					{ spine: -15, head: -10, elbowL: -20, elbowR: 10 }
-				]
-			},
-			knockdown: {
-				name: '击倒 (KO)',
-				frames: [
-					{ spine: 0, hipsY: 0 },
-					{ spine: -40, hipsY: 10 },
-					{ spine: -80, hipsY: 30 },
-					{ spine: -90, hipsY: 50 },
-					{ spine: 0, hipsY: 0 }
-				]
-			},
-			dash: {
-				name: '冲刺 (Dash)',
-				frames: [
-					{ spine: -15, elbowL: -60, handL: -30, elbowR: -80, handR: 0, kneeL: -30, footL: 10, kneeR: 40, footR: 10 },
-					{ spine: -10, elbowL: -40, handL: 0, elbowR: -60, handR: -30, kneeL: 40, footL: 10, kneeR: -30, footR: 10 }
-				]
-			}
+				// 其他动画暂时隐藏
 		};
 		
 		// ========== 计算关节位置 ==========
@@ -487,16 +390,22 @@
 				ctx.translate(start.x, start.y);
 				ctx.rotate(angle);
 				
-				// 线框边框
+				// 线框边框（延长）
 				ctx.strokeStyle = '#4ade80';
 				ctx.lineWidth = 1.5;
-				ctx.strokeRect(0, -width/2, length, width);
+				ctx.strokeRect(-2, -width/2, length + 4, width);
 				
 				// 半透明填充
 				ctx.fillStyle = 'rgba(74, 222, 128, 0.1)';
 				ctx.fillRect(0, -width/2, length, width);
 				
 				ctx.restore();
+						
+						// 红点2：画布中心（洋红色）
+						ctx.fillStyle = "#ff00ff";
+						ctx.beginPath();
+						ctx.arc(60, 90, 4, 0, Math.PI * 2);
+						ctx.fill();
 			});
 		}
 		
@@ -523,9 +432,9 @@
 				ctx.translate(start.x, start.y);
 				ctx.rotate(angle);
 				
-				// 基础填充
+					// 基础填充（延长一点以深入关节）
 				ctx.fillStyle = limb.color;
-				ctx.fillRect(1, -width/2, length - 1, width);
+				ctx.fillRect(-2, -width/2, length + 4, width);
 				
 				// 衣服细节
 				if (limb.type === 'torso') {
@@ -568,6 +477,12 @@
 				}
 				
 				ctx.restore();
+						
+						// 红点2：画布中心（洋红色）
+						ctx.fillStyle = "#ff00ff";
+						ctx.beginPath();
+						ctx.arc(60, 90, 4, 0, Math.PI * 2);
+						ctx.fill();
 			});
 		}
 		
@@ -597,7 +512,7 @@
 		function drawCharacter(ctx, rootX, rootY, rotations) {
 			const positions = calculateJointPositions(rootX, rootY, rotations);
 			
-			// 绘制顺序：线框 → 皮肤 → 关节点
+			// 绘制顺序：线框 → 皮肤 → 关节点（关节点在皮肤上面）
 			drawWireframe(ctx, positions);
 			drawSkin(ctx, positions);
 			drawJoints(ctx, positions);
@@ -666,8 +581,23 @@
 					const t = frameProgress / frameDuration;
 					const pose = interpolatePose(pose1, pose2, t);
 					
-					// 绘制角色（60是CSS像素坐标，高清canvas会自动缩放）
-					drawCharacter(ctx, 60, 90, pose);
+					// 绘制角色（放大1.8倍，居中）
+					ctx.save();
+					ctx.translate(60, 90);  // 画布中心偏下
+					ctx.scale(1.8, 1.8);
+						// 红点1：hips位置（红色）
+						ctx.fillStyle = "#ff0000";
+						ctx.beginPath();
+						ctx.arc(0, 0, 3, 0, Math.PI * 2);
+						ctx.fill();
+						drawCharacter(ctx, 0, 0, pose);
+						ctx.restore();
+						
+						// 红点2：画布中心（洋红色）
+						ctx.fillStyle = "#ff00ff";
+						ctx.beginPath();
+						ctx.arc(60, 90, 4, 0, Math.PI * 2);
+						ctx.fill();
 					
 					lastTime = timestamp;
 				}
