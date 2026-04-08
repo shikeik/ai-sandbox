@@ -581,23 +581,28 @@
 					const t = frameProgress / frameDuration;
 					const pose = interpolatePose(pose1, pose2, t);
 					
+					// 计算画布中心（使用CSS像素坐标）
+					const rect = canvas.getBoundingClientRect();
+					const centerX = rect.width / 2;
+					const centerY = rect.height / 2;
+					
 					// 绘制角色（放大1.8倍，居中）
 					ctx.save();
-					ctx.translate(60, 90);  // 画布中心偏下
+					ctx.translate(centerX, centerY + 25);
 					ctx.scale(1.8, 1.8);
-						// 红点1：hips位置（红色）
-						ctx.fillStyle = "#ff0000";
-						ctx.beginPath();
-						ctx.arc(0, 0, 3, 0, Math.PI * 2);
-						ctx.fill();
-						drawCharacter(ctx, 0, 0, pose);
-						ctx.restore();
-						
-						// 红点2：画布中心（洋红色）
-						ctx.fillStyle = "#ff00ff";
-						ctx.beginPath();
-						ctx.arc(60, 90, 4, 0, Math.PI * 2);
-						ctx.fill();
+					// 红点1：hips位置（红色）
+					ctx.fillStyle = "#ff0000";
+					ctx.beginPath();
+					ctx.arc(0, 0, 3, 0, Math.PI * 2);
+					ctx.fill();
+					drawCharacter(ctx, 0, 0, pose);
+					ctx.restore();
+					
+					// 红点2：画布中心（洋红色）
+					ctx.fillStyle = "#ff00ff";
+					ctx.beginPath();
+					ctx.arc(centerX, centerY, 4, 0, Math.PI * 2);
+					ctx.fill();
 					
 					lastTime = timestamp;
 				}
