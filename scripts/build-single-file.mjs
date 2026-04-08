@@ -4,13 +4,13 @@
  * 使用 Node.js 原生 fs 模块，无需额外依赖
  */
 
-import fs from 'fs'
-import path from 'path'
-import { fileURLToPath } from 'url'
+import fs from "fs"
+import path from "path"
+import { fileURLToPath } from "url"
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const rootDir = path.resolve(__dirname, '..')
-const distDir = path.join(rootDir, 'dist')
+const rootDir = path.resolve(__dirname, "..")
+const distDir = path.join(rootDir, "dist")
 
 /**
  * 递归查找目录下所有 HTML 文件
@@ -21,7 +21,7 @@ function findHtmlFiles(dir, files = []) {
 		const fullPath = path.join(dir, entry.name)
 		if (entry.isDirectory()) {
 			findHtmlFiles(fullPath, files)
-		} else if (entry.isFile() && entry.name.endsWith('.html')) {
+		} else if (entry.isFile() && entry.name.endsWith(".html")) {
 			files.push(fullPath)
 		}
 	}
@@ -32,7 +32,7 @@ function findHtmlFiles(dir, files = []) {
  * 解析资源引用路径为磁盘绝对路径
  */
 function resolveAssetPath(distDir, htmlDir, href) {
-	if (href.startsWith('/')) {
+	if (href.startsWith("/")) {
 		return path.join(distDir, href.slice(1))
 	}
 	return path.resolve(htmlDir, href)
@@ -43,7 +43,7 @@ function resolveAssetPath(distDir, htmlDir, href) {
  */
 function inlineHtml(htmlPath) {
 	const htmlDir = path.dirname(htmlPath)
-	let html = fs.readFileSync(htmlPath, 'utf-8')
+	let html = fs.readFileSync(htmlPath, "utf-8")
 
 	// 内联 CSS
 	const cssRegex = /<link[^>]+rel="stylesheet"[^>]+href="([^"]+)"[^>]*>/g
@@ -52,7 +52,7 @@ function inlineHtml(htmlPath) {
 		const href = match[1]
 		const fullPath = resolveAssetPath(distDir, htmlDir, href)
 		if (fs.existsSync(fullPath)) {
-			const cssContent = fs.readFileSync(fullPath, 'utf-8')
+			const cssContent = fs.readFileSync(fullPath, "utf-8")
 			html = html.replace(match[0], `<style>${cssContent}</style>`)
 			console.log(`    ✓ 内联 CSS: ${href}`)
 		} else {
@@ -66,7 +66,7 @@ function inlineHtml(htmlPath) {
 		const src = match[1]
 		const fullPath = resolveAssetPath(distDir, htmlDir, src)
 		if (fs.existsSync(fullPath)) {
-			const jsContent = fs.readFileSync(fullPath, 'utf-8')
+			const jsContent = fs.readFileSync(fullPath, "utf-8")
 			html = html.replace(match[0], `<script type="module">${jsContent}</script>`)
 			console.log(`    ✓ 内联 JS: ${src}`)
 		} else {
@@ -77,7 +77,7 @@ function inlineHtml(htmlPath) {
 	// 移除 modulepreload
 	const preloadCount = (html.match(/<link[^>]+rel="modulepreload"[^>]*>/g) || []).length
 	if (preloadCount > 0) {
-		html = html.replace(/<link[^>]+rel="modulepreload"[^>]*>\n?/g, '')
+		html = html.replace(/<link[^>]+rel="modulepreload"[^>]*>\n?/g, "")
 		console.log(`    ✓ 移除 ${preloadCount} 个 modulepreload`)
 	}
 
@@ -85,9 +85,9 @@ function inlineHtml(htmlPath) {
 }
 
 // 1. 先执行标准 Vite 构建
-console.log('🔨 执行 Vite 构建...')
-import('child_process').then(({ execSync }) => {
-	execSync('npm run build', { cwd: rootDir, stdio: 'inherit' })
+console.log("🔨 执行 Vite 构建...")
+import("child_process").then(({ execSync }) => {
+	execSync("npm run build", { cwd: rootDir, stdio: "inherit" })
 
 	// 2. 查找所有 HTML 文件
 	const htmlFiles = findHtmlFiles(distDir)
@@ -100,7 +100,7 @@ import('child_process').then(({ execSync }) => {
 		const inlined = inlineHtml(htmlPath)
 
 		// 输出到 dist 根目录（去掉 pages/ 前缀）
-		const outputName = relPath.replace(/pages[\/]/g, '')
+		const outputName = relPath.replace(/pages[/]/g, "")
 		const outputPath = path.join(distDir, outputName)
 		fs.mkdirSync(path.dirname(outputPath), { recursive: true })
 		fs.writeFileSync(outputPath, inlined)
@@ -109,13 +109,13 @@ import('child_process').then(({ execSync }) => {
 		console.log(`    ✅ 输出: ${path.relative(distDir, outputPath)} (${size} KB)`)
 
 		// 3. fox-jump 额外输出一份 game.html 保持向后兼容
-		if (outputName === 'fox-jump.html') {
-			const gamePath = path.join(distDir, 'game.html')
+		if (outputName === "fox-jump.html") {
+			const gamePath = path.join(distDir, "game.html")
 			fs.writeFileSync(gamePath, inlined)
 			const gameSize = (fs.statSync(gamePath).size / 1024).toFixed(2)
 			console.log(`    ✅ 兼容输出: game.html (${gameSize} KB)`)
 		}
 	}
 
-	console.log('\n🎮 所有单文件已生成，直接双击打开即可游玩，无需服务器！')
+	console.log("\n🎮 所有单文件已生成，直接双击打开即可游玩，无需服务器！")
 })

@@ -9,7 +9,7 @@
 
 import { spawn } from "child_process"
 import { readdirSync, statSync } from "fs"
-import { join, extname } from "path"
+import { join } from "path"
 
 // 简单的递归获取文件函数
 function getFiles(dir, pattern) {

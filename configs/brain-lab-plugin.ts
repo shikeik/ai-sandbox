@@ -2,7 +2,6 @@
 
 import type { ViteDevServer } from "vite"
 import type { GameWorld } from "../src/brain-lab/core/game-world.js"
-import type { WorldState, AnimationEvent } from "../src/brain-lab/types/index.js"
 import { setAssertLevel, setAssertStopOnFail } from "../src/engine/utils/assert.js"
 
 // 启用断言（API 服务器端）
@@ -40,7 +39,7 @@ export const brainLabPlugin = {
 	configureServer(server: ViteDevServer) {
 		game.init()
 
-		server.middlewares.use("/api/brain-lab", async (req, res, next) => {
+		server.middlewares.use("/api/brain-lab", async (req, res, _next) => {
 			if (!game.world) await game.init()
 
 			res.setHeader("Access-Control-Allow-Origin", "*")
