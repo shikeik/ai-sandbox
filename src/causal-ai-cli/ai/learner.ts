@@ -52,9 +52,41 @@ export function extractRuleFromExperience(exp: Experience): Rule {
 		}
 	}
 
+	// 构建最小前提
+	const preconditions = new Set<Predicate>()
+	const isMoveAction = ["上", "下", "左", "右"].includes(action)
+
+	if (isMoveAction) {
+		// 移动类动作：只需要 "at(agent,0,0)" 和目标方向为空
+		preconditions.add("at(agent,0,0)")
+		
+		// 根据动作方向，添加对应的前提（目标格子必须为空）
+		// 从效果中推断哪个格子变成了"空"（即原来的位置）
+		// 以及哪个格子原来是"空"（即新位置）
+		switch (action) {
+		case "右":
+			preconditions.add("cell_empty(1,0)")
+			break
+		case "左":
+			preconditions.add("cell_empty(-1,0)")
+			break
+		case "上":
+			preconditions.add("cell_empty(0,-1)")
+			break
+		case "下":
+			preconditions.add("cell_empty(0,1)")
+			break
+		}
+	} else {
+		// 非移动类动作：包含被删除的谓词作为前提
+		for (const p of remove) {
+			preconditions.add(p)
+		}
+	}
+
 	return {
 		action,
-		preconditions: new Set(before),  // 简化为整个 before 状态
+		preconditions,
 		effects: { add, remove }
 	}
 }

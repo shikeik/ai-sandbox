@@ -8,7 +8,52 @@ import type { Action } from "../types"
  */
 function applyRule(state: State, rule: Rule): State {
 	const newState = new Set(state)
+	
+	// 移动类动作的特殊处理：更新玩家位置
+	const moveActions = ["上", "下", "左", "右"]
+	if (moveActions.includes(rule.action)) {
+		// 找到当前位置
+		let currentPos: string | null = null
+		let currentX = 0, currentY = 0
+		for (const p of state) {
+			if (p.startsWith("at(agent,")) {
+				currentPos = p
+				const match = p.match(/at\(agent,(-?\d+),(-?\d+)\)/)
+				if (match) {
+					currentX = Number(match[1])
+					currentY = Number(match[2])
+				}
+				break
+			}
+		}
+		
+		if (currentPos) {
+			// 计算新位置
+			let newX = currentX, newY = currentY
+			switch (rule.action) {
+			case "上": newY = currentY - 1; break
+			case "下": newY = currentY + 1; break
+			case "左": newX = currentX - 1; break
+			case "右": newX = currentX + 1; break
+			}
+			
+			// 删除旧位置，添加新位置
+			newState.delete(currentPos)
+			newState.add(`at(agent,${newX},${newY})`)
+			
+			// 更新面朝方向
+			for (const p of Array.from(newState)) {
+				if (p.startsWith("facing(")) {
+					newState.delete(p)
+				}
+			}
+			newState.add(`facing(${rule.action})`)
+		}
+		
+		return newState
+	}
 
+	// 非移动类动作：直接应用效果
 	// 删除效果
 	for (const p of rule.effects.remove) {
 		newState.delete(p)
@@ -24,9 +69,53 @@ function applyRule(state: State, rule: Rule): State {
 
 /**
  * 检查规则是否可应用（前提条件满足）
- * 简化版：检查所有前提是否都在当前状态中
+ * 
+ * 对于移动类动作：检查当前位置和面朝方向是否匹配规则中的相对变化
+ * 简化策略：检查是否有 at(agent,...) 和 facing(...)，以及目标方向是否为空
  */
 function canApply(state: State, rule: Rule): boolean {
+	// 检查是否有玩家位置
+	let hasAgentPos = false
+	for (const pre of rule.preconditions) {
+		if (pre.startsWith("at(agent,")) {
+			hasAgentPos = true
+			break
+		}
+	}
+	
+	// 移动类规则的特殊处理：只要当前状态有玩家位置，且目标方向可行
+	const moveActions = ["上", "下", "左", "右"]
+	if (moveActions.includes(rule.action)) {
+		// 找到当前状态中的玩家位置
+		let currentPos: string | null = null
+		for (const p of state) {
+			if (p.startsWith("at(agent,")) {
+				currentPos = p
+				break
+			}
+		}
+		if (!currentPos) return false
+		
+		// 解析当前位置
+		const match = currentPos.match(/at\(agent,(-?\d+),(-?\d+)\)/)
+		if (!match) return false
+		const [_, x, y] = match
+		const cx = Number(x), cy = Number(y)
+		
+		// 根据动作计算目标位置
+		let tx = cx, ty = cy
+		switch (rule.action) {
+		case "上": ty = cy - 1; break
+		case "下": ty = cy + 1; break
+		case "左": tx = cx - 1; break
+		case "右": tx = cx + 1; break
+		}
+		
+		// 检查目标位置是否为空（或可通行）
+		return state.has(`cell_empty(${tx},${ty})`)
+	}
+	
+	// 非移动类动作：严格检查所有前提
 	for (const pre of rule.preconditions) {
 		if (!state.has(pre)) {
 			return false
