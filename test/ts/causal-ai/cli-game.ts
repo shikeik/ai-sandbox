@@ -198,6 +198,16 @@ class World {
 		return { success: false, msg: `面朝${name}方，无可互动对象`, reward: -0.1 }
 	}
 
+	// 获取玩家状态字符串
+	getPlayerStatus(): string {
+		const keyIcon = this.hasKey ? "🔑" : "❌"
+		const facingIcon: Record<Action, string> = {
+			"上": "↑", "下": "↓", "左": "←", "右": "→",
+			"等待": "○", "互动": "✋"
+		}
+		return `位置(${this.agentPos.x},${this.agentPos.y}) 面朝${facingIcon[this.agentFacing]} 钥匙${keyIcon}`
+	}
+
 	// 获取全局地图（调试用）
 	printGlobalMap(): void {
 		console.log("\n全局地图:")
@@ -254,17 +264,9 @@ function renderView(view: LocalView): string {
 		output += row + "\n"
 	}
 
-	// 标记中心 Agent 和面朝方向
-	output += "      ↑ 面朝" + getFacingArrow(view) + "\n"
-
 	return output
 }
 
-function getFacingArrow(_view: LocalView): string {
-	// 从 view 中无法直接获取 facing，需要在 World 类中存储
-	// 这里简化，返回空
-	return ""
-}
 
 // ========== 命令行交互 ==========
 
@@ -304,6 +306,7 @@ function createCLI() {
 			const result = world.execute(action)
 			totalReward += result.reward
 			console.log(`\n${result.msg} (奖励: ${result.reward}, 总奖励: ${totalReward.toFixed(1)})`)
+			console.log(`[${world.getPlayerStatus()}]`)
 
 			const view = world.getLocalView()
 			console.log(renderView(view))
