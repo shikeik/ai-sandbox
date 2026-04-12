@@ -103,7 +103,8 @@ export default {
 				
 				"api-bridge": resolve(rootDir, "pages/api-bridge.html"),
 				"brain-lab": resolve(rootDir, "pages/brain-lab.html"),
-				"mnist-lab": resolve(rootDir, "pages/mnist-lab.html")
+				"mnist-lab": resolve(rootDir, "pages/mnist-lab.html"),
+				"causal-ai": resolve(rootDir, "pages/causal-ai.html")
 			}
 		}
 	},
