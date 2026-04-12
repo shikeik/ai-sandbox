@@ -5,11 +5,8 @@ import { UIManager } from "./ui-manager"
 import { GameController } from "./game-controller"
 import type { ActionType } from "./types"
 
-// 检查 URL 参数是否需要全屏模式
-function shouldShowFullscreenOverlay(): boolean {
-	const params = new globalThis.URLSearchParams(globalThis.location.search)
-	return params.has("fullscreen") || params.has("fs")
-}
+// 是否已尝试进入全屏（避免重复提示）
+let hasAttemptedFullscreen = false
 
 // 进入全屏
 async function enterFullscreen(): Promise<void> {
@@ -55,13 +52,14 @@ async function lockLandscape(): Promise<void> {
 // 初始化全屏覆盖层
 function initFullscreenOverlay(): void {
 	const overlay = document.getElementById("fullscreenOverlay")
-	if (!overlay) return
+	if (!overlay || hasAttemptedFullscreen) return
 
-	// 显示覆盖层
+	// 始终显示覆盖层
 	overlay.classList.remove("hidden")
 
 	// 点击事件
 	overlay.addEventListener("click", async () => {
+		hasAttemptedFullscreen = true
 		await enterFullscreen()
 		await lockLandscape()
 
@@ -139,10 +137,8 @@ function init(): void {
 	// 初始化标签切换
 	initTabs()
 
-	// 检查是否需要显示全屏覆盖层
-	if (shouldShowFullscreenOverlay()) {
-		initFullscreenOverlay()
-	}
+	// 初始化全屏覆盖层（统一显示引导）
+	initFullscreenOverlay()
 
 	// 初始日志
 	uiManager.addLog("👋 先探索积累经验 → 点击「泛化」→ 「后向规划」")
