@@ -6,7 +6,7 @@ import * as readline from "node:readline"
 
 // ========== 类型定义 ==========
 
-type Action = "上" | "下" | "左" | "右" | "互动" | "等待"
+type Action = "上" | "下" | "左" | "右" | "互" | "等"
 
 interface Position {
 	x: number
@@ -122,9 +122,9 @@ class World {
 		case "下": ny = ay + 1; this.agentFacing = "下"; break
 		case "左": nx = ax - 1; this.agentFacing = "左"; break
 		case "右": nx = ax + 1; this.agentFacing = "右"; break
-		case "等待":
-			return { success: true, msg: "等待", reward: 0 }
-		case "互动":
+		case "等":
+			return { success: true, msg: "等", reward: 0 }
+		case "互":
 			return this.handleInteract(ax, ay)
 		}
 
@@ -176,8 +176,8 @@ class World {
 			"下": [0, 1, "下"],
 			"左": [-1, 0, "左"],
 			"右": [1, 0, "右"],
-			"等待": [0, 0, "前"],
-			"互动": [0, 0, "前"]
+			"等": [0, 0, "前"],
+			"互": [0, 0, "前"]
 		}
 
 		const [dx, dy, name] = facingMap[this.agentFacing] as [number, number, string]
@@ -195,7 +195,7 @@ class World {
 			return { success: true, msg: `打开${name}方的门（消耗钥匙）`, reward: 1 }
 		}
 
-		return { success: false, msg: `面朝${name}方，无可互动对象`, reward: -0.1 }
+		return { success: false, msg: `面朝${name}方，无可互对象`, reward: -0.1 }
 	}
 
 	// 获取玩家状态字符串
@@ -203,7 +203,7 @@ class World {
 		const keyIcon = this.hasKey ? "🔑" : "❌"
 		const facingIcon: Record<Action, string> = {
 			"上": "↑", "下": "↓", "左": "←", "右": "→",
-			"等待": "○", "互动": "✋"
+			"等": "○", "互": "✋"
 		}
 		return `位置(${this.agentPos.x},${this.agentPos.y}) 面朝${facingIcon[this.agentFacing]} 钥匙${keyIcon}`
 	}
@@ -277,7 +277,7 @@ function createCLI() {
 	const rl = readline.createInterface({
 		input: process.stdin,
 		output: process.stdout,
-		prompt: "指令(上/下/左/右/互动/等/图/全/退): "
+		prompt: "指令(上/下/左/右/互/等/图/全/退): "
 	})
 
 	console.log("===== 因果链 AI - 命令行版 =====")
@@ -299,10 +299,9 @@ function createCLI() {
 		case "下":
 		case "左":
 		case "右":
-		case "互动":
-		case "等待":
+		case "互":
 		case "等": {
-			const action: Action = cmd === "等" ? "等待" : cmd as Action
+			const action: Action = cmd === "等" ? "等" : cmd as Action
 			const result = world.execute(action)
 			totalReward += result.reward
 			console.log(`\n${result.msg} (奖励: ${result.reward}, 总奖励: ${totalReward.toFixed(1)})`)
@@ -330,7 +329,7 @@ function createCLI() {
 			return
 
 		default:
-			console.log("未知指令。可用: 上/下/左/右/互动/等待/图/全/退")
+			console.log("未知指令。可用: 上/下/左/右/互/等/图/全/退")
 		}
 
 		rl.prompt()
