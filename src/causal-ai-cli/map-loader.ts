@@ -1,40 +1,72 @@
-// ========== 动态地图加载器 ==========
+// ========== 地图加载器 ==========
+// 支持内置地图 + gamedatas/maps/*.json 自定义地图
 
+import * as fs from "node:fs"
+import * as path from "node:path"
 import type { MapConfig } from "./maps"
 import { MAPS, getMapById } from "./maps"
 
-// 尝试动态加载用户自定义地图
-export async function loadMap(id: string): Promise<MapConfig | null> {
+const GAME_DATA_DIR = "gamedatas/maps"
+
+// 加载地图（内置优先，其次 JSON 文件）
+export function loadMap(id: string): MapConfig | null {
 	// 先检查内置地图
 	const builtIn = getMapById(id)
 	if (builtIn) return builtIn
 
-	// 尝试动态加载自定义地图
-	try {
-		// 支持两种方式：
-		// 1. map_xxx.ts 导出 default
-		// 2. map_xxx.ts 导出 named export
-		const module = await import(`./map_${id}.ts`)
-
-		// 检查 default export
-		if (module.default && isValidMapConfig(module.default)) {
-			return module.default as MapConfig
-		}
-
-		// 检查 named export（如 MAP_XXX）
-		for (const key in module) {
-			if (key.startsWith("MAP_") && isValidMapConfig(module[key])) {
-				return module[key] as MapConfig
+	// 尝试从 JSON 文件加载
+	const jsonPath = path.join(GAME_DATA_DIR, `${id}.json`)
+	if (fs.existsSync(jsonPath)) {
+		try {
+			const content = fs.readFileSync(jsonPath, "utf-8")
+			const data = JSON.parse(content) as unknown
+			if (isValidMapConfig(data)) {
+				return data
 			}
+			console.error(`地图文件格式无效: ${jsonPath}`)
+		} catch (err) {
+			console.error(`加载地图失败: ${jsonPath}`, err)
 		}
-	} catch {
-		// 文件不存在或加载失败
 	}
 
 	return null
 }
 
-// 验证地图配置是否有效
+// 列出所有可用地图
+export function listAllMaps(): { id: string; name: string; source: string }[] {
+	const result: { id: string; name: string; source: string }[] = []
+
+	// 内置地图
+	for (const m of MAPS) {
+		result.push({ id: m.id, name: m.name, source: "内置" })
+	}
+
+	// JSON 地图
+	if (fs.existsSync(GAME_DATA_DIR)) {
+		const files = fs.readdirSync(GAME_DATA_DIR)
+		for (const file of files) {
+			if (file.endsWith(".json")) {
+				const id = file.slice(0, -5)
+				// 跳过与内置同名的
+				if (!getMapById(id)) {
+					try {
+						const content = fs.readFileSync(path.join(GAME_DATA_DIR, file), "utf-8")
+						const data = JSON.parse(content) as unknown
+						if (isValidMapConfig(data)) {
+							result.push({ id: data.id, name: data.name, source: "自定义" })
+						}
+					} catch {
+						// 忽略无效文件
+					}
+				}
+			}
+		}
+	}
+
+	return result
+}
+
+// 验证地图配置
 function isValidMapConfig(obj: unknown): obj is MapConfig {
 	if (typeof obj !== "object" || obj === null) return false
 
@@ -50,13 +82,4 @@ function isValidMapConfig(obj: unknown): obj is MapConfig {
 		typeof m.door === "object" &&
 		Array.isArray(m.walls)
 	)
-}
-
-// 列出所有可用地图（内置 + 动态发现的）
-export async function listAllMaps(): Promise<{ id: string; name: string; source: string }[]> {
-	const result = MAPS.map(m => ({ id: m.id, name: m.name, source: "内置" }))
-
-	// 这里可以扫描目录发现自定义地图
-	// 暂时只返回内置的
-	return result
 }

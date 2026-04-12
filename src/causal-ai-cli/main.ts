@@ -104,20 +104,22 @@ function startGame(mapConfig: MapConfig): void {
 }
 
 // 选图菜单
-async function showMenu(): Promise<void> {
-	const allMaps = await listAllMaps()
+function showMenu(): void {
+	const allMaps = listAllMaps()
 
 	console.log("===== 因果链 AI - 命令行版 =====\n")
-	console.log("内置地图:")
-	console.log(listMaps())
-	console.log("\n提示: 你也可以创建 map_xxx.ts 文件，然后 --map xxx 加载")
+	console.log("可用地图:")
+	for (const m of allMaps) {
+		console.log(`  ${m.id} - ${m.name} (${m.source})`)
+	}
+	console.log("\n提示: 创建 gamedatas/maps/xxx.json 来自定义地图")
 
 	const rl = readline.createInterface({
 		input: process.stdin,
 		output: process.stdout
 	})
 
-	rl.question("\n输入地图ID (如: simple) 或按回车默认: ", async (answer) => {
+	rl.question("\n输入地图ID (如: simple) 或按回车默认: ", (answer) => {
 		rl.close()
 
 		const input = answer.trim()
@@ -126,14 +128,14 @@ async function showMenu(): Promise<void> {
 		if (input === "") {
 			mapConfig = MAPS[0]
 		} else {
-			mapConfig = await loadMap(input)
+			mapConfig = loadMap(input)
 		}
 
 		if (mapConfig) {
 			startGame(mapConfig)
 		} else {
 			console.log(`未知地图: ${input}`)
-			console.log(`可用地图: ${MAPS.map(m => m.id).join(", ")}`)
+			console.log(`可用地图: ${allMaps.map(m => m.id).join(", ")}`)
 			console.log("使用默认地图 simple")
 			startGame(MAPS[0])
 		}
@@ -141,23 +143,22 @@ async function showMenu(): Promise<void> {
 }
 
 // 主入口
-async function main(): Promise<void> {
+function main(): void {
 	const args = parseArgs()
 
 	if (args.mapId) {
-		const mapConfig = await loadMap(args.mapId)
+		const mapConfig = loadMap(args.mapId)
 		if (mapConfig) {
 			startGame(mapConfig)
 		} else {
 			console.log(`未知地图: ${args.mapId}`)
 			console.log(`可用内置地图: ${MAPS.map(m => m.id).join(", ")}`)
-			console.log("\n你也可以创建 map_xxx.ts 文件来自定义地图:")
-			console.log(`  创建 src/causal-ai-cli/map_${args.mapId}.ts`)
-			console.log(`  导出 default 或 MAP_${args.mapId.toUpperCase()}`)
+			console.log("\n你也可以创建 JSON 地图文件:")
+			console.log(`  创建 gamedatas/maps/${args.mapId}.json`)
 			process.exit(1)
 		}
 	} else {
-		await showMenu()
+		showMenu()
 	}
 }
 
