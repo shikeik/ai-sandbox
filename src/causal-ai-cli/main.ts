@@ -3,7 +3,7 @@
 // 指定地图: npx tsx src/causal-ai-cli/main.ts --map simple
 
 import * as readline from "node:readline"
-import { MAPS, getMapById, listMaps, type MapData } from "./maps"
+import { MAPS, type MapData } from "./maps"
 import { loadMap, listAllMaps } from "./map-loader"
 import { World } from "./world"
 import { renderView } from "./renderer"
@@ -24,14 +24,31 @@ function parseArgs(): { mapId?: string } {
 	return result
 }
 
+// 加载地图（复用逻辑）
+function resolveMap(mapId: string): MapData | null {
+	return loadMap(mapId)
+}
+
+// 显示可用地图列表
+function printMapList(): void {
+	const allMaps = listAllMaps()
+	console.log("可用地图:")
+	for (const m of allMaps) {
+		console.log(`  ${m.id} - ${m.name} (${m.source})`)
+	}
+}
+
 // 启动游戏
-function startGame(mapData: MapData): void {
+// onExit: 游戏结束时的回调（用于选图切换）
+function startGame(mapData: MapData, onExit?: () => void): void {
 	const world = new World(mapData)
+	let switching = false
+	let closed = false
 
 	const rl = readline.createInterface({
 		input: process.stdin,
 		output: process.stdout,
-		prompt: "指令(上/下/左/右/互/等/图/全/退): "
+		prompt: "指令(上/下/左/右/互/等/图/全/选/退): "
 	})
 
 	console.log(`\n===== ${mapData.name} (${mapData.width}×${mapData.height}) =====`)
@@ -54,13 +71,6 @@ function startGame(mapData: MapData): void {
 			return
 		}
 
-		// 游戏已结束
-		if (world.isTerminated()) {
-			console.log("游戏已结束，请重新启动")
-			rl.prompt()
-			return
-		}
-
 		switch (cmd) {
 		case "上":
 		case "下":
@@ -68,6 +78,12 @@ function startGame(mapData: MapData): void {
 		case "右":
 		case "互":
 		case "等": {
+			// 游戏已结束，禁止移动/互动类指令
+			if (world.isTerminated()) {
+				console.log("游戏已结束，请重新启动")
+				rl.prompt()
+				return
+			}
 			const action: Action = cmd as Action
 			const { result, view } = world.execute(action)
 			console.log(`\n${result.msg} (奖励: ${result.reward}, 总奖励: ${world.getTotalReward().toFixed(1)})`)
@@ -90,36 +106,49 @@ function startGame(mapData: MapData): void {
 			console.log(renderView(world.getLocalView()))
 			break
 
+		case "选": {
+			switching = true
+			closed = true
+			rl.close()
+			showMenu()
+			return
+		}
+
 		case "退":
 		case "quit":
 		case "q":
 			console.log("退出")
+			closed = true
 			rl.close()
 			return
 
 		default:
-			console.log("未知指令。可用: 上/下/左/右/互/等/图/全/退")
+			console.log("未知指令。可用: 上/下/左/右/互/等/图/全/选/退")
 		}
 
-		rl.prompt()
+		if (!closed) {
+			rl.prompt()
+		}
 	})
 
 	rl.on("close", () => {
-		console.log("\n再见!")
-		process.exit(0)
+		if (!switching) {
+			if (onExit) {
+				onExit()
+			} else {
+				console.log("\n再见!")
+				process.exit(0)
+			}
+		}
 	})
 }
 
 // 选图菜单
 function showMenu(): void {
-	const allMaps = listAllMaps()
-
-	console.log("===== 因果链 AI - 命令行版 =====\n")
-	console.log("可用地图:")
-	for (const m of allMaps) {
-		console.log(`  ${m.id} - ${m.name} (${m.source})`)
-	}
+	console.log("\n===== 因果链 AI - 命令行版 =====\n")
+	printMapList()
 	console.log("\n提示: 创建 gamedatas/maps/xxx.json 来自定义地图")
+	console.log("      输入 '退' 或 'quit' 或 'q' 退出程序")
 
 	const rl = readline.createInterface({
 		input: process.stdin,
@@ -130,21 +159,33 @@ function showMenu(): void {
 		rl.close()
 
 		const input = answer.trim()
+
+		// 退出指令
+		if (input === "退" || input === "quit" || input === "q") {
+			console.log("退出")
+			process.exit(0)
+		}
+
 		let mapData: MapData | null = null
 
 		if (input === "") {
 			mapData = MAPS[0]
 		} else {
-			mapData = loadMap(input)
+			mapData = resolveMap(input)
 		}
 
 		if (mapData) {
-			startGame(mapData)
+			startGame(mapData, () => {
+				// 游戏结束回调，递归显示菜单
+				showMenu()
+			})
 		} else {
-			console.log(`未知地图: ${input}`)
-			console.log(`可用地图: ${allMaps.map(m => m.id).join(", ")}`)
-			console.log("使用默认地图")
-			startGame(MAPS[0]!)
+			console.log(`\n未知地图: ${input}`)
+			printMapList()
+			console.log("\n使用默认地图")
+			startGame(MAPS[0]!, () => {
+				showMenu()
+			})
 		}
 	})
 }
@@ -154,12 +195,15 @@ function main(): void {
 	const args = parseArgs()
 
 	if (args.mapId) {
-		const mapData = loadMap(args.mapId)
+		const mapData = resolveMap(args.mapId)
 		if (mapData) {
-			startGame(mapData)
+			startGame(mapData, () => {
+				// 游戏结束后返回菜单
+				showMenu()
+			})
 		} else {
 			console.log(`未知地图: ${args.mapId}`)
-			console.log(`可用内置地图: ${MAPS.map(m => m.id).join(", ")}`)
+			printMapList()
 			console.log("\n你也可以创建 JSON 地图文件:")
 			console.log(`  创建 gamedatas/maps/${args.mapId}.json`)
 			process.exit(1)
