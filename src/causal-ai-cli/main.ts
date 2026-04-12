@@ -8,6 +8,10 @@ import { loadMap, listAllMaps } from "./map-loader"
 import { World } from "./world"
 import { renderView } from "./renderer"
 import type { Action } from "./types"
+import { stateToPredicates, stateToString } from "./ai/state"
+import { ExperienceDB, RuleDB, extractRuleFromExperience } from "./ai/learner"
+import { plan, parseGoal } from "./ai/planner"
+import type { State } from "./ai/types"
 
 // 解析命令行参数
 function parseArgs(): { mapId?: string } {
@@ -45,10 +49,16 @@ function startGame(mapData: MapData, onExit?: () => void): void {
 	let switching = false
 	let closed = false
 
+	// AI 相关
+	const expDB = new ExperienceDB()
+	const ruleDB = new RuleDB()
+	let lastState: State | null = null
+	let plannedActions: Action[] = []
+
 	const rl = readline.createInterface({
 		input: process.stdin,
 		output: process.stdout,
-		prompt: "指令(上/下/左/右/互/等/图/全/选/退): "
+		prompt: "指令(上/下/左/右/互/等/图/全/学/规/执/选/退): "
 	})
 
 	console.log(`\n===== ${mapData.name} (${mapData.width}×${mapData.height}) =====`)
@@ -106,6 +116,111 @@ function startGame(mapData: MapData, onExit?: () => void): void {
 			console.log(renderView(world.getLocalView()))
 			break
 
+		case "学": {
+			// 学习模式：记录当前状态，执行动作，记录新状态
+			const agent = world.getAgentState()
+			const view = world.getLocalView()
+			const currentState = stateToPredicates(agent.pos, agent.facing, agent.inventory.includes("钥匙"), view)
+
+			console.log("\n当前状态:")
+			console.log(stateToString(currentState))
+
+			// 询问要执行的动作
+			rl.question("输入要学习的动作(上/下/左/右/互/等): ", (actionInput) => {
+				const action = actionInput.trim() as Action
+				if (!["上", "下", "左", "右", "互", "等"].includes(action)) {
+					console.log("无效动作")
+					rl.prompt()
+					return
+				}
+
+				// 执行动作
+				const { result, view: newView } = world.execute(action)
+				console.log(`\n${result.msg} (奖励: ${result.reward})`)
+
+				// 获取新状态
+				const newAgent = world.getAgentState()
+				const newState = stateToPredicates(newAgent.pos, newAgent.facing, newAgent.inventory.includes("钥匙"), newView)
+
+				// 记录经验
+				expDB.add({ before: currentState, action, after: newState })
+
+				// 提取规则
+				const rule = extractRuleFromExperience({ before: currentState, action, after: newState })
+				ruleDB.add(rule)
+
+				console.log("\n新增规则:")
+				console.log(`  动作: ${action}`)
+				console.log(`  效果+: ${Array.from(rule.effects.add).join(", ") || "无"}`)
+				console.log(`  效果-: ${Array.from(rule.effects.remove).join(", ") || "无"}`)
+				console.log(`\n经验库: ${expDB.getAll().length} 条, 规则库: ${ruleDB.getAll().length} 条`)
+
+				console.log(renderView(newView))
+				rl.prompt()
+			})
+			return  // 异步处理，不继续执行后面的 prompt
+		}
+
+		case "规": {
+			// 规划模式：给定目标，生成计划
+			rl.question("输入目标(如: 去 3,1 或 at(agent,1,0)): ", (goalInput) => {
+				const goal = parseGoal(goalInput.trim())
+				if (!goal) {
+					console.log("无法解析目标")
+					rl.prompt()
+					return
+				}
+
+				console.log("\n目标状态:")
+				console.log(stateToString(goal))
+
+				// 获取当前状态
+				const agent = world.getAgentState()
+				const view = world.getLocalView()
+				const currentState = stateToPredicates(agent.pos, agent.facing, agent.inventory.includes("钥匙"), view)
+
+				console.log("\n当前状态:")
+				console.log(stateToString(currentState))
+
+				// 执行规划
+				const rules = ruleDB.getAll()
+				if (rules.length === 0) {
+					console.log("\n规则库为空，请先学习")
+					rl.prompt()
+					return
+				}
+
+				const result = plan(currentState, goal, rules, 10)
+				if (result.success && result.plan) {
+					plannedActions = result.plan
+					console.log(`\n${result.msg}`)
+					console.log(`计划: ${plannedActions.join(" → ")}`)
+				} else {
+					console.log(`\n${result.msg}`)
+					plannedActions = []
+				}
+
+				rl.prompt()
+			})
+			return
+		}
+
+		case "执": {
+			// 执行计划
+			if (plannedActions.length === 0) {
+				console.log("没有待执行的计划，请先规划")
+				break
+			}
+
+			const action = plannedActions.shift()!
+			const { result, view } = world.execute(action)
+			console.log(`\n执行: ${action} → ${result.msg} (奖励: ${result.reward})`)
+			console.log(`[${world.getPlayerStatus()}]`)
+			console.log(`剩余计划: ${plannedActions.join(" → ") || "无"}`)
+			console.log(renderView(view))
+			break
+		}
+
 		case "选": {
 			switching = true
 			closed = true
@@ -123,7 +238,10 @@ function startGame(mapData: MapData, onExit?: () => void): void {
 			return
 
 		default:
-			console.log("未知指令。可用: 上/下/左/右/互/等/图/全/选/退")
+			console.log("未知指令。可用: 上/下/左/右/互/等/图/全/学/规/执/选/退")
+			console.log("  学 - 学习模式: 执行动作并记录因果规则")
+			console.log("  规 - 规划模式: 输入目标，AI生成行动计划")
+			console.log("  执 - 执行计划: 执行规划好的下一步动作")
 		}
 
 		if (!closed) {
