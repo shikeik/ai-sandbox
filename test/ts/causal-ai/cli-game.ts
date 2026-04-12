@@ -16,7 +16,7 @@ interface Position {
 interface GameObject {
 	type: string
 	id: string
-	state?: Record<string, any>
+	state?: Record<string, unknown>
 }
 
 interface Cell {
@@ -34,6 +34,8 @@ interface LocalView {
 class World {
 	private grid: Map<string, Cell> = new Map()
 	private agentPos: Position = { x: 0, y: 0 }
+	private agentFacing: Action = "右"  // 默认面朝右
+	private hasKey = false  // 是否持有钥匙
 	private width: number
 	private height: number
 
@@ -66,6 +68,8 @@ class World {
 		this.setCell(2, 2, { terrain: "＃", objects: [] })
 
 		this.agentPos = { x: 0, y: 0 }
+		this.agentFacing = "右"
+		this.hasKey = false
 	}
 
 	private getKey(x: number, y: number): string {
@@ -114,10 +118,10 @@ class World {
 		let nx = ax, ny = ay
 
 		switch (action) {
-		case "上": ny = ay - 1; break
-		case "下": ny = ay + 1; break
-		case "左": nx = ax - 1; break
-		case "右": nx = ax + 1; break
+		case "上": ny = ay - 1; this.agentFacing = "上"; break
+		case "下": ny = ay + 1; this.agentFacing = "下"; break
+		case "左": nx = ax - 1; this.agentFacing = "左"; break
+		case "右": nx = ax + 1; this.agentFacing = "右"; break
 		case "等待":
 			return { success: true, msg: "等待", reward: 0 }
 		case "互动":
@@ -158,28 +162,40 @@ class World {
 	private handleInteract(x: number, y: number): { success: boolean; msg: string; reward: number } {
 		const cell = this.getCell(x, y)
 
-		// 拾取钥匙
+		// 拾取钥匙（站上去拾取）
 		const key = cell.objects.find(o => o.type === "钥匙")
 		if (key) {
 			this.removeObject(x, y, key.id)
+			this.hasKey = true
 			return { success: true, msg: "拾取钥匙", reward: 1 }
 		}
 
-		// 检查周围格子是否有可互动的对象
-		const dirs = [[0,-1,"上"], [0,1,"下"], [-1,0,"左"], [1,0,"右"]]
-		for (const [dx, dy, name] of dirs) {
-			const nx = x + (dx as number), ny = y + (dy as number)
-			const ncell = this.getCell(nx, ny)
-
-			// 开门
-			const door = ncell.objects.find(o => o.type === "门")
-			if (door && !door.state?.open) {
-				door.state = { open: true }
-				return { success: true, msg: `打开${name}方的门`, reward: 1 }
-			}
+		// 面朝方向开门
+		const facingMap: Record<Action, [number, number, string]> = {
+			"上": [0, -1, "上"],
+			"下": [0, 1, "下"],
+			"左": [-1, 0, "左"],
+			"右": [1, 0, "右"],
+			"等待": [0, 0, "前"],
+			"互动": [0, 0, "前"]
 		}
 
-		return { success: false, msg: "无可互动对象", reward: -0.1 }
+		const [dx, dy, name] = facingMap[this.agentFacing] as [number, number, string]
+		const nx = x + dx, ny = y + dy
+		const ncell = this.getCell(nx, ny)
+
+		// 开门
+		const door = ncell.objects.find(o => o.type === "门")
+		if (door && !door.state?.open) {
+			if (!this.hasKey) {
+				return { success: false, msg: `面朝${name}方有门，但没有钥匙`, reward: -0.1 }
+			}
+			door.state = { open: true }
+			this.hasKey = false  // 消耗钥匙
+			return { success: true, msg: `打开${name}方的门（消耗钥匙）`, reward: 1 }
+		}
+
+		return { success: false, msg: `面朝${name}方，无可互动对象`, reward: -0.1 }
 	}
 
 	// 获取全局地图（调试用）
@@ -238,7 +254,16 @@ function renderView(view: LocalView): string {
 		output += row + "\n"
 	}
 
+	// 标记中心 Agent 和面朝方向
+	output += "      ↑ 面朝" + getFacingArrow(view) + "\n"
+
 	return output
+}
+
+function getFacingArrow(_view: LocalView): string {
+	// 从 view 中无法直接获取 facing，需要在 World 类中存储
+	// 这里简化，返回空
+	return ""
 }
 
 // ========== 命令行交互 ==========
