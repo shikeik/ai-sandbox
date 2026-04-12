@@ -94,7 +94,7 @@ function testPlanner(): void {
 			console.log(`路径验证失败: ${result.error}`)
 		} else {
 			printState(result.finalState, "路径终点")
-			console.log(`✅ 规划成功！`)
+			console.log("✅ 规划成功！")
 		}
 	} else {
 		console.log("❌ 规划失败，执行 BFS 调试...")

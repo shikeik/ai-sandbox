@@ -76,6 +76,30 @@ function initFullscreenOverlay(): void {
 	})
 }
 
+// 初始化标签切换
+function initTabs(): void {
+	const tabs = document.querySelectorAll(".tab")
+	const panes = document.querySelectorAll(".tab-pane")
+
+	tabs.forEach((tab) => {
+		tab.addEventListener("click", () => {
+			const target = tab.getAttribute("data-tab")
+
+			// 切换标签状态
+			tabs.forEach((t) => t.classList.remove("active"))
+			tab.classList.add("active")
+
+			// 切换面板显示
+			panes.forEach((pane) => {
+				pane.classList.remove("active")
+				if (pane.id === `tab-${target}`) {
+					pane.classList.add("active")
+				}
+			})
+		})
+	})
+}
+
 // 初始化函数
 function init(): void {
 	const canvas = document.getElementById("worldCanvas") as HTMLCanvasElement
@@ -111,6 +135,9 @@ function init(): void {
 	uiManager.bindButton("generalizeBtn", () => controller.generalize())
 	uiManager.bindButton("planBtn", () => controller.planAndExecute())
 	uiManager.bindButton("clearExpBtn", () => controller.clearKnowledge())
+
+	// 初始化标签切换
+	initTabs()
 
 	// 检查是否需要显示全屏覆盖层
 	if (shouldShowFullscreenOverlay()) {
