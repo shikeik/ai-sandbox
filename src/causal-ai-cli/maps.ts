@@ -1,50 +1,35 @@
 // ========== 内置地图配置 ==========
+// 使用新格式：tiles + objects
 
-export interface Position {
-	x: number
-	y: number
-}
-
-export interface MapConfig {
-	id: string
-	name: string
-	width: number
-	height: number
-	agent: Position
-	goal: Position
-	key: Position
-	door: Position
-	walls: Position[]
-}
+import type { MapData } from "./types"
 
 // 默认地图：新手教学
-export const MAP_DEFAULT: MapConfig = {
+export const MAP_DEFAULT: MapData = {
 	id: "default",
 	name: "默认",
 	width: 6,
 	height: 4,
-	agent: { x: 0, y: 0 },
-	goal: { x: 5, y: 0 },
-	key: { x: 1, y: 2 },
-	door: { x: 3, y: 0 },
-	walls: [
-		// 第一行：起点右边和门左边封死
-		{ x: 1, y: 0 }, { x: 2, y: 0 },
-		// 下方通道墙
-		{ x: 2, y: 1 }, { x: 4, y: 1 },
-		{ x: 2, y: 2 }, { x: 4, y: 2 },
-		// 终点下方封死
-		{ x: 5, y: 1 }, { x: 5, y: 2 }
+	tiles: [
+		"＃＃＃＃＃＃",
+		"＃．．．．＃",
+		"＃．．＃．＃",
+		"＃＃＃＃＃＃"
+	],
+	objects: [
+		{ id: "p1", type: "agent", pos: { x: 1, y: 1 } },
+		{ id: "k1", type: "钥匙", pos: { x: 2, y: 2 } },
+		{ id: "d1", type: "门", pos: { x: 3, y: 1 }, state: { open: false } },
+		{ id: "g1", type: "终点", pos: { x: 4, y: 1 } }
 	]
 }
 
-// 内置地图列表（只保留 default）
-export const MAPS: MapConfig[] = [
+// 内置地图列表
+export const MAPS: MapData[] = [
 	MAP_DEFAULT
 ]
 
 // 根据ID获取地图
-export function getMapById(id: string): MapConfig | null {
+export function getMapById(id: string): MapData | null {
 	return MAPS.find(m => m.id === id) || null
 }
 

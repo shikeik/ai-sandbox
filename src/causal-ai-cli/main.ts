@@ -1,10 +1,9 @@
 // ========== 因果链 AI - 命令行版本 ==========
 // 运行: npx tsx src/causal-ai-cli/main.ts
 // 指定地图: npx tsx src/causal-ai-cli/main.ts --map simple
-// 自定义地图: 创建 map_xxx.ts 文件，然后 --map xxx
 
 import * as readline from "node:readline"
-import { MAPS, getMapById, listMaps, type MapConfig } from "./maps"
+import { MAPS, getMapById, listMaps, type MapData } from "./maps"
 import { loadMap, listAllMaps } from "./map-loader"
 import { World } from "./world"
 import { renderView } from "./renderer"
@@ -26,9 +25,8 @@ function parseArgs(): { mapId?: string } {
 }
 
 // 启动游戏
-function startGame(mapConfig: MapConfig): void {
-	const world = new World(mapConfig)
-	let totalReward = 0
+function startGame(mapData: MapData): void {
+	const world = new World(mapData)
 
 	const rl = readline.createInterface({
 		input: process.stdin,
@@ -36,7 +34,7 @@ function startGame(mapConfig: MapConfig): void {
 		prompt: "指令(上/下/左/右/互/等/图/全/退): "
 	})
 
-	console.log(`\n===== ${mapConfig.name} (${mapConfig.width}×${mapConfig.height}) =====`)
+	console.log(`\n===== ${mapData.name} (${mapData.width}×${mapData.height}) =====`)
 	console.log("Agent 只能看到周围 5x5 格子")
 	console.log("＠ = 你自己  🔑 = 钥匙  🚧 = 关闭的门  🚪 = 打开的门  🚩 = 终点  ＃ = 墙  ． = 空地")
 	console.log("\n初始状态:")
@@ -56,6 +54,13 @@ function startGame(mapConfig: MapConfig): void {
 			return
 		}
 
+		// 游戏已结束
+		if (world.isTerminated()) {
+			console.log("游戏已结束，请重新启动")
+			rl.prompt()
+			return
+		}
+
 		switch (cmd) {
 		case "上":
 		case "下":
@@ -64,12 +69,14 @@ function startGame(mapConfig: MapConfig): void {
 		case "互":
 		case "等": {
 			const action: Action = cmd as Action
-			const result = world.execute(action)
-			totalReward += result.reward
-			console.log(`\n${result.msg} (奖励: ${result.reward}, 总奖励: ${totalReward.toFixed(1)})`)
+			const { result, view } = world.execute(action)
+			console.log(`\n${result.msg} (奖励: ${result.reward}, 总奖励: ${world.getTotalReward().toFixed(1)})`)
 			console.log(`[${world.getPlayerStatus()}]`)
 
-			const view = world.getLocalView()
+			if (result.terminate) {
+				console.log("\n✅ 游戏通关！")
+			}
+
 			console.log(renderView(view))
 			break
 		}
@@ -123,21 +130,21 @@ function showMenu(): void {
 		rl.close()
 
 		const input = answer.trim()
-		let mapConfig: MapConfig | null = null
+		let mapData: MapData | null = null
 
 		if (input === "") {
-			mapConfig = MAPS[0]
+			mapData = MAPS[0]
 		} else {
-			mapConfig = loadMap(input)
+			mapData = loadMap(input)
 		}
 
-		if (mapConfig) {
-			startGame(mapConfig)
+		if (mapData) {
+			startGame(mapData)
 		} else {
 			console.log(`未知地图: ${input}`)
 			console.log(`可用地图: ${allMaps.map(m => m.id).join(", ")}`)
-			console.log("使用默认地图 simple")
-			startGame(MAPS[0])
+			console.log("使用默认地图")
+			startGame(MAPS[0]!)
 		}
 	})
 }
@@ -147,9 +154,9 @@ function main(): void {
 	const args = parseArgs()
 
 	if (args.mapId) {
-		const mapConfig = loadMap(args.mapId)
-		if (mapConfig) {
-			startGame(mapConfig)
+		const mapData = loadMap(args.mapId)
+		if (mapData) {
+			startGame(mapData)
 		} else {
 			console.log(`未知地图: ${args.mapId}`)
 			console.log(`可用内置地图: ${MAPS.map(m => m.id).join(", ")}`)

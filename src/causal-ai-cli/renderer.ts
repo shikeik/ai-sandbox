@@ -1,34 +1,42 @@
 // ========== 渲染 ==========
 
-import type { LocalView } from "./types"
+import type { LocalView, GameObject } from "./types"
 
 export function renderView(view: LocalView): string {
-	let output = "\n局部视野 (5x5):\n"
+	const range = Math.floor((view.width - 1) / 2)
+	let output = `\n局部视野 (${view.width}x${view.height}):\n`
 
-	for (let dy = -2; dy <= 2; dy++) {
+	for (let dy = -range; dy <= range; dy++) {
 		let row = ""
-		for (let dx = -2; dx <= 2; dx++) {
+		for (let dx = -range; dx <= range; dx++) {
 			const cell = view.cells.get(`${dx},${dy}`)
-			let char = cell?.terrain || "？"
-
-			if (cell?.objects.length) {
-				const obj = cell.objects[0]
-				switch (obj.type) {
-				case "agent": char = "＠"; break
-				case "钥匙": char = "🔑"; break
-				case "门": char = obj.state?.open ? "🚪" : "🚧"; break
-				case "终点": char = "🚩"; break
-				}
-			}
-
-			if (dx === 0 && dy === 0) {
-				row += char + " "
-			} else {
-				row += char + " "
-			}
+			const char = renderCell(cell?.tile.type, cell?.objects)
+			row += char + " "
 		}
 		output += row + "\n"
 	}
 
 	return output
+}
+
+function renderCell(tileType?: string, objects?: GameObject[]): string {
+	// 有对象时优先显示对象
+	if (objects && objects.length > 0) {
+		const obj = objects[0]!
+		switch (obj.type) {
+		case "agent": return "＠"
+		case "钥匙": return "🔑"
+		case "门": return obj.state?.open ? "🚪" : "🚧"
+		case "终点": return "🚩"
+		default: return "？"
+		}
+	}
+
+	// 显示地形
+	switch (tileType) {
+	case "wall": return "＃"
+	case "floor": return "．"
+	case "water": return "～"
+	default: return "？"
+	}
 }
