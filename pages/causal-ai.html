@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>因果链·修复版 | 可靠泛化+清晰日志</title>
+    <style>
+        * { box-sizing: border-box; font-family: system-ui, 'Segoe UI', monospace; }
+        body { background: #1a1e2a; min-height: 100vh; display: flex; justify-content: center; align-items: center; margin: 0; padding: 16px; }
+        .game-container { background: #0b0e14; border-radius: 24px; padding: 24px; box-shadow: 0 12px 30px rgba(0,0,0,0.7); border: 1px solid #2f3a4c; max-width: 1400px; }
+        .main-panel { display: flex; gap: 24px; flex-wrap: wrap; justify-content: center; }
+        .canvas-area { text-align: center; }
+        canvas { background: #10141c; border-radius: 16px; box-shadow: inset 0 0 0 1px #2e3a48; display: block; margin-bottom: 10px; image-rendering: crisp-edges; }
+        .info-bar { display: flex; justify-content: space-between; color: #b7cdff; background: #1e2533; padding: 8px 16px; border-radius: 40px; }
+        .panel { background: #131a24; border-radius: 20px; padding: 16px; border: 1px solid #2e405b; color: #d6e3ff; }
+        .control-panel { width: 300px; display: flex; flex-direction: column; max-height: 700px; overflow-y: auto; }
+        .exp-panel { width: 380px; display: flex; flex-direction: column; max-height: 700px; }
+        .rule-panel { width: 380px; display: flex; flex-direction: column; max-height: 700px; }
+        h3 { margin: 0 0 12px; text-align: center; color: #aac8ff; }
+        .btn-group { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+        .btn { background: #252f3f; border: none; border-bottom: 2px solid #0f141c; color: #eef3ff; padding: 8px 12px; border-radius: 36px; font-weight: bold; font-size: 14px; cursor: pointer; flex: 1 0 calc(50% - 8px); transition: all 0.1s; box-shadow: 0 2px 4px black; border: 1px solid #3d5470; }
+        .btn:hover { background: #2f3e55; }
+        .btn.special { background: #3f2e4e; border-color: #a07ab0; flex: 1 0 100%; }
+        .list-container { background: #0a0f16; border-radius: 14px; padding: 10px; flex: 1; overflow-y: auto; font-size: 12px; border: 1px solid #263340; margin-top: 8px; min-height: 150px; max-height: 300px; }
+        .entry { 
+            border-bottom: 1px solid #1f2e40; 
+            padding: 8px 4px; 
+            font-family: monospace; 
+            white-space: normal; 
+            line-height: 1.5;
+        }
+        .badge { background: #1f2a3c; padding: 6px 12px; border-radius: 28px; text-align: center; margin-bottom: 12px; }
+        .plan-log { background: #050a10; border-radius: 12px; padding: 12px; font-family: monospace; font-size: 13px; color: #c6e0ff; max-height: 200px; overflow-y: auto; white-space: pre-wrap; margin-top: 16px; line-height: 1.5; }
+    </style>
+</head>
+<body>
+<div class="game-container">
+    <div class="main-panel">
+        <div class="canvas-area">
+            <canvas id="worldCanvas" width="400" height="400"></canvas>
+            <div class="info-bar">
+                <span>🧭 <span id="posDisplay">(0,0)</span></span>
+                <span>📦 <span id="holdDisplay">空手</span></span>
+                <span>🚪 <span id="doorDisplay">关闭</span></span>
+            </div>
+        </div>
+        <div class="control-panel panel">
+            <h3>🎮 操控</h3>
+            <div class="btn-group">
+                <button class="btn" data-action="move_up">⬆️</button>
+                <button class="btn" data-action="move_down">⬇️</button>
+                <button class="btn" data-action="move_left">⬅️</button>
+                <button class="btn" data-action="move_right">➡️</button>
+                <button class="btn" data-action="pickup">🤚拾取</button>
+                <button class="btn" data-action="reset">🔄重置</button>
+            </div>
+            <div class="btn-group">
+                <button class="btn special" id="exploreBtn">🎲 随机探索10步</button>
+                <button class="btn special" id="generalizeBtn">🧠 从经验泛化规则</button>
+                <button class="btn special" id="planBtn">🔮 后向规划 & 执行</button>
+            </div>
+            <div class="badge">
+                <div>📚 经验: <span id="expCount">0</span> 条</div>
+                <div>📐 规则: <span id="ruleCount">0</span> 条</div>
+            </div>
+            <div class="list-container" id="logContainer">
+                <div>✨ 操作日志</div>
+            </div>
+        </div>
+        <div class="exp-panel panel">
+            <h3>📋 经验库 (具体)</h3>
+            <div style="display:flex; gap:8px; margin-bottom:8px;">
+                <button id="clearExpBtn" class="btn">🧹 清空</button>
+            </div>
+            <div class="list-container" id="expListContainer"></div>
+        </div>
+        <div class="rule-panel panel">
+            <h3>📐 规则库 (泛化)</h3>
+            <div class="list-container" id="ruleListContainer"></div>
+        </div>
+    </div>
+    <div class="plan-log" id="planLogContainer">
+        📝 规划过程 (点击「后向规划」查看)
+    </div>
+</div>
+<script type="module">
+    // ---------- 游戏配置 ----------
+    const GRID_SIZE = 10, CELL_SIZE = 40;
+    const WALLS = new Set();
+    for (let y=0; y<10; y++) WALLS.add(`3,${y}`);
+    WALLS.delete('3,5');
+    const KEY_POS = {x:1, y:8}, DOOR_POS = {x:3, y:5}, FLAG_POS = {x:9, y:0};
+
+    // 状态
+    let agent = {x:0, y:0}, holding = null, keyExists = true, doorOpen = false;
+
+    // 数据库
+    let experienceDB = [];
+    let ruleDB = [];
+
+    // UI
+    const canvas = document.getElementById('worldCanvas'), ctx = canvas.getContext('2d');
+    const posDisplay = document.getElementById('posDisplay'), holdDisplay = document.getElementById('holdDisplay'), doorDisplay = document.getElementById('doorDisplay');
+    const expCountSpan = document.getElementById('expCount'), ruleCountSpan = document.getElementById('ruleCount');
+    const logContainer = document.getElementById('logContainer'), expListContainer = document.getElementById('expListContainer');
+    const ruleListContainer = document.getElementById('ruleListContainer'), planLogContainer = document.getElementById('planLogContainer');
+
+    // 辅助: 添加日志 (支持换行)
+    function addLog(msg) {
+        const d = document.createElement('div');
+        d.innerHTML = msg;
+        logContainer.appendChild(d);
+        logContainer.scrollTop = logContainer.scrollHeight;
+        if (logContainer.children.length > 20) logContainer.removeChild(logContainer.children[0]);
+    }
+    function addPlanLog(msg) {
+        planLogContainer.innerHTML += msg + '<br>';
+        planLogContainer.scrollTop = planLogContainer.scrollHeight;
+    }
+    function clearPlanLog() { planLogContainer.innerHTML = ''; }
+
+    // 状态管理
+    function getCurrentState() {
+        return { agent_x:agent.x, agent_y:agent.y, holds:holding, key_exists:keyExists, door_open:doorOpen };
+    }
+    function restoreState(s) {
+        agent.x = s.agent_x; agent.y = s.agent_y; holding = s.holds; keyExists = s.key_exists; doorOpen = s.door_open;
+    }
+    function resetToInitial() {
+        agent = {x:0, y:0}; holding = null; keyExists = true; doorOpen = false;
+        renderWorld(); updateUI(); addLog('🔄 重置');
+    }
+
+    // 动作模拟 (纯函数)
+    function applyAction(state, action) {
+        let s = {...state};
+        const ax = s.agent_x, ay = s.agent_y;
+        if (action === 'pickup') {
+            if (s.key_exists && ax === KEY_POS.x && ay === KEY_POS.y && s.holds === null) {
+                s.holds = 'key'; s.key_exists = false;
+            }
+            return s;
+        }
+        if (action.startsWith('move_')) {
+            let dx=0, dy=0;
+            if (action==='move_up') dy=-1; else if (action==='move_down') dy=1;
+            else if (action==='move_left') dx=-1; else if (action==='move_right') dx=1;
+            const nx=ax+dx, ny=ay+dy;
+            if (nx<0||nx>=GRID_SIZE||ny<0||ny>=GRID_SIZE) return s;
+            if (WALLS.has(`${nx},${ny}`)) return s;
+            if (nx===DOOR_POS.x && ny===DOOR_POS.y) {
+                if (!s.door_open) {
+                    if (s.holds==='key') { s.door_open=true; s.agent_x=nx; s.agent_y=ny; }
+                } else { s.agent_x=nx; s.agent_y=ny; }
+            } else { s.agent_x=nx; s.agent_y=ny; }
+            return s;
+        }
+        return s;
+    }
+
+    function executeAction(action, record=true) {
+        const before = getCurrentState();
+        const after = applyAction(before, action);
+        const changed = JSON.stringify(before) !== JSON.stringify(after);
+        restoreState(after);
+        if (record && changed) {
+            experienceDB.push({ before, action, after });
+            updateCounts();
+            addLog(`📸 记录: ${action}`);
+        } else if (record && !changed) addLog(`⛔ 无效: ${action}`);
+        renderWorld(); updateUI();
+        return changed;
+    }
+
+    function renderWorld() {
+        ctx.clearRect(0,0,400,400);
+        ctx.strokeStyle='#2e405b'; ctx.lineWidth=0.5;
+        for(let i=0;i<=GRID_SIZE;i++){ctx.beginPath();ctx.moveTo(i*CELL_SIZE,0);ctx.lineTo(i*CELL_SIZE,400);ctx.moveTo(0,i*CELL_SIZE);ctx.lineTo(400,i*CELL_SIZE);ctx.stroke();}
+        WALLS.forEach(c=>{const [x,y]=c.split(',').map(Number);ctx.fillStyle='#3a4c5e';ctx.fillRect(x*CELL_SIZE,y*CELL_SIZE,CELL_SIZE,CELL_SIZE);});
+        if(!doorOpen){ctx.fillStyle='#8b5e3c';ctx.fillRect(DOOR_POS.x*CELL_SIZE,DOOR_POS.y*CELL_SIZE,CELL_SIZE,CELL_SIZE);ctx.fillStyle='#5d3a1c';ctx.font='bold 20px system-ui';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('🚪',DOOR_POS.x*CELL_SIZE+20,DOOR_POS.y*CELL_SIZE+20);}
+        else{ctx.fillStyle='#3f5c3f';ctx.fillRect(DOOR_POS.x*CELL_SIZE,DOOR_POS.y*CELL_SIZE,CELL_SIZE,CELL_SIZE);ctx.fillText('🚪',DOOR_POS.x*CELL_SIZE+20,DOOR_POS.y*CELL_SIZE+20);}
+        if(keyExists){ctx.fillStyle='#d4af37';ctx.beginPath();ctx.arc(KEY_POS.x*CELL_SIZE+20,KEY_POS.y*CELL_SIZE+20,14,0,2*Math.PI);ctx.fill();ctx.fillStyle='#b8860b';ctx.font='18px system-ui';ctx.fillText('🔑',KEY_POS.x*CELL_SIZE+14,KEY_POS.y*CELL_SIZE+16);}
+        ctx.fillStyle='#e63946';ctx.beginPath();ctx.moveTo(FLAG_POS.x*CELL_SIZE+10,FLAG_POS.y*CELL_SIZE+8);ctx.lineTo(FLAG_POS.x*CELL_SIZE+30,FLAG_POS.y*CELL_SIZE+20);ctx.lineTo(FLAG_POS.x*CELL_SIZE+10,FLAG_POS.y*CELL_SIZE+32);ctx.fill();ctx.fillStyle='#f1fa8c';ctx.font='bold 22px system-ui';ctx.fillText('🚩',FLAG_POS.x*CELL_SIZE+14,FLAG_POS.y*CELL_SIZE+20);
+        ctx.fillStyle='#4ea1d3';ctx.beginPath();ctx.arc(agent.x*CELL_SIZE+20,agent.y*CELL_SIZE+20,14,0,2*Math.PI);ctx.fill();ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.stroke();ctx.fillStyle='white';ctx.font='bold 16px system-ui';ctx.fillText('🧑',agent.x*CELL_SIZE+14,agent.y*CELL_SIZE+14);
+    }
+    function updateUI(){posDisplay.textContent=`(${agent.x},${agent.y})`;holdDisplay.textContent=holding?'🔑 钥匙':'🫙 空手';doorDisplay.textContent=doorOpen?'打开':'关闭';}
+    function updateCounts(){expCountSpan.textContent=experienceDB.length; ruleCountSpan.textContent=ruleDB.length; renderExpList(); renderRuleList();}
+
+    function renderExpList() {
+        expListContainer.innerHTML = '';
+        if(experienceDB.length===0){expListContainer.innerHTML='<div>暂无经验</div>';return;}
+        experienceDB.slice().reverse().forEach(exp=>{
+            const div=document.createElement('div'); div.className='entry';
+            div.innerHTML = `
+                <div><strong>${exp.action}</strong></div>
+                <div>before: (${exp.before.agent_x},${exp.before.agent_y}) 手持:${exp.before.holds||'无'} 钥匙存在:${exp.before.key_exists} 门开:${exp.before.door_open}</div>
+                <div>after: (${exp.after.agent_x},${exp.after.agent_y}) 手持:${exp.after.holds||'无'} 钥匙存在:${exp.after.key_exists} 门开:${exp.after.door_open}</div>
+            `;
+            expListContainer.appendChild(div);
+        });
+    }
+
+    // ---------- 全新泛化 (基于动作语义) ----------
+    function generalizeExperiences() {
+        clearPlanLog();
+        addPlanLog('🧠 开始泛化 (基于动作语义模板)');
+        ruleDB = [];
+        
+        // 1. 移动规则: 只要存在成功的移动经验，就生成通用移动规则
+        const moveActions = ['move_up','move_down','move_left','move_right'];
+        const moveExps = experienceDB.filter(e => moveActions.includes(e.action) && 
+            (e.before.agent_x !== e.after.agent_x || e.before.agent_y !== e.after.agent_y));
+        
+        if (moveExps.length > 0) {
+            // 普通空地移动规则 (非门)
+            ruleDB.push({
+                action: 'move',
+                description: '向空地移动',
+                preconditions: (state, dir) => {
+                    // 动态检查: 目标格不是墙且不是门(或门已开)
+                    // 规划器会用函数形式，这里存模板
+                    return true;
+                },
+                effects: (state, dir) => {
+                    let dx=0, dy=0;
+                    if (dir==='up') dy=-1; else if(dir==='down') dy=1; else if(dir==='left') dx=-1; else if(dir==='right') dx=1;
+                    return { agent_x: state.agent_x+dx, agent_y: state.agent_y+dy };
+                },
+                // 为了后向链，我们需要结构化表示
+                struct: {
+                    action: 'move',
+                    params: ['dir'],
+                    pre: (s, dir) => {
+                        let nx = s.agent_x + (dir==='left'?-1:dir==='right'?1:0);
+                        let ny = s.agent_y + (dir==='up'?-1:dir==='down'?1:0);
+                        if (nx<0||nx>=GRID_SIZE||ny<0||ny>=GRID_SIZE) return false;
+                        if (WALLS.has(`${nx},${ny}`)) return false;
+                        if (nx===DOOR_POS.x && ny===DOOR_POS.y && !s.door_open) return false;
+                        return true;
+                    },
+                    eff: (s, dir) => {
+                        let nx = s.agent_x + (dir==='left'?-1:dir==='right'?1:0);
+                        let ny = s.agent_y + (dir==='up'?-1:dir==='down'?1:0);
+                        return { agent_x: nx, agent_y: ny };
+                    }
+                }
+            });
+            
+            // 开门规则 (手持钥匙撞门)
+            const doorOpenExps = experienceDB.filter(e => 
+                moveActions.includes(e.action) && 
+                e.before.door_open === false && e.after.door_open === true
+            );
+            if (doorOpenExps.length > 0) {
+                ruleDB.push({
+                    action: 'open_door',
+                    description: '手持钥匙开门并进入',
+                    struct: {
+                        action: 'move_to_door',
+                        pre: (s) => {
+                            // 必须手持钥匙，且门相邻且关闭
+                            if (s.holds !== 'key') return false;
+                            // 检查是否在门旁边
+                            const ax=s.agent_x, ay=s.agent_y;
+                            const adjacent = (ax===DOOR_POS.x-1&&ay===DOOR_POS.y) || (ax===DOOR_POS.x+1&&ay===DOOR_POS.y) ||
+                                             (ax===DOOR_POS.x&&ay===DOOR_POS.y-1) || (ax===DOOR_POS.x&&ay===DOOR_POS.y+1);
+                            return adjacent && !s.door_open;
+                        },
+                        eff: (s) => {
+                            return { agent_x: DOOR_POS.x, agent_y: DOOR_POS.y, door_open: true };
+                        }
+                    }
+                });
+            }
+        }
+        
+        // 2. 拾取规则
+        const pickupExps = experienceDB.filter(e => e.action === 'pickup' && e.before.holds===null && e.after.holds==='key');
+        if (pickupExps.length > 0) {
+            ruleDB.push({
+                action: 'pickup',
+                description: '拾取钥匙',
+                struct: {
+                    action: 'pickup',
+                    pre: (s) => s.agent_x===KEY_POS.x && s.agent_y===KEY_POS.y && s.key_exists && s.holds===null,
+                    eff: (s) => ({ holds: 'key', key_exists: false })
+                }
+            });
+        }
+        
+        // 3. 门已开后通过
+        const passDoorExps = experienceDB.filter(e => moveActions.includes(e.action) && e.before.door_open && e.after.agent_x===DOOR_POS.x && e.after.agent_y===DOOR_POS.y);
+        if (passDoorExps.length > 0) {
+            ruleDB.push({
+                action: 'pass_open_door',
+                description: '通过已打开的门',
+                struct: {
+                    action: 'move_to_door',
+                    pre: (s) => {
+                        const ax=s.agent_x, ay=s.agent_y;
+                        const adjacent = (ax===DOOR_POS.x-1&&ay===DOOR_POS.y) || (ax===DOOR_POS.x+1&&ay===DOOR_POS.y) ||
+                                         (ax===DOOR_POS.x&&ay===DOOR_POS.y-1) || (ax===DOOR_POS.x&&ay===DOOR_POS.y+1);
+                        return adjacent && s.door_open;
+                    },
+                    eff: (s) => ({ agent_x: DOOR_POS.x, agent_y: DOOR_POS.y })
+                }
+            });
+        }
+
+        addPlanLog(`✅ 生成 ${ruleDB.length} 条规则 (基于经验)`);
+        updateCounts();
+    }
+
+    function renderRuleList() {
+        ruleListContainer.innerHTML = '';
+        if (ruleDB.length === 0) { ruleListContainer.innerHTML = '<div>暂无规则，请先探索并点击「泛化」</div>'; return; }
+        ruleDB.forEach((rule, idx) => {
+            const div = document.createElement('div'); div.className = 'entry';
+            div.textContent = `${idx+1}. ${rule.description || rule.action}`;
+            ruleListContainer.appendChild(div);
+        });
+    }
+
+    // ---------- 后向规划 (基于规则结构) ----------
+    function backwardPlan() {
+        clearPlanLog();
+        addPlanLog('=== 后向规划开始 ===');
+        const startState = getCurrentState();
+        addPlanLog(`当前: (${startState.agent_x},${startState.agent_y}) 手持:${startState.holds||'无'} 门:${startState.door_open?'开':'关'}`);
+        addPlanLog(`目标: 到达 (${FLAG_POS.x},${FLAG_POS.y})`);
+
+        if (startState.agent_x === FLAG_POS.x && startState.agent_y === FLAG_POS.y) {
+            addPlanLog('已在目标！'); return [];
+        }
+
+        // 使用 A* 作为 fallback，但优先用规则
+        // 这里简化为: 先用规则尝试，失败则提示
+        const MAX_DEPTH = 12;
+        const visited = new Set();
+        
+        function stateKey(s) { return `${s.agent_x},${s.agent_y},${s.holds},${s.key_exists},${s.door_open}`; }
+        
+        // 目标状态
+        const goalState = { ...startState, agent_x: FLAG_POS.x, agent_y: FLAG_POS.y };
+        
+        // BFS 正向搜索 (使用规则模拟动作)
+        function getSuccessors(state) {
+            const succ = [];
+            // 四个移动方向
+            const dirs = ['up','down','left','right'];
+            for (let dir of dirs) {
+                const action = `move_${dir}`;
+                const after = applyAction(state, action);
+                if (JSON.stringify(state) !== JSON.stringify(after)) {
+                    succ.push({ action, after });
+                }
+            }
+            // 拾取
+            const afterPick = applyAction(state, 'pickup');
+            if (JSON.stringify(state) !== JSON.stringify(afterPick)) {
+                succ.push({ action: 'pickup', after: afterPick });
+            }
+            return succ;
+        }
+
+        const queue = [{ state: startState, path: [] }];
+        visited.add(stateKey(startState));
+        let foundPath = null;
+        
+        while (queue.length > 0) {
+            const { state, path } = queue.shift();
+            if (state.agent_x === FLAG_POS.x && state.agent_y === FLAG_POS.y) {
+                foundPath = path;
+                break;
+            }
+            const succs = getSuccessors(state);
+            for (let s of succs) {
+                const key = stateKey(s.after);
+                if (!visited.has(key)) {
+                    visited.add(key);
+                    queue.push({ state: s.after, path: [...path, s.action] });
+                }
+            }
+        }
+        
+        if (foundPath) {
+            addPlanLog(`✅ 规划成功! 路径: ${foundPath.join(' → ')}`);
+            return foundPath;
+        } else {
+            addPlanLog(`❌ 规划失败。可能经验不足，请多探索并再次泛化。`);
+            return [];
+        }
+    }
+
+    async function executePlan(plan) {
+        for (let action of plan) {
+            const success = executeAction(action, false);
+            if (!success) { addLog(`⚠️ 中断: ${action}`); break; }
+            await new Promise(r => setTimeout(r, 150));
+        }
+        addLog('✅ 执行完毕');
+    }
+
+    // 事件
+    document.querySelectorAll('[data-action]').forEach(b=>b.addEventListener('click',()=>{
+        const act=b.dataset.action; if(act==='reset')resetToInitial(); else executeAction(act,true);
+    }));
+    document.getElementById('exploreBtn').addEventListener('click',async()=>{
+        const acts=['move_up','move_down','move_left','move_right','pickup'];
+        for(let i=0;i<10;i++){executeAction(acts[Math.floor(Math.random()*acts.length)],true); await new Promise(r=>setTimeout(r,80));}
+        addLog('🎲 探索完成');
+    });
+    document.getElementById('generalizeBtn').addEventListener('click',generalizeExperiences);
+    document.getElementById('planBtn').addEventListener('click',async()=>{
+        const plan = backwardPlan();
+        if(plan.length>0) await executePlan(plan);
+    });
+    document.getElementById('clearExpBtn').addEventListener('click',()=>{
+        experienceDB=[]; ruleDB=[]; updateCounts(); addLog('🧹 已清空'); clearPlanLog();
+    });
+
+    resetToInitial(); updateCounts();
+    addLog('👋 先探索积累经验 → 点击「泛化」→ 「后向规划」');
+</script>
+</body>
+</html>
