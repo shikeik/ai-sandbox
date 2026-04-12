@@ -145,7 +145,7 @@ export function plan(
 	initialState: State,
 	goal: State,
 	rules: Rule[],
-	maxDepth: number = 10
+	maxDepth: number = 100
 ): PlanResult {
 	// BFS 队列：每个元素是 [当前状态, 动作序列]
 	const queue: Array<[State, Plan]> = [[initialState, []]]
