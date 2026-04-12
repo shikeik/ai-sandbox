@@ -1,9 +1,11 @@
 // ========== 因果链 AI - 命令行版本 ==========
-// 运行: npx tsx test/ts/causal-ai/cli/main.ts
-// 指定地图: npx tsx test/ts/causal-ai/cli/main.ts --map simple
+// 运行: npx tsx src/causal-ai-cli/main.ts
+// 指定地图: npx tsx src/causal-ai-cli/main.ts --map simple
+// 自定义地图: 创建 map_xxx.ts 文件，然后 --map xxx
 
 import * as readline from "node:readline"
 import { MAPS, getMapById, listMaps, type MapConfig } from "./maps"
+import { loadMap, listAllMaps } from "./map-loader"
 import { World } from "./world"
 import { renderView } from "./renderer"
 import type { Action } from "./types"
@@ -102,28 +104,29 @@ function startGame(mapConfig: MapConfig): void {
 }
 
 // 选图菜单
-function showMenu(): void {
+async function showMenu(): Promise<void> {
+	const allMaps = await listAllMaps()
+
+	console.log("===== 因果链 AI - 命令行版 =====\n")
+	console.log("内置地图:")
+	console.log(listMaps())
+	console.log("\n提示: 你也可以创建 map_xxx.ts 文件，然后 --map xxx 加载")
+
 	const rl = readline.createInterface({
 		input: process.stdin,
 		output: process.stdout
 	})
 
-	console.log("===== 因果链 AI - 命令行版 =====\n")
-	console.log("选择地图:")
-	console.log(listMaps())
-
-	rl.question("\n输入地图ID (如: simple) 或按回车默认: ", (answer) => {
+	rl.question("\n输入地图ID (如: simple) 或按回车默认: ", async (answer) => {
 		rl.close()
 
 		const input = answer.trim()
 		let mapConfig: MapConfig | null = null
 
 		if (input === "") {
-			// 默认使用第一张地图
 			mapConfig = MAPS[0]
 		} else {
-			// 尝试作为ID查找
-			mapConfig = getMapById(input)
+			mapConfig = await loadMap(input)
 		}
 
 		if (mapConfig) {
@@ -138,20 +141,23 @@ function showMenu(): void {
 }
 
 // 主入口
-function main(): void {
+async function main(): Promise<void> {
 	const args = parseArgs()
 
 	if (args.mapId) {
-		const mapConfig = getMapById(args.mapId)
+		const mapConfig = await loadMap(args.mapId)
 		if (mapConfig) {
 			startGame(mapConfig)
 		} else {
 			console.log(`未知地图: ${args.mapId}`)
-			console.log(`可用地图: ${MAPS.map(m => m.id).join(", ")}`)
+			console.log(`可用内置地图: ${MAPS.map(m => m.id).join(", ")}`)
+			console.log("\n你也可以创建 map_xxx.ts 文件来自定义地图:")
+			console.log(`  创建 src/causal-ai-cli/map_${args.mapId}.ts`)
+			console.log(`  导出 default 或 MAP_${args.mapId.toUpperCase()}`)
 			process.exit(1)
 		}
 	} else {
-		showMenu()
+		await showMenu()
 	}
 }
 
