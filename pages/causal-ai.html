@@ -181,6 +181,8 @@
 			opacity: 0;
 			pointer-events: none;
 			transition: opacity 0.2s;
+			display: flex;
+			flex-direction: column;
 		}
 		.tab-pane.active {
 			opacity: 1;
@@ -229,16 +231,20 @@
 			background: #0a0f16;
 			border-radius: 14px;
 			padding: 10px;
-			font-size: 12px;
+			font-size: 13px;
 			border: 1px solid #263340;
-			min-height: 150px;
+			min-height: 100px;
+			flex: 1;
+			overflow-y: auto;
+			color: #b8c5d6;
 		}
 		.entry {
 			border-bottom: 1px solid #1f2e40;
-			padding: 8px 4px;
-			font-family: monospace;
+			padding: 6px 4px;
+			font-family: system-ui, monospace;
 			white-space: normal;
-			line-height: 1.5;
+			line-height: 1.4;
+			color: #b8c5d6;
 		}
 		.entry:last-child { border-bottom: none; }
 
