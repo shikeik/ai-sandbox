@@ -28,7 +28,7 @@ export const OBJECT_RULES: Record<string, ObjectRule> = {
 	// 钥匙
 	"钥匙": {
 		blocksMovement: false,
-		onEnter: (ctx) => ({
+		onInteract: (ctx) => ({
 			success: true,
 			msg: "拾取钥匙",
 			reward: 1,

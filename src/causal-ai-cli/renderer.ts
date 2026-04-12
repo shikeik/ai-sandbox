@@ -20,9 +20,10 @@ export function renderView(view: LocalView): string {
 }
 
 function renderCell(tileType?: string, objects?: GameObject[]): string {
-	// 有对象时优先显示对象
+	// 有对象时优先显示对象（玩家和其他对象重叠时，优先显示其他对象）
 	if (objects && objects.length > 0) {
-		const obj = objects[0]!
+		// 先找非玩家的对象
+		const obj = objects.find(o => o.type !== "agent") || objects[0]!
 		switch (obj.type) {
 		case "agent": return "＠"
 		case "钥匙": return "🔑"
