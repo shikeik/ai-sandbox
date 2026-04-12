@@ -17,7 +17,8 @@ export interface MapConfig {
 	walls: Position[]
 }
 
-// 简单地图：直线通关
+// 简单地图：必须拿钥匙开门才能过
+// 路径：起点→下拿钥匙→右→上开门→右到终点
 export const MAP_SIMPLE: MapConfig = {
 	id: "simple",
 	name: "简单",
@@ -26,14 +27,19 @@ export const MAP_SIMPLE: MapConfig = {
 	agent: { x: 0, y: 0 },
 	goal: { x: 5, y: 0 },
 	key: { x: 1, y: 2 },
-	door: { x: 3, y: 0 },
+	door: { x: 3, y: 0 },  // 门在第一行
 	walls: [
-		{ x: 2, y: 1 },
-		{ x: 2, y: 2 }
+		// 第一行：起点右边和门左边封死
+		{ x: 1, y: 0 }, { x: 2, y: 0 },
+		// 下方通道墙
+		{ x: 2, y: 1 }, { x: 4, y: 1 },
+		{ x: 2, y: 2 }, { x: 4, y: 2 },
+		// 终点下方封死
+		{ x: 5, y: 1 }, { x: 5, y: 2 }
 	]
 }
 
-// 中等地图：需要绕路
+// 中等地图：需要绕路，必须开门
 export const MAP_MEDIUM: MapConfig = {
 	id: "medium",
 	name: "中等",
@@ -44,7 +50,10 @@ export const MAP_MEDIUM: MapConfig = {
 	key: { x: 6, y: 4 },
 	door: { x: 4, y: 0 },
 	walls: [
-		{ x: 2, y: 0 }, { x: 2, y: 1 }, { x: 2, y: 2 },
+		// 门两侧封死
+		{ x: 3, y: 0 }, { x: 5, y: 0 },
+		// 其他障碍
+		{ x: 2, y: 1 }, { x: 2, y: 2 },
 		{ x: 4, y: 2 }, { x: 4, y: 3 }, { x: 4, y: 4 },
 		{ x: 6, y: 1 }, { x: 6, y: 2 }
 	]

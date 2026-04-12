@@ -48,6 +48,12 @@ function startGame(mapConfig: MapConfig): void {
 	rl.on("line", (line) => {
 		const cmd = line.trim()
 
+		// 空指令直接忽略
+		if (cmd === "") {
+			rl.prompt()
+			return
+		}
+
 		switch (cmd) {
 		case "上":
 		case "下":
