@@ -2,16 +2,15 @@
 // 封装动作执行 + 经验记录 + 规则提取的完整流程
 // DRY: CLI 和 Web 共用此逻辑
 
-import type { World } from "../world/world"
-import type { Action, ActionResult } from "../world/types"
+import type { Action, ActionResult } from "../../meta-gridworld/types"
 import type { ExperienceDB, RuleDB } from "./learner"
 import { extractRuleFromExperience } from "./learner"
-
 import type { Experience } from "./types"
+import type { WorldLike } from "../../agent-api/types"
 
 // 执行上下文
 export interface ExecuteContext {
-	world: World
+	world: WorldLike
 	expDB: ExperienceDB
 	ruleDB: RuleDB
 }
@@ -23,13 +22,13 @@ export interface FullExecuteResult extends ActionResult {
 
 /**
  * 执行动作并自动记录经验、提取规则
- * 
+ *
  * 统一的执行流程：
  * 1. 获取当前状态（before）
  * 2. 执行动作
  * 3. 获取新状态（after）
  * 4. 如果成功，记录经验并提取规则
- * 
+ *
  * 使用场景：
  * - CLI 的学习模式
  * - Web 版的动作执行
@@ -76,13 +75,13 @@ export function executeWithLearning(
 
 /**
  * 仅执行动作，不记录经验
- * 
+ *
  * 使用场景：
  * - 规划的自动执行（不重复记录经验）
  * - 测试动作效果
  */
 export function executeOnly(
-	world: World,
+	world: WorldLike,
 	action: Action
 ): ActionResult {
 	const { result } = world.execute(action)

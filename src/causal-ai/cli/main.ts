@@ -8,19 +8,17 @@ import { fileURLToPath } from "node:url"
 import { type MapData, loadMapData, listMaps, setMapBasePath, DEFAULT_MAP_ID } from "./maps"
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-import { World } from "../core"
 import { renderView } from "./renderer"
-import type { Action } from "../core"
-import { ExperienceDB, RuleDB } from "../core"
-import { executeCommand } from "../core"
-import type { CommandContext } from "../core"
+import { CliAPI } from "./cli-api"
+import { LegacyAgent } from "../agents/legacy"
+import { ExperienceDB, RuleDB } from "../core/ai/learner"
+
+// 设置地图基础路径
+setMapBasePath(path.join(__dirname, "../../../gamedatas/maps"))
 
 // 全局 AI 知识库（跨游戏共享）
 const globalExpDB = new ExperienceDB()
 const globalRuleDB = new RuleDB()
-
-// 设置地图基础路径
-setMapBasePath(path.join(__dirname, "../../../gamedatas/maps"))
 
 // 解析命令行参数
 function parseArgs(): { mapId?: string } {
@@ -95,21 +93,19 @@ async function showMenu(): Promise<void> {
 
 // 游戏主循环
 function startGame(mapData: MapData): void {
-	console.log(`\n[知识库] 经验: ${globalExpDB.getAll().length} 条, 规则: ${globalRuleDB.getAll().length} 条`)
+	// CLI 直接操作世界（用于人类界面渲染）
+	const cliApi = new CliAPI(mapData)
+	// Legacy Agent 通过 AgentAPI 与世界交互，共享同一个底层世界实例
+	const legacyAgent = new LegacyAgent(cliApi.getWorld(), globalExpDB, globalRuleDB)
+
+	console.log(`\n[知识库] 经验: ${legacyAgent.expDB.getAll().length} 条, 规则: ${legacyAgent.ruleDB.getAll().length} 条`)
 	console.log(`\n===== ${mapData.name} (${mapData.width}×${mapData.height}) =====`)
 	console.log("Agent 只能看到周围 5x5 格子")
 	console.log("＠ = 你自己  🔑 = 钥匙  🚧 = 关闭的门  🚪 = 打开的门  🚩 = 终点  ＃ = 墙  ． = 空地\n")
 
-	const world = new World(mapData)
-	const expDB = globalExpDB
-	const ruleDB = globalRuleDB
-
-	// 计划队列
-	const plannedActions: Action[] = []
-
 	// 初始状态
 	console.log("初始状态:")
-	console.log(renderView(world.getLocalView()))
+	console.log(renderView(cliApi.getLocalView()))
 
 	const rl = readline.createInterface({
 		input: process.stdin,
@@ -131,7 +127,7 @@ function startGame(mapData: MapData): void {
 			return
 		}
 
-		// 退出指令（在 executeCommand 之前处理）
+		// 退出指令
 		if (["退", "quit", "q"].includes(cmd)) {
 			console.log("退出")
 			closed = true
@@ -139,30 +135,22 @@ function startGame(mapData: MapData): void {
 			return
 		}
 
-		// 计划操作包装
-		const getPlanLength = () => plannedActions.length
-		const getPlanSnapshot = () => [...plannedActions]
-		const setPlan = (actions: Action[]) => {
-			plannedActions.length = 0
-			plannedActions.push(...actions)
-		}
-		const clearPlan = () => {
-			plannedActions.length = 0
-		}
-		const shiftPlan = (): Action | null => {
-			return plannedActions.shift() || null
+		// 人类专属指令（直接操作 CliAPI）
+		if (cmd === "图") {
+			cliApi.printGlobalMap()
+			rl.prompt()
+			return
 		}
 
-		// 使用统一指令执行器
-		const ctx: CommandContext = {
-			world,
-			expDB,
-			ruleDB,
-			getPlanLength,
-			getPlanSnapshot,
-			setPlan,
-			clearPlan,
-			shiftPlan,
+		if (cmd === "全") {
+			cliApi.printGlobalMap()
+			console.log(renderView(cliApi.getLocalView()))
+			rl.prompt()
+			return
+		}
+
+		// 其他指令通过 LegacyAgent 执行
+		const result = legacyAgent.runCommand(cmd, {
 			onSwitchMap: async (mapId) => {
 				const newMap = await resolveMap(mapId)
 				if (newMap) {
@@ -173,28 +161,19 @@ function startGame(mapData: MapData): void {
 				}
 			},
 			onPlanUpdate: () => {}
-		}
-
-		const result = executeCommand(ctx, cmd)
-
-		// 处理特殊指令
-		if (cmd === "图") {
-			world.printGlobalMap()
-		} else if (cmd === "全") {
-			world.printGlobalMap()
-			console.log(renderView(world.getLocalView()))
-		}
+		})
 
 		// 输出结果
 		console.log(`\n${result.msg}`)
 
 		// 显示视野（动作类指令后）
 		if (["上", "下", "左", "右", "互", "等", "执", "学"].some(c => cmd.startsWith(c))) {
-			console.log(`[${world.getPlayerStatus()}]`)
-			if (plannedActions.length > 0) {
-				console.log(`剩余计划: ${plannedActions.join(" → ")}`)
+			console.log(`[${cliApi.getPlayerStatus()}]`)
+			const plan = legacyAgent.getPlanSnapshot()
+			if (plan.length > 0) {
+				console.log(`剩余计划: ${plan.join(" → ")}`)
 			}
-			console.log(renderView(world.getLocalView()))
+			console.log(renderView(cliApi.getLocalView()))
 		}
 
 		// 游戏结束

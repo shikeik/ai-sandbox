@@ -55,7 +55,7 @@ if (command === "test:all") {
 		testArgs = getFiles("test/ts", /\.ts$/)
 	}
 	// TS 测试用 node 直接运行，不是 --test 模式
-	const child = spawn("npx", ["tsx", ...testArgs], { stdio: "inherit" })
+	const child = spawn("npx", ["tsx", "--tsconfig", "configs/tsconfig.json", ...testArgs], { stdio: "inherit" })
 	child.on("exit", (code) => process.exit(code ?? 0))
 	process.exit(0)
 } else if (command === "test:dir") {
@@ -85,7 +85,7 @@ if (testArgs.length === 0) {
 
 console.log(`运行测试: ${testArgs.join(" ")}`)
 
-const child = spawn("npx", ["tsx", "--test", ...testArgs], {
+const child = spawn("npx", ["tsx", "--tsconfig", "configs/tsconfig.json", "--test", ...testArgs], {
 	stdio: "inherit",
 })
 

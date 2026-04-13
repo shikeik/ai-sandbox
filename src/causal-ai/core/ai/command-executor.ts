@@ -2,17 +2,16 @@
 // 支持所有 CLI 风格指令的单段式执行
 // 例: "学 上", "规 at(agent,3,0)", "选 obstacle"
 
-import type { World } from "../world/world"
-import type { Action } from "../world/types"
+import type { Action } from "../../meta-gridworld/types"
 import type { ExperienceDB, RuleDB } from "./learner"
 import { executeWithLearning, executeOnly } from "./executor"
 import { plan, parseGoal } from "./planner"
 import { PLANNER_MAX_DEPTH } from "../constants"
-
+import type { WorldLike } from "../../agent-api/types"
 
 // 指令执行上下文
 export interface CommandContext {
-	world: World
+	world: WorldLike
 	expDB: ExperienceDB
 	ruleDB: RuleDB
 	// 计划操作接口（取代直接操作数组）
@@ -40,7 +39,7 @@ export interface CommandResult {
 
 /**
  * 解析并执行单条指令
- * 
+ *
  * 支持的指令格式：
  * - 移动: 上, 下, 左, 右
  * - 互动: 互
