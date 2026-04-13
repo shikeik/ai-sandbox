@@ -177,6 +177,7 @@ export class WorldRenderer {
 					height: ${this.worldHeight}px;
 					transform: translate(0px, 0px);
 					transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+					will-change: transform;
 				">
 					<div class="ca-grid-layer" style="
 						width: 100%;
@@ -346,9 +347,10 @@ export class WorldRenderer {
 			justify-content: center;
 			font-size: 26px;
 			z-index: 50;
-			transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+			transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 			filter: drop-shadow(0 2px 6px rgba(78, 161, 211, 0.5));
 			pointer-events: none;
+			will-change: transform;
 		`
 
 		const robotIcon = document.createElement("span")
@@ -390,8 +392,8 @@ export class WorldRenderer {
 		const left = x * (cellSize + gap)
 		const top = y * (cellSize + gap)
 
-		this.agentElement.style.left = `${left}px`
-		this.agentElement.style.top = `${top}px`
+		// 使用 transform 代替 left/top，与相机系统保持一致，确保完全同步
+		this.agentElement.style.transform = `translate(${left}px, ${top}px)`
 	}
 
 	private updateCamera(heroX: number, heroY: number): void {
