@@ -295,24 +295,23 @@ export class WorldRenderer {
 		const obj = cell.objects.find(o => o.type !== "agent")
 		if (!obj) return
 
-		const objEl = document.createElement("div")
-		objEl.className = "ca-object"
-		objEl.style.cssText = `
-			width: 100%;
-			height: 100%;
-			display: flex;
-			align-items: center;
-			justify-content: center;
-			font-size: 22px;
-			pointer-events: none;
-			animation: ca-pop-in 0.3s ease-out;
-		`
-
 		switch (obj.type) {
 		case "钥匙":
 			// 钥匙在独立元素中渲染（z-index 高于玩家），这里跳过
 			break
-		case "门":
+		case "门": {
+			// 门不使用 pop-in 动画，避免 opacity 冲突
+			const objEl = document.createElement("div")
+			objEl.className = "ca-object"
+			objEl.style.cssText = `
+				width: 100%;
+				height: 100%;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				font-size: 22px;
+				pointer-events: none;
+			`
 			if (obj.state?.open) {
 				el.style.background = `${RENDER_CONFIG.colors.doorOpen}25`
 				el.style.border = `2px solid ${RENDER_CONFIG.colors.doorOpen}`
@@ -327,7 +326,20 @@ export class WorldRenderer {
 			}
 			el.appendChild(objEl)
 			break
-		case "终点":
+		}
+		case "终点": {
+			const objEl = document.createElement("div")
+			objEl.className = "ca-object"
+			objEl.style.cssText = `
+				width: 100%;
+				height: 100%;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				font-size: 22px;
+				pointer-events: none;
+				animation: ca-pop-in 0.3s ease-out;
+			`
 			el.style.background = `${RENDER_CONFIG.colors.goal}20`
 			el.style.border = `2px solid ${RENDER_CONFIG.colors.goal}`
 			el.style.boxShadow = `0 0 12px ${RENDER_CONFIG.colors.goal}40`
@@ -336,6 +348,7 @@ export class WorldRenderer {
 			objEl.style.animation = "ca-pulse 1.5s ease-in-out infinite"
 			el.appendChild(objEl)
 			break
+		}
 		}
 	}
 
@@ -353,7 +366,7 @@ export class WorldRenderer {
 			display: flex;
 			align-items: center;
 			justify-content: center;
-			font-size: 26px;
+			font-size: 22px;
 			z-index: 50;
 			transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 			filter: drop-shadow(0 2px 6px rgba(78, 161, 211, 0.5));
