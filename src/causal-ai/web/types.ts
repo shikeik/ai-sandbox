@@ -11,6 +11,9 @@ export type { State, Experience, Rule, Plan, PlanResult }
 // 动作类型（与 CLI 统一）
 export type ActionType = "上" | "下" | "左" | "右" | "互" | "等"
 
+// 方向类型（用于渲染）
+export type Direction = "上" | "下" | "左" | "右"
+
 // 位置
 export interface Position {
 	x: number

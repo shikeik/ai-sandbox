@@ -387,7 +387,16 @@
 	<!-- 左侧：游戏视图 -->
 	<div class="left-panel">
 		<div class="canvas-area">
-			<canvas id="worldCanvas" width="352" height="352"></canvas>
+			<!-- 游戏世界容器 (DOM 渲染) -->
+			<div id="worldContainer" style="
+				width: 320px;
+				height: 320px;
+				background: #0a0a14;
+				border-radius: 16px;
+				box-shadow: inset 0 0 0 1px #2e3a48;
+				margin-bottom: 12px;
+				overflow: hidden;
+			"></div>
 			<div class="info-bar">
 				<span>🗺️ <span id="mapDisplay">未加载</span></span>
 				<span>🧭 <span id="posDisplay">(0,0)</span></span>

@@ -137,16 +137,16 @@ function initTabs(): void {
 
 // 初始化函数
 function init(): void {
-	const canvas = document.getElementById("worldCanvas") as HTMLCanvasElement
-	if (!canvas) {
-		throw new Error("未找到 canvas 元素")
+	const worldContainer = document.getElementById("worldContainer")
+	if (!worldContainer) {
+		throw new Error("未找到 worldContainer 元素")
 	}
 
 	// 创建 UI 管理器
 	const uiManager = new UIManager()
 
-	// 创建游戏控制器
-	const controller = new GameController(canvas, uiManager)
+	// 创建游戏控制器（传入容器 ID）
+	const controller = new GameController("worldContainer", uiManager)
 
 	// 加载默认地图
 	controller.loadMap(BUILTIN_MAPS[0]!)

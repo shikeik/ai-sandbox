@@ -31,12 +31,12 @@ export class GameController {
 	public plannedActions: ActionType[] = []
 
 	constructor(
-		canvas: HTMLCanvasElement,
+		containerId: string,
 		uiManager: UIManager
 	) {
 		this.expDB = new ExperienceDB()
 		this.ruleDB = new RuleDB()
-		this.renderer = new WorldRenderer(canvas)
+		this.renderer = new WorldRenderer(containerId)
 		this.uiManager = uiManager
 		
 		// 初始状态显示
@@ -226,10 +226,10 @@ export class GameController {
 			const agent = this.world.getAgentState()
 			if (this.renderer.getViewMode() === "local") {
 				const view = this.world.getLocalView()
-				this.renderer.render(view)
+				this.renderer.render(view, undefined, agent.facing)
 			} else {
 				const view = this.world.getGlobalView()
-				this.renderer.render(view, agent.pos)
+				this.renderer.render(view, agent.pos, agent.facing)
 			}
 		}
 	}
@@ -255,7 +255,7 @@ export class GameController {
 	// 更新 UI
 	private updateUI(): void {
 		if (this.world) {
-			const agent = this.world.getAgentState()
+			const agent = this.world.getAgentState() as import("./types").AgentState
 			this.uiManager.updateStateDisplay(agent)
 		}
 	}
