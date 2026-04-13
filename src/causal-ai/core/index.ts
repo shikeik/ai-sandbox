@@ -14,3 +14,6 @@ export * from "./world/types"
 export { TILE_MAP } from "./world/types"
 export * from "./world/rules"
 export { World } from "./world/world"
+
+// 地图数据
+export * from "./maps"

@@ -1,39 +1,45 @@
-// ========== 内置地图配置 ==========
-// 使用新格式：tiles + objects
+// ========== CLI 地图加载 ==========
+// 注入 Node.js fs 实现到 core/maps
 
-import type { MapData } from "./types"
+import * as fs from "node:fs"
+import * as path from "node:path"
+import type { MapData, MapInfo } from "../core"
+import { loadMapData as coreLoadMapData, setMapBasePath, setLoadMapImpl } from "../core"
 
-// 默认地图：新手教学
-export const MAP_DEFAULT: MapData = {
-	id: "default",
-	name: "默认",
-	width: 6,
-	height: 4,
-	tiles: [
-		"＃＃＃＃＃＃",
-		"＃．．．．＃",
-		"＃．．＃．＃",
-		"＃＃＃＃＃＃"
-	],
-	objects: [
-		{ id: "p1", type: "agent", pos: { x: 1, y: 1 } },
-		{ id: "k1", type: "钥匙", pos: { x: 2, y: 2 } },
-		{ id: "d1", type: "门", pos: { x: 3, y: 1 }, state: { open: false } },
-		{ id: "g1", type: "终点", pos: { x: 4, y: 1 } }
+// 注入 CLI 加载实现
+setLoadMapImpl(async (filePath: string): Promise<MapData | null> => {
+	// 尝试多个路径
+	const possiblePaths = [
+		filePath,
+		path.join(process.cwd(), filePath),
+		path.join(process.cwd(), "gamedatas/maps", path.basename(filePath)),
+		path.join(__dirname, "../../../gamedatas/maps", path.basename(filePath))
 	]
-}
+	
+	for (const p of possiblePaths) {
+		try {
+			if (fs.existsSync(p)) {
+				const content = fs.readFileSync(p, "utf-8")
+				return JSON.parse(content) as MapData
+			}
+		} catch {
+			// 继续尝试下一个
+		}
+	}
+	
+	console.error(`[MAPS] 找不到文件: ${filePath}`)
+	return null
+})
 
-// 内置地图列表
-export const MAPS: MapData[] = [
-	MAP_DEFAULT
-]
+// 设置默认路径
+setMapBasePath(path.join(__dirname, "../../../gamedatas/maps"))
 
-// 根据ID获取地图
-export function getMapById(id: string): MapData | null {
-	return MAPS.find(m => m.id === id) || null
-}
+// 重新导出
+export { listMaps, getMapInfo, setMapBasePath, clearMapCache } from "../core"
+export type { MapData, MapInfo }
 
-// 显示地图列表
-export function listMaps(): string {
-	return MAPS.map((m, i) => `${i + 1}. ${m.name} (${m.width}×${m.height})`).join("\n")
-}
+// 导出加载函数（已注入实现）
+export { coreLoadMapData as loadMapData }
+
+// 默认地图 ID
+export const DEFAULT_MAP_ID = "default"

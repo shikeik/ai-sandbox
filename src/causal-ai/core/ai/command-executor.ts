@@ -7,7 +7,7 @@ import type { Action } from "../world/types"
 import type { ExperienceDB, RuleDB } from "./learner"
 import { executeWithLearning, executeOnly } from "./executor"
 import { plan, parseGoal } from "./planner"
-import { stateToPredicates, stateToString } from "./state"
+import { stateToPredicates } from "./state"
 
 // 指令执行上下文
 export interface CommandContext {
@@ -50,7 +50,7 @@ export function executeCommand(
 	ctx: CommandContext,
 	command: string
 ): CommandResult {
-	const { world, expDB, ruleDB, plannedActions, onLog } = ctx
+	const { world, expDB, ruleDB, plannedActions } = ctx
 	const cmd = command.trim()
 
 	if (cmd === "") {

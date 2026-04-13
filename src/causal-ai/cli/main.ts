@@ -1,21 +1,23 @@
 // ========== 因果链 AI - 命令行版本 ==========
 // 运行: npx tsx src/causal-ai/cli/main.ts
-// 指定地图: npx tsx src/causal-ai/cli/main.ts --map simple
+// 指定地图: npx tsx src/causal-ai/cli/main.ts --map default
 
 import * as readline from "node:readline"
-import { MAPS, type MapData } from "./maps"
-import { loadMap, listAllMaps } from "./map-loader"
+import * as path from "node:path"
+import { type MapData, loadMapData, listMaps, setMapBasePath, DEFAULT_MAP_ID } from "./maps"
 import { World } from "../core"
 import { renderView } from "./renderer"
 import type { Action } from "../core"
-import { stateToPredicates, stateToString } from "../core"
 import { ExperienceDB, RuleDB } from "../core"
 import { executeCommand } from "../core"
-import type { CommandContext, CommandResult } from "../core"
+import type { CommandContext } from "../core"
 
 // 全局 AI 知识库（跨游戏共享）
 const globalExpDB = new ExperienceDB()
 const globalRuleDB = new RuleDB()
+
+// 设置地图基础路径
+setMapBasePath(path.join(__dirname, "../../../gamedatas/maps"))
 
 // 解析命令行参数
 function parseArgs(): { mapId?: string } {
@@ -32,27 +34,22 @@ function parseArgs(): { mapId?: string } {
 	return result
 }
 
-// 解析地图 ID（内置优先，其次 JSON 文件）
-function resolveMap(id: string): MapData | null {
-	// 先检查内置地图
-	const builtIn = MAPS.find(m => m.id === id)
-	if (builtIn) return builtIn
-
-	// 尝试从 JSON 文件加载
-	return loadMap(id)
+// 异步加载地图
+async function resolveMap(id: string): Promise<MapData | null> {
+	return await loadMapData(id)
 }
 
 // 显示可用地图列表
 function printMapList(): void {
-	const maps = listAllMaps()
+	const maps = listMaps()
 	console.log("\n可用地图:")
 	for (const m of maps) {
-		console.log(`  ${m.id} - ${m.name} (${m.source})`)
+		console.log(`  ${m.id} - ${m.name}`)
 	}
 }
 
 // 显示地图选择菜单
-function showMenu(): void {
+async function showMenu(): Promise<void> {
 	printMapList()
 	console.log("\n提示: 创建 gamedatas/maps/xxx.json 来自定义地图")
 	console.log("      输入 '退' 或 'quit' 或 'q' 退出程序")
@@ -61,17 +58,18 @@ function showMenu(): void {
 	const rl = readline.createInterface({
 		input: process.stdin,
 		output: process.stdout,
-		prompt: "选择地图ID (如: simple) 或按回车默认: "
+		prompt: "选择地图ID (按回车默认 default): "
 	})
 
 	rl.prompt()
 
-	rl.on("line", (line) => {
+	rl.on("line", async (line) => {
 		const input = line.trim()
 
 		if (input === "" || input === "default") {
 			rl.close()
-			startGame(MAPS[0]!)
+			const map = await loadMapData(DEFAULT_MAP_ID)
+			if (map) startGame(map)
 			return
 		}
 
@@ -80,7 +78,7 @@ function showMenu(): void {
 			return
 		}
 
-		const mapData = resolveMap(input)
+		const mapData = await resolveMap(input)
 		if (mapData) {
 			rl.close()
 			startGame(mapData)
@@ -121,7 +119,7 @@ function startGame(mapData: MapData): void {
 
 	rl.prompt()
 
-	rl.on("line", (line) => {
+	rl.on("line", async (line) => {
 		if (closed) return
 
 		const cmd = line.trim()
@@ -144,8 +142,8 @@ function startGame(mapData: MapData): void {
 			expDB,
 			ruleDB,
 			plannedActions,
-			onSwitchMap: (mapId) => {
-				const newMap = resolveMap(mapId)
+			onSwitchMap: async (mapId) => {
+				const newMap = await resolveMap(mapId)
 				if (newMap) {
 					switching = true
 					closed = true
@@ -189,18 +187,22 @@ function startGame(mapData: MapData): void {
 	})
 }
 
-// 启动
-const args = parseArgs()
+// 异步启动
+async function main(): Promise<void> {
+	const args = parseArgs()
 
-if (args.mapId) {
-	const mapData = resolveMap(args.mapId)
-	if (mapData) {
-		startGame(mapData)
+	if (args.mapId) {
+		const mapData = await resolveMap(args.mapId)
+		if (mapData) {
+			startGame(mapData)
+		} else {
+			console.error(`找不到地图: ${args.mapId}`)
+			printMapList()
+			process.exit(1)
+		}
 	} else {
-		console.error(`找不到地图: ${args.mapId}`)
-		printMapList()
-		process.exit(1)
+		await showMenu()
 	}
-} else {
-	showMenu()
 }
+
+main()
