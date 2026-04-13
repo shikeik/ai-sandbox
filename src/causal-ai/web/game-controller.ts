@@ -65,6 +65,11 @@ export class GameController {
 		return this.currentMap
 	}
 
+	// 获取当前地图名称
+	getCurrentMapName(): string {
+		return this.currentMap?.name ?? "未加载"
+	}
+
 	// 执行动作
 	executeAction(action: ActionType, record: boolean = true): boolean {
 		if (!this.world) {

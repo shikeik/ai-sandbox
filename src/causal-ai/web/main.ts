@@ -148,6 +148,7 @@ function init(): void {
 
 	// 加载默认地图
 	controller.loadMap(BUILTIN_MAPS[0]!)
+	uiManager.updateMapName(BUILTIN_MAPS[0]!.name)
 
 	// 绑定基础动作按钮（新的动作命名）
 	const actionButtons: ActionType[] = ["上", "下", "左", "右", "互", "等"]
@@ -182,6 +183,7 @@ function init(): void {
 				const map = BUILTIN_MAPS.find(m => m.id === mapId)
 				if (map) {
 					controller.loadMap(map)
+					uiManager.updateMapName(map.name)
 				}
 			}
 		)

@@ -12,6 +12,7 @@ export class UIManager {
 	private posDisplay: HTMLElement
 	private holdDisplay: HTMLElement
 	private facingDisplay: HTMLElement
+	private mapDisplay: HTMLElement
 
 	constructor() {
 		this.logContainer = document.getElementById("logContainer")!
@@ -23,6 +24,7 @@ export class UIManager {
 		this.posDisplay = document.getElementById("posDisplay")!
 		this.holdDisplay = document.getElementById("holdDisplay")!
 		this.facingDisplay = document.getElementById("facingDisplay")!
+		this.mapDisplay = document.getElementById("mapDisplay")!
 	}
 
 	// 绑定动作按钮
@@ -73,6 +75,11 @@ export class UIManager {
 		
 		const hasKey = agent.inventory.includes("钥匙")
 		this.holdDisplay.textContent = hasKey ? "🔑 钥匙" : "空手"
+	}
+
+	// 更新地图名称显示
+	updateMapName(name: string): void {
+		this.mapDisplay.textContent = name
 	}
 
 	// 更新计数

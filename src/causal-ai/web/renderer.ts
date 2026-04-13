@@ -5,8 +5,8 @@ import type { LocalView, Cell, Tile, GameObject } from "./types"
 
 // 渲染配置
 const RENDER_CONFIG = {
-	viewRange: 5,        // 视野半径（11x11 = 5*2+1）
-	baseCellSize: 32,    // 基础格子大小
+	viewRange: 2,        // 视野半径（5x5 = 2*2+1）
+	baseCellSize: 64,    // 基础格子大小（更大格子方便查看）
 	minCellSize: 16,     // 最小格子大小（全图模式）
 	colors: {
 		background: "#10141c",
