@@ -224,13 +224,9 @@ export class GameController {
 	private render(): void {
 		if (this.world) {
 			const agent = this.world.getAgentState()
-			if (this.renderer.getViewMode() === "local") {
-				const view = this.world.getLocalView()
-				this.renderer.render(view, undefined, agent.facing)
-			} else {
-				const view = this.world.getGlobalView()
-				this.renderer.render(view, agent.pos, agent.facing)
-			}
+			// 始终使用全局视野，相机系统会处理视野裁剪
+			const view = this.world.getGlobalView()
+			this.renderer.render(view, agent.pos, agent.facing)
 		}
 	}
 
