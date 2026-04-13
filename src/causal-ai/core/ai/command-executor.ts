@@ -7,14 +7,20 @@ import type { Action } from "../world/types"
 import type { ExperienceDB, RuleDB } from "./learner"
 import { executeWithLearning, executeOnly } from "./executor"
 import { plan, parseGoal } from "./planner"
-import { stateToPredicates } from "./state"
+import { PLANNER_MAX_DEPTH } from "../constants"
+
 
 // 指令执行上下文
 export interface CommandContext {
 	world: World
 	expDB: ExperienceDB
 	ruleDB: RuleDB
-	plannedActions: Action[]
+	// 计划操作接口（取代直接操作数组）
+	getPlanLength: () => number
+	getPlanSnapshot: () => Action[]
+	setPlan: (actions: Action[]) => void
+	clearPlan: () => void
+	shiftPlan: () => Action | null
 	// 回调函数
 	onSwitchMap?: (mapId: string) => void
 	onRender?: () => void
@@ -50,7 +56,7 @@ export function executeCommand(
 	ctx: CommandContext,
 	command: string
 ): CommandResult {
-	const { world, expDB, ruleDB, plannedActions } = ctx
+	const { world, expDB, ruleDB, getPlanLength, getPlanSnapshot, setPlan, clearPlan, shiftPlan } = ctx
 	const cmd = command.trim()
 
 	if (cmd === "") {
@@ -123,22 +129,16 @@ export function executeCommand(
 		}
 
 		const planResult = plan(
-			stateToPredicates(
-				world.getAgentState().pos,
-				world.getAgentState().facing,
-				world.getAgentState().inventory.includes("钥匙"),
-				world.getLocalView()
-			),
+			world.getCurrentState(),
 			goal,
 			rules,
-			100
+			PLANNER_MAX_DEPTH
 		)
 
 		if (planResult.success && planResult.plan) {
 			// 更新计划
-			ctx.plannedActions.length = 0
-			ctx.plannedActions.push(...planResult.plan)
-			ctx.onPlanUpdate?.(ctx.plannedActions)
+			setPlan(planResult.plan)
+			ctx.onPlanUpdate?.(planResult.plan)
 
 			return {
 				success: true,
@@ -153,19 +153,24 @@ export function executeCommand(
 
 	// 执行指令: 执
 	if (baseCmd === "执") {
-		if (plannedActions.length === 0) {
+		if (getPlanLength() === 0) {
 			return { success: false, msg: "没有待执行的计划，请先规划 (例: 规 at(agent,3,0))" }
 		}
 
-		const action = plannedActions.shift()!
+		const action = shiftPlan()
+		if (!action) {
+			return { success: false, msg: "没有待执行的计划" }
+		}
+
 		const result = executeOnly(world, action)
 
-		ctx.onPlanUpdate?.([...plannedActions])
+		const remaining = getPlanLength()
+		ctx.onPlanUpdate?.(getPlanSnapshot())
 
-		let msg = `▶️ 执行: ${action} (剩余 ${plannedActions.length} 步)\n${result.msg}`
+		let msg = `▶️ 执行: ${action} (剩余 ${remaining} 步)\n${result.msg}`
 		if (result.terminate) {
 			msg += "\n✅ 游戏通关！"
-			plannedActions.length = 0
+			clearPlan()
 		}
 
 		return {

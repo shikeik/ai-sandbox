@@ -7,6 +7,10 @@ import type {
 } from "./types"
 import { TILE_MAP } from "./types"
 import { getRule } from "./rules"
+import { stateToPredicates } from "../ai/state"
+import type { State } from "../ai/types"
+import { DEFAULT_VIEW_RANGE } from "../constants"
+import { getDirectionDelta } from "../utils/position"
 
 export class World {
 	private mapData: MapData
@@ -98,6 +102,16 @@ export class World {
 		return { ...this.agentState, pos: { ...this.agentState.pos } }
 	}
 
+	getCurrentState(): State {
+		const agent = this.getAgentState()
+		return stateToPredicates(
+			agent.pos,
+			agent.facing,
+			agent.inventory.includes("钥匙"),
+			this.getLocalView()
+		)
+	}
+
 	// ========== 对象操作 ==========
 
 	removeObject(id: string): void {
@@ -150,15 +164,11 @@ export class World {
 	}
 
 	private handleMove(action: Action): ActionResult {
-		const [ax, ay] = [this.agentState.pos.x, this.agentState.pos.y]
-		let nx = ax, ny = ay
-
-		switch (action) {
-		case "上": ny = ay - 1; this.agentState.facing = "上"; break
-		case "下": ny = ay + 1; this.agentState.facing = "下"; break
-		case "左": nx = ax - 1; this.agentState.facing = "左"; break
-		case "右": nx = ax + 1; this.agentState.facing = "右"; break
-		}
+		const pos = this.agentState.pos
+		const [dx, dy] = getDirectionDelta(action)
+		const nx = pos.x + dx
+		const ny = pos.y + dy
+		this.agentState.facing = action
 
 		// 边界检查
 		if (!this.inBounds(nx, ny)) {
@@ -262,7 +272,7 @@ export class World {
 
 	// ========== 视野获取 ==========
 
-	getLocalView(range = 3): LocalView {
+	getLocalView(range = DEFAULT_VIEW_RANGE): LocalView {
 		const view: LocalView = { width: range * 2 + 1, height: range * 2 + 1, cells: new Map() }
 
 		for (let dy = -range; dy <= range; dy++) {

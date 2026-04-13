@@ -1,7 +1,8 @@
 // ========== 规划器：BFS 正向搜索 ==========
 
 import type { State, Rule, PlanResult, Plan } from "./types"
-// Action type used implicitly via Rule.action
+import { isMoveAction, getAgentPos, applyDirection } from "../utils/position"
+import { PLANNER_MAX_DEPTH } from "../constants"
 
 /**
  * 应用规则到状态，返回新状态
@@ -10,37 +11,15 @@ function applyRule(state: State, rule: Rule): State {
 	const newState = new Set(state)
 	
 	// 移动类动作的特殊处理：更新玩家位置
-	const moveActions = ["上", "下", "左", "右"]
-	if (moveActions.includes(rule.action)) {
-		// 找到当前位置
-		let currentPos: string | null = null
-		let currentX = 0, currentY = 0
-		for (const p of state) {
-			if (p.startsWith("at(agent,")) {
-				currentPos = p
-				const match = p.match(/at\(agent,(-?\d+),(-?\d+)\)/)
-				if (match) {
-					currentX = Number(match[1])
-					currentY = Number(match[2])
-				}
-				break
-			}
-		}
-		
-		if (currentPos) {
-			// 计算新位置
-			let newX = currentX, newY = currentY
-			switch (rule.action) {
-			case "上": newY = currentY - 1; break
-			case "下": newY = currentY + 1; break
-			case "左": newX = currentX - 1; break
-			case "右": newX = currentX + 1; break
-			}
-			
+	if (isMoveAction(rule.action)) {
+		const pos = getAgentPos(state)
+		if (pos) {
+			const newPos = applyDirection(pos, rule.action)
+
 			// 删除旧位置，添加新位置
-			newState.delete(currentPos)
-			newState.add(`at(agent,${newX},${newY})`)
-			
+			newState.delete(`at(agent,${pos.x},${pos.y})`)
+			newState.add(`at(agent,${newPos.x},${newPos.y})`)
+
 			// 更新面朝方向
 			for (const p of Array.from(newState)) {
 				if (p.startsWith("facing(")) {
@@ -49,7 +28,7 @@ function applyRule(state: State, rule: Rule): State {
 			}
 			newState.add(`facing(${rule.action})`)
 		}
-		
+
 		return newState
 	}
 
@@ -75,35 +54,12 @@ function applyRule(state: State, rule: Rule): State {
  */
 function canApply(state: State, rule: Rule): boolean {
 	// 移动类规则的特殊处理：只要当前状态有玩家位置，且目标方向可行
-	const moveActions = ["上", "下", "左", "右"]
-	if (moveActions.includes(rule.action)) {
-		// 找到当前状态中的玩家位置
-		let currentPos: string | null = null
-		for (const p of state) {
-			if (p.startsWith("at(agent,")) {
-				currentPos = p
-				break
-			}
-		}
-		if (!currentPos) return false
-		
-		// 解析当前位置
-		const match = currentPos.match(/at\(agent,(-?\d+),(-?\d+)\)/)
-		if (!match) return false
-		const [_, x, y] = match
-		const cx = Number(x), cy = Number(y)
-		
-		// 根据动作计算目标位置
-		let tx = cx, ty = cy
-		switch (rule.action) {
-		case "上": ty = cy - 1; break
-		case "下": ty = cy + 1; break
-		case "左": tx = cx - 1; break
-		case "右": tx = cx + 1; break
-		}
-		
-		// 检查目标位置是否为空（或可通行）
-		return state.has(`cell_empty(${tx},${ty})`)
+	if (isMoveAction(rule.action)) {
+		const pos = getAgentPos(state)
+		if (!pos) return false
+
+		const target = applyDirection(pos, rule.action)
+		return state.has(`cell_empty(${target.x},${target.y})`)
 	}
 	
 	// 非移动类动作：严格检查所有前提
@@ -136,7 +92,7 @@ export function plan(
 	initialState: State,
 	goal: State,
 	rules: Rule[],
-	maxDepth: number = 100
+	maxDepth: number = PLANNER_MAX_DEPTH
 ): PlanResult {
 	// BFS 队列：每个元素是 [当前状态, 动作序列]
 	const queue: Array<[State, Plan]> = [[initialState, []]]

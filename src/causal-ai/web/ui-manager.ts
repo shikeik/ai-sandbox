@@ -130,6 +130,20 @@ export class UIManager {
 		}).join("")
 	}
 
+	// 清空指令输入框
+	clearCmdInput(): void {
+		const input = document.getElementById("cmdInput") as HTMLInputElement | null
+		if (input) input.value = ""
+	}
+
+	// 设置视野切换按钮文本
+	setViewButtonText(mode: "local" | "global"): void {
+		const btn = document.getElementById("viewToggleBtn")
+		if (btn) {
+			btn.textContent = mode === "local" ? "👁️ 视野: 局部" : "👁️ 视野: 全局"
+		}
+	}
+
 	// 显示地图选择器
 	showMapSelector(maps: { id: string; name: string }[], onSelect: (id: string) => void): void {
 		// 创建弹窗

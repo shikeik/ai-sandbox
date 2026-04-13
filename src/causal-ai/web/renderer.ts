@@ -5,7 +5,7 @@
 // Layer 2: 实体（玩家）
 // Layer 3: 道具（钥匙）
 
-import type { LocalView, Cell, GameObject, ActionType } from "./types"
+import type { LocalView, Cell, GameObject, Action } from "./types"
 
 // 渲染配置
 const RENDER_CONFIG = {
@@ -102,7 +102,7 @@ export class WorldRenderer {
 	render(
 		view: LocalView,
 		agentPos?: { x: number; y: number },
-		facing?: ActionType
+		facing?: Action
 	): void {
 		const { width, height } = view
 

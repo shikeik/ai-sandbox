@@ -4,7 +4,7 @@
 
 import { GameController } from "./game-controller"
 import { UIManager } from "./ui-manager"
-import type { ActionType } from "./types"
+import type { Action } from "./types"
 import { executeCommand, type CommandContext, loadMapData, setMapBasePath, listMaps } from "../core"
 
 // 游戏控制器（全局变量供其他函数使用）
@@ -157,7 +157,7 @@ async function init(): Promise<void> {
 	}
 
 	// 绑定基础动作按钮
-	const actionButtons: ActionType[] = ["上", "下", "左", "右", "互", "等"]
+	const actionButtons: Action[] = ["上", "下", "左", "右", "互", "等"]
 	actionButtons.forEach((action) => {
 		uiManager.bindActionButton(action, () => controller?.executeAction(action))
 	})
@@ -165,10 +165,8 @@ async function init(): Promise<void> {
 	// 绑定重置按钮
 	uiManager.bindButton("resetBtn", async () => {
 		controller?.reset()
-		const cmdInput = document.getElementById("cmdInput") as HTMLInputElement
-		if (cmdInput) cmdInput.value = ""
-		const viewBtn = document.getElementById("viewToggleBtn")
-		if (viewBtn) viewBtn.textContent = "👁️ 视野: 局部"
+		uiManager.clearCmdInput()
+		uiManager.setViewButtonText("local")
 		// 重新加载默认地图
 		const map = await loadMapData("default")
 		if (map && controller) {
@@ -186,14 +184,19 @@ async function init(): Promise<void> {
 	// 执行指令的辅助函数
 	async function execCmd(cmd: string): Promise<void> {
 		if (!controller) return
-		const world = controller.getWorld()
+		const ctrl = controller
+		const world = ctrl.getWorld()
 		if (!world) return
 
 		const ctx: CommandContext = {
 			world,
-			expDB: controller.expDB,
-			ruleDB: controller.ruleDB,
-			plannedActions: controller.plannedActions,
+			expDB: ctrl.expDB,
+			ruleDB: ctrl.ruleDB,
+			getPlanLength: () => ctrl.getPlanLength(),
+			getPlanSnapshot: () => ctrl.getPlanSnapshot(),
+			setPlan: (actions) => ctrl.setPlan(actions),
+			clearPlan: () => ctrl.clearPlan(),
+			shiftPlan: () => ctrl.shiftPlan(),
 			onSwitchMap: async (mapId) => {
 				await loadAndSwitchMap(mapId, controller!, uiManager)
 			},
@@ -211,8 +214,8 @@ async function init(): Promise<void> {
 			controller.setViewMode?.("global")
 		}
 
-		controller["render"]?.()
-		controller["updateUI"]?.()
+		controller.forceRender()
+		controller.forceUpdateUI()
 	}
 
 	// 绑定指令输入框
@@ -255,11 +258,10 @@ async function init(): Promise<void> {
 	// 绑定视野切换按钮
 	uiManager.bindButton("viewToggleBtn", () => {
 		const mode = controller?.toggleViewMode()
-		const btn = document.getElementById("viewToggleBtn")
-		if (btn) {
-			btn.textContent = mode === "local" ? "👁️ 视野: 局部" : "👁️ 视野: 全局"
+		if (mode) {
+			uiManager.setViewButtonText(mode)
+			uiManager.addLog(mode === "local" ? "👁️ 切换到局部视野" : "🗺️ 切换到全局视野")
 		}
-		uiManager.addLog(mode === "local" ? "👁️ 切换到局部视野" : "🗺️ 切换到全局视野")
 	})
 
 	// 绑定 Tab 切换

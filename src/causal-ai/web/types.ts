@@ -1,18 +1,15 @@
 // ========== 因果链 AI Web 版 - 类型定义 ==========
 // 基于 core 模块的谓词表示
 
-import type { State, Experience, Rule, Plan, PlanResult } from "../core"
+import type { State, Experience, Rule, Plan, PlanResult, Action } from "../core"
 
 // 重新导出 core 类型
 export type { State, Experience, Rule, Plan, PlanResult }
 
+// 复用 core 动作类型
+export type { Action } from "../core"
+
 // Web 版特有类型
-
-// 动作类型（与 CLI 统一）
-export type ActionType = "上" | "下" | "左" | "右" | "互" | "等"
-
-// 方向类型（用于渲染）
-export type Direction = "上" | "下" | "左" | "右"
 
 // 位置
 export interface Position {
@@ -61,7 +58,7 @@ export interface LocalView {
 // 玩家状态
 export interface AgentState {
 	pos: Position
-	facing: ActionType
+	facing: Action
 	inventory: string[]
 }
 
@@ -76,7 +73,7 @@ export interface ActionResult {
 // 经验显示（用于 UI）
 export interface ExperienceDisplay {
 	id: number
-	action: ActionType
+	action: Action
 	before: string
 	after: string
 }
@@ -84,7 +81,7 @@ export interface ExperienceDisplay {
 // 规则显示（用于 UI）
 export interface RuleDisplay {
 	id: number
-	action: ActionType
+	action: Action
 	description: string
 	preconditions: string
 	effects: string

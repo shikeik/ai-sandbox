@@ -6,7 +6,7 @@ import type { World } from "../world/world"
 import type { Action, ActionResult } from "../world/types"
 import type { ExperienceDB, RuleDB } from "./learner"
 import { extractRuleFromExperience } from "./learner"
-import { stateToPredicates } from "./state"
+
 import type { Experience } from "./types"
 
 // 执行上下文
@@ -42,26 +42,13 @@ export function executeWithLearning(
 	const { world, expDB, ruleDB } = ctx
 
 	// 1. 获取当前状态
-	const agent = world.getAgentState()
-	const view = world.getLocalView()
-	const beforeState = stateToPredicates(
-		agent.pos,
-		agent.facing,
-		agent.inventory.includes("钥匙"),
-		view
-	)
+	const beforeState = world.getCurrentState()
 
 	// 2. 执行动作
-	const { result, view: afterView } = world.execute(action)
+	const { result } = world.execute(action)
 
 	// 3. 获取新状态
-	const newAgent = world.getAgentState()
-	const afterState = stateToPredicates(
-		newAgent.pos,
-		newAgent.facing,
-		newAgent.inventory.includes("钥匙"),
-		afterView
-	)
+	const afterState = world.getCurrentState()
 
 	// 4. 如果动作成功，记录经验和规则
 	if (result.success) {
