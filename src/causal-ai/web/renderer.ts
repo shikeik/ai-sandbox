@@ -16,6 +16,7 @@ const RENDER_CONFIG = {
 		grid: "#2e3a48",
 		wall: "#4a5568",
 		floor: "#1a202c",
+		void: "#0f1419",      // 虚空（地图外）- 比背景稍深的纯灰
 		agent: "#4ea1d3",
 		key: "#f6ad55",
 		doorClosed: "#e53e3e",
@@ -205,6 +206,9 @@ export class WorldRenderer {
 		// 绘制地形背景
 		if (cell.tile.type === "wall") {
 			ctx.fillStyle = RENDER_CONFIG.colors.wall
+			ctx.fillRect(x, y, size, size)
+		} else if (cell.tile.type === "void") {
+			ctx.fillStyle = RENDER_CONFIG.colors.void
 			ctx.fillRect(x, y, size, size)
 		} else {
 			ctx.fillStyle = RENDER_CONFIG.colors.floor

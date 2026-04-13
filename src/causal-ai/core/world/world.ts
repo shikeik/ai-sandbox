@@ -269,7 +269,7 @@ export class World {
 			for (let dx = -range; dx <= range; dx++) {
 				const x = this.agentState.pos.x + dx
 				const y = this.agentState.pos.y + dy
-				const tile = this.inBounds(x, y) ? this.getTile(x, y) : TILE_MAP["＃"]!
+				const tile = this.inBounds(x, y) ? this.getTile(x, y) : TILE_MAP["／"]!
 				const objects = this.inBounds(x, y) ? this.getObjectsAt({ x, y }) : []
 				view.cells.set(`${dx},${dy}`, { tile, objects })
 			}
