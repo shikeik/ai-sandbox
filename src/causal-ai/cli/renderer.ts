@@ -38,6 +38,7 @@ function renderCell(tileType?: string, objects?: GameObject[]): string {
 	case "wall": return "＃"
 	case "floor": return "．"
 	case "water": return "～"
+	case "void": return "／"  // 虚空（地图外）
 	default: return "？"
 	}
 }

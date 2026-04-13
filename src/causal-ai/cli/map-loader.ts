@@ -3,7 +3,7 @@
 
 import * as fs from "node:fs"
 import * as path from "node:path"
-import type { MapData } from "./types"
+import type { MapData } from "../core"
 import { MAPS, getMapById } from "./maps"
 
 const GAME_DATA_DIR = "gamedatas/maps"

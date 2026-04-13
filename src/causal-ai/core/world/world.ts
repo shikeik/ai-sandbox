@@ -53,10 +53,21 @@ export class World {
 			}
 		}
 
-		// 加载对象
+		// 加载对象（深拷贝避免污染原始数据）
 		this.objects.clear()
 		for (const obj of this.mapData.objects) {
-			this.objects.set(obj.id, { ...obj })
+			// 深拷贝对象，包括 state
+			const objCopy: GameObject = {
+				id: obj.id,
+				type: obj.type,
+				pos: { ...obj.pos },
+				properties: obj.properties ? { ...obj.properties } : undefined
+			}
+			// 深拷贝 state
+			if (obj.state) {
+				objCopy.state = { ...obj.state }
+			}
+			this.objects.set(obj.id, objCopy)
 			if (obj.type === "agent") {
 				this.agentState.pos = { ...obj.pos }
 			}
@@ -166,7 +177,7 @@ export class World {
 			const rule = getRule(obj.type)
 			if (rule?.blocksMovement) {
 				if (typeof rule.blocksMovement === "function") {
-					if (rule.blocksMovement(obj.state)) {
+					if (rule.blocksMovement(obj.state || {})) {
 						return { success: false, msg: `被${obj.type}阻挡`, reward: -0.1 }
 					}
 				} else {
@@ -251,14 +262,14 @@ export class World {
 
 	// ========== 视野获取 ==========
 
-	getLocalView(range = 5): LocalView {
+	getLocalView(range = 2): LocalView {
 		const view: LocalView = { width: range * 2 + 1, height: range * 2 + 1, cells: new Map() }
 
 		for (let dy = -range; dy <= range; dy++) {
 			for (let dx = -range; dx <= range; dx++) {
 				const x = this.agentState.pos.x + dx
 				const y = this.agentState.pos.y + dy
-				const tile = this.inBounds(x, y) ? this.getTile(x, y) : TILE_MAP["＃"]!
+				const tile = this.inBounds(x, y) ? this.getTile(x, y) : TILE_MAP["／"]!
 				const objects = this.inBounds(x, y) ? this.getObjectsAt({ x, y }) : []
 				view.cells.set(`${dx},${dy}`, { tile, objects })
 			}
@@ -287,6 +298,26 @@ export class World {
 	}
 
 	// ========== 调试输出 ==========
+
+	// 获取全局视野（用于渲染）
+	getGlobalView(): LocalView {
+		const view: LocalView = {
+			width: this.mapData.width,
+			height: this.mapData.height,
+			cells: new Map()
+		}
+
+		for (let y = 0; y < this.mapData.height; y++) {
+			for (let x = 0; x < this.mapData.width; x++) {
+				const tile = this.getTile(x, y)
+				const objects = this.getObjectsAt({ x, y })
+				// 使用绝对坐标作为 key
+				view.cells.set(`${x},${y}`, { tile, objects })
+			}
+		}
+
+		return view
+	}
 
 	printGlobalMap(): void {
 		console.log("\n全局地图:")

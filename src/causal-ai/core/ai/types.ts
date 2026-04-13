@@ -1,6 +1,6 @@
 // ========== AI 类型定义 ==========
 
-import type { Action } from "../types"
+import type { Action } from "../world/types"
 
 // 谓词：描述世界状态的原子事实
 // 例如: "at(agent,1,1)", "cell_empty(2,1)", "holding(key)"

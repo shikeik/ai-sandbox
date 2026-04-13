@@ -19,6 +19,7 @@ export const TILE_MAP: Record<string, Tile> = {
 	"＃": { type: "wall", walkable: false },
 	"．": { type: "floor", walkable: true },
 	"～": { type: "water", walkable: false },
+	"／": { type: "void", walkable: false },  // 虚空（地图外）
 }
 
 export interface GameObject {

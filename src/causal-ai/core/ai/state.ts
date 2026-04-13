@@ -1,7 +1,8 @@
 // ========== 状态转换：世界 → 谓词集合 ==========
 
-import type { State, Predicate, LocalView } from "../types"
-import type { Position } from "../types"
+import type { State, Predicate } from "./types"
+import type { LocalView } from "../world/types"
+import type { Position } from "../world/types"
 
 /**
  * 将玩家状态和局部视野转换为谓词集合

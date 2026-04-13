@@ -30,6 +30,6 @@
 		}
 	},
 	"include": ["../src/**/*.ts"],
-	"exclude": ["../src/**/*.test.ts"],
+	"exclude": ["../src/**/*.test.ts", "../src/causal-ai/cli/**/*"],
 	"references": [{ "path": "./tsconfig.node.json" }]
 }
