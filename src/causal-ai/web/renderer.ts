@@ -127,7 +127,12 @@ export class WorldRenderer {
 		}
 
 		if (agentPos) {
-			this.updateCamera(agentPos.x, agentPos.y)
+			// 首次渲染直接设置相机位置（无动画），后续使用平滑过渡
+			if (!this.isInitialized) {
+				this.setCameraImmediate(agentPos.x, agentPos.y)
+			} else {
+				this.updateCamera(agentPos.x, agentPos.y)
+			}
 			this.updatePositionHud(agentPos.x, agentPos.y)
 		}
 	}
@@ -177,7 +182,6 @@ export class WorldRenderer {
 					width: ${this.worldWidth}px;
 					height: ${this.worldHeight}px;
 					transform: translate(0px, 0px);
-					transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 					will-change: transform;
 				">
 					<div class="ca-grid-layer" style="
@@ -413,6 +417,30 @@ export class WorldRenderer {
 		this.cameraX = heroPixelX - viewportWidth / 2 + cellSize / 2
 		this.cameraY = heroPixelY - viewportHeight / 2 + cellSize / 2
 
+		// 启用 transition 进行平滑移动
+		this.worldContentEl.style.transition = "transform 0.25s cubic-bezier(0.4, 0, 0.2, 1)"
+		this.worldContentEl.style.transform = `translate(${-this.cameraX}px, ${-this.cameraY}px)`
+	}
+
+	/**
+	 * 直接设置相机位置（无动画），用于初始化
+	 */
+	private setCameraImmediate(heroX: number, heroY: number): void {
+		if (!this.viewportEl || !this.worldContentEl) return
+
+		const { cellSize, gap } = RENDER_CONFIG
+		
+		const heroPixelX = heroX * (cellSize + gap)
+		const heroPixelY = heroY * (cellSize + gap)
+
+		const viewportWidth = this.viewportEl.clientWidth
+		const viewportHeight = this.viewportEl.clientHeight
+
+		this.cameraX = heroPixelX - viewportWidth / 2 + cellSize / 2
+		this.cameraY = heroPixelY - viewportHeight / 2 + cellSize / 2
+
+		// 禁用 transition，直接设置位置
+		this.worldContentEl.style.transition = "none"
 		this.worldContentEl.style.transform = `translate(${-this.cameraX}px, ${-this.cameraY}px)`
 	}
 
