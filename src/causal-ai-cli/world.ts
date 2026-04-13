@@ -251,7 +251,7 @@ export class World {
 
 	// ========== 视野获取 ==========
 
-	getLocalView(range = 2): LocalView {
+	getLocalView(range = 5): LocalView {
 		const view: LocalView = { width: range * 2 + 1, height: range * 2 + 1, cells: new Map() }
 
 		for (let dy = -range; dy <= range; dy++) {
