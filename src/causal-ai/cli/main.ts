@@ -3,7 +3,7 @@
 // 指定地图: npx tsx src/causal-ai/cli/main.ts --map simple
 
 import * as readline from "node:readline"
-import { MAPS, type MapData } from "./maps"
+import { BUILTIN_MAPS, type MapData } from "./maps"
 import { loadMap, listAllMaps } from "./map-loader"
 import { World } from "../core"
 import { renderView } from "./renderer"
@@ -35,7 +35,7 @@ function parseArgs(): { mapId?: string } {
 // 解析地图 ID（内置优先，其次 JSON 文件）
 function resolveMap(id: string): MapData | null {
 	// 先检查内置地图
-	const builtIn = MAPS.find(m => m.id === id)
+	const builtIn = BUILTIN_MAPS.find(m => m.id === id)
 	if (builtIn) return builtIn
 
 	// 尝试从 JSON 文件加载
@@ -71,7 +71,7 @@ function showMenu(): void {
 
 		if (input === "" || input === "default") {
 			rl.close()
-			startGame(MAPS[0]!)
+			startGame(BUILTIN_MAPS[0]!)
 			return
 		}
 

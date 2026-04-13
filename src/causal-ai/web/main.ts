@@ -4,65 +4,7 @@
 import { GameController } from "./game-controller"
 import { UIManager } from "./ui-manager"
 import type { MapData, ActionType } from "./types"
-import { executeCommand, type CommandContext } from "../core"
-import type { Action } from "../core"
-
-// 内置地图数据
-const BUILTIN_MAPS: MapData[] = [
-	{
-		id: "default",
-		name: "默认（钥匙-门）",
-		width: 6,
-		height: 4,
-		tiles: [
-			"＃＃＃＃＃＃",
-			"＃．．．．＃",
-			"＃．．＃．＃",
-			"＃＃＃＃＃＃"
-		],
-		objects: [
-			{ id: "p1", type: "agent", pos: { x: 1, y: 1 } },
-			{ id: "k1", type: "钥匙", pos: { x: 2, y: 2 } },
-			{ id: "d1", type: "门", pos: { x: 3, y: 1 }, state: { open: false } },
-			{ id: "g1", type: "终点", pos: { x: 4, y: 1 } }
-		]
-	},
-	{
-		id: "empty",
-		name: "空地测试",
-		width: 11,
-		height: 7,
-		tiles: [
-			"＃＃＃＃＃＃＃＃＃＃＃",
-			"＃．．．．．．．．．．．",
-			"＃．．．．．．．．．．．",
-			"＃．．．．．．．．．．．",
-			"＃．．．．．．．．．．．",
-			"＃．．．．．．．．．．．",
-			"＃＃＃＃＃＃＃＃＃＃＃"
-		],
-		objects: [
-			{ id: "p1", type: "agent", pos: { x: 5, y: 3 } },
-			{ id: "g1", type: "终点", pos: { x: 9, y: 3 } }
-		]
-	},
-	{
-		id: "obstacle",
-		name: "障碍测试",
-		width: 6,
-		height: 4,
-		tiles: [
-			"＃＃＃＃＃＃",
-			"＃．＃．．＃",
-			"＃．．．．＃",
-			"＃＃＃＃＃＃"
-		],
-		objects: [
-			{ id: "p1", type: "agent", pos: { x: 1, y: 1 } },
-			{ id: "g1", type: "终点", pos: { x: 4, y: 1 } }
-		]
-	}
-]
+import { executeCommand, type CommandContext, BUILTIN_MAPS } from "../core"
 
 // 是否已尝试进入全屏
 let hasAttemptedFullscreen = false
