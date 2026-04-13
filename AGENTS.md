@@ -52,6 +52,42 @@
 │   ├── test.mjs                    # 测试脚本包装器
 │   ├── fix_logs.sh                 # 日志修复脚本
 │   ├── test-brain-lab-api.sh       # Brain Lab API 测试脚本
+│   ├── causal-ai/                  # 因果链 AI
+│   │   ├── cli/                    # CLI 版本
+│   │   │   ├── main.ts             # CLI 入口
+│   │   │   ├── renderer.ts         # CLI 视野渲染
+│   │   │   └── maps.ts             # CLI 地图加载
+│   │   ├── core/                   # 核心共享逻辑
+│   │   │   ├── index.ts            # 核心导出入口
+│   │   │   ├── constants.ts        # 核心常量配置
+│   │   │   ├── utils/
+│   │   │   │   └── position.ts     # 位置/方向工具函数
+│   │   │   ├── ai/
+│   │   │   │   ├── types.ts        # AI 类型定义
+│   │   │   │   ├── learner.ts      # 经验库与规则提取
+│   │   │   │   ├── planner.ts      # BFS 规划器
+│   │   │   │   ├── state.ts        # 状态转谓词
+│   │   │   │   ├── executor.ts     # 执行+学习统一封装
+│   │   │   │   └── command-executor.ts # 统一指令执行器
+│   │   │   ├── world/
+│   │   │   │   ├── types.ts        # 世界类型定义
+│   │   │   │   ├── rules.ts        # 对象交互规则
+│   │   │   │   └── world.ts        # 游戏世界核心逻辑
+│   │   │   └── maps.ts             # 统一地图数据源
+│   │   └── web/                    # Web 版本
+│   │       ├── main.ts             # Web 入口
+│   │       ├── game-controller.ts  # 游戏控制器
+│   │       ├── ui-manager.ts       # UI 管理器
+│   │       ├── plan-reporter.ts    # 规划报告生成器
+│   │       ├── types.ts            # Web 类型定义
+│   │       └── renderer/           # 分层渲染架构
+│   │           ├── index.ts        # 渲染器协调入口
+│   │           ├── camera.ts       # 相机跟随系统
+│   │           ├── player.ts       # 玩家实体渲染
+│   │           ├── block-layer.ts  # 方块层渲染
+│   │           ├── item-layer.ts   # 道具层渲染
+│   │           ├── styles.ts       # 全局样式注入
+│   │           └── object-layers.ts # 对象层级映射
 │   └── api-bridge/                 # API 桥接相关脚本
 │       ├── formatter.mjs           # 响应格式化工具
 │       └── rules.json              # 游戏规则定义
@@ -160,11 +196,53 @@
 │   │       ├── element.ts          # 元素类型
 │   │       ├── position.ts         # 位置类型
 │   │       └── api.ts              # API 类型
+│   ├── causal-ai/                  # 因果链 AI
+│   │   ├── cli/                    # CLI 版本
+│   │   │   ├── main.ts             # CLI 入口
+│   │   │   ├── renderer.ts         # CLI 视野渲染
+│   │   │   └── maps.ts             # CLI 地图加载
+│   │   ├── core/                   # 核心共享逻辑
+│   │   │   ├── index.ts            # 核心导出入口
+│   │   │   ├── constants.ts        # 核心常量配置
+│   │   │   ├── utils/
+│   │   │   │   └── position.ts     # 位置/方向工具函数
+│   │   │   ├── ai/
+│   │   │   │   ├── types.ts        # AI 类型定义
+│   │   │   │   ├── learner.ts      # 经验库与规则提取
+│   │   │   │   ├── planner.ts      # BFS 规划器
+│   │   │   │   ├── state.ts        # 状态转谓词
+│   │   │   │   ├── executor.ts     # 执行+学习统一封装
+│   │   │   │   └── command-executor.ts # 统一指令执行器
+│   │   │   ├── world/
+│   │   │   │   ├── types.ts        # 世界类型定义
+│   │   │   │   ├── rules.ts        # 对象交互规则
+│   │   │   │   └── world.ts        # 游戏世界核心逻辑
+│   │   │   └── maps.ts             # 统一地图数据源
+│   │   └── web/                    # Web 版本
+│   │       ├── main.ts             # Web 入口
+│   │       ├── game-controller.ts  # 游戏控制器
+│   │       ├── ui-manager.ts       # UI 管理器
+│   │       ├── plan-reporter.ts    # 规划报告生成器
+│   │       ├── types.ts            # Web 类型定义
+│   │       └── renderer/           # 分层渲染架构
+│   │           ├── index.ts        # 渲染器协调入口
+│   │           ├── camera.ts       # 相机跟随系统
+│   │           ├── player.ts       # 玩家实体渲染
+│   │           ├── block-layer.ts  # 方块层渲染
+│   │           ├── item-layer.ts   # 道具层渲染
+│   │           ├── styles.ts       # 全局样式注入
+│   │           └── object-layers.ts # 对象层级映射
 │   └── api-bridge/                 # API 桥接
 │       └── main.ts                 # API 桥接入口
 ├── test/                           # 测试目录
 │   ├── unit/                       # 单元测试
-│   │   └── map-generator.test.ts   # 地图生成器测试
+│   │   ├── map-generator.test.ts   # 地图生成器测试
+│   │   └── causal-ai/              # causal-ai 单元测试
+│   │       ├── position-utils.test.ts
+│   │       ├── world.test.ts
+│   │       ├── planner.test.ts
+│   │       ├── learner.test.ts
+│   │       └── command-executor.test.ts
 │   ├── slow/                       # 慢速测试（训练收敛性测试）
 │   │   └── terrain-lab/
 │   │       ├── clip.test.ts        # 权重裁剪影响测试
@@ -288,6 +366,7 @@ npm run test:dir <目录名>          # 跑指定目录下的单元测试
 - `[TRAINING]` — 训练入口
 - `[CHALLENGE]` — 挑战模式
 - `[MAP-GEN]` — 地图生成器
+- `[CAUSAL-AI]` / `[CORE]` / `[RENDER]` — 因果链 AI 相关
 - `[BRAIN-LAB]` / `[BRAIN]` / `[STEP]` / `[ACTION]` — Brain Lab 相关
 
 ---
