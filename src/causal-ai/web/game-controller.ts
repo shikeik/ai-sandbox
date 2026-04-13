@@ -117,14 +117,22 @@ export class GameController {
 		return result.success
 	}
 
-	// 重置游戏
+	// 重置游戏（完全重置关卡状态）
 	reset(): void {
 		if (this.currentMap) {
+			// 重置世界状态
 			this.world = new World(this.currentMap)
+			// 清空计划
 			this.plannedActions = []
+			// 清空日志
+			this.uiManager.clearLog()
+			this.uiManager.clearPlanLog()
+			// 重置视野模式为局部
+			this.renderer.setViewMode("local")
+			// 重新渲染
 			this.render()
 			this.updateUI()
-			this.uiManager.addLog("🔄 重置")
+			this.uiManager.addLog("🔄 已重置关卡")
 		}
 	}
 
@@ -258,22 +266,11 @@ export class GameController {
 		this.uiManager.renderRuleList(this.ruleDB.getAll())
 	}
 
-	// 解析目标
+	// 解析目标（谓词格式）
 	private parseGoal(input: string): State | null {
 		const predicates = new Set<string>()
 
-		// 解析 "x,y" 格式
-		const match = input.match(/(\d+)\s*,\s*(\d+)/)
-		if (match) {
-			// 转换为相对坐标需要知道当前位置
-			// 这里简化处理，假设输入的是相对坐标
-			const x = Number(match[1])
-			const y = Number(match[2])
-			predicates.add(`at(agent,${x},${y})`)
-			return predicates
-		}
-
-		// 直接解析谓词
+		// 直接解析谓词，如 "at(agent,3,0)"
 		if (input.includes("(")) {
 			predicates.add(input.trim())
 			return predicates

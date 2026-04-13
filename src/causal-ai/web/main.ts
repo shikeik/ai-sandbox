@@ -168,7 +168,7 @@ function init(): void {
 	// 绑定规划按钮
 	uiManager.bindButton("planBtn", () => {
 		const input = document.getElementById("goalInput") as HTMLInputElement
-		const goal = input?.value.trim() || "3,0"
+		const goal = input?.value.trim() || "at(agent,3,0)"
 		controller.planTo(goal)
 	})
 

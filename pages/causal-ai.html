@@ -466,7 +466,7 @@
 			<div class="tab-pane" id="tab-plan">
 				<h3>🔮 规划到目标</h3>
 				<div class="input-group">
-					<input type="text" id="goalInput" placeholder="输入目标，如: 3,0 或 at(agent,3,0)" value="3,0">
+					<input type="text" id="goalInput" placeholder="输入目标谓词，如: at(agent,3,0)" value="at(agent,3,0)">
 					<button class="btn special" id="planBtn">🔮 规划</button>
 				</div>
 				<div class="btn-group">
@@ -475,9 +475,9 @@
 				<div class="plan-log" id="planLogContainer">
 📝 输入目标位置，点击「规划」生成行动计划
 
-支持格式：
-- "3,0" → 到达相对坐标 (3,0)
-- "at(agent,3,0)" → 直接谓词格式
+输入目标谓词，如：
+- at(agent,3,0) → 到达相对坐标 (3,0)
+- holding(钥匙) → 持有钥匙
 				</div>
 			</div>
 		</div>
