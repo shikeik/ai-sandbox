@@ -288,6 +288,26 @@ export class World {
 
 	// ========== 调试输出 ==========
 
+	// 获取全局视野（用于渲染）
+	getGlobalView(): LocalView {
+		const view: LocalView = {
+			width: this.mapData.width,
+			height: this.mapData.height,
+			cells: new Map()
+		}
+
+		for (let y = 0; y < this.mapData.height; y++) {
+			for (let x = 0; x < this.mapData.width; x++) {
+				const tile = this.getTile(x, y)
+				const objects = this.getObjectsAt({ x, y })
+				// 使用绝对坐标作为 key
+				view.cells.set(`${x},${y}`, { tile, objects })
+			}
+		}
+
+		return view
+	}
+
 	printGlobalMap(): void {
 		console.log("\n全局地图:")
 		console.log("  " + Array.from({ length: this.mapData.width }, (_, i) => i).join(" "))

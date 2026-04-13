@@ -187,6 +187,16 @@ function init(): void {
 		)
 	})
 
+	// 绑定视野切换按钮
+	uiManager.bindButton("viewToggleBtn", () => {
+		const mode = controller.toggleViewMode()
+		const btn = document.getElementById("viewToggleBtn")
+		if (btn) {
+			btn.textContent = mode === "local" ? "👁️ 视野: 局部" : "👁️ 视野: 全局"
+		}
+		uiManager.addLog(mode === "local" ? "👁️ 切换到局部视野" : "🗺️ 切换到全局视野")
+	})
+
 	// 初始化标签切换
 	initTabs()
 

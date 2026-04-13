@@ -212,9 +212,27 @@ export class GameController {
 	// 渲染
 	private render(): void {
 		if (this.world) {
-			const view = this.world.getLocalView()
-			this.renderer.render(view)
+			const agent = this.world.getAgentState()
+			if (this.renderer.getViewMode() === "local") {
+				const view = this.world.getLocalView()
+				this.renderer.render(view)
+			} else {
+				const view = this.world.getGlobalView()
+				this.renderer.render(view, agent.pos)
+			}
 		}
+	}
+
+	// 切换视野模式
+	toggleViewMode(): "local" | "global" {
+		const mode = this.renderer.toggleViewMode()
+		this.render()
+		return mode
+	}
+
+	// 获取当前视野模式
+	getViewMode(): "local" | "global" {
+		return this.renderer.getViewMode()
 	}
 
 	// 更新 UI
