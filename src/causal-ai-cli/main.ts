@@ -13,6 +13,10 @@ import { ExperienceDB, RuleDB, extractRuleFromExperience } from "./ai/learner"
 import { plan, parseGoal } from "./ai/planner"
 import type { State } from "./ai/types"
 
+// 全局 AI 知识库（跨游戏共享）
+const globalExpDB = new ExperienceDB()
+const globalRuleDB = new RuleDB()
+
 // 解析命令行参数
 function parseArgs(): { mapId?: string } {
 	const args = process.argv.slice(2)
@@ -49,11 +53,14 @@ function startGame(mapData: MapData, onExit?: () => void): void {
 	let switching = false
 	let closed = false
 
-	// AI 相关
-	const expDB = new ExperienceDB()
-	const ruleDB = new RuleDB()
+	// AI 相关（使用全局知识库）
+	const expDB = globalExpDB
+	const ruleDB = globalRuleDB
 	let lastState: State | null = null
 	let plannedActions: Action[] = []
+	
+	// 显示当前知识库状态
+	console.log(`\n[知识库] 经验: ${expDB.getAll().length} 条, 规则: ${ruleDB.getAll().length} 条`)
 
 	const rl = readline.createInterface({
 		input: process.stdin,
