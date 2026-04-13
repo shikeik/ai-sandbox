@@ -39,13 +39,12 @@ const DIRECTION_ARROWS: Record<string, string> = {
 
 // ========== 层级定义 ==========
 enum RenderLayer {
-	VOID = 0,      // 虚空/背景
-	BLOCK = 10,    // 方块：地面、墙、门
-	ENTITY = 20,   // 实体：玩家
-	ITEM = 30,     // 道具：钥匙
+	VOID = 0,
+	BLOCK = 10,
+	ENTITY = 20,
+	ITEM = 30,
 }
 
-// 对象类型到层级的映射
 const OBJECT_LAYER_MAP: Record<string, RenderLayer> = {
 	"墙": RenderLayer.BLOCK,
 	"门": RenderLayer.BLOCK,
@@ -69,19 +68,10 @@ export class WorldRenderer {
 	private gridWidth: number = 0
 	private gridHeight: number = 0
 
-	private cameraX: number = 0
-	private cameraY: number = 0
-
 	private currentAgentPos: { x: number; y: number } = { x: 0, y: 0 }
-	private targetAgentPos: { x: number; y: number } | null = null
 	private currentFacing: string = "右"
-	
-	// 实时相机跟随用的动画帧 ID
-	private cameraRafId: number | null = null
 
-	// 动态元素缓存（方块层之上的对象）
 	private dynamicElements: Map<string, HTMLElement> = new Map()
-
 	private isInitialized: boolean = false
 
 	constructor(containerId: string) {
@@ -129,21 +119,21 @@ export class WorldRenderer {
 			this.createWorldStructure(width, height)
 			this.renderAllLayers(view)
 			this.isInitialized = true
+			if (agentPos) {
+				this.setPlayerImmediate(agentPos.x, agentPos.y)
+				this.syncCameraToPlayer()
+			}
 		} else {
 			this.updateDynamicLayers(view)
+			if (agentPos) {
+				this.movePlayerTo(agentPos.x, agentPos.y)
+			}
 		}
 
 		if (agentPos) {
-			if (!this.isInitialized) {
-				// 初始化时直接设置玩家位置（无动画）和相机
-				this.setPlayerImmediate(agentPos.x, agentPos.y)
-				this.setCameraImmediate(agentPos.x, agentPos.y)
-			}
 			this.updatePositionHud(agentPos.x, agentPos.y)
 		}
 	}
-
-	// ========== 世界结构创建 ==========
 
 	private createWorldStructure(width: number, height: number): void {
 		this.gridWidth = width
@@ -186,11 +176,8 @@ export class WorldRenderer {
 					position: absolute;
 					width: ${this.worldWidth}px;
 					height: ${this.worldHeight}px;
-					transform: translate(0px, 0px);
 					will-change: transform;
 				">
-					<!-- Layer 0: 虚空/背景（由方块层透明处显示） -->
-					<!-- Layer 1: 方块层 -->
 					<div class="ca-layer-blocks" style="
 						width: 100%;
 						height: 100%;
@@ -199,7 +186,6 @@ export class WorldRenderer {
 						left: 0;
 						z-index: ${RenderLayer.BLOCK};
 					"></div>
-					<!-- Layer 2: 实体层 -->
 					<div class="ca-layer-entities" style="
 						width: 100%;
 						height: 100%;
@@ -209,7 +195,6 @@ export class WorldRenderer {
 						z-index: ${RenderLayer.ENTITY};
 						pointer-events: none;
 					"></div>
-					<!-- Layer 3: 道具层 -->
 					<div class="ca-layer-items" style="
 						width: 100%;
 						height: 100%;
@@ -228,8 +213,6 @@ export class WorldRenderer {
 		this.positionHud = this.container.querySelector(".ca-position-hud") as HTMLElement
 	}
 
-	// ========== 分层渲染 ==========
-
 	private renderAllLayers(view: LocalView): void {
 		const blocksLayer = this.worldContentEl?.querySelector(".ca-layer-blocks")
 		const entitiesLayer = this.worldContentEl?.querySelector(".ca-layer-entities")
@@ -244,10 +227,8 @@ export class WorldRenderer {
 			const left = x * (cellSize + gap)
 			const top = y * (cellSize + gap)
 
-			// 渲染方块层（地形 + 门等方块对象）
 			this.renderBlockCell(blocksLayer as HTMLElement, cell, x, y, left, top)
 
-			// 收集该格子的动态对象
 			const dynamicObjects = cell.objects.filter(o => o.type !== "agent" && OBJECT_LAYER_MAP[o.type] > RenderLayer.BLOCK)
 			
 			for (const obj of dynamicObjects) {
@@ -257,76 +238,51 @@ export class WorldRenderer {
 			}
 		}
 
-		// 创建玩家实体
 		this.createPlayerEntity(entitiesLayer as HTMLElement)
 	}
 
 	private updateDynamicLayers(view: LocalView): void {
-		const entitiesLayer = this.worldContentEl?.querySelector(".ca-layer-entities")
+		const blocksLayer = this.worldContentEl?.querySelector(".ca-layer-blocks")
 		const itemsLayer = this.worldContentEl?.querySelector(".ca-layer-items")
 		
-		if (!entitiesLayer || !itemsLayer) return
+		if (!blocksLayer || !itemsLayer) return
 
 		const { cellSize, gap } = RENDER_CONFIG
-		
-		// 收集当前应该存在的动态对象
 		const currentDynamicKeys = new Set<string>()
 
 		for (const [key, cell] of view.cells) {
 			const [x, y] = key.split(",").map(Number)
-			const left = x * (cellSize + gap)
-			const top = y * (cellSize + gap)
-
-			// 更新方块层（处理门状态变化等）
+			
 			this.updateBlockCell(key, cell)
 
-			// 处理动态对象
 			const dynamicObjects = cell.objects.filter(o => o.type !== "agent" && OBJECT_LAYER_MAP[o.type] > RenderLayer.BLOCK)
 			
 			for (const obj of dynamicObjects) {
 				const objKey = `${obj.type}:${x},${y}`
 				currentDynamicKeys.add(objKey)
 
-				const layer = OBJECT_LAYER_MAP[obj.type]
-				const container = layer === RenderLayer.ENTITY ? entitiesLayer : itemsLayer
-				
-				// 检查是否已存在
 				let el = this.dynamicElements.get(objKey)
 				if (!el) {
-					el = this.renderDynamicObject(container as HTMLElement, obj, x, y, left, top)
+					const left = x * (cellSize + gap)
+					const top = y * (cellSize + gap)
+					el = this.renderDynamicObject(itemsLayer as HTMLElement, obj, x, y, left, top)
 				}
 			}
 		}
 
-		// 处理不再存在的动态对象（播放消失动画）
 		for (const [key, el] of this.dynamicElements) {
 			if (!currentDynamicKeys.has(key)) {
-				// 播放 pop-out 动画后移除
-				el.style.animation = "ca-pop-out 0.3s ease-in forwards"
-				setTimeout(() => {
-					el.remove()
-				}, 300)
+				el.style.animation = "ca-pop-out 0.2s ease-in forwards"
+				setTimeout(() => el.remove(), 200)
 				this.dynamicElements.delete(key)
 			}
 		}
-
-		// 更新玩家位置
-		this.updatePlayerPosition()
 	}
-
-	// ========== 方块层渲染 ==========
 
 	private blockCellElements: Map<string, HTMLElement> = new Map()
 	private blockCellCache: Map<string, { tileType: string; doorOpen?: boolean }> = new Map()
 
-	private renderBlockCell(
-		container: HTMLElement,
-		cell: Cell | undefined,
-		x: number,
-		y: number,
-		left: number,
-		top: number
-	): void {
+	private renderBlockCell(container: HTMLElement, cell: Cell | undefined, x: number, y: number, left: number, top: number): void {
 		const { cellSize } = RENDER_CONFIG
 		const key = `${x},${y}`
 
@@ -352,7 +308,6 @@ export class WorldRenderer {
 		container.appendChild(el)
 		this.blockCellElements.set(key, el)
 
-		// 初始化缓存
 		const doorObj = cell?.objects.find(o => o.type === "门")
 		this.blockCellCache.set(key, {
 			tileType: cell?.tile.type || "void",
@@ -368,34 +323,27 @@ export class WorldRenderer {
 		const doorObj = cell?.objects.find(o => o.type === "门")
 		const currentDoorOpen = doorObj?.state?.open as boolean | undefined
 
-		// 检测门状态变化
 		const doorStateChanged = cached && cached.doorOpen !== currentDoorOpen && currentDoorOpen !== undefined
 		const isOpening = doorStateChanged && currentDoorOpen === true
 
 		const [x, y] = key.split(",").map(Number)
 
-		// 门状态变化时：锁先 pop-out，然后渲染门并 pop-in
 		if (isOpening) {
-			// 锁 pop-out 动画
-			el.style.animation = "ca-pop-out 0.2s ease-in forwards"
+			el.style.animation = "ca-pop-out 0.15s ease-in forwards"
 			
 			setTimeout(() => {
-				// 更新为门
 				this.applyBlockStyle(el, cell, x, y)
 				this.renderBlockContent(el, cell)
-				// 门 pop-in 动画
-				el.style.animation = "ca-pop-in 0.3s ease-out"
+				el.style.animation = "ca-pop-in 0.25s ease-out"
 				setTimeout(() => {
 					el.style.animation = ""
-				}, 300)
-			}, 200)
+				}, 250)
+			}, 150)
 		} else {
-			// 普通更新（无动画）
 			this.applyBlockStyle(el, cell, x, y)
 			this.renderBlockContent(el, cell)
 		}
 
-		// 更新缓存
 		this.blockCellCache.set(key, {
 			tileType: cell?.tile.type || "void",
 			doorOpen: currentDoorOpen
@@ -422,7 +370,6 @@ export class WorldRenderer {
 
 		if (!cell || cell.objects.length === 0) return
 
-		// 只渲染方块层的对象
 		const blockObjects = cell.objects.filter(o => {
 			const layer = OBJECT_LAYER_MAP[o.type]
 			return layer === RenderLayer.BLOCK
@@ -470,16 +417,7 @@ export class WorldRenderer {
 		}
 	}
 
-	// ========== 动态对象渲染 ==========
-
-	private renderDynamicObject(
-		container: HTMLElement,
-		obj: GameObject,
-		x: number,
-		y: number,
-		left: number,
-		top: number
-	): HTMLElement {
+	private renderDynamicObject(container: HTMLElement, obj: GameObject, x: number, y: number, left: number, top: number): HTMLElement {
 		const { cellSize } = RENDER_CONFIG
 		const key = `${obj.type}:${x},${y}`
 
@@ -532,7 +470,6 @@ export class WorldRenderer {
 			justify-content: center;
 			font-size: 22px;
 			z-index: 1;
-			transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 			filter: drop-shadow(0 2px 6px rgba(78, 161, 211, 0.5));
 			pointer-events: none;
 		`
@@ -542,7 +479,6 @@ export class WorldRenderer {
 		robotIcon.style.cssText = `
 			display: block;
 			transform-origin: center;
-			transition: transform 0.2s ease;
 		`
 		this.playerElement.appendChild(robotIcon)
 
@@ -567,86 +503,94 @@ export class WorldRenderer {
 		this.playerElement.appendChild(this.playerDirectionEl)
 
 		container.appendChild(this.playerElement)
-		this.updatePlayerPosition()
 	}
 
-	private updatePlayerPosition(): void {
+	/** 直接设置玩家位置（无动画） */
+	private setPlayerImmediate(x: number, y: number): void {
 		if (!this.playerElement) return
 
 		const { cellSize, gap } = RENDER_CONFIG
-		const { x, y } = this.currentAgentPos
 		const left = x * (cellSize + gap)
 		const top = y * (cellSize + gap)
 
-		// 记录目标位置
-		this.targetAgentPos = { x, y }
+		this.playerElement.style.transition = "none"
+		this.playerElement.style.left = `${left}px`
+		this.playerElement.style.top = `${top}px`
+	}
 
-		// 使用 CSS transition 平滑移动
+	private cameraRafId: number | null = null
+
+	/** 移动玩家到目标位置（带动画），并启动相机跟踪 */
+	private movePlayerTo(x: number, y: number): void {
+		if (!this.playerElement) return
+
+		const { cellSize, gap } = RENDER_CONFIG
+		const left = x * (cellSize + gap)
+		const top = y * (cellSize + gap)
+
 		this.playerElement.style.transition = "all 0.25s cubic-bezier(0.4, 0, 0.2, 1)"
 		this.playerElement.style.left = `${left}px`
 		this.playerElement.style.top = `${top}px`
 
-		// 启动实时相机跟随（如果还没启动）
-		if (!this.cameraRafId) {
-			this.startCameraTracking()
-		}
+		// 启动相机实时跟踪
+		this.startCameraTracking()
 	}
 
-	/**
-	 * 启动实时相机跟踪 - 每帧读取玩家实际渲染位置
-	 */
+	/** 启动相机实时跟踪（RAF 读取玩家渲染位置） */
 	private startCameraTracking(): void {
+		if (this.cameraRafId) return
+
 		const track = () => {
 			if (!this.playerElement || !this.viewportEl || !this.worldContentEl) {
 				this.cameraRafId = null
 				return
 			}
 
-			// 读取玩家实际渲染位置（包含 CSS transition 中的插值）
 			const playerRect = this.playerElement.getBoundingClientRect()
 			const viewportRect = this.viewportEl.getBoundingClientRect()
 
-			// 计算玩家相对于视口的位置
 			const playerCenterX = playerRect.left - viewportRect.left + playerRect.width / 2
 			const playerCenterY = playerRect.top - viewportRect.top + playerRect.height / 2
 
-			// 视口中心
 			const viewportWidth = this.viewportEl.clientWidth
 			const viewportHeight = this.viewportEl.clientHeight
 
-			// 目标：玩家应该在视口中心
-			// cameraOffset = viewportCenter - playerPosition
-			const targetX = viewportWidth / 2 - playerCenterX
-			const targetY = viewportHeight / 2 - playerCenterY
+			const offsetX = viewportWidth / 2 - playerCenterX
+			const offsetY = viewportHeight / 2 - playerCenterY
 
-			// 直接应用，无过渡
-			this.worldContentEl.style.transform = `translate(${targetX}px, ${targetY}px)`
+			this.worldContentEl.style.transform = `translate(${offsetX}px, ${offsetY}px)`
 
-			// 检查玩家是否到达目标位置，如果是则停止 RAF
-			if (this.targetAgentPos && 
-				this.currentAgentPos.x === this.targetAgentPos.x && 
-				this.currentAgentPos.y === this.targetAgentPos.y) {
-				// 检查 CSS transition 是否完成
-				const { cellSize, gap } = RENDER_CONFIG
-				const expectedLeft = this.currentAgentPos.x * (cellSize + gap)
-				const expectedTop = this.currentAgentPos.y * (cellSize + gap)
-				
-				// 获取当前实际位置（相对于 world-content）
-				const currentLeft = parseFloat(this.playerElement.style.left || "0")
-				const currentTop = parseFloat(this.playerElement.style.top || "0")
-				
-				// 如果位置几乎相同，停止跟踪
-				if (Math.abs(currentLeft - expectedLeft) < 0.5 && Math.abs(currentTop - expectedTop) < 0.5) {
-					this.cameraRafId = null
-					return
-				}
-			}
-
-			// 继续下一帧
 			this.cameraRafId = requestAnimationFrame(track)
 		}
 
 		this.cameraRafId = requestAnimationFrame(track)
+	}
+
+	/** 根据玩家实际渲染位置同步相机（用于初始化） */
+	private syncCameraToPlayer(): void {
+		if (!this.playerElement || !this.viewportEl || !this.worldContentEl) return
+
+		// 取消任何正在运行的 RAF
+		if (this.cameraRafId) {
+			cancelAnimationFrame(this.cameraRafId)
+			this.cameraRafId = null
+		}
+
+		void this.playerElement.offsetHeight
+
+		const playerRect = this.playerElement.getBoundingClientRect()
+		const viewportRect = this.viewportEl.getBoundingClientRect()
+
+		const playerCenterX = playerRect.left - viewportRect.left + playerRect.width / 2
+		const playerCenterY = playerRect.top - viewportRect.top + playerRect.height / 2
+
+		const viewportWidth = this.viewportEl.clientWidth
+		const viewportHeight = this.viewportEl.clientHeight
+
+		const offsetX = viewportWidth / 2 - playerCenterX
+		const offsetY = viewportHeight / 2 - playerCenterY
+
+		this.worldContentEl.style.transform = `translate(${offsetX}px, ${offsetY}px)`
 	}
 
 	private updatePlayerDirection(): void {
@@ -655,69 +599,11 @@ export class WorldRenderer {
 		}
 	}
 
-	/**
-	 * 直接设置玩家位置（无动画），用于初始化
-	 */
-	private setPlayerImmediate(x: number, y: number): void {
-		if (!this.playerElement) return
-
-		const { cellSize, gap } = RENDER_CONFIG
-		const left = x * (cellSize + gap)
-		const top = y * (cellSize + gap)
-
-		// 停止相机跟踪
-		this.stopCameraTracking()
-
-		// 禁用 transition，直接设置
-		this.playerElement.style.transition = "none"
-		this.playerElement.style.left = `${left}px`
-		this.playerElement.style.top = `${top}px`
-
-		// 清除目标
-		this.targetAgentPos = null
-	}
-
-	/**
-	 * 停止相机跟踪
-	 */
-	private stopCameraTracking(): void {
-		if (this.cameraRafId) {
-			cancelAnimationFrame(this.cameraRafId)
-			this.cameraRafId = null
-		}
-	}
-
-	// ========== 相机系统 ==========
-
-
-
-	private setCameraImmediate(heroX: number, heroY: number): void {
-		if (!this.viewportEl || !this.worldContentEl) return
-
-		// 停止实时跟踪
-		this.stopCameraTracking()
-
-		const { cellSize, gap } = RENDER_CONFIG
-		
-		const heroPixelX = heroX * (cellSize + gap)
-		const heroPixelY = heroY * (cellSize + gap)
-
-		const viewportWidth = this.viewportEl.clientWidth
-		const viewportHeight = this.viewportEl.clientHeight
-
-		this.cameraX = heroPixelX - viewportWidth / 2 + cellSize / 2
-		this.cameraY = heroPixelY - viewportHeight / 2 + cellSize / 2
-
-		this.worldContentEl.style.transform = `translate(${-this.cameraX}px, ${-this.cameraY}px)`
-	}
-
 	private updatePositionHud(x: number, y: number): void {
 		if (this.positionHud) {
 			this.positionHud.textContent = `(${x}, ${y})`
 		}
 	}
-
-	// ========== 样式方法 ==========
 
 	private applyWallStyle(el: HTMLElement): void {
 		const { colors } = RENDER_CONFIG
@@ -752,7 +638,6 @@ export class WorldRenderer {
 	}
 }
 
-// CSS 动画
 const style = document.createElement("style")
 style.textContent = `
 	@keyframes ca-pop-in {
