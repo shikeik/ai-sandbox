@@ -114,6 +114,7 @@ export class WorldRenderer {
 
 		if (facing && facing !== this.currentFacing) {
 			this.currentFacing = facing
+			this.updatePlayerDirection()
 		}
 
 		if (agentPos) {
@@ -365,17 +366,29 @@ export class WorldRenderer {
 
 		// 检测门状态变化
 		const doorStateChanged = cached && cached.doorOpen !== currentDoorOpen && currentDoorOpen !== undefined
+		const isOpening = doorStateChanged && currentDoorOpen === true
 
 		const [x, y] = key.split(",").map(Number)
-		this.applyBlockStyle(el, cell, x, y)
-		this.renderBlockContent(el, cell)
 
-		// 门状态变化时播放 pop 动画
-		if (doorStateChanged) {
-			el.style.animation = "ca-pop-in 0.3s ease-out"
+		// 门状态变化时：锁先 pop-out，然后渲染门并 pop-in
+		if (isOpening) {
+			// 锁 pop-out 动画
+			el.style.animation = "ca-pop-out 0.2s ease-in forwards"
+			
 			setTimeout(() => {
-				el.style.animation = ""
-			}, 300)
+				// 更新为门
+				this.applyBlockStyle(el, cell, x, y)
+				this.renderBlockContent(el, cell)
+				// 门 pop-in 动画
+				el.style.animation = "ca-pop-in 0.3s ease-out"
+				setTimeout(() => {
+					el.style.animation = ""
+				}, 300)
+			}, 200)
+		} else {
+			// 普通更新（无动画）
+			this.applyBlockStyle(el, cell, x, y)
+			this.renderBlockContent(el, cell)
 		}
 
 		// 更新缓存
@@ -563,6 +576,12 @@ export class WorldRenderer {
 
 		this.playerElement.style.left = `${left}px`
 		this.playerElement.style.top = `${top}px`
+	}
+
+	private updatePlayerDirection(): void {
+		if (this.playerDirectionEl && this.currentFacing in DIRECTION_ARROWS) {
+			this.playerDirectionEl.textContent = DIRECTION_ARROWS[this.currentFacing]
+		}
 	}
 
 	// ========== 相机系统 ==========

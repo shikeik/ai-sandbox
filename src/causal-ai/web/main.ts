@@ -213,9 +213,36 @@ async function init(): Promise<void> {
 		uiManager.addLog(mode === "local" ? "👁️ 切换到局部视野" : "🗺️ 切换到全局视野")
 	})
 
+	// 绑定 Tab 切换
+	initTabSwitching()
+
 	// 初始日志
 	uiManager.addLog("👋 因果链 AI Web 版已启动")
 	uiManager.addLog("💡 提示：地图通过 JSON 动态加载")
+}
+
+// 初始化 Tab 切换
+function initTabSwitching(): void {
+	const tabs = document.querySelectorAll(".tab")
+	const panes = document.querySelectorAll(".tab-pane")
+
+	tabs.forEach(tab => {
+		tab.addEventListener("click", () => {
+			const targetTab = tab.getAttribute("data-tab")
+
+			// 切换 tab 按钮状态
+			tabs.forEach(t => t.classList.remove("active"))
+			tab.classList.add("active")
+
+			// 切换 pane 显示
+			panes.forEach(pane => {
+				pane.classList.remove("active")
+				if (pane.id === `tab-${targetTab}`) {
+					pane.classList.add("active")
+				}
+			})
+		})
+	})
 }
 
 // DOM 加载完成后初始化
