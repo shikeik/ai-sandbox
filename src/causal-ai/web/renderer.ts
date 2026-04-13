@@ -5,9 +5,12 @@ import type { LocalView, Cell, GameObject, ActionType } from "./types"
 
 // 渲染配置
 const RENDER_CONFIG = {
-	cellSize: 36,
+	cellSize: 36,        // 局部视野固定大小
 	gap: 3,
 	borderRadius: 6,
+	minCellSize: 20,     // 全局视野最小格子
+	maxCellSize: 36,     // 全局视野最大格子
+	containerSize: 320,  // 容器大小
 	colors: {
 		background: "#0a0a14",
 		wall: "#3d4856",
@@ -63,12 +66,27 @@ export class WorldRenderer {
 	// 上一次玩家位置（用于增量更新）
 	private lastAgentPos: { x: number; y: number } | null = null
 
+	// 当前实际使用的 cellSize（全局视野时可能自适应）
+	private currentCellSize: number = RENDER_CONFIG.cellSize
+
 	constructor(containerId: string) {
 		const container = document.getElementById(containerId)
 		if (!container) {
 			throw new Error(`未找到容器元素: ${containerId}`)
 		}
 		this.container = container
+	}
+
+	/**
+	 * 计算全局视野的自适应 cellSize
+	 */
+	private calcGlobalCellSize(width: number, height: number): number {
+		const { containerSize, gap, minCellSize, maxCellSize } = RENDER_CONFIG
+		const maxCells = Math.max(width, height)
+		// 计算能放入容器的 cellSize
+		const cellSize = Math.floor((containerSize - (maxCells - 1) * gap) / maxCells)
+		// 限制在合理范围内
+		return Math.max(minCellSize, Math.min(maxCellSize, cellSize))
 	}
 
 	setViewMode(mode: ViewMode): void {
@@ -104,25 +122,72 @@ export class WorldRenderer {
 		}
 
 		if (this.viewMode === "local") {
-			this.renderLocalView(view)
+			this.renderLocalView(view, agentPos)
 		} else {
 			this.renderGlobalView(view, agentPos)
 		}
 	}
 
 	// 渲染局部视野
-	private renderLocalView(view: LocalView): void {
+	private renderLocalView(view: LocalView, agentPos?: { x: number; y: number }): void {
 		const { width, height } = view
 
 		// 尺寸变化时重建世界
 		if (!this.worldContent || this.currentWidth !== width || this.currentHeight !== height) {
-			this.createWorldStructure(width, height)
+			this.createWorldStructure(width, height, false)  // 局部视野固定大小
+			this.renderAllCells(view, true, agentPos)
+			return
+		}
+
+		// 局部视野优化：只移动玩家，对象实际变化时才更新格子
+		this.renderLocalViewOptimized(view, agentPos)
+	}
+
+	/**
+	 * 局部视野优化渲染
+	 * 策略：玩家移动只更新玩家位置，对象变化才更新格子
+	 */
+	private renderLocalViewOptimized(
+		view: LocalView,
+		agentPos?: { x: number; y: number }
+	): void {
+		const { width, height } = view
+		const halfWidth = Math.floor(width / 2)
+		const halfHeight = Math.floor(height / 2)
+
+		// 玩家必须在世界中才能计算世界坐标
+		if (!agentPos) {
+			// 降级：全量渲染
 			this.renderAllCells(view, true)
 			return
 		}
 
-		// 增量更新：只更新有变化的格子
-		this.renderChangedCells(view, true)
+		// 1. 移动玩家到中心（始终在中间）
+		if (this.agentElement) {
+			this.moveAgentTo(halfWidth, halfHeight)
+			this.lastAgentPos = { x: halfWidth, y: halfHeight }
+		}
+
+		// 2. 只更新对象有变化的格子（比如拾取钥匙、开门）
+		// 使用世界坐标作为缓存键（关键！）
+		for (const [key, cell] of view.cells) {
+			const [dx, dy] = key.split(",").map(Number)
+			const screenX = dx + halfWidth
+			const screenY = dy + halfHeight
+
+			// 计算世界坐标
+			const worldX = agentPos.x + dx
+			const worldY = agentPos.y + dy
+			const worldKey = `world:${worldX},${worldY}`
+
+			const cached = this.cellCache.get(worldKey)
+
+			if (!cached || this.hasCellChanged(cached, cell)) {
+				const isAlt = (screenX + screenY) % 2 === 1
+				this.renderCell(screenX, screenY, cell, isAlt)
+				this.cellCache.set(worldKey, this.createCellCache(cell))
+			}
+		}
 	}
 
 	// 渲染全局视野
@@ -131,13 +196,19 @@ export class WorldRenderer {
 
 		// 尺寸变化时重建世界
 		if (!this.worldContent || this.currentWidth !== width || this.currentHeight !== height) {
-			this.createWorldStructure(width, height)
+			this.createWorldStructure(width, height, true)  // 全局视野自适应大小
 			this.renderAllCells(view, false, agentPos)
 			return
 		}
 
-		// 增量更新
-		this.renderChangedCells(view, false, agentPos)
+		// 移动玩家
+		if (agentPos && this.agentElement) {
+			this.moveAgentTo(agentPos.x, agentPos.y)
+			this.lastAgentPos = { x: agentPos.x, y: agentPos.y }
+		}
+
+		// 增量更新格子
+		this.renderChangedCells(view)
 
 		// 更新位置 HUD
 		if (agentPos) {
@@ -161,7 +232,7 @@ export class WorldRenderer {
 		this.cellCache.clear()
 
 		for (const [key, cell] of view.cells) {
-			let x: number, y: number, isAgentHere: boolean
+			let x: number, y: number, isAgentHere: boolean, cacheKey: string
 
 			if (isLocal) {
 				// 局部视野：key 是 "dx,dy"
@@ -169,17 +240,22 @@ export class WorldRenderer {
 				x = dx + halfWidth
 				y = dy + halfHeight
 				isAgentHere = dx === 0 && dy === 0
+				// 缓存键使用世界坐标
+				const worldX = agentPos ? agentPos.x + dx : dx
+				const worldY = agentPos ? agentPos.y + dy : dy
+				cacheKey = `world:${worldX},${worldY}`
 			} else {
 				// 全局视野：key 是 "x,y"
 				[x, y] = key.split(",").map(Number)
 				isAgentHere = !!(agentPos && agentPos.x === x && agentPos.y === y)
+				cacheKey = `${x},${y}`
 			}
 
 			const isAlt = (x + y) % 2 === 1
 			this.renderCell(x, y, cell, isAlt)
 
 			// 缓存当前状态
-			this.cellCache.set(`${x},${y}`, this.createCellCache(cell))
+			this.cellCache.set(cacheKey, this.createCellCache(cell))
 
 			// 设置玩家初始位置
 			if (isAgentHere && this.agentElement) {
@@ -190,52 +266,15 @@ export class WorldRenderer {
 	}
 
 	/**
-	 * 增量更新：只渲染变化的格子
+	 * 全局视野增量更新
 	 */
-	private renderChangedCells(
-		view: LocalView,
-		isLocal: boolean,
-		agentPos?: { x: number; y: number }
-	): void {
-		const { width, height } = view
-		const halfWidth = Math.floor(width / 2)
-		const halfHeight = Math.floor(height / 2)
-
-		// 计算新的玩家位置
-		let newAgentX: number, newAgentY: number
-		if (isLocal) {
-			newAgentX = halfWidth
-			newAgentY = halfHeight
-		} else if (agentPos) {
-			newAgentX = agentPos.x
-			newAgentY = agentPos.y
-		} else {
-			newAgentX = -1
-			newAgentY = -1
-		}
-
-		// 移动玩家（平滑动画）
-		if (this.agentElement && (newAgentX !== this.lastAgentPos?.x || newAgentY !== this.lastAgentPos?.y)) {
-			this.moveAgentTo(newAgentX, newAgentY)
-			this.lastAgentPos = { x: newAgentX, y: newAgentY }
-		}
-
-		// 只更新有变化的格子
+	private renderChangedCells(view: LocalView): void {
+		// 全局视野：只更新有变化的格子
 		for (const [key, cell] of view.cells) {
-			let x: number, y: number
-
-			if (isLocal) {
-				const [dx, dy] = key.split(",").map(Number)
-				x = dx + halfWidth
-				y = dy + halfHeight
-			} else {
-				[x, y] = key.split(",").map(Number)
-			}
-
+			const [x, y] = key.split(",").map(Number)
 			const cacheKey = `${x},${y}`
 			const cached = this.cellCache.get(cacheKey)
 
-			// 检查是否需要更新
 			if (!cached || this.hasCellChanged(cached, cell)) {
 				const isAlt = (x + y) % 2 === 1
 				this.renderCell(x, y, cell, isAlt)
@@ -284,13 +323,19 @@ export class WorldRenderer {
 	}
 
 	// 创建世界结构
-	private createWorldStructure(width: number, height: number): void {
+	private createWorldStructure(width: number, height: number, isGlobal: boolean = false): void {
 		this.currentWidth = width
 		this.currentHeight = height
 		this.cellCache.clear()
 		this.lastAgentPos = null
 
-		const { cellSize, gap } = RENDER_CONFIG
+		// 全局视野使用自适应 cellSize
+		this.currentCellSize = isGlobal 
+			? this.calcGlobalCellSize(width, height)
+			: RENDER_CONFIG.cellSize
+
+		const { gap } = RENDER_CONFIG
+		const cellSize = this.currentCellSize
 		const worldWidth = width * (cellSize + gap) - gap
 		const worldHeight = height * (cellSize + gap) - gap
 
@@ -341,7 +386,8 @@ export class WorldRenderer {
 
 	// 生成格子 HTML
 	private generateGridHTML(width: number, height: number): string {
-		const { cellSize, gap, borderRadius } = RENDER_CONFIG
+		const { gap, borderRadius } = RENDER_CONFIG
+		const cellSize = this.currentCellSize
 		let html = ""
 
 		for (let y = 0; y < height; y++) {
@@ -372,7 +418,7 @@ export class WorldRenderer {
 	private createAgentElement(): void {
 		if (!this.worldContent) return
 
-		const { cellSize } = RENDER_CONFIG
+		const cellSize = this.currentCellSize
 
 		this.agentElement = document.createElement("div")
 		this.agentElement.className = "ca-agent"
@@ -426,7 +472,8 @@ export class WorldRenderer {
 	private moveAgentTo(x: number, y: number): void {
 		if (!this.agentElement) return
 
-		const { cellSize, gap } = RENDER_CONFIG
+		const { gap } = RENDER_CONFIG
+		const cellSize = this.currentCellSize
 		const left = x * (cellSize + gap)
 		const top = y * (cellSize + gap)
 		this.agentElement.style.left = `${left}px`
