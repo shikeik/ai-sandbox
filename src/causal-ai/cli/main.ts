@@ -9,8 +9,8 @@ import { World } from "../core"
 import { renderView } from "./renderer"
 import type { Action } from "../core"
 import { stateToPredicates, stateToString } from "../core"
-import { ExperienceDB, RuleDB, extractRuleFromExperience } from "../core"
-import { plan, parseGoal } from "../core"
+import { ExperienceDB, RuleDB } from "../core"
+import { plan, parseGoal, executeWithLearning } from "../core"
 import type { State } from "../core"
 
 // 全局 AI 知识库（跨游戏共享）
@@ -130,15 +130,7 @@ function startGame(mapData: MapData, onExit?: () => void): void {
 			break
 
 		case "学": {
-			// 学习模式：记录当前状态，执行动作，记录新状态
-			const agent = world.getAgentState()
-			const view = world.getLocalView()
-			const currentState = stateToPredicates(agent.pos, agent.facing, agent.inventory.includes("钥匙"), view)
-
-			console.log("\n当前状态:")
-			console.log(stateToString(currentState))
-
-			// 询问要执行的动作
+			// 学习模式：使用统一的 executeWithLearning
 			rl.question("输入要学习的动作(上/下/左/右/互/等): ", (actionInput) => {
 				const action = actionInput.trim() as Action
 				if (!["上", "下", "左", "右", "互", "等"].includes(action)) {
@@ -147,36 +139,33 @@ function startGame(mapData: MapData, onExit?: () => void): void {
 					return
 				}
 
-				// 执行动作
-				const { result, view: newView } = world.execute(action)
+				// 使用统一的执行器
+				const result = executeWithLearning(
+					{ world, expDB, ruleDB },
+					action
+				)
+
 				console.log(`\n${result.msg} (奖励: ${result.reward})`)
 
-				// 获取新状态
-				const newAgent = world.getAgentState()
-				const newState = stateToPredicates(newAgent.pos, newAgent.facing, newAgent.inventory.includes("钥匙"), newView)
+				if (result.experience) {
+					const { extractRuleFromExperience } = require("../core")
+					const rule = extractRuleFromExperience(result.experience)
+					console.log("\n新增规则:")
+					console.log(`  动作: ${action}`)
+					console.log(`  效果+: ${Array.from(rule.effects.add).join(", ") || "无"}`)
+					console.log(`  效果-: ${Array.from(rule.effects.remove).join(", ") || "无"}`)
+					console.log(`\n经验库: ${expDB.getAll().length} 条, 规则库: ${ruleDB.getAll().length} 条`)
+				}
 
-				// 记录经验
-				expDB.add({ before: currentState, action, after: newState })
-
-				// 提取规则
-				const rule = extractRuleFromExperience({ before: currentState, action, after: newState })
-				ruleDB.add(rule)
-
-				console.log("\n新增规则:")
-				console.log(`  动作: ${action}`)
-				console.log(`  效果+: ${Array.from(rule.effects.add).join(", ") || "无"}`)
-				console.log(`  效果-: ${Array.from(rule.effects.remove).join(", ") || "无"}`)
-				console.log(`\n经验库: ${expDB.getAll().length} 条, 规则库: ${ruleDB.getAll().length} 条`)
-
-				console.log(renderView(newView))
+				console.log(renderView(world.getLocalView()))
 				rl.prompt()
 			})
-			return  // 异步处理，不继续执行后面的 prompt
+			return
 		}
 
 		case "规": {
 			// 规划模式：给定目标，生成计划
-			rl.question("输入目标(如: 去 3,1 或 at(agent,1,0)): ", (goalInput) => {
+			rl.question("输入目标谓词(如: at(agent,1,0)): ", (goalInput) => {
 				const goal = parseGoal(goalInput.trim())
 				if (!goal) {
 					console.log("无法解析目标")

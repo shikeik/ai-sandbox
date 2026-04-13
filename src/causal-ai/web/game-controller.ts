@@ -1,19 +1,17 @@
 // ========== 因果链 AI Web 版 - 游戏控制器 ==========
 // 基于 core 模块的谓词表示和 AI 系统
 
-import type { 
-	ActionType, MapData, AgentState, Position, ActionResult,
-	LocalView, Cell, Tile
-} from "./types"
-import type { State, Experience } from "../core"
+import type { ActionType, MapData } from "./types"
+import type { State } from "../core"
 import { 
 	World, 
 	ExperienceDB, 
 	RuleDB, 
-	extractRuleFromExperience,
 	plan,
 	stateToPredicates,
-	stateToString
+	stateToString,
+	executeWithLearning,
+	executeOnly
 } from "../core"
 import { WorldRenderer } from "./renderer"
 import { UIManager } from "./ui-manager"
@@ -77,44 +75,41 @@ export class GameController {
 			return false
 		}
 
-		// 获取当前状态和视野
-		const agent = this.world.getAgentState()
-		const view = this.world.getLocalView()
-		const beforeState = stateToPredicates(agent.pos, agent.facing, agent.inventory.includes("钥匙"), view)
-
-		// 执行动作
-		const { result } = this.world.execute(action)
-		
-		// 获取新状态和视野
-		const newAgent = this.world.getAgentState()
-		const newView = this.world.getLocalView()
-		const afterState = stateToPredicates(newAgent.pos, newAgent.facing, newAgent.inventory.includes("钥匙"), newView)
-
 		if (record) {
+			// 使用统一的执行器（自动记录经验）
+			const result = executeWithLearning(
+				{ world: this.world, expDB: this.expDB, ruleDB: this.ruleDB },
+				action
+			)
+
 			if (result.success) {
-				// 记录经验
-				const exp: Experience = { before: beforeState, action, after: afterState }
-				this.expDB.add(exp)
-				
-				// 提取并添加规则
-				const rule = extractRuleFromExperience(exp)
-				this.ruleDB.add(rule)
-				
 				this.uiManager.addLog(`📸 记录: ${action} - ${result.msg}`)
 			} else {
 				this.uiManager.addLog(`⛔ 无效: ${action} - ${result.msg}`)
 			}
 			this.updateCounts()
-		}
 
-		this.render()
-		this.updateUI()
-		
-		if (result.terminate) {
-			this.uiManager.addLog("🎉 游戏通关！")
-		}
+			this.render()
+			this.updateUI()
+			
+			if (result.terminate) {
+				this.uiManager.addLog("🎉 游戏通关！")
+			}
 
-		return result.success
+			return result.success
+		} else {
+			// 仅执行不记录（用于执行规划）
+			const result = executeOnly(this.world, action)
+			
+			this.render()
+			this.updateUI()
+			
+			if (result.terminate) {
+				this.uiManager.addLog("🎉 游戏通关！")
+			}
+
+			return result.success
+		}
 	}
 
 	// 重置游戏（完全重置关卡状态）

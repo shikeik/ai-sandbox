@@ -6,6 +6,7 @@ export * from "./ai/types"
 export * from "./ai/learner"
 export * from "./ai/planner"
 export * from "./ai/state"
+export * from "./ai/executor"
 
 // 世界系统
 export * from "./world/types"

@@ -187,23 +187,12 @@ function stateToKey(state: State): string {
  * 
  * 支持格式:
  * - "at(agent,2,0)"  → 单谓词
- * - "去 2,0"         → 解析为 at(agent,2,0)
+ * - "holding(key)"   → 持有状态
  */
 export function parseGoal(input: string): State | null {
 	const predicates = new Set<string>()
 
-	// 尝试解析 "去 x,y"
-	const goMatch = input.match(/去\s*(\d+)\s*,\s*(\d+)/)
-	if (goMatch) {
-		const x = Number(goMatch[1])
-		const y = Number(goMatch[2])
-		// 转换为相对坐标（需要知道当前位置，这里简化处理）
-		// 实际应该由调用者处理绝对坐标到相对坐标的转换
-		predicates.add(`at(agent,${x},${y})`)
-		return predicates
-	}
-
-	// 尝试直接解析谓词
+	// 直接解析谓词格式
 	if (input.includes("(")) {
 		predicates.add(input.trim())
 		return predicates
