@@ -88,7 +88,12 @@ function startGame(mapData: MapData, onExit?: () => void): void {
 			return
 		}
 
-		switch (cmd) {
+		// 处理带参数的指令（如 "选 obstacle"）
+		const firstSpace = cmd.indexOf(" ")
+		const baseCmd = firstSpace > 0 ? cmd.slice(0, firstSpace) : cmd
+		const arg = firstSpace > 0 ? cmd.slice(firstSpace + 1).trim() : ""
+
+		switch (baseCmd) {
 		case "上":
 		case "下":
 		case "左":
@@ -229,11 +234,29 @@ function startGame(mapData: MapData, onExit?: () => void): void {
 		}
 
 		case "选": {
-			switching = true
-			closed = true
-			rl.close()
-			showMenu()
-			return
+			// 支持 "选 xxx" 直接切图，或 "选" 进入菜单
+			if (arg) {
+				// 直接切图
+				const mapData = resolveMap(arg)
+				if (mapData) {
+					switching = true
+					closed = true
+					rl.close()
+					startGame(mapData)
+					return
+				} else {
+					console.log(`未知地图: ${arg}`)
+					printMapList()
+				}
+			} else {
+				// 进入选图菜单
+				switching = true
+				closed = true
+				rl.close()
+				showMenu()
+				return
+			}
+			break
 		}
 
 		case "退":
@@ -249,6 +272,7 @@ function startGame(mapData: MapData, onExit?: () => void): void {
 			console.log("  学 - 学习模式: 执行动作并记录因果规则")
 			console.log("  规 - 规划模式: 输入目标，AI生成行动计划")
 			console.log("  执 - 执行计划: 执行规划好的下一步动作")
+			console.log("  选 [地图ID] - 切换地图(如: 选 obstacle)")
 		}
 
 		if (!closed) {
