@@ -293,10 +293,14 @@ export class WorldRenderer {
 			}
 		}
 
-		// 移除不再存在的动态对象
+		// 处理不再存在的动态对象（播放消失动画）
 		for (const [key, el] of this.dynamicElements) {
 			if (!currentDynamicKeys.has(key)) {
-				el.remove()
+				// 播放 pop-out 动画后移除
+				el.style.animation = "ca-pop-out 0.3s ease-in forwards"
+				setTimeout(() => {
+					el.remove()
+				}, 300)
 				this.dynamicElements.delete(key)
 			}
 		}
@@ -308,6 +312,7 @@ export class WorldRenderer {
 	// ========== 方块层渲染 ==========
 
 	private blockCellElements: Map<string, HTMLElement> = new Map()
+	private blockCellCache: Map<string, { tileType: string; doorOpen?: boolean }> = new Map()
 
 	private renderBlockCell(
 		container: HTMLElement,
@@ -341,15 +346,43 @@ export class WorldRenderer {
 
 		container.appendChild(el)
 		this.blockCellElements.set(key, el)
+
+		// 初始化缓存
+		const doorObj = cell?.objects.find(o => o.type === "门")
+		this.blockCellCache.set(key, {
+			tileType: cell?.tile.type || "void",
+			doorOpen: doorObj?.state?.open as boolean | undefined
+		})
 	}
 
 	private updateBlockCell(key: string, cell: Cell | undefined): void {
 		const el = this.blockCellElements.get(key)
 		if (!el) return
 
+		const cached = this.blockCellCache.get(key)
+		const doorObj = cell?.objects.find(o => o.type === "门")
+		const currentDoorOpen = doorObj?.state?.open as boolean | undefined
+
+		// 检测门状态变化
+		const doorStateChanged = cached && cached.doorOpen !== currentDoorOpen && currentDoorOpen !== undefined
+
 		const [x, y] = key.split(",").map(Number)
 		this.applyBlockStyle(el, cell, x, y)
 		this.renderBlockContent(el, cell)
+
+		// 门状态变化时播放 pop 动画
+		if (doorStateChanged) {
+			el.style.animation = "ca-pop-in 0.3s ease-out"
+			setTimeout(() => {
+				el.style.animation = ""
+			}, 300)
+		}
+
+		// 更新缓存
+		this.blockCellCache.set(key, {
+			tileType: cell?.tile.type || "void",
+			doorOpen: currentDoorOpen
+		})
 	}
 
 	private applyBlockStyle(el: HTMLElement, cell: Cell | undefined, x: number, y: number): void {
@@ -617,6 +650,10 @@ style.textContent = `
 	@keyframes ca-pop-in {
 		0% { transform: scale(0.5); opacity: 0; }
 		100% { transform: scale(1); opacity: 1; }
+	}
+	@keyframes ca-pop-out {
+		0% { transform: scale(1); opacity: 1; }
+		100% { transform: scale(0.5); opacity: 0; }
 	}
 	@keyframes ca-float {
 		0%, 100% { transform: translateY(0); }
