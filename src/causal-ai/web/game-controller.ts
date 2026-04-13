@@ -14,7 +14,7 @@ import {
 import { WorldRenderer } from "./renderer"
 import { UIManager } from "./ui-manager"
 import { isMoveAction, getAgentPos, applyDirection } from "../core/utils/position"
-import { PLANNER_MAX_DEPTH } from "../core/constants"
+import { PLANNER_MAX_DEPTH, EXPLORE_DEFAULT_COUNT, EXPLORE_STEP_DELAY_MS } from "../core/constants"
 import { generatePlanReport } from "./plan-reporter"
 import type { AgentState } from "./types"
 
