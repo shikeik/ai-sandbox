@@ -600,7 +600,7 @@ export class WorldRenderer {
 		this.cameraX = heroPixelX - viewportWidth / 2 + cellSize / 2
 		this.cameraY = heroPixelY - viewportHeight / 2 + cellSize / 2
 
-		this.worldContentEl.style.transition = "transform 0.25s cubic-bezier(0.4, 0, 0.2, 1)"
+		// 直接同步，无过渡动画，避免滞后
 		this.worldContentEl.style.transform = `translate(${-this.cameraX}px, ${-this.cameraY}px)`
 	}
 

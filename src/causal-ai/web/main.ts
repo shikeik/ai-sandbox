@@ -44,20 +44,69 @@ async function lockLandscape(): Promise<void> {
 	}
 }
 
+// 检查是否需要显示全屏引导（非横屏或未全屏时）
+function shouldShowFullscreenGuide(): boolean {
+	// 检查屏幕方向
+	const orientation = (screen as typeof screen & { orientation?: { type?: string } }).orientation
+	const isLandscape = orientation?.type?.includes("landscape") ?? window.innerWidth > window.innerHeight
+	
+	// 检查是否已全屏
+	const isFullscreen = !!document.fullscreenElement
+	
+	return !isLandscape || !isFullscreen
+}
+
+// 显示全屏遮罩
+function showFullscreenOverlay(): void {
+	const overlay = document.getElementById("fullscreenOverlay")
+	if (!overlay) return
+	overlay.classList.remove("hidden")
+}
+
+// 隐藏全屏遮罩
+function hideFullscreenOverlay(): void {
+	const overlay = document.getElementById("fullscreenOverlay")
+	if (!overlay) return
+	overlay.classList.add("hidden")
+}
+
 // 初始化全屏遮罩层
 function initFullscreenOverlay(): void {
 	const overlay = document.getElementById("fullscreenOverlay")
-	if (!overlay || hasAttemptedFullscreen) return
+	if (!overlay) return
 
-	overlay.classList.remove("hidden")
+	// 点击遮罩进入全屏
 	overlay.addEventListener("click", async () => {
 		hasAttemptedFullscreen = true
 		await enterFullscreen()
 		await lockLandscape()
 		document.body.classList.add("is-fullscreen")
-		overlay.classList.add("hidden")
+		hideFullscreenOverlay()
 		window.dispatchEvent(new Event("resize"))
 	})
+
+	// 监听屏幕方向变化
+	const orientationHandler = () => {
+		if (hasAttemptedFullscreen && shouldShowFullscreenGuide()) {
+			showFullscreenOverlay()
+		} else if (!shouldShowFullscreenGuide()) {
+			hideFullscreenOverlay()
+		}
+	}
+
+	// 监听方向变化
+	const screenOrientation = (screen as typeof screen & { orientation?: { addEventListener?: (type: string, handler: () => void) => void } }).orientation
+	if (screenOrientation?.addEventListener) {
+		screenOrientation.addEventListener("change", orientationHandler)
+	}
+	
+	// 同时监听 resize 作为备用
+	window.addEventListener("resize", orientationHandler)
+
+	// 初始检查
+	if (shouldShowFullscreenGuide()) {
+		showFullscreenOverlay()
+	}
 }
 
 // 异步加载并切换地图
