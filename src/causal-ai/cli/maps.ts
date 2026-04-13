@@ -3,8 +3,11 @@
 
 import * as fs from "node:fs"
 import * as path from "node:path"
+import { fileURLToPath } from "node:url"
 import type { MapData, MapInfo } from "../core"
 import { loadMapData as coreLoadMapData, setMapBasePath, setLoadMapImpl } from "../core"
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 // 注入 CLI 加载实现
 setLoadMapImpl(async (filePath: string): Promise<MapData | null> => {

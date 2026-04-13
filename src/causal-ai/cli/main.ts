@@ -4,7 +4,10 @@
 
 import * as readline from "node:readline"
 import * as path from "node:path"
+import { fileURLToPath } from "node:url"
 import { type MapData, loadMapData, listMaps, setMapBasePath, DEFAULT_MAP_ID } from "./maps"
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
 import { World } from "../core"
 import { renderView } from "./renderer"
 import type { Action } from "../core"
