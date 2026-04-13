@@ -2,7 +2,7 @@
 // 基于 core 模块的谓词表示和 AI 系统
 
 import type { ActionType, MapData } from "./types"
-import type { State } from "../core"
+import type { State, Rule } from "../core"
 import { 
 	World, 
 	ExperienceDB, 
@@ -178,28 +178,71 @@ export class GameController {
 		const view = this.world.getLocalView()
 		const currentState = stateToPredicates(agent.pos, agent.facing, agent.inventory.includes("钥匙"), view)
 
-		this.uiManager.addPlanLog(`当前: ${stateToString(currentState).slice(0, 100)}...`)
-		this.uiManager.addPlanLog(`目标: ${stateToString(goal)}`)
+		// 输出当前状态详情
+		this.uiManager.addPlanLog("")
+		this.uiManager.addPlanLog("【当前状态】")
+		for (const pred of Array.from(currentState).sort()) {
+			this.uiManager.addPlanLog(`  ${pred}`)
+		}
+
+		// 输出目标
+		this.uiManager.addPlanLog("")
+		this.uiManager.addPlanLog("【目标状态】")
+		for (const pred of Array.from(goal).sort()) {
+			this.uiManager.addPlanLog(`  ${pred}`)
+		}
 
 		// 获取规则
 		const rules = this.ruleDB.getAll()
+		this.uiManager.addPlanLog("")
+		this.uiManager.addPlanLog(`【知识库】 ${rules.length} 条规则`)
+		
 		if (rules.length === 0) {
-			this.uiManager.addPlanLog("❌ 规则库为空，请先探索积累经验")
+			this.uiManager.addPlanLog("❌ 规则库为空")
+			this.uiManager.addPlanLog("💡 请先执行 '学 上/下/左/右/互' 积累经验和规则")
 			return
 		}
 
-		this.uiManager.addPlanLog(`使用 ${rules.length} 条规则进行规划...`)
+		// 输出每条规则的适用性检查
+		this.uiManager.addPlanLog("")
+		this.uiManager.addPlanLog("【规则检查】")
+		let applicableCount = 0
+		for (const rule of rules) {
+			const canApply = this.checkRuleApplicable(currentState, rule)
+			const status = canApply ? "✅" : "⛔"
+			const preStr = Array.from(rule.preconditions).join(", ") || "无前提"
+			const addStr = Array.from(rule.effects.add).join(", ") || "无添加"
+			this.uiManager.addPlanLog(`  ${status} ${rule.action}: ${preStr} → ${addStr}`)
+			if (canApply) applicableCount++
+		}
+		this.uiManager.addPlanLog(`  当前可应用: ${applicableCount}/${rules.length} 条`)
 
 		// 执行规划
+		this.uiManager.addPlanLog("")
+		this.uiManager.addPlanLog("【规划搜索】")
 		const result = plan(currentState, goal, rules, 100)
 
 		if (result.success && result.plan) {
 			this.plannedActions = result.plan
 			this.uiManager.addPlanLog(`✅ ${result.msg}`)
-			this.uiManager.addPlanLog(`计划: ${result.plan.join(" → ")}`)
+			this.uiManager.addPlanLog("")
+			this.uiManager.addPlanLog("【执行计划】")
+			for (let i = 0; i < result.plan.length; i++) {
+				this.uiManager.addPlanLog(`  ${i + 1}. ${result.plan[i]}`)
+			}
+			this.uiManager.addPlanLog("")
+			this.uiManager.addPlanLog("💡 输入 '执' 执行下一步")
 		} else {
 			this.plannedActions = []
 			this.uiManager.addPlanLog(`❌ ${result.msg}`)
+			this.uiManager.addPlanLog("")
+			this.uiManager.addPlanLog("【失败分析】")
+			this.uiManager.addPlanLog("可能原因:")
+			this.uiManager.addPlanLog("  1. 缺少到达目标位置的经验")
+			this.uiManager.addPlanLog("  2. 路径被阻挡（门未开/有墙）")
+			this.uiManager.addPlanLog("  3. 需要先获取钥匙才能通过门")
+			this.uiManager.addPlanLog("")
+			this.uiManager.addPlanLog("💡 尝试执行 '学 右' 移动到目标位置，再规划回来")
 		}
 	}
 
@@ -277,6 +320,44 @@ export class GameController {
 		}
 
 		return null
+	}
+
+	// 检查规则是否可应用（用于调试输出）
+	private checkRuleApplicable(state: State, rule: Rule): boolean {
+		const moveActions = ["上", "下", "左", "右"]
+		
+		if (moveActions.includes(rule.action)) {
+			let currentPos: string | null = null
+			for (const p of state) {
+				if (p.startsWith("at(agent,")) {
+					currentPos = p
+					break
+				}
+			}
+			if (!currentPos) return false
+			
+			const match = currentPos.match(/at\(agent,(-?\d+),(-?\d+)\)/)
+			if (!match) return false
+			const [_, x, y] = match
+			const cx = Number(x), cy = Number(y)
+			
+			let tx = cx, ty = cy
+			switch (rule.action) {
+			case "上": ty = cy - 1; break
+			case "下": ty = cy + 1; break
+			case "左": tx = cx - 1; break
+			case "右": tx = cx + 1; break
+			}
+			
+			return state.has(`cell_empty(${tx},${ty})`)
+		}
+		
+		for (const pre of rule.preconditions) {
+			if (!state.has(pre)) {
+				return false
+			}
+		}
+		return true
 	}
 }
 
