@@ -293,6 +293,7 @@ export class WorldRenderer {
 			justify-content: center;
 			font-size: 22px;
 			pointer-events: none;
+			animation: ca-pop-in 0.3s ease-out;
 		`
 
 		switch (obj.type) {
@@ -489,6 +490,10 @@ interface CellCache {
 
 const style = document.createElement("style")
 style.textContent = `
+	@keyframes ca-pop-in {
+		0% { transform: scale(0.5); opacity: 0; }
+		100% { transform: scale(1); opacity: 1; }
+	}
 	@keyframes ca-float {
 		0%, 100% { transform: translateY(0); }
 		50% { transform: translateY(-2px); }
