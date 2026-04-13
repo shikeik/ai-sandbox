@@ -67,6 +67,7 @@ export class WorldRenderer {
 
 	private cellCache: Map<string, CellCache> = new Map()
 	private cellElements: Map<string, HTMLElement> = new Map()
+	private keyElements: Map<string, HTMLElement> = new Map() // 钥匙独立元素，z-index 高于玩家
 
 	private isInitialized: boolean = false
 
@@ -240,6 +241,9 @@ export class WorldRenderer {
 			this.cellElements.set(key, cellEl)
 			this.cellCache.set(key, this.createCellCache(cell))
 		}
+
+		// 更新钥匙独立元素
+		this.updateKeyElements(view)
 	}
 
 	private renderChangedCells(view: LocalView): void {
@@ -256,6 +260,9 @@ export class WorldRenderer {
 				}
 			}
 		}
+
+		// 更新钥匙独立元素
+		this.updateKeyElements(view)
 	}
 
 	private applyCellStyle(el: HTMLElement, cell: Cell | undefined, x: number, y: number): void {
@@ -299,10 +306,7 @@ export class WorldRenderer {
 
 		switch (obj.type) {
 		case "钥匙":
-			objEl.textContent = "🔑"
-			objEl.style.filter = "drop-shadow(0 1px 3px rgba(246, 173, 85, 0.5))"
-			objEl.style.animation = "ca-float 2s ease-in-out infinite"
-			el.appendChild(objEl)
+			// 钥匙在独立元素中渲染（z-index 高于玩家），这里跳过
 			break
 		case "门":
 			if (obj.state?.open) {
@@ -347,10 +351,9 @@ export class WorldRenderer {
 			justify-content: center;
 			font-size: 26px;
 			z-index: 50;
-			transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+			transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 			filter: drop-shadow(0 2px 6px rgba(78, 161, 211, 0.5));
 			pointer-events: none;
-			will-change: transform;
 		`
 
 		const robotIcon = document.createElement("span")
@@ -392,8 +395,8 @@ export class WorldRenderer {
 		const left = x * (cellSize + gap)
 		const top = y * (cellSize + gap)
 
-		// 使用 transform 代替 left/top，与相机系统保持一致，确保完全同步
-		this.agentElement.style.transform = `translate(${left}px, ${top}px)`
+		this.agentElement.style.left = `${left}px`
+		this.agentElement.style.top = `${top}px`
 	}
 
 	private updateCamera(heroX: number, heroY: number): void {
@@ -422,6 +425,70 @@ export class WorldRenderer {
 	private updatePositionHud(x: number, y: number): void {
 		if (this.positionHud) {
 			this.positionHud.textContent = `(${x}, ${y})`
+		}
+	}
+
+	/**
+	 * 更新钥匙独立元素（z-index 高于玩家，显示在玩家之上）
+	 */
+	private updateKeyElements(view: LocalView): void {
+		if (!this.worldContentEl) return
+
+		const { cellSize, gap } = RENDER_CONFIG
+		const objectsLayer = this.worldContentEl.querySelector(".ca-objects-layer")
+		if (!objectsLayer) return
+
+		// 收集当前视野中所有钥匙的位置
+		const currentKeys = new Map<string, { x: number; y: number }>()
+		for (const [key, cell] of view.cells) {
+			const keyObj = cell.objects.find(o => o.type === "钥匙")
+			if (keyObj) {
+				const [x, y] = key.split(",").map(Number)
+				currentKeys.set(key, { x, y })
+			}
+		}
+
+		// 移除不再存在的钥匙
+		for (const [key, el] of this.keyElements) {
+			if (!currentKeys.has(key)) {
+				el.remove()
+				this.keyElements.delete(key)
+			}
+		}
+
+		// 添加新钥匙或更新位置
+		for (const [key, pos] of currentKeys) {
+			let keyEl = this.keyElements.get(key)
+			
+			if (!keyEl) {
+				// 创建新钥匙元素
+				keyEl = document.createElement("div")
+				keyEl.className = "ca-key"
+				keyEl.style.cssText = `
+					position: absolute;
+					width: ${cellSize}px;
+					height: ${cellSize}px;
+					display: flex;
+					align-items: center;
+					justify-content: center;
+					font-size: 22px;
+					z-index: 60;
+					pointer-events: none;
+					animation: ca-pop-in 0.3s ease-out;
+				`
+				keyEl.innerHTML = "🔑"
+				keyEl.style.filter = "drop-shadow(0 1px 3px rgba(246, 173, 85, 0.5))"
+				keyEl.style.animation = "ca-float 2s ease-in-out infinite, ca-pop-in 0.3s ease-out"
+				
+				objectsLayer.appendChild(keyEl)
+				this.keyElements.set(key, keyEl)
+			}
+
+			// 更新位置
+			const left = pos.x * (cellSize + gap)
+			const top = pos.y * (cellSize + gap)
+			keyEl.style.left = `${left}px`
+			keyEl.style.top = `${top}px`
 		}
 	}
 
