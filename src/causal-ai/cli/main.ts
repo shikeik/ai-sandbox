@@ -139,12 +139,30 @@ function startGame(mapData: MapData): void {
 			return
 		}
 
+		// 计划操作包装
+		const getPlanLength = () => plannedActions.length
+		const getPlanSnapshot = () => [...plannedActions]
+		const setPlan = (actions: Action[]) => {
+			plannedActions.length = 0
+			plannedActions.push(...actions)
+		}
+		const clearPlan = () => {
+			plannedActions.length = 0
+		}
+		const shiftPlan = (): Action | null => {
+			return plannedActions.shift() || null
+		}
+
 		// 使用统一指令执行器
 		const ctx: CommandContext = {
 			world,
 			expDB,
 			ruleDB,
-			plannedActions,
+			getPlanLength,
+			getPlanSnapshot,
+			setPlan,
+			clearPlan,
+			shiftPlan,
 			onSwitchMap: async (mapId) => {
 				const newMap = await resolveMap(mapId)
 				if (newMap) {
