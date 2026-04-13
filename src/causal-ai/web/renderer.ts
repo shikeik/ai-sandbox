@@ -73,6 +73,7 @@ export class WorldRenderer {
 	private cameraY: number = 0
 
 	private currentAgentPos: { x: number; y: number } = { x: 0, y: 0 }
+	private targetAgentPos: { x: number; y: number } | null = null
 	private currentFacing: string = "右"
 	
 	// 实时相机跟随用的动画帧 ID
@@ -577,67 +578,75 @@ export class WorldRenderer {
 		const left = x * (cellSize + gap)
 		const top = y * (cellSize + gap)
 
+		// 记录目标位置
+		this.targetAgentPos = { x, y }
+
 		// 使用 CSS transition 平滑移动
 		this.playerElement.style.transition = "all 0.25s cubic-bezier(0.4, 0, 0.2, 1)"
 		this.playerElement.style.left = `${left}px`
 		this.playerElement.style.top = `${top}px`
 
-		// 启动实时相机跟随
-		this.startCameraTracking()
+		// 启动实时相机跟随（如果还没启动）
+		if (!this.cameraRafId) {
+			this.startCameraTracking()
+		}
 	}
 
 	/**
 	 * 启动实时相机跟踪 - 每帧读取玩家实际渲染位置
 	 */
 	private startCameraTracking(): void {
-		if (this.cameraRafId) cancelAnimationFrame(this.cameraRafId)
-
 		const track = () => {
-			if (!this.playerElement || !this.viewportEl || !this.worldContentEl) return
+			if (!this.playerElement || !this.viewportEl || !this.worldContentEl) {
+				this.cameraRafId = null
+				return
+			}
 
 			// 读取玩家实际渲染位置（包含 CSS transition 中的插值）
 			const playerRect = this.playerElement.getBoundingClientRect()
 			const viewportRect = this.viewportEl.getBoundingClientRect()
 
-			// 计算玩家相对于视口中心的位置
+			// 计算玩家相对于视口的位置
 			const playerCenterX = playerRect.left - viewportRect.left + playerRect.width / 2
 			const playerCenterY = playerRect.top - viewportRect.top + playerRect.height / 2
 
-			// 计算相机偏移（让玩家保持在中心）
+			// 视口中心
 			const viewportWidth = this.viewportEl.clientWidth
 			const viewportHeight = this.viewportEl.clientHeight
 
-			// 计算 world-content 需要的偏移量
-			const currentTransform = window.getComputedStyle(this.worldContentEl).transform
-			let currentX = 0, currentY = 0
-			if (currentTransform !== "none") {
-				const matrix = new DOMMatrix(currentTransform)
-				currentX = matrix.m41
-				currentY = matrix.m42
-			}
-
-			// 目标位置：视口中心 - 玩家当前位置
+			// 目标：玩家应该在视口中心
+			// cameraOffset = viewportCenter - playerPosition
 			const targetX = viewportWidth / 2 - playerCenterX
 			const targetY = viewportHeight / 2 - playerCenterY
 
-			// 直接应用，无过渡，实现实时跟随
+			// 直接应用，无过渡
 			this.worldContentEl.style.transform = `translate(${targetX}px, ${targetY}px)`
+
+			// 检查玩家是否到达目标位置，如果是则停止 RAF
+			if (this.targetAgentPos && 
+				this.currentAgentPos.x === this.targetAgentPos.x && 
+				this.currentAgentPos.y === this.targetAgentPos.y) {
+				// 检查 CSS transition 是否完成
+				const { cellSize, gap } = RENDER_CONFIG
+				const expectedLeft = this.currentAgentPos.x * (cellSize + gap)
+				const expectedTop = this.currentAgentPos.y * (cellSize + gap)
+				
+				// 获取当前实际位置（相对于 world-content）
+				const currentLeft = parseFloat(this.playerElement.style.left || "0")
+				const currentTop = parseFloat(this.playerElement.style.top || "0")
+				
+				// 如果位置几乎相同，停止跟踪
+				if (Math.abs(currentLeft - expectedLeft) < 0.5 && Math.abs(currentTop - expectedTop) < 0.5) {
+					this.cameraRafId = null
+					return
+				}
+			}
 
 			// 继续下一帧
 			this.cameraRafId = requestAnimationFrame(track)
 		}
 
 		this.cameraRafId = requestAnimationFrame(track)
-	}
-
-	/**
-	 * 停止相机跟踪
-	 */
-	private stopCameraTracking(): void {
-		if (this.cameraRafId) {
-			cancelAnimationFrame(this.cameraRafId)
-			this.cameraRafId = null
-		}
 	}
 
 	private updatePlayerDirection(): void {
@@ -656,10 +665,26 @@ export class WorldRenderer {
 		const left = x * (cellSize + gap)
 		const top = y * (cellSize + gap)
 
+		// 停止相机跟踪
+		this.stopCameraTracking()
+
 		// 禁用 transition，直接设置
 		this.playerElement.style.transition = "none"
 		this.playerElement.style.left = `${left}px`
 		this.playerElement.style.top = `${top}px`
+
+		// 清除目标
+		this.targetAgentPos = null
+	}
+
+	/**
+	 * 停止相机跟踪
+	 */
+	private stopCameraTracking(): void {
+		if (this.cameraRafId) {
+			cancelAnimationFrame(this.cameraRafId)
+			this.cameraRafId = null
+		}
 	}
 
 	// ========== 相机系统 ==========
