@@ -19,8 +19,8 @@ import { UIManager } from "./ui-manager"
 // 游戏控制器类
 export class GameController {
 	private world: World | null = null
-	private expDB: ExperienceDB
-	private ruleDB: RuleDB
+	public expDB: ExperienceDB
+	public ruleDB: RuleDB
 	private renderer: WorldRenderer
 	private uiManager: UIManager
 	
@@ -236,6 +236,12 @@ export class GameController {
 		const mode = this.renderer.toggleViewMode()
 		this.render()
 		return mode
+	}
+
+	// 设置视野模式
+	setViewMode(mode: "local" | "global"): void {
+		this.renderer.setViewMode(mode)
+		this.render()
 	}
 
 	// 获取当前视野模式

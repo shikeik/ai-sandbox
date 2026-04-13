@@ -4,6 +4,8 @@
 import { GameController } from "./game-controller"
 import { UIManager } from "./ui-manager"
 import type { MapData, ActionType } from "./types"
+import { executeCommand, type CommandContext } from "../core"
+import type { Action } from "../core"
 
 // 内置地图数据
 const BUILTIN_MAPS: MapData[] = [
@@ -165,15 +167,73 @@ function init(): void {
 	// 绑定清空按钮
 	uiManager.bindButton("clearExpBtn", () => controller.clearKnowledge())
 
-	// 绑定规划按钮
-	uiManager.bindButton("planBtn", () => {
-		const input = document.getElementById("goalInput") as HTMLInputElement
-		const goal = input?.value.trim() || "at(agent,3,0)"
-		controller.planTo(goal)
+	// 计划队列（用于指令执行器）
+	const plannedActions: Action[] = []
+
+	// 执行指令的辅助函数
+	function execCmd(cmd: string): void {
+		const world = controller.getWorld()
+		if (!world) return
+
+		const ctx: CommandContext = {
+			world,
+			expDB: controller.expDB,
+			ruleDB: controller.ruleDB,
+			plannedActions,
+			onSwitchMap: (mapId) => {
+				const map = BUILTIN_MAPS.find(m => m.id === mapId)
+				if (map) {
+					controller.loadMap(map)
+					uiManager.updateMapName(map.name)
+					uiManager.addLog(`🗺️ 切换地图: ${map.name}`)
+				}
+			},
+			onPlanUpdate: (plan) => {
+				if (plan.length > 0) {
+					uiManager.addLog(`📋 计划: ${plan.join(" → ")}`)
+				}
+			}
+		}
+
+		const result = executeCommand(ctx, cmd)
+
+		// 输出结果到日志
+		uiManager.addLog(result.msg)
+
+		// 特殊指令处理
+		if (cmd === "图" || cmd === "全") {
+			// 切换到全局视野显示地图
+			controller.setViewMode?.("global")
+		}
+
+		// 重新渲染
+		controller["render"]?.()
+		controller["updateUI"]?.()
+	}
+
+	// 绑定指令输入框
+	uiManager.bindButton("cmdBtn", () => {
+		const input = document.getElementById("cmdInput") as HTMLInputElement
+		const cmd = input?.value.trim()
+		if (cmd) {
+			execCmd(cmd)
+			input.value = ""
+		}
 	})
 
-	// 绑定执行按钮
-	uiManager.bindButton("executeBtn", () => controller.executePlannedStep())
+	// 支持回车执行
+	const cmdInput = document.getElementById("cmdInput") as HTMLInputElement
+	if (cmdInput) {
+		cmdInput.addEventListener("keypress", (e) => {
+			if (e.key === "Enter") {
+				const cmd = cmdInput.value.trim()
+				if (cmd) {
+					execCmd(cmd)
+					cmdInput.value = ""
+				}
+			}
+		})
+	}
 
 	// 绑定地图切换按钮
 	uiManager.bindButton("mapSelectBtn", () => {
