@@ -74,6 +74,9 @@ export class WorldRenderer {
 
 	private currentAgentPos: { x: number; y: number } = { x: 0, y: 0 }
 	private currentFacing: string = "右"
+	
+	// 实时相机跟随用的动画帧 ID
+	private cameraRafId: number | null = null
 
 	// 动态元素缓存（方块层之上的对象）
 	private dynamicElements: Map<string, HTMLElement> = new Map()
@@ -131,9 +134,9 @@ export class WorldRenderer {
 
 		if (agentPos) {
 			if (!this.isInitialized) {
+				// 初始化时直接设置玩家位置（无动画）和相机
+				this.setPlayerImmediate(agentPos.x, agentPos.y)
 				this.setCameraImmediate(agentPos.x, agentPos.y)
-			} else {
-				this.updateCamera(agentPos.x, agentPos.y)
 			}
 			this.updatePositionHud(agentPos.x, agentPos.y)
 		}
@@ -574,8 +577,67 @@ export class WorldRenderer {
 		const left = x * (cellSize + gap)
 		const top = y * (cellSize + gap)
 
+		// 使用 CSS transition 平滑移动
+		this.playerElement.style.transition = "all 0.25s cubic-bezier(0.4, 0, 0.2, 1)"
 		this.playerElement.style.left = `${left}px`
 		this.playerElement.style.top = `${top}px`
+
+		// 启动实时相机跟随
+		this.startCameraTracking()
+	}
+
+	/**
+	 * 启动实时相机跟踪 - 每帧读取玩家实际渲染位置
+	 */
+	private startCameraTracking(): void {
+		if (this.cameraRafId) cancelAnimationFrame(this.cameraRafId)
+
+		const track = () => {
+			if (!this.playerElement || !this.viewportEl || !this.worldContentEl) return
+
+			// 读取玩家实际渲染位置（包含 CSS transition 中的插值）
+			const playerRect = this.playerElement.getBoundingClientRect()
+			const viewportRect = this.viewportEl.getBoundingClientRect()
+
+			// 计算玩家相对于视口中心的位置
+			const playerCenterX = playerRect.left - viewportRect.left + playerRect.width / 2
+			const playerCenterY = playerRect.top - viewportRect.top + playerRect.height / 2
+
+			// 计算相机偏移（让玩家保持在中心）
+			const viewportWidth = this.viewportEl.clientWidth
+			const viewportHeight = this.viewportEl.clientHeight
+
+			// 计算 world-content 需要的偏移量
+			const currentTransform = window.getComputedStyle(this.worldContentEl).transform
+			let currentX = 0, currentY = 0
+			if (currentTransform !== "none") {
+				const matrix = new DOMMatrix(currentTransform)
+				currentX = matrix.m41
+				currentY = matrix.m42
+			}
+
+			// 目标位置：视口中心 - 玩家当前位置
+			const targetX = viewportWidth / 2 - playerCenterX
+			const targetY = viewportHeight / 2 - playerCenterY
+
+			// 直接应用，无过渡，实现实时跟随
+			this.worldContentEl.style.transform = `translate(${targetX}px, ${targetY}px)`
+
+			// 继续下一帧
+			this.cameraRafId = requestAnimationFrame(track)
+		}
+
+		this.cameraRafId = requestAnimationFrame(track)
+	}
+
+	/**
+	 * 停止相机跟踪
+	 */
+	private stopCameraTracking(): void {
+		if (this.cameraRafId) {
+			cancelAnimationFrame(this.cameraRafId)
+			this.cameraRafId = null
+		}
 	}
 
 	private updatePlayerDirection(): void {
@@ -584,29 +646,32 @@ export class WorldRenderer {
 		}
 	}
 
-	// ========== 相机系统 ==========
-
-	private updateCamera(heroX: number, heroY: number): void {
-		if (!this.viewportEl || !this.worldContentEl) return
+	/**
+	 * 直接设置玩家位置（无动画），用于初始化
+	 */
+	private setPlayerImmediate(x: number, y: number): void {
+		if (!this.playerElement) return
 
 		const { cellSize, gap } = RENDER_CONFIG
-		
-		const heroPixelX = heroX * (cellSize + gap)
-		const heroPixelY = heroY * (cellSize + gap)
+		const left = x * (cellSize + gap)
+		const top = y * (cellSize + gap)
 
-		const viewportWidth = this.viewportEl.clientWidth
-		const viewportHeight = this.viewportEl.clientHeight
-
-		this.cameraX = heroPixelX - viewportWidth / 2 + cellSize / 2
-		this.cameraY = heroPixelY - viewportHeight / 2 + cellSize / 2
-
-		// 直接同步，无过渡动画，避免滞后
-		this.worldContentEl.style.transform = `translate(${-this.cameraX}px, ${-this.cameraY}px)`
+		// 禁用 transition，直接设置
+		this.playerElement.style.transition = "none"
+		this.playerElement.style.left = `${left}px`
+		this.playerElement.style.top = `${top}px`
 	}
+
+	// ========== 相机系统 ==========
+
+
 
 	private setCameraImmediate(heroX: number, heroY: number): void {
 		if (!this.viewportEl || !this.worldContentEl) return
 
+		// 停止实时跟踪
+		this.stopCameraTracking()
+
 		const { cellSize, gap } = RENDER_CONFIG
 		
 		const heroPixelX = heroX * (cellSize + gap)
@@ -618,7 +683,6 @@ export class WorldRenderer {
 		this.cameraX = heroPixelX - viewportWidth / 2 + cellSize / 2
 		this.cameraY = heroPixelY - viewportHeight / 2 + cellSize / 2
 
-		this.worldContentEl.style.transition = "none"
 		this.worldContentEl.style.transform = `translate(${-this.cameraX}px, ${-this.cameraY}px)`
 	}
 
