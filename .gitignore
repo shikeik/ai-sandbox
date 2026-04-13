@@ -8,3 +8,6 @@ ProjectCode.txt
 
 package-lock.json
 scripts/mnist-data/
+
+# 游戏数据目录（用户自定义内容）
+gamedatas/
