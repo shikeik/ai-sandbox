@@ -27,8 +27,8 @@ export class GameController {
 	// 当前地图
 	private currentMap: MapData | null = null
 	
-	// 计划的动作序列
-	private plannedActions: ActionType[] = []
+	// 计划的动作序列（公开给指令执行器使用）
+	public plannedActions: ActionType[] = []
 
 	constructor(
 		canvas: HTMLCanvasElement,
@@ -115,18 +115,21 @@ export class GameController {
 	// 重置游戏（完全重置关卡状态）
 	reset(): void {
 		if (this.currentMap) {
-			// 重置世界状态
+			// 1. 重置世界状态（重新创建 World 实例）
 			this.world = new World(this.currentMap)
-			// 清空计划
+			// 2. 清空计划队列
 			this.plannedActions = []
-			// 清空日志
+			// 3. 清空所有日志
 			this.uiManager.clearLog()
 			this.uiManager.clearPlanLog()
-			// 重置视野模式为局部
+			// 4. 重置视野模式为局部
 			this.renderer.setViewMode("local")
-			// 重新渲染
+			// 5. 重新渲染
 			this.render()
 			this.updateUI()
+			// 6. 更新地图名称显示
+			this.uiManager.updateMapName(this.currentMap.name)
+			// 7. 添加重置日志
 			this.uiManager.addLog("🔄 已重置关卡")
 		}
 	}

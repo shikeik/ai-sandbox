@@ -159,16 +159,20 @@ function init(): void {
 	})
 
 	// 绑定重置按钮
-	uiManager.bindButton("resetBtn", () => controller.reset())
+	uiManager.bindButton("resetBtn", () => {
+		controller.reset()
+		// 重置其他 UI 状态
+		const cmdInput = document.getElementById("cmdInput") as HTMLInputElement
+		if (cmdInput) cmdInput.value = ""
+		const viewBtn = document.getElementById("viewToggleBtn")
+		if (viewBtn) viewBtn.textContent = "👁️ 视野: 局部"
+	})
 
 	// 绑定探索按钮
 	uiManager.bindButton("exploreBtn", () => controller.explore())
 
 	// 绑定清空按钮
 	uiManager.bindButton("clearExpBtn", () => controller.clearKnowledge())
-
-	// 计划队列（用于指令执行器）
-	const plannedActions: Action[] = []
 
 	// 执行指令的辅助函数
 	function execCmd(cmd: string): void {
@@ -179,7 +183,7 @@ function init(): void {
 			world,
 			expDB: controller.expDB,
 			ruleDB: controller.ruleDB,
-			plannedActions,
+			plannedActions: controller.plannedActions,
 			onSwitchMap: (mapId) => {
 				const map = BUILTIN_MAPS.find(m => m.id === mapId)
 				if (map) {
