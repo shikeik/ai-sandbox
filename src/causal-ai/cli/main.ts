@@ -114,7 +114,7 @@ function startGame(mapData: MapData): void {
 	const rl = readline.createInterface({
 		input: process.stdin,
 		output: process.stdout,
-		prompt: "指令(上/下/左/右/互/等/图/全/学/规/执/选/退/?): "
+		prompt: "> "
 	})
 
 	let switching = false
@@ -171,7 +171,7 @@ function startGame(mapData: MapData): void {
 		console.log(`\n${result.msg}`)
 
 		// 显示视野（动作类指令后）
-		if (["上", "下", "左", "右", "互", "等", "执"].some(c => cmd.startsWith(c))) {
+		if (["上", "下", "左", "右", "互", "等", "执", "学"].some(c => cmd.startsWith(c))) {
 			console.log(`[${world.getPlayerStatus()}]`)
 			if (plannedActions.length > 0) {
 				console.log(`剩余计划: ${plannedActions.join(" → ")}`)
