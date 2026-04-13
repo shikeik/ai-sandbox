@@ -121,7 +121,7 @@ export class WorldRenderer {
 			this.isInitialized = true
 			if (agentPos) {
 				this.setPlayerImmediate(agentPos.x, agentPos.y)
-				this.syncCameraToPlayer()
+				this.syncCamera()
 			}
 		} else {
 			this.updateDynamicLayers(view)
@@ -505,7 +505,7 @@ export class WorldRenderer {
 		container.appendChild(this.playerElement)
 	}
 
-	/** 直接设置玩家位置（无动画） */
+	/** 直接设置玩家位置（无动画，用于初始化） */
 	private setPlayerImmediate(x: number, y: number): void {
 		if (!this.playerElement) return
 
@@ -520,7 +520,7 @@ export class WorldRenderer {
 
 	private cameraRafId: number | null = null
 
-	/** 移动玩家到目标位置（带动画），并启动相机跟踪 */
+	/** 移动玩家到目标位置（带动画），并启动相机实时跟随 */
 	private movePlayerTo(x: number, y: number): void {
 		if (!this.playerElement) return
 
@@ -528,37 +528,63 @@ export class WorldRenderer {
 		const left = x * (cellSize + gap)
 		const top = y * (cellSize + gap)
 
+		// 设置玩家目标位置（CSS transition 会处理插值）
 		this.playerElement.style.transition = "all 0.25s cubic-bezier(0.4, 0, 0.2, 1)"
 		this.playerElement.style.left = `${left}px`
 		this.playerElement.style.top = `${top}px`
 
-		// 启动相机实时跟踪
+		// 启动相机跟随
 		this.startCameraTracking()
 	}
 
-	/** 启动相机实时跟踪（RAF 读取玩家渲染位置） */
+	/** 
+	 * 启动相机实时跟踪
+	 * 
+	 * 核心逻辑：
+	 * 1. 读取玩家实际渲染位置：offsetLeft/offsetTop（相对于 world-content）
+	 * 2. 玩家中心在世界坐标系中的位置 = 渲染位置 + 格子半宽
+	 * 3. 相机偏移 = 视口中心 - 玩家中心
+	 * 4. world-content 应用偏移（负值）
+	 */
 	private startCameraTracking(): void {
 		if (this.cameraRafId) return
 
+		const { cellSize } = RENDER_CONFIG
+
 		const track = () => {
-			if (!this.playerElement || !this.viewportEl || !this.worldContentEl) {
-				this.cameraRafId = null
-				return
-			}
+			if (!this.playerElement || !this.viewportEl || !this.worldContentEl) return
 
-			const playerRect = this.playerElement.getBoundingClientRect()
-			const viewportRect = this.viewportEl.getBoundingClientRect()
+			// 读取玩家实际渲染位置（CSS transition 插值后的值）
+			// offsetLeft/Top 返回相对于 offsetParent（world-content）的位置
+			const playerRenderX = this.playerElement.offsetLeft
+			const playerRenderY = this.playerElement.offsetTop
 
-			const playerCenterX = playerRect.left - viewportRect.left + playerRect.width / 2
-			const playerCenterY = playerRect.top - viewportRect.top + playerRect.height / 2
+			// 玩家中心在世界坐标系中的位置
+			const playerCenterX = playerRenderX + cellSize / 2
+			const playerCenterY = playerRenderY + cellSize / 2
 
+			// 视口中心
 			const viewportWidth = this.viewportEl.clientWidth
 			const viewportHeight = this.viewportEl.clientHeight
+			const viewportCenterX = viewportWidth / 2
+			const viewportCenterY = viewportHeight / 2
 
-			const offsetX = viewportWidth / 2 - playerCenterX
-			const offsetY = viewportHeight / 2 - playerCenterY
+			// 相机需要应用的偏移：让视口中心对准玩家中心
+			// 如果玩家在 (100, 100)，视口中心是 (160, 160)，那么 world-content 需要向左上移动
+			// offset = viewportCenter - playerCenter = 160 - 100 = 60
+			// 但 world-content 已经在 (0,0)，所以 transform = translate(60, 60)？不对
+			
+			// 重新理解：
+			// world-content 在 (0,0) 时，玩家在 world-content 中的 (left, top) 位置
+			// 玩家在屏幕上的绝对位置 = world-content 位置 + 玩家在 world-content 中的位置
+			// 我们希望玩家中心在屏幕中心，即：
+			// cameraOffset + playerCenterX = viewportCenterX
+			// cameraOffset = viewportCenterX - playerCenterX
+			const cameraOffsetX = viewportCenterX - playerCenterX
+			const cameraOffsetY = viewportCenterY - playerCenterY
 
-			this.worldContentEl.style.transform = `translate(${offsetX}px, ${offsetY}px)`
+			// 应用相机变换（直接设置，无 transition，实现实时跟随）
+			this.worldContentEl.style.transform = `translate(${cameraOffsetX}px, ${cameraOffsetY}px)`
 
 			this.cameraRafId = requestAnimationFrame(track)
 		}
@@ -566,31 +592,34 @@ export class WorldRenderer {
 		this.cameraRafId = requestAnimationFrame(track)
 	}
 
-	/** 根据玩家实际渲染位置同步相机（用于初始化） */
-	private syncCameraToPlayer(): void {
+	/** 同步相机到玩家当前位置（用于初始化） */
+	private syncCamera(): void {
 		if (!this.playerElement || !this.viewportEl || !this.worldContentEl) return
 
-		// 取消任何正在运行的 RAF
+		// 取消 RAF
 		if (this.cameraRafId) {
 			cancelAnimationFrame(this.cameraRafId)
 			this.cameraRafId = null
 		}
 
+		const { cellSize } = RENDER_CONFIG
+
+		// 强制重绘确保 offsetLeft/Top 是最新值
 		void this.playerElement.offsetHeight
 
-		const playerRect = this.playerElement.getBoundingClientRect()
-		const viewportRect = this.viewportEl.getBoundingClientRect()
+		const playerRenderX = this.playerElement.offsetLeft
+		const playerRenderY = this.playerElement.offsetTop
 
-		const playerCenterX = playerRect.left - viewportRect.left + playerRect.width / 2
-		const playerCenterY = playerRect.top - viewportRect.top + playerRect.height / 2
+		const playerCenterX = playerRenderX + cellSize / 2
+		const playerCenterY = playerRenderY + cellSize / 2
 
 		const viewportWidth = this.viewportEl.clientWidth
 		const viewportHeight = this.viewportEl.clientHeight
 
-		const offsetX = viewportWidth / 2 - playerCenterX
-		const offsetY = viewportHeight / 2 - playerCenterY
+		const cameraOffsetX = viewportWidth / 2 - playerCenterX
+		const cameraOffsetY = viewportHeight / 2 - playerCenterY
 
-		this.worldContentEl.style.transform = `translate(${offsetX}px, ${offsetY}px)`
+		this.worldContentEl.style.transform = `translate(${cameraOffsetX}px, ${cameraOffsetY}px)`
 	}
 
 	private updatePlayerDirection(): void {
