@@ -10,6 +10,56 @@ import { executeCommand, type CommandContext, loadMapData, setMapBasePath, listM
 // 游戏控制器（全局变量供其他函数使用）
 let controller: GameController | null = null
 
+// 是否已尝试进入全屏
+let hasAttemptedFullscreen = false
+
+// 进入全屏
+async function enterFullscreen(): Promise<void> {
+	const docEl = document.documentElement as HTMLElement & {
+		requestFullscreen?: () => Promise<void>
+		webkitRequestFullscreen?: () => Promise<void>
+	}
+	try {
+		if (docEl.requestFullscreen) {
+			await docEl.requestFullscreen()
+		} else if (docEl.webkitRequestFullscreen) {
+			await docEl.webkitRequestFullscreen()
+		}
+	} catch (err) {
+		console.log("[CAUSAL-AI] 全屏请求失败:", err)
+	}
+}
+
+// 锁定横屏
+async function lockLandscape(): Promise<void> {
+	const scr = globalThis.screen as typeof globalThis.screen & {
+		orientation?: { lock?: (orientation: string) => Promise<void> }
+	}
+	try {
+		if (scr.orientation?.lock) {
+			await scr.orientation.lock("landscape")
+		}
+	} catch (err) {
+		console.log("[CAUSAL-AI] 横屏锁定失败:", err)
+	}
+}
+
+// 初始化全屏遮罩层
+function initFullscreenOverlay(): void {
+	const overlay = document.getElementById("fullscreenOverlay")
+	if (!overlay || hasAttemptedFullscreen) return
+
+	overlay.classList.remove("hidden")
+	overlay.addEventListener("click", async () => {
+		hasAttemptedFullscreen = true
+		await enterFullscreen()
+		await lockLandscape()
+		document.body.classList.add("is-fullscreen")
+		overlay.classList.add("hidden")
+		window.dispatchEvent(new Event("resize"))
+	})
+}
+
 // 异步加载并切换地图
 async function loadAndSwitchMap(
 	mapId: string,
@@ -35,6 +85,9 @@ async function init(): Promise<void> {
 	if (!worldContainer) {
 		throw new Error("未找到 worldContainer 元素")
 	}
+
+	// 初始化全屏遮罩层
+	initFullscreenOverlay()
 
 	// 设置地图基础路径（相对于当前页面）
 	setMapBasePath("/gamedatas/maps")
