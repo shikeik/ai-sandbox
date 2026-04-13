@@ -1,7 +1,7 @@
 // ========== 对象规则定义 ==========
 // 游戏规则与地图数据解耦
 
-import type { ObjectRule, RuleContext, ActionResult } from "./types"
+import type { ObjectRule, RuleContext } from "./types"
 
 // ========== 辅助函数 ==========
 

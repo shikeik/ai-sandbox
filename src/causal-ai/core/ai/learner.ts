@@ -1,7 +1,7 @@
 // ========== 学习器：经验 → 规则 ==========
 
-import type { Experience, Rule, State, Predicate } from "./types"
-import type { Action } from "../types"
+import type { Experience, Rule, Predicate } from "./types"
+import type { Action } from "../world/types"
 
 /**
  * 经验库：存储所有观察到的经验

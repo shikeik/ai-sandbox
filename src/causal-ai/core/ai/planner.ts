@@ -1,7 +1,7 @@
 // ========== 规划器：BFS 正向搜索 ==========
 
 import type { State, Rule, PlanResult, Plan } from "./types"
-import type { Action } from "../types"
+// Action type used implicitly via Rule.action
 
 /**
  * 应用规则到状态，返回新状态
@@ -74,15 +74,6 @@ function applyRule(state: State, rule: Rule): State {
  * 简化策略：检查是否有 at(agent,...) 和 facing(...)，以及目标方向是否为空
  */
 function canApply(state: State, rule: Rule): boolean {
-	// 检查是否有玩家位置
-	let hasAgentPos = false
-	for (const pre of rule.preconditions) {
-		if (pre.startsWith("at(agent,")) {
-			hasAgentPos = true
-			break
-		}
-	}
-	
 	// 移动类规则的特殊处理：只要当前状态有玩家位置，且目标方向可行
 	const moveActions = ["上", "下", "左", "右"]
 	if (moveActions.includes(rule.action)) {

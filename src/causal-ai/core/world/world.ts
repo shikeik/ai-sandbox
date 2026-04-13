@@ -166,7 +166,7 @@ export class World {
 			const rule = getRule(obj.type)
 			if (rule?.blocksMovement) {
 				if (typeof rule.blocksMovement === "function") {
-					if (rule.blocksMovement(obj.state)) {
+					if (rule.blocksMovement(obj.state || {})) {
 						return { success: false, msg: `被${obj.type}阻挡`, reward: -0.1 }
 					}
 				} else {

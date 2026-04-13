@@ -5,13 +5,13 @@
 import * as readline from "node:readline"
 import { MAPS, type MapData } from "./maps"
 import { loadMap, listAllMaps } from "./map-loader"
-import { World } from "./world"
+import { World } from "../core"
 import { renderView } from "./renderer"
-import type { Action } from "./types"
-import { stateToPredicates, stateToString } from "./ai/state"
-import { ExperienceDB, RuleDB, extractRuleFromExperience } from "./ai/learner"
-import { plan, parseGoal } from "./ai/planner"
-import type { State } from "./ai/types"
+import type { Action } from "../core"
+import { stateToPredicates, stateToString } from "../core"
+import { ExperienceDB, RuleDB, extractRuleFromExperience } from "../core"
+import { plan, parseGoal } from "../core"
+import type { State } from "../core"
 
 // 全局 AI 知识库（跨游戏共享）
 const globalExpDB = new ExperienceDB()
@@ -56,7 +56,8 @@ function startGame(mapData: MapData, onExit?: () => void): void {
 	// AI 相关（使用全局知识库）
 	const expDB = globalExpDB
 	const ruleDB = globalRuleDB
-	let lastState: State | null = null
+	// lastState 用于未来实现记忆功能
+	const _lastState: State | null = null
 	let plannedActions: Action[] = []
 	
 	// 显示当前知识库状态
