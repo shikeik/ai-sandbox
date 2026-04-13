@@ -53,10 +53,21 @@ export class World {
 			}
 		}
 
-		// 加载对象
+		// 加载对象（深拷贝避免污染原始数据）
 		this.objects.clear()
 		for (const obj of this.mapData.objects) {
-			this.objects.set(obj.id, { ...obj })
+			// 深拷贝对象，包括 state
+			const objCopy: GameObject = {
+				id: obj.id,
+				type: obj.type,
+				pos: { ...obj.pos },
+				properties: obj.properties ? { ...obj.properties } : undefined
+			}
+			// 深拷贝 state
+			if (obj.state) {
+				objCopy.state = { ...obj.state }
+			}
+			this.objects.set(obj.id, objCopy)
 			if (obj.type === "agent") {
 				this.agentState.pos = { ...obj.pos }
 			}
