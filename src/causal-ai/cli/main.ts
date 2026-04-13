@@ -130,6 +130,14 @@ function startGame(mapData: MapData): void {
 			return
 		}
 
+		// 退出指令（在 executeCommand 之前处理）
+		if (["退", "quit", "q"].includes(cmd)) {
+			console.log("退出")
+			closed = true
+			rl.close()
+			return
+		}
+
 		// 使用统一指令执行器
 		const ctx: CommandContext = {
 			world,
@@ -173,14 +181,6 @@ function startGame(mapData: MapData): void {
 		// 游戏结束
 		if (result.terminate) {
 			console.log("\n✅ 游戏通关！")
-		}
-
-		// 退出指令
-		if (["退", "quit", "q"].includes(cmd)) {
-			console.log("退出")
-			closed = true
-			rl.close()
-			return
 		}
 
 		if (!closed && !switching) {
